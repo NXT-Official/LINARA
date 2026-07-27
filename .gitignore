@@ -1,1 +1,15 @@
+# 1. Local Secrets
 .env
+.env*.local
+
+# 2. Dependencies
+node_modules/
+
+# 3. Server / Build Outputs
+.output/
+dist/
+
+# 4. Engine & Emulation Caches
+.wrangler/
+.tanstack/
+.turbo/
