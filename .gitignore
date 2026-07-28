@@ -1,15 +1,52 @@
-# 1. Local Secrets
+# ========================================================================
+# 1. LOCAL SECRETS & ENVIRONMENT VARIABLES (Security Critical)
+# ========================================================================
 .env
-.env*.local
+.env.local
+.env.*.local
+.dev.vars
+*.pem
+*.key
 
-# 2. Dependencies
+# ========================================================================
+# 2. SYSTEM DEPENDENCIES & PACKAGE MANAGERS
+# ========================================================================
 node_modules/
+/jspm_packages/
+web_modules/
+.npm
+.eslintcache
 
-# 3. Server / Build Outputs
+# ========================================================================
+# 3. COMPILATION & BUILD OUTPUTS (Nitro / Vite / Wrangler Pages)
+# ========================================================================
 .output/
 dist/
+build/
+.next/
+.nuxt/
 
-# 4. Engine & Emulation Caches
-.wrangler/
+# ========================================================================
+# 4. COMPILER ENGINE & LOCAL EMULATION CACHES
+# ========================================================================
 .tanstack/
+.vinxi/
+.wrangler/
 .turbo/
+.cache/
+.parcel-cache
+
+# ========================================================================
+# 5. IDE, EDITOR, & OPERATING SYSTEM JUNK
+# ========================================================================
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+
