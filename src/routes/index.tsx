@@ -35,492 +35,73 @@ export const Route = createFileRoute("/")({
   component: LinaraApp,
 });
 
-// ---------- Types ----------
-type Status = "todo" | "in_progress" | "done" | "blocked";
-type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
-type RosaStatus = {
-  status: "on_shift" | "available" | "off";
-  until: number | null;
-  quiet: boolean;
-  restDay: boolean;
-};
+import { QUIET_END_HOUR, QUIET_START_HOUR } from "@/features/availability/availability.constants";
+import type { RosaStatus } from "@/features/availability/availability.types";
+import {
+  EVENT_TEMPLATES,
+  INITIAL_APPOINTMENTS,
+  INITIAL_PREP_TASKS,
+} from "@/features/appointments/appointment.constants";
+import type { Appointment, EventTemplate } from "@/features/appointments/appointment.types";
+import { RECEIPT_PLACEHOLDER } from "@/features/groceries/grocery.constants";
+import type { GroceryContextValue, GroceryItem } from "@/features/groceries/grocery.types";
+import { fmtPeso } from "@/features/groceries/grocery.utils";
+import type {
+  LedgerEntry,
+  LedgerReason,
+  LedgerResolution,
+  ValeRequest,
+} from "@/features/ledger/ledger.types";
+import type { MyNote } from "@/features/notes/note.types";
+import { INITIAL_PANTRY } from "@/features/pantry/pantry.constants";
+import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
+import type { PantryCategory, PantryItem } from "@/features/pantry/pantry.types";
+import {
+  adminPermSummary,
+  adminTypeLabel,
+  adminTypeShort,
+  HELPERS,
+  INITIAL_ADMINS,
+  STATION_HEX,
+  stationTone,
+} from "@/features/people/people.constants";
+import type {
+  Admin,
+  AdminType,
+  Employment,
+  Helper,
+  Invite,
+  Station,
+  ViewAs,
+} from "@/features/people/people.types";
+import { helperById } from "@/features/people/people.utils";
+import { INITIAL_SCHEDULES } from "@/features/shifts/shift.constants";
+import type { DaySchedule, ShiftSegment, WeekSchedule } from "@/features/shifts/shift.types";
+import { isMinuteInDay, summarizeDay } from "@/features/shifts/shift.utils";
+import { INITIAL_ROUTINES, INITIAL_TASKS, PHOTO_POOL } from "@/features/tasks/task.constants";
+import type { Recurrence, Routine, Status, Task } from "@/features/tasks/task.types";
+import { isPalengke, recurrenceLabel, routineMatches } from "@/features/tasks/task.utils";
+import { QUICK_UTOS_PRESETS } from "@/features/utos/utos.constants";
+import type { QuickUtos } from "@/features/utos/utos.types";
+import {
+  displayTimeTo24h,
+  fmtHM12,
+  formatAppointmentDate,
+  computePrepSchedule,
+  formatClock,
+  formatSimDate,
+  formatTimeOfDay,
+  parseHM,
+  parseTimeToMinutes,
+  toISODate,
+  WEEKDAY_LONG,
+  WEEKDAYS,
+  weekdayOf,
+  type Weekday,
+} from "@/lib/time";
 
-// Overnight quiet-hours window (hard-off unless emergency, built later).
-const QUIET_START_HOUR = 22; // 10 PM
-const QUIET_END_HOUR = 6; // 6 AM
-
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-type Weekday = (typeof WEEKDAYS)[number];
-type Recurrence = "none" | "daily" | Weekday[];
-const MON_FRI: Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-
-type Helper = {
-  id: string;
-  name: string;
-  short: string;
-  initials: string;
-  station: Station;
-  shift: string;
-  restDay: string;
-};
-
-type Employment = "live-in" | "live-out";
-type InviteFlag = { id: string; field: string; note?: string; at: number };
-type Invite = {
-  id: string;
-  code: string;
-  name: string;
-  station: Station;
-  employment: Employment;
-  shift: string;
-  restDay: string;
-  wagePHP: number;
-  phone: string;
-  createdAt: number;
-  createdBy: string;
-  status: "pending" | "active";
-  claimedName?: string;
-  claimedAt?: number;
-  flags: InviteFlag[];
-};
-
-type Task = {
-  id: string;
-  title: string;
-  note?: string;
-  time: string;
-  helperId: string;
-  station: Station;
-  status: Status;
-  photo?: string;
-  blockReason?: string;
-  queued?: boolean;
-  recurrence?: Recurrence;
-  routineId?: string;
-  appointmentId?: string;
-  appointmentTitle?: string;
-  scheduledDate?: string; // YYYY-MM-DD, for appointment prep tasks
-  leadMinutes?: number; // lead offset before the appointment, in minutes
-  rescheduleNotice?: { oldTime: string; oldDate?: string; appointmentTitle: string };
-  afterHours?: boolean;
-  emergency?: boolean;
-  queuedForShift?: boolean; // waiting for Rosa's next working period
-  startedAt?: number;
-  createdBy?: string; // display name of admin who created it
-  suggested?: boolean; // pending approval by an on-site admin (used for Remote-admin picks)
-};
-
-type LedgerResolution = "rest" | "premium";
-type LedgerReason = "available" | "override" | "emergency" | "rest_day" | "rest_break";
-type LedgerEntry = {
-  id: string;
-  sourceId: string; // task id or utos id
-  kind: "task" | "utos";
-  title: string;
-  station?: Station;
-  appointmentTitle?: string;
-  startTs: number;
-  doneTs: number;
-  autoMinutes: number;
-  adjustMinutes: number;
-  resolution: LedgerResolution;
-  reason: LedgerReason;
-};
-
-type Appointment = {
-  id: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  time: string; // "6:00 AM"
-};
-
-type QuickUtos = {
-  id: string;
-  content: string;
-  from: string; // admin display name (e.g. "Sir Ben")
-  to: string;
-  timestamp: number;
-  ackState: "sent" | "seen" | "done";
-  afterHours?: boolean;
-  emergency?: boolean;
-  waiting?: boolean; // sent while Rosa is Off but not chosen to ping — sits as waiting
-};
-
-// ---------- Pantry ----------
-const PANTRY_CATEGORIES = ["Rice & grains", "Fresh", "Baby", "Cleaning", "Pantry"] as const;
-type PantryCategory = (typeof PANTRY_CATEGORIES)[number];
-type PantryItem = {
-  id: string;
-  name: string;
-  qty: number;
-  unit: string;
-  par: number;
-  category: PantryCategory;
-};
-
-const INITIAL_PANTRY: PantryItem[] = [
-  { id: "p1", name: "Rice", qty: 2, unit: "kg", par: 5, category: "Rice & grains" },
-  { id: "p2", name: "Sofia's cereal", qty: 1, unit: "box", par: 2, category: "Rice & grains" },
-  { id: "p3", name: "Baby formula", qty: 1, unit: "tin", par: 2, category: "Baby" },
-  { id: "p4", name: "Diapers (M)", qty: 3, unit: "pack", par: 2, category: "Baby" },
-  { id: "p5", name: "Cooking oil", qty: 1, unit: "L", par: 1, category: "Pantry" },
-  { id: "p6", name: "Coffee", qty: 2, unit: "pack", par: 1, category: "Pantry" },
-  { id: "p7", name: "Eggs", qty: 4, unit: "pcs", par: 12, category: "Fresh" },
-  { id: "p8", name: "Garlic", qty: 3, unit: "bulb", par: 2, category: "Fresh" },
-  { id: "p9", name: "Onion", qty: 4, unit: "pcs", par: 3, category: "Fresh" },
-  { id: "p10", name: "Dish soap", qty: 2, unit: "bottle", par: 1, category: "Cleaning" },
-  { id: "p11", name: "Detergent", qty: 1, unit: "pack", par: 1, category: "Cleaning" },
-];
-
-type GroceryItem = {
-  id: string;
-  name: string;
-  qty: number;
-  unit: string;
-  pantryItemId?: string; // set when it was auto-suggested from pantry
-  bought: boolean;
-  costPHP?: number; // actual cost entered when bought
-};
-
-// ---------- Grocery context (shared with Palengke task cards) ----------
-type GroceryCtxValue = {
-  display: GroceryItem[]; // merged: state + auto-suggestions
-  toBuyCount: number;
-  budget: number;
-  spent: number;
-  remaining: number;
-  receiptPhoto: string | null;
-  addManual: (name: string, qty: number, unit: string) => void;
-  toggleBought: (item: GroceryItem) => void;
-  setCost: (item: GroceryItem, cost: number | undefined) => void;
-  setBudget: (n: number) => void;
-  attachReceipt: () => void;
-  clearReceipt: () => void;
-  remove: (item: GroceryItem) => void;
-  isPalengkeTask: (t: Task) => boolean;
-  openModal: () => void;
-};
-const GroceryCtx = createContext<GroceryCtxValue | null>(null);
+const GroceryCtx = createContext<GroceryContextValue | null>(null);
 const useGrocery = () => useContext(GroceryCtx);
-const isPalengke = (t: Task) => /pal[eé]ngke|marketing run/i.test(t.title);
-const RECEIPT_PLACEHOLDER =
-  "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=520&h=720&fit=crop";
-
-// ---------- Mock data ----------
-const HELPERS: Helper[] = [
-  {
-    id: "rosa",
-    name: "Ate Rosa",
-    short: "Rosa",
-    initials: "AR",
-    station: "Yaya",
-    shift: "6:00 AM – 7:00 PM",
-    restDay: "Sunday",
-  },
-  {
-    id: "manuel",
-    name: "Kuya Manuel",
-    short: "Manuel",
-    initials: "KM",
-    station: "Driver",
-    shift: "6:00–9:00 AM & 2:30–6:00 PM",
-    restDay: "Sunday",
-  },
-  {
-    id: "lita",
-    name: "Ate Lita",
-    short: "Lita",
-    initials: "AL",
-    station: "Cook",
-    shift: "5:30 AM – 7:30 PM",
-    restDay: "Saturday",
-  },
-];
-
-// ---------- Admins (household) ----------
-type AdminType = "primary" | "co" | "remote";
-type Admin = {
-  id: string;
-  name: string;
-  short: string;
-  initials: string;
-  type: AdminType;
-  location: string;
-};
-const INITIAL_ADMINS: Admin[] = [
-  {
-    id: "ben",
-    name: "Sir Ben",
-    short: "Ben",
-    initials: "SB",
-    type: "primary",
-    location: "On-site",
-  },
-  {
-    id: "tina",
-    name: "Ma'am Tina",
-    short: "Tina",
-    initials: "MT",
-    type: "co",
-    location: "On-site",
-  },
-  { id: "lolafe", name: "Lola Fe", short: "Fe", initials: "LF", type: "remote", location: "Dubai" },
-];
-const adminTypeLabel: Record<AdminType, string> = {
-  primary: "Primary manager",
-  co: "Co-manager",
-  remote: "Remote admin",
-};
-const adminTypeShort: Record<AdminType, string> = {
-  primary: "Primary",
-  co: "Co-manager",
-  remote: "Remote",
-};
-const adminPermSummary: Record<AdminType, string> = {
-  primary: "Full control — can edit admins, end the day, and edit shifts.",
-  co: "Full manage — everything except adding or removing admins.",
-  remote: "View + approve — no editing shifts, no ending the day.",
-};
-type ViewAs = "ben" | "tina" | "lolafe" | "rosa";
-
-// ---------- Shift schedules ----------
-type ShiftSegment = { start: string; end: string }; // 24h "HH:MM"
-type DaySchedule = {
-  rest: boolean;
-  segments: ShiftSegment[];
-  breakStart?: string;
-  breakEnd?: string;
-};
-type WeekSchedule = Record<Weekday, DaySchedule>;
-
-const WEEKDAY_LONG: Record<Weekday, string> = {
-  Mon: "Monday",
-  Tue: "Tuesday",
-  Wed: "Wednesday",
-  Thu: "Thursday",
-  Fri: "Friday",
-  Sat: "Saturday",
-  Sun: "Sunday",
-};
-
-const buildWeek = (workingDays: Weekday[], template: Omit<DaySchedule, "rest">): WeekSchedule => {
-  const week = {} as WeekSchedule;
-  for (const d of WEEKDAYS) {
-    week[d] = workingDays.includes(d)
-      ? {
-          rest: false,
-          segments: template.segments.map((s) => ({ ...s })),
-          breakStart: template.breakStart,
-          breakEnd: template.breakEnd,
-        }
-      : { rest: true, segments: [] };
-  }
-  return week;
-};
-
-const INITIAL_SCHEDULES: Record<string, WeekSchedule> = {
-  rosa: buildWeek(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], {
-    segments: [{ start: "06:00", end: "19:00" }],
-    breakStart: "13:00",
-    breakEnd: "15:00",
-  }),
-  lita: buildWeek(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri"], {
-    segments: [{ start: "05:30", end: "19:30" }],
-    breakStart: "14:00",
-    breakEnd: "16:00",
-  }),
-  manuel: buildWeek(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], {
-    segments: [
-      { start: "06:00", end: "09:00" },
-      { start: "14:30", end: "18:00" },
-    ],
-  }),
-};
-
-const parseHM = (s: string): number => {
-  const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return 0;
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-};
-const fmtHM12 = (s: string): string => formatDisplayTime(parseHM(s));
-const summarizeDay = (d: DaySchedule): string => {
-  if (d.rest) return "Rest day";
-  const segs = d.segments.map((s) => `${fmtHM12(s.start)} – ${fmtHM12(s.end)}`).join(" & ");
-  const brk =
-    d.breakStart && d.breakEnd ? ` · break ${fmtHM12(d.breakStart)}–${fmtHM12(d.breakEnd)}` : "";
-  return segs + brk;
-};
-const isMinuteInDay = (minutes: number, day: DaySchedule): boolean => {
-  if (day.rest) return false;
-  const inSeg = day.segments.some((s) => minutes >= parseHM(s.start) && minutes < parseHM(s.end));
-  if (!inSeg) return false;
-  if (day.breakStart && day.breakEnd) {
-    if (minutes >= parseHM(day.breakStart) && minutes < parseHM(day.breakEnd)) return false;
-  }
-  return true;
-};
-
-const PHOTO_POOL = [
-  "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=280&fit=crop",
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&h=280&fit=crop",
-  "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=400&h=280&fit=crop",
-  "https://images.unsplash.com/photo-1584736286279-75266cf13b64?w=400&h=280&fit=crop",
-  "https://images.unsplash.com/photo-1522441815192-d9f04eb0615c?w=400&h=280&fit=crop",
-];
-
-const INITIAL_TASKS: Task[] = [
-  {
-    id: "t1",
-    title: "Prepare Baby Sofia's bottle",
-    note: "4oz, warm. 1 level formula scoop per 2oz. Test on wrist.",
-    time: "6:00 AM",
-    helperId: "rosa",
-    station: "Yaya",
-    status: "done",
-    photo: PHOTO_POOL[2],
-    recurrence: "daily",
-    routineId: "r-t1",
-  },
-  {
-    id: "t2",
-    title: "Kids' breakfast + pack school bags",
-    note: "Champorado Mon/Wed/Fri. Check baon list on the ref.",
-    time: "6:30 AM",
-    helperId: "rosa",
-    station: "Yaya",
-    status: "done",
-    photo: PHOTO_POOL[1],
-    recurrence: "daily",
-    routineId: "r-t2",
-  },
-  {
-    id: "t3",
-    title: "Drive kids to school",
-    note: "Leave 7:00 sharp for EDSA traffic. Booster seat for Sofia.",
-    time: "7:00 AM",
-    helperId: "manuel",
-    station: "Driver",
-    status: "done",
-    photo: PHOTO_POOL[3],
-    recurrence: MON_FRI,
-    routineId: "r-t3",
-  },
-  {
-    id: "t4",
-    title: "Palengke / marketing run",
-    note: "List on the ref. Budget ₱1,500 petty cash — keep receipts.",
-    time: "8:00 AM",
-    helperId: "lita",
-    station: "Cook",
-    status: "in_progress",
-    recurrence: ["Tue"],
-    routineId: "r-t4",
-  },
-  {
-    id: "t5",
-    title: "Laundry, whites load",
-    note: "Separate colors. Sir's barong is hand-wash only.",
-    time: "9:00 AM",
-    helperId: "lita",
-    station: "Cook",
-    status: "todo",
-    recurrence: ["Mon", "Thu"],
-    routineId: "r-t5",
-  },
-  {
-    id: "t6",
-    title: "Sofia's mid-morning bath",
-    note: "Lukewarm water. Cetaphil, no soap on the face. Towel from her drawer.",
-    time: "9:30 AM",
-    helperId: "rosa",
-    station: "Yaya",
-    status: "todo",
-    recurrence: "daily",
-    routineId: "r-t6",
-  },
-  {
-    id: "t7",
-    title: "Sofia's lunch + nap",
-    note: "Lunch, then nap by 12:30. White noise on.",
-    time: "11:30 AM",
-    helperId: "rosa",
-    station: "Yaya",
-    status: "todo",
-    recurrence: "daily",
-    routineId: "r-t7",
-  },
-  {
-    id: "t8",
-    title: "Pick up kids from school",
-    note: "Leave 3:00. Wait at Gate 2.",
-    time: "3:30 PM",
-    helperId: "manuel",
-    station: "Driver",
-    status: "todo",
-    recurrence: MON_FRI,
-    routineId: "r-t8",
-  },
-];
-
-const WEEKDAY_FROM_DAY: Weekday[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const weekdayOf = (d: Date): Weekday => {
-  const idx = d.getDay();
-  // Map JS 0=Sun..6=Sat to our WEEKDAYS order (Mon..Sun) — keep 3-letter code
-  return WEEKDAY_FROM_DAY[idx];
-};
-const routineMatches = (r: Routine, wd: Weekday): boolean => {
-  if (r.recurrence === "daily") return true;
-  return r.recurrence.includes(wd);
-};
-const formatSimDate = (d: Date): string =>
-  d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-const toISODate = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const formatAppointmentDate = (iso: string): string => {
-  const [y, mo, d] = iso.split("-").map(Number);
-  return new Date(y, mo - 1, d).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-};
-// Parse "6:30 AM" / "11:30 AM" / "3:30 PM" -> minutes since midnight for sorting.
-const parseTimeToMinutes = (t: string): number => {
-  const m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!m) return 0;
-  let h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  const suf = m[3].toUpperCase();
-  if (suf === "PM" && h !== 12) h += 12;
-  if (suf === "AM" && h === 12) h = 0;
-  return h * 60 + min;
-};
-const formatDisplayTime = (totalMin: number): string => {
-  const m = ((totalMin % 1440) + 1440) % 1440;
-  const h24 = Math.floor(m / 60);
-  const mm = m % 60;
-  const suf = h24 >= 12 ? "PM" : "AM";
-  const hr = ((h24 + 11) % 12) + 1;
-  return `${hr}:${String(mm).padStart(2, "0")} ${suf}`;
-};
-// Given appointment date+time and a lead offset in minutes, return the scheduled date+time for a prep task.
-const computePrepSchedule = (
-  appDate: string,
-  appTime: string,
-  leadMinutes: number,
-): { date: string; time: string } => {
-  const [y, mo, d] = appDate.split("-").map(Number);
-  const dt = new Date(y, mo - 1, d, 0, 0, 0, 0);
-  dt.setMinutes(parseTimeToMinutes(appTime) - leadMinutes);
-  return { date: toISODate(dt), time: formatDisplayTime(dt.getHours() * 60 + dt.getMinutes()) };
-};
-
-function recurrenceLabel(r?: Recurrence): string | null {
-  if (!r || r === "none") return null;
-  if (r === "daily") return "Daily";
-  if (Array.isArray(r) && r.length > 0) return r.join(", ");
-  return null;
-}
 
 function RecurrenceBadge({ recurrence }: { recurrence?: Recurrence }) {
   const label = recurrenceLabel(recurrence);
@@ -531,202 +112,6 @@ function RecurrenceBadge({ recurrence }: { recurrence?: Recurrence }) {
     </span>
   );
 }
-
-// ---------- Helpers ----------
-const helperById = (id: string) => HELPERS.find((h) => h.id === id)!;
-
-const stationTone: Record<Station, string> = {
-  Yaya: "bg-terracotta-soft/60 text-pine-deep",
-  Cook: "bg-[oklch(0.92_0.05_140)] text-[oklch(0.35_0.08_140)]",
-  Laundry: "bg-[oklch(0.92_0.04_240)] text-[oklch(0.35_0.08_240)]",
-  Driver: "bg-[oklch(0.92_0.05_60)] text-[oklch(0.38_0.09_60)]",
-  House: "bg-secondary text-pine-deep",
-};
-
-// ---------- App ----------
-type ValeStatus = "pending" | "approved" | "declined";
-type ValeRequest = {
-  id: string;
-  helperId: string;
-  amount: number;
-  reason: string;
-  status: ValeStatus;
-};
-
-type Routine = {
-  id: string;
-  title: string;
-  helperId: string;
-  station: Station;
-  time: string;
-  note?: string;
-  recurrence: Exclude<Recurrence, "none">;
-};
-
-const INITIAL_ROUTINES: Routine[] = INITIAL_TASKS.filter(
-  (t) => t.recurrence && t.recurrence !== "none",
-).map((t) => ({
-  id: `r-${t.id}`,
-  title: t.title,
-  helperId: t.helperId,
-  station: t.station,
-  time: t.time,
-  note: t.note,
-  recurrence: t.recurrence as Exclude<Recurrence, "none">,
-}));
-
-// ---------- Seed appointments ----------
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  { id: "a1", title: "Sir's airport departure", date: "2026-07-10", time: "6:00 AM" },
-];
-
-// ---------- Event templates (reusable appointment recipes) ----------
-type TemplatePrep = { title: string; leadMinutes: number; helperId: string; note: string };
-type EventTemplate = { id: string; title: string; blurb: string; preps: TemplatePrep[] };
-
-const EVENT_TEMPLATES: EventTemplate[] = [
-  {
-    id: "tmpl-airport",
-    title: "Airport departure",
-    blurb: "Pack, baon, and load the car in time for the flight.",
-    preps: [
-      {
-        title: "Pack Sir's bags",
-        leadMinutes: 600,
-        helperId: "rosa",
-        note: "Passport, boarding pass, chargers, meds. Suit bag on the hook.",
-      },
-      {
-        title: "Prepare baon for the trip",
-        leadMinutes: 120,
-        helperId: "lita",
-        note: "Sandwich + water, no strong smells. Pack in the small cooler.",
-      },
-      {
-        title: "Load car & wake driver",
-        leadMinutes: 45,
-        helperId: "manuel",
-        note: "Warm the car 10 min ahead. Bags in the trunk, not the back seat.",
-      },
-    ],
-  },
-  {
-    id: "tmpl-dinner",
-    title: "Dinner party",
-    blurb: "Sala clean, market run, prep, and table set for guests.",
-    preps: [
-      {
-        title: "Clean sala",
-        leadMinutes: 360,
-        helperId: "rosa",
-        note: "Vacuum, wipe glass tables, fluff cushions, fresh water in the vases.",
-      },
-      {
-        title: "Market run for menu",
-        leadMinutes: 300,
-        helperId: "lita",
-        note: "Buy fresh — nothing frozen. Keep receipts, budget ₱2,500.",
-      },
-      {
-        title: "Prep courses",
-        leadMinutes: 180,
-        helperId: "lita",
-        note: "Follow the menu card on the ref. Plating photos in the binder.",
-      },
-      {
-        title: "Set table",
-        leadMinutes: 60,
-        helperId: "rosa",
-        note: "The blue linen set. Wine glasses on the right, water on the left.",
-      },
-    ],
-  },
-  {
-    id: "tmpl-typhoon",
-    title: "Typhoon prep",
-    blurb: "Water, power, and windows before the storm lands.",
-    preps: [
-      {
-        title: "Stock water & candles",
-        leadMinutes: 1440,
-        helperId: "lita",
-        note: "5 gallons drinking + 2 pails per bathroom. Candles + matches in the drawer.",
-      },
-      {
-        title: "Charge power banks",
-        leadMinutes: 720,
-        helperId: "rosa",
-        note: "All 4 power banks + phones + Sofia's tablet to 100%.",
-      },
-      {
-        title: "Secure windows",
-        leadMinutes: 360,
-        helperId: "manuel",
-        note: "Tape the big glass panels. Move the plants inside the sala.",
-      },
-    ],
-  },
-];
-
-type SeedPrep = { id: string; leadMinutes: number; title: string; helperId: string; note: string };
-const SEED_PREP: Array<{
-  appointmentId: string;
-  appointmentTitle: string;
-  date: string;
-  time: string;
-  items: SeedPrep[];
-}> = INITIAL_APPOINTMENTS.map((a) => ({
-  appointmentId: a.id,
-  appointmentTitle: a.title,
-  date: a.date,
-  time: a.time,
-  items:
-    a.id === "a1"
-      ? [
-          {
-            id: "a1-p1",
-            leadMinutes: 600,
-            title: "Pack Sir's bags",
-            helperId: "rosa",
-            note: "Passport, boarding pass, chargers, meds. Suit bag on the hook.",
-          },
-          {
-            id: "a1-p2",
-            leadMinutes: 120,
-            title: "Prepare baon for the trip",
-            helperId: "lita",
-            note: "Sandwich + water, no strong smells. Pack in the small cooler.",
-          },
-          {
-            id: "a1-p3",
-            leadMinutes: 45,
-            title: "Load car & wake driver",
-            helperId: "manuel",
-            note: "Warm the car 10 min ahead. Bags in the trunk, not the back seat.",
-          },
-        ]
-      : [],
-}));
-
-const INITIAL_PREP_TASKS: Task[] = SEED_PREP.flatMap((s) =>
-  s.items.map((p) => {
-    const { date, time } = computePrepSchedule(s.date, s.time, p.leadMinutes);
-    const helper = helperById(p.helperId);
-    return {
-      id: p.id,
-      title: p.title,
-      note: p.note,
-      time,
-      helperId: p.helperId,
-      station: helper.station,
-      status: "todo" as Status,
-      appointmentId: s.appointmentId,
-      appointmentTitle: s.appointmentTitle,
-      scheduledDate: date,
-      leadMinutes: p.leadMinutes,
-    };
-  }),
-);
 
 function LinaraApp() {
   const [viewAs, setViewAs] = useState<ViewAs>("ben");
@@ -885,7 +270,7 @@ function LinaraApp() {
       return changed ? next : prev;
     });
   }, [pantry]);
-  const groceryCtxValue: GroceryCtxValue = {
+  const groceryCtxValue: GroceryContextValue = {
     display: groceryDisplay,
     toBuyCount,
     budget: groceryBudget,
@@ -3114,15 +2499,6 @@ function DayEditor({
   );
 }
 
-// ---------- The Line: helper lanes ----------
-const STATION_HEX: Record<Station, { solid: string; soft: string }> = {
-  Yaya: { solid: "#E6A98F", soft: "rgba(230,169,143,0.16)" },
-  Cook: { solid: "#7FA98C", soft: "rgba(127,169,140,0.18)" },
-  Driver: { solid: "#8098B4", soft: "rgba(128,152,180,0.20)" },
-  Laundry: { solid: "#8098B4", soft: "rgba(128,152,180,0.20)" },
-  House: { solid: "#1F5A54", soft: "rgba(31,90,84,0.14)" },
-};
-
 function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] }) {
   const [open, setOpen] = useState(false);
   const color = STATION_HEX[helper.station];
@@ -5216,15 +4592,6 @@ function NewRoutineModal({
   );
 }
 
-// ---------- Quick utos launcher ----------
-const QUICK_UTOS_PRESETS = [
-  "+ rice",
-  "water, please",
-  "come to the kitchen",
-  "help carry",
-  "the door",
-];
-
 function QuickUtosLauncher({
   onSend,
   helperName,
@@ -5327,16 +4694,6 @@ function QuickUtosLauncher({
   );
 }
 
-// ---------- Helper: quick utos feed ----------
-function formatUtosTime(ts: number) {
-  const d = new Date(ts);
-  let h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
-}
-
 function QuickUtosFeed({
   utosList,
   onAck,
@@ -5406,7 +4763,7 @@ function UtosChip({
           <div className={`truncate text-sm font-semibold ${textTone}`}>{utos.content}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span>
-              {formatUtosTime(utos.timestamp)} · from {utos.from}
+              {formatTimeOfDay(utos.timestamp)} · from {utos.from}
             </span>
             {utos.emergency && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[oklch(0.95_0.06_35)] px-1.5 py-0.5 text-[10px] font-semibold text-[oklch(0.42_0.15_30)]">
@@ -5866,14 +5223,6 @@ function NewAppointmentModal({
   );
 }
 
-// Convert display time like "6:00 AM" back to 24-hour "HH:MM" for <input type="time">.
-const displayTimeTo24h = (t: string): string => {
-  const mins = parseTimeToMinutes(t);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-};
-
 function EditAppointmentModal({
   appointment,
   onClose,
@@ -5974,16 +5323,6 @@ function statusMeta(s: RosaStatus["status"]) {
   return { label: "Off", dot: "bg-muted-foreground/50", cls: "bg-secondary text-muted-foreground" };
 }
 
-function formatUntil(ts: number) {
-  const d = new Date(ts);
-  let h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, "0");
-  const suffix = h >= 12 ? "PM" : "AM";
-  h = h % 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${suffix}`;
-}
-
 function useMounted() {
   const [m, setM] = useState(false);
   useEffect(() => setM(true), []);
@@ -6002,7 +5341,7 @@ function RosaStatusChip({ status }: { status: RosaStatus }) {
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
       Rosa · {mounted ? meta.label : "—"}
       {mounted && status.status === "available" && status.until && (
-        <span className="font-normal opacity-80">· until {formatUntil(status.until)}</span>
+        <span className="font-normal opacity-80">· until {formatTimeOfDay(status.until)}</span>
       )}
     </span>
   );
@@ -6044,7 +5383,9 @@ function RosaAvailControl({
             ) : status.status === "available" && status.until ? (
               <>
                 Available{" "}
-                <span className="font-normal opacity-80">· until {formatUntil(status.until)}</span>
+                <span className="font-normal opacity-80">
+                  · until {formatTimeOfDay(status.until)}
+                </span>
               </>
             ) : (
               <>
@@ -6107,18 +5448,6 @@ function RosaAvailControl({
       )}
     </div>
   );
-}
-
-// ---------- Simulate time (prototype only) ----------
-function formatClock(ts: number) {
-  const d = new Date(ts);
-  let h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, "0");
-  const s = h >= 12 ? "PM" : "AM";
-  h = h % 12;
-  if (h === 0) h = 12;
-  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-  return `${wd} ${h}:${m} ${s}`;
 }
 
 function SimClock({
@@ -6493,7 +5822,7 @@ function AfterHoursLedger({
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                           <span>
-                            {formatUtosTime(e.startTs)} → {formatUtosTime(e.doneTs)}
+                            {formatTimeOfDay(e.startTs)} → {formatTimeOfDay(e.doneTs)}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${meta.cls}`}
@@ -6862,9 +6191,6 @@ function AddPantryItemModal({
     </div>
   );
 }
-
-// ---------- Grocery ----------
-const fmtPeso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
 
 function BudgetBar({ compact }: { compact?: boolean } = {}) {
   const ctx = useGrocery();
@@ -7642,7 +6968,6 @@ function MySuggestions({
 }
 
 // ---------- Rosa's private notes ----------
-type MyNote = { id: string; text: string; done: boolean; voice?: boolean; createdAt: number };
 
 function MyNotes({
   helperId,
