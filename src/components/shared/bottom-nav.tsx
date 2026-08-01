@@ -8,31 +8,29 @@ export type BottomNavItem = {
 };
 
 /**
- * Primary navigation. Active state comes from the router — the bar above the
- * icon and the heavier label carry it too, so it never reads by colour alone.
+ * Primary navigation: a floating pill that hugs its content on wide screens and
+ * stretches edge-to-edge on a phone. Active state comes from the router — the
+ * filled chip and the heavier label carry it too, so it never reads by colour
+ * alone.
  */
 export function BottomNav({ items }: { items: BottomNavItem[] }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6"
       aria-label="Primary"
     >
-      <div className="mx-auto flex max-w-6xl items-stretch justify-around px-2 sm:px-6">
+      <div className="pointer-events-auto flex w-full max-w-lg items-stretch gap-1 rounded-full border border-border/60 bg-card/85 p-1.5 shadow-lift backdrop-blur-xl sm:w-auto">
         {items.map(({ to, label, Icon }) => (
           <Link
             key={to}
             to={to}
-            className="flex flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 pb-2.5 pt-1.5 text-[11px] font-semibold text-muted-foreground transition hover:text-foreground"
-            activeProps={{ className: "text-primary" }}
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-full px-2 py-2 text-[10px] font-semibold text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground sm:px-5 sm:text-[11px]"
+            activeProps={{ className: "bg-secondary text-primary" }}
           >
             {({ isActive }) => (
               <>
-                <span
-                  aria-hidden="true"
-                  className={`h-0.5 w-6 rounded-full ${isActive ? "bg-primary" : "bg-transparent"}`}
-                />
-                <Icon className="h-5 w-5" />
-                <span className={isActive ? "font-extrabold" : undefined}>{label}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className={`truncate ${isActive ? "font-extrabold" : ""}`}>{label}</span>
               </>
             )}
           </Link>
