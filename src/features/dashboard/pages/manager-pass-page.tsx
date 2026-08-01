@@ -5,10 +5,16 @@ import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 
 import { useAppStores } from "../app-store-context";
-import { ManagerPassTab } from "../components/manager-pass-tab";
+import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
 
 /** Today at a glance: what needs a decision, then the day itself. */
-export function ManagerPassPage() {
+export function ManagerPassPage({
+  view,
+  onViewChange,
+}: {
+  view: PassMode | undefined;
+  onViewChange: (mode: PassMode) => void;
+}) {
   const {
     session,
     board,
@@ -69,6 +75,8 @@ export function ManagerPassPage() {
         onApproveSuggestion={approveSuggestion}
         onDismissSuggestion={dismissSuggestion}
         onNewTask={() => setOpen(true)}
+        view={view}
+        onViewChange={onViewChange}
       />
 
       {open && (

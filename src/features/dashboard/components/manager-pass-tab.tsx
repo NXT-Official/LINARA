@@ -17,7 +17,7 @@ import { NeedsYou } from "./needs-you";
 import { RemoteGlance } from "./remote-glance";
 import { SpendAndPayday } from "./spend-and-payday";
 
-type PassMode = "line" | "board";
+export type PassMode = "line" | "board";
 const PASS_MODE_KEY = "linara.passMode";
 
 export type ManagerPassTabProps = {
@@ -40,6 +40,9 @@ export type ManagerPassTabProps = {
   onApproveSuggestion: (id: string) => void;
   onDismissSuggestion: (id: string) => void;
   onNewTask: () => void;
+  /** Layout from the URL (`?view=`), or undefined to use this device's last choice. */
+  view: PassMode | undefined;
+  onViewChange: (mode: PassMode) => void;
 };
 
 /**
@@ -67,19 +70,28 @@ export function ManagerPassTab({
   onApproveSuggestion,
   onDismissSuggestion,
   onNewTask,
+  view,
+  onViewChange,
 }: ManagerPassTabProps) {
-  const [passMode, setPassMode] = useState<PassMode>("line");
+  // The URL wins when it says which layout to show; otherwise fall back to what
+  // this device chose last time.
+  const [stored, setStored] = useState<PassMode | null>(null);
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(PASS_MODE_KEY);
-      if (stored === "board" || stored === "line") setPassMode(stored);
+      const saved = window.localStorage.getItem(PASS_MODE_KEY);
+      if (saved === "board" || saved === "line") setStored(saved);
     } catch {
       // ignore
     }
   }, []);
+  const passMode = view ?? stored ?? "line";
   const updatePassMode = (m: PassMode) => {
-    setPassMode(m);
-    if (typeof window !== "undefined") window.localStorage.setItem(PASS_MODE_KEY, m);
+    try {
+      window.localStorage.setItem(PASS_MODE_KEY, m);
+    } catch {
+      // ignore
+    }
+    onViewChange(m);
   };
 
   const counts = useMemo(
