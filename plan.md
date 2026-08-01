@@ -9,7 +9,7 @@ Reference Document: [`home-management-concept.md`](home-management-concept.md)
 ## 1. High-Level System Goals & Context
 
 ### 1.1 Objective & Vision
-The informal domestic work sector in the Philippines lacks systematic documentation. Contracts, task definitions, schedules, and financial records (such as vales, 13th-month accruals, and rest days) are rarely recorded. This creates friction, ambiguity, and overwork on one side, and frustration or high turnover on the other.
+The informal domestic work sector in the Philippines lacks systematic documentation. Contracts, task definitions, schedules, and financial records (such as vales, 13th-month accruals, and rest days) are rarely recorded. Relying heavily on raw messaging (Viber, SMS, Messenger) leads to high turnover, communication friction, and a lack of verifiable work history for helpers.
 
 **Linara** resolves this by operating as a "restaurant management system for the home":
 *   **Clarity over Control:** Tasks are tickets with clear "House Standards" (Standard Operating Procedures - SOPs).
@@ -34,7 +34,7 @@ The system coordinates three key actors with distinct permission boundaries:
 
 ## 2. Step-by-Step User Flows
 
-### 2.1 Onboarding and Account Handshake Flow
+### 2.1 Onboarding and Account Handshake Flow (With Flagging Safeguards)
 To prevent employers from controlling helper credentials, onboarding is a strict digital handshake.
 
 ```
@@ -47,14 +47,17 @@ To prevent employers from controlling helper credentials, onboarding is a strict
        │                                                              │
        │                                                              ├─► 3. Enters code in Linara App
        │                                                              ├─► 4. Reviews terms (wage, rest day, hours)
-       │                                                              ├─► 5. Sets personal password & login details
-       │                                                              ├─► 6. Locks handshake & enters Station
+       │                                                              │      ├─── If terms match ──► [Creates Password & Claims]
+       │                                                              │      └─── If mismatch ─────► [Flags fields & Halts]
        ▼                                                              ▼
 ```
 
-1.  **Employer Invitation:** The Primary Manager inputs the worker's details (Name, Station/Role, Base Wage, Shift Start/End, Weekly Rest Day, and Contact). The system generates a single-use 6-digit `Invitation Code` and a signup link.
-2.  **Helper Review & Claim:** The helper downloads the app (or accesses the web app) and enters the `Invitation Code`. The helper sees a clear, read-only summary of the terms entered by the employer (Transparency View). 
-3.  **Account Creation:** If terms match their verbal agreement, the helper inputs their own secure password and locks the account. If terms are incorrect, they can flag them before claiming.
+1.  **Employer Invitation:** The Primary Manager inputs the worker's details (Name, Station/Role, Base Wage, Shift Start/End, Weekly Rest Day, and Contact). The system generates a single-use 6-digit alphanumeric `Invitation Code` (e.g., `LN98A2`) and a signup link.
+2.  **Helper Review & Claim:** The helper accesses the app and enters the `Invitation Code`. The helper sees a clear, read-only summary of the terms entered by the employer (Transparency View).
+3.  **Terms Validation & Mismatch Flagging:** 
+    *   **Agreement:** If the terms match their verbal agreement, the helper inputs their own secure password, claims the seat, and locks the account. The profile status transitions from `PENDING_CLAIM` to `ACTIVE`.
+    *   **Mismatch Flagging:** If a term (such as wage rates or shift hours) is incorrect, the helper taps `"Something's not right?"`, logs specific feedback notes, and flags the discrepancies.
+    *   **Claim Suspension:** The onboarding claims process is frozen. Discrepancy rows are written to the `invite_flags` table and surface directly in the manager's `<NeedsYou />` feed as high-priority actionable alerts with a **"Mark Resolved"** trigger. The helper cannot claim the account until the manager resolves the flags or updates the terms.
 4.  **Ownership:** The employer has no access to the helper's password. If the helper leaves the household, their account, completed task history, and verified payslips remain their personal property (Portable Record).
 
 ### 2.2 Anchor-Based Appointment Task Flow
@@ -93,7 +96,7 @@ This handles trivial, short-order requests (e.g., "Add more rice," "Come to kitc
 2.  **Availability Filter:** The system checks the helper's status. If the helper is `Off`, the system holds the uto in a queue. If `On Shift` or `Available`, the uto is sent live.
 3.  **Helper Station Display:** The uto appears at the bottom of the helper's screen as a lightweight, floating colored chip with a single `"Got it"` or `"Done"` action button.
 4.  **No Back-and-Forth:** Once tapped, the manager's screen updates to "Done." There is no typing capability for the helper to prevent open-ended chat rooms.
-5.  **Nightly Wipe:** At midnight, all individual Quick Utos and voice notes are permanently deleted from the database. The system increments a temporary counter of total daily asks to show a gentle mirror to the manager (`"You sent N small asks today"`), then resets the counter to zero. No historical archive of specific utos is retained to prevent performance scoring or scrutiny.
+5.  **Nightly Wipe & Gentle Mirror:** At midnight, all individual Quick Utos and voice notes are permanently deleted from the database. The system increments an aggregated daily counter of total asks to show a gentle mirror to the manager (`"You sent 12 small asks today"`), then resets the counter to zero. No historical archive of specific utos is retained to prevent performance scoring or scrutiny.
 
 ### 2.4 After-Hours Escalation & Ledger Accrual Flow
 Enforces rest boundaries for live-in helpers while accommodating real-world emergencies.
@@ -130,7 +133,7 @@ Ties kitchen inventory to shopping runs, cash spend, and budget tracking.
 1.  **Low Stock Detection:** The cook updates the Pantry: `Rice` is at `2kg` (Par Level is `10kg`). The item flags as "Low."
 2.  **Auto-List Generation:** The system auto-populates the next "Palengke Run" task checklist with `Rice: 8kg needed`.
 3.  **Shopping Execution:** The helper takes the assigned Palengke Run task. The app displays the checklist with explicit target quantities and a designated "Petty Cash Budget" (e.g., `₱1,500`).
-4.  **Spend Entry:** For each item purchased, the helper inputs the actual cost (e.g., `Rice: ₱480`). 
+4.  **Spend Entry:** For each item purchased, the helper inputs the actual cost (e.g., `Rice: ₱480`).
 5.  **Receipt Upload:** Before completing the run, the helper takes a photo of the paper receipt and taps "Complete."
 6.  **Manager Reconciliation:** The Pass "Spend Dial" live-updates to show the cash reduction (₱1,500 budget -> ₱1,120 spent -> ₱380 remaining). The Primary Manager views the uploaded receipt image directly on the Done card for a calm, silent record of expenditures.
 
@@ -138,46 +141,51 @@ Ties kitchen inventory to shopping runs, cash spend, and budget tracking.
 
 ## 3. Precise Inputs & Outputs (Data Schemas & APIs)
 
-To ensure implementation readiness, the data structures and boundary expectations for core operations are defined below.
-
 ### 3.1 Helper Invitation & Account Claiming
 
 #### Data Model: `HelperProfile`
 ```typescript
 interface HelperProfile {
   id: string;
-  name: string;
-  role: 'yaya' | 'cook' | 'driver' | 'cleaner' | 'all_around';
-  status: 'PENDING_CLAIM' | 'ACTIVE' | 'INACTIVE';
-  wageDetails: {
-    monthlyRate: number; // in PHP
-    paydayInterval: 'semi_monthly' | 'monthly';
-    sssContributions: boolean;
-    philhealthContributions: boolean;
-    pagibigContributions: boolean;
-  };
-  schedule: {
-    shiftStart: string; // HH:MM
-    shiftEnd: string;   // HH:MM
-    dailyBreakDuration: number; // in minutes
-    weeklyRestDay: 0 | 1 | 2 | 3 | 4 | 5 | 6; // Sunday = 0, etc.
-  };
-  inviteCode: string | null; // 6-digit alphanumeric
   userId: string | null; // References claimed User account
+  householdId: string;
+  name: string;
+  station: 'Yaya' | 'Cook' | 'Laundry' | 'Driver' | 'House'; // Colocated operational lanes
+  monthlyRate: number; // in PHP
+  paydayInterval: 'semi_monthly' | 'monthly';
+  shiftStart: string; // HH:MM:SS
+  shiftEnd: string;   // HH:MM:SS
+  dailyBreakDuration: number; // in minutes
+  weeklyRestDay: 0 | 1 | 2 | 3 | 4 | 5 | 6; // Sunday = 0, etc.
+  inviteCode: string | null; // 6-digit alphanumeric
+  status: 'PENDING_CLAIM' | 'ACTIVE' | 'INACTIVE';
+}
+```
+
+#### Data Model: `InviteFlag`
+```typescript
+interface InviteFlag {
+  id: string;
+  inviteId: string; // References associated helper invite profile id
+  field: 'wage' | 'shift' | 'restDay' | 'station'; // Field flagged as incorrect
+  note: string | null; // Explanatory notes by helper
+  createdAt: string; // ISO 8601
 }
 ```
 
 #### API: Initiate Helper Invite
 *   **Path:** `POST /api/helpers/invite`
+*   **Method:** `POST`
+*   **Request Headers:** `Authorization: Bearer <JWT>`
 *   **Input (Manager Role Auth):**
     ```json
     {
       "name": "Maria Rosa",
-      "role": "cook",
+      "station": "Cook",
       "monthlyRate": 8000,
       "paydayInterval": "semi_monthly",
-      "shiftStart": "06:00",
-      "shiftEnd": "18:00",
+      "shiftStart": "06:00:00",
+      "shiftEnd": "18:00:00",
       "dailyBreakDuration": 120,
       "weeklyRestDay": 0
     }
@@ -192,8 +200,45 @@ interface HelperProfile {
     }
     ```
 
+#### API: Verify Helper Invite (Pre-Claim Audit)
+*   **Path:** `GET /api/helpers/claim/verify`
+*   **Method:** `GET`
+*   **Query Parameters:** `code=LN98A2`
+*   **Output:**
+    ```json
+    {
+      "inviteCode": "LN98A2",
+      "name": "Maria Rosa",
+      "station": "Cook",
+      "monthlyRate": 8000,
+      "shiftStart": "06:00:00",
+      "shiftEnd": "18:00:00",
+      "weeklyRestDay": 0
+    }
+    ```
+
+#### API: Flag Term Discrepancy
+*   **Path:** `POST /api/helpers/claim/flag`
+*   **Method:** `POST`
+*   **Input (Unauthenticated):**
+    ```json
+    {
+      "inviteCode": "LN98A2",
+      "field": "wage",
+      "note": "We agreed on ₱8,500 monthly rate, not ₱8,000."
+    }
+    ```
+*   **Output:**
+    ```json
+    {
+      "flagId": "flg_19283a",
+      "status": "SUSPENDED"
+    }
+    ```
+
 #### API: Claim Helper Invite
 *   **Path:** `POST /api/helpers/claim`
+*   **Method:** `POST`
 *   **Input (Unauthenticated):**
     ```json
     {
@@ -206,39 +251,41 @@ interface HelperProfile {
     ```json
     {
       "accessToken": "jwt_token_here",
-      "helperId": "hp_981273",
-      "termsAccepted": true
+      "refreshToken": "refresh_token_here",
+      "userId": "usr_991823",
+      "helperId": "hp_981273"
     }
     ```
 
-### 3.2 Ticket State Transitions (Start -> Do -> Done with Photo)
+### 3.2 Ticket State Transitions
 
 #### Data Model: `Ticket`
 ```typescript
 interface Ticket {
   id: string;
+  householdId: string;
   title: string;
-  stationId: string; // links to HelperProfile
-  assignedTo: string; // Helper userId
-  sopId: string | null; // links to House Standard / SOP
-  status: 'QUEUED' | 'OFFERED' | 'ACTIVE' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED';
-  timeContext: {
-    scheduledStart: string; // ISO 8601
-    actualStart: string | null;
-    actualEnd: string | null;
-  };
+  notes: string | null;
+  helperId: string; // Links to HelperProfile
+  status: 'todo' | 'in_progress' | 'done' | 'blocked'; // Backwards compatible
+  sopId: string | null; // Links to House SOP
   photoEvidenceUrl: string | null;
   isAfterHours: boolean;
-  notes: string | null;
+  scheduledStart: string; // ISO 8601
+  actualStart: string | null;
+  actualEnd: string | null;
+  createdBy: string; // User profile id
 }
 ```
 
 #### API: Update Ticket Status
 *   **Path:** `PATCH /api/tickets/:id/status`
-*   **Input (Helper Auth):**
+*   **Method:** `PATCH`
+*   **Request Headers:** `Authorization: Bearer <JWT>`
+*   **Input (Helper or Manager Auth):**
     ```json
     {
-      "status": "IN_PROGRESS",
+      "status": "in_progress",
       "timestamp": "2026-07-24T18:05:00Z"
     }
     ```
@@ -246,231 +293,145 @@ interface Ticket {
     ```json
     {
       "ticketId": "tk_55021",
-      "currentStatus": "IN_PROGRESS",
+      "status": "in_progress",
       "activeSince": "2026-07-24T18:05:00Z"
     }
     ```
 
 #### API: Complete Ticket with Photo Evidence
 *   **Path:** `POST /api/tickets/:id/complete`
+*   **Method:** `POST`
+*   **Request Headers:** `Authorization: Bearer <JWT>`
 *   **Input (Helper Auth):** Multipart Form Data containing:
     *   `photo`: Image Binary (JPEG/PNG)
     *   `notes`: String (optional)
-    *   `timestamp`: "2026-07-24T18:30:00Z"
 *   **Output:**
     ```json
     {
       "ticketId": "tk_55021",
-      "status": "DONE",
+      "status": "done",
       "photoEvidenceUrl": "https://storage.linara.ph/evidence/tk_55021_done.jpg",
       "ledgerEntryCreated": false
     }
     ```
 
-### 3.3 Quick Utos Creation, Acknowledgment, and Nightly Purge
+### 3.3 Quick Utos Actions
 
 #### Data Model: `QuickUto`
 ```typescript
 interface QuickUto {
   id: string;
-  senderId: string; // Admin userId
-  recipientId: string; // Helper userId
-  content: {
-    type: 'text' | 'chip' | 'voice';
-    body: string; // text body or CDN URL to voice note
-  };
-  acknowledged: boolean;
+  senderName: string; // Display name of admin (e.g. "Sir Ben")
+  recipientId: string; // HelperProfile id
+  content: string;
+  ackState: 'sent' | 'seen' | 'done';
+  afterHours: boolean;
+  emergency: boolean;
+  waiting: boolean;
   createdAt: string; // ISO 8601
 }
 ```
 
 #### API: Send Quick Uto
 *   **Path:** `POST /api/utos/send`
+*   **Method:** `POST`
+*   **Request Headers:** `Authorization: Bearer <JWT>`
 *   **Input (Admin Auth):**
     ```json
     {
       "recipientId": "hp_981273",
-      "type": "chip",
-      "body": "+ Rice"
+      "content": "+ Rice"
     }
     ```
 *   **Output:**
     ```json
     {
-      "utoId": "ut_00192a",
-      "status": "SENT",
-      "timestamp": "2026-07-24T19:30:00Z"
+      "utosId": "ut_00192a",
+      "status": "sent",
+      "timestamp": "2026-07-24T19:30:00Z",
+      "isWaitingOffline": false
     }
     ```
 
 #### API: Acknowledge Quick Uto
 *   **Path:** `POST /api/utos/:id/ack`
+*   **Method:** `POST`
+*   **Request Headers:** `Authorization: Bearer <JWT>`
 *   **Input (Helper Auth):**
     ```json
-    {}
+    {
+      "ackState": "done"
+    }
     ```
 *   **Output:**
     ```json
     {
-      "utoId": "ut_00192a",
-      "acknowledged": true,
-      "timestamp": "2026-07-24T19:32:00Z"
+      "utosId": "ut_00192a",
+      "ackState": "done"
     }
     ```
-
-#### API: Nightly Purge (Cron-Triggered System Endpoint)
-*   **Path:** `POST /api/system/purge-utos` (Secured via secret token)
-*   **Action:** Deletes all rows from `QuickUto` table. Writes aggregated metrics count to `DailyAuditMirror` (without identifying details).
-*   **Database Query Equivalent:**
-    ```sql
-    DELETE FROM quick_utos WHERE created_at < NOW() - INTERVAL '1 day';
-    ```
-
-### 3.4 After-Hours Ledger Entry Creation
-
-#### Data Model: `LedgerEntry`
-```typescript
-interface LedgerEntry {
-  id: string;
-  helperId: string;
-  sourceType: 'overtime' | 'rest_break_work' | 'rest_day_work' | 'emergency';
-  associatedTicketId: string | null;
-  durationMinutes: number;
-  resolved: boolean;
-  resolvedAt: string | null;
-  resolutionType: 'rest_owed' | 'premium_pay' | null;
-  createdAt: string;
-}
-```
 
 ---
 
 ## 4. Detailed Interface & Dashboard Structure
 
 ### 4.1 Manager's Pass (Web/Mobile App Dashboard)
-Designed as a read-mostly "Pass view" for immediate home evaluation.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│  LINARA  [Home, made clear]                    [🔔] [Profile (Manager)]│
-├────────────────────────────────────────────────────────────────────────┤
-│  PULSE: 6 of 9 Completed  ·  2 In Progress  ·  [ 1 Needs You ]         │
-├────────────────────────────────────────────────────────────────────────┤
-│  [ THE LINE VIEW ]  (Switch to Board View)                             │
-│                                                                        │
-│  STATION: YAYA (Rosa) [On-Shift]                                      │
-│  [ Doing ] Feed Sofia (3 PM - 4 PM) [Standard: 4oz warm, level scoop]   │
-│  [ Todo  ] Fold Clothes (4:30 PM)                                      │
-│                                                                        │
-│  STATION: COOK (Elena) [Off - On Break]                                │
-│  [ Done  ] Palengke Run (10 AM) ── [👁️ View Receipt & Photo Done]     │
-│  [ Todo  ] Prep Dinner (5:00 PM)                                       │
-│                                                                        │
-│  STATION: DRIVER (Jun) [Off - Shift Over]                              │
-│  [ Done  ] School Dropoff (2:30 PM)                                    │
-├────────────────────────────────────────────────────────────────────────┤
-│  DIALS:                                                                │
-│  ┌─────────────────────────┐          ┌─────────────────────────────┐  │
-│  │   PETTY CASH BUDGET     │          │        NEXT PAYDAY          │  │
-│  │   ₱1,120 / ₱1,500 spent │          │   August 15 (Semi-Monthly)  │  │
-│  │   [=======>      ] 74%  │          │   Accrued Rest Owed: 2h 15m │  │
-│  └─────────────────────────┘          └─────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
-```
+Designed as a read-mostly "Pass view" for immediate home evaluation. Displays status indicators and active operational boards.
 
 #### Key Layout Fields:
-1.  **Header:** Displays logo, active notifications (e.g., helper requesting a vale, task blocked), and profile switcher.
-2.  **The Pulse Line:** Single high-contrast status bar. Highlighted block if manual intervention is required.
-3.  **Active Board Toggle:** Toggle buttons to switch between **The Line** (organized horizontally or vertically by helper/station) and **The Board** (classic Kanban: To Do, Doing, Done).
-4.  **Helper Lanes:** Displays cards representing assigned tickets for the current shift. Completed cards showcase thumbnail evidence pictures.
-5.  **Dials Section:**
-    *   **Spend Dial:** Visual progress bar tracking petty cash spent against the monthly or weekly allocation.
-    *   **Pay Dial:** Calculates upcoming base wage, pending vale deductions, and accrued after-hours Rest Owed.
+1.  **Header:** Sim clock controllers, end-of-day buttons, notifications, and profile switchers.
+2.  **The Pulse Line:** Single high-contrast status bar highlighting live statistics (e.g., `"6 of 9 Completed · 2 In Progress"`). Renders a dynamic `"Needs You"` alerts container for ticket blocks, vale claims, and onboarding flags.
+3.  **Active Board Toggles:** Horizontal switches to change views:
+    *   **The Line:** Swimlanes organized vertically by Helper Station/Operational lane.
+    *   **The Board:** Traditional Kanban (Todo, Doing, Done).
+4.  **Dials Section:**
+    *   **Spend Dial:** Visual progress bar tracking actual petty cash spent against the periodic grocery budget.
+    *   **Pay Dial:** Upcoming wage calculation, active vale reductions, and accumulated after-hours rest owed.
 
 ### 4.2 Worker's Station (Mobile Interface)
-Optimized for high-contrast viewing, large hit targets, Taglish support, and clear physical boundaries.
-
-```
-┌────────────────────────────────────────────────────────┐
-│  Ate Rosa                                       [☀️ On] │
-│  Shift ends: 6:00 PM (Rest Day: Sunday)                │
-├────────────────────────────────────────────────────────┤
-│  CURRENT TICKET:                                       │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  👶 FEED SOFIA (3:00 PM)                         │  │
-│  │                                                  │  │
-│  │  HOUSE STANDARD:                                 │  │
-│  │  * Use 4oz warm water                            │  │
-│  │  * Add exactly 2 level scoops of formula         │  │
-│  │  * Check temperature on wrist                    │  │
-│  │                                                  │  │
-│  │  [👁️ VIEW STANDARD PHOTO]                        │  │
-│  │                                                  │  │
-│  │  [ ▶️ START WORK ]                                 │  │
-│  └──────────────────────────────────────────────────┘  │
-├────────────────────────────────────────────────────────┤
-│  QUICK UTOS:                                           │
-│  ┌────────────────────────┐  ┌──────────────────────┐  │
-│  │  💬 "+ Rice" from Ma'm  │  │  🔊 [▶] Voice Note   │  │
-│  │  [ Got it / Tapos ]    │  │  [ Got it / Tapos ]  │  │
-│  └────────────────────────┘  └──────────────────────┘  │
-├────────────────────────────────────────────────────────┤
-│  [ MY NOTES (Private) ]                                │
-│  * Buy baking powder next market run                   │
-│  [✏️ Add Note]                                         │
-├────────────────────────────────────────────────────────┤
-│  [ 💵 MY PAY · MY RECORD ]                             │
-│  August 15 Accrued: ₱4,000 | Rest Owed Balance: 2h 15m │
-└────────────────────────────────────────────────────────┘
-```
+Optimized for high-contrast mobile viewing, large hit targets, Taglish support, and clear physical boundaries.
 
 #### Key Layout Fields:
-1.  **Dignity Header:** Dedicated to the worker. Displays their name, current shift boundary status, and a highlighted countdown to their next weekly Rest Day.
-2.  **Active Focus Card:** One large, card interface detailing the task immediately at hand. Houses the "House Standard" checklist and a single major action button.
-3.  **Quick Utos Area:** Compact, touch-friendly modules showing momentary messages. Tapping "Got it" removes the item immediately.
-4.  **My Notes Section:** Simple, completely private text scratchpad. Fully isolated from manager queries.
-5.  **My Pay Tab:** Bottom section presenting transparent payroll info: accumulated wages, active vale balance, and rest-owed.
+1.  **Dignity Header:** Greeting, active status toggles (`"On Shift"`, `"Available"`, `"Off"`), and a visual countdown to their next weekly rest day.
+2.  **Active Focus Card:** Large-type focus layout detailing the single task currently at hand. Houses the "House Standard" checklist and a single start/done action button.
+3.  **Quick Utos Area:** Floating, transient modules displaying short instructions. Tapping "Got It" acknowledge the ask immediately, cleaning up the layout.
+4.  **Private Notes Scratchpad:** Completely secure text area allowing helpers to record personal grocery logs or observations. Includes a **"🎙️ Hold to Record"** voice notepad trigger. Renders an **"Add to board"** option to immediately promote a private note into a shared task board ticket.
+5.  **My Pay Tab:** Transparent payslips, vale histories, and real-time "Rest Owed" minutes calculations.
 
 ---
 
 ## 5. Explicit Integrations & Security Boundaries
 
 ### 5.1 Cloud Storage & Photo Processing
-*   **Service Provider:** Supabase Storage / AWS S3 buckets.
-*   **Use Cases:**
-    *   **Ticket Evidence:** Photos taken upon ticket completion. Compressed client-side (maximum 1200px width) before upload to save helper data charges.
-    *   **Receipt Capture:** Retail receipt photos taken during Palengke runs.
-    *   **Standard Library Images:** SOP reference photographs.
-*   **Security Protocol:** Private URLs signed with a 15-minute expiration window to prevent leaks of household privacy.
+*   **Service Provider:** Supabase Storage / S3 compatible object storage buckets.
+*   **Use Cases:** Compression-ready JPEG/PNG uploads for ticket evidence and receipts, and audio/webm voice scratchpads.
+*   **Security Protocol:** Signed access tokens expiring in 15 minutes to guarantee household privacy.
 
 ### 5.2 Helper Notes Data Privacy Isolation (The Privacy Wall)
-*   Helper's "My Notes" text data must reside strictly in local SQLite / PostgreSQL storage utilizing row-level security (RLS) policies.
-*   The API database schema isolates notes by ownership:
+*   Helper's private notes text data must reside strictly in local client storage or a database utilizing Row-Level Security (RLS).
+*   The database blocks managers or system administrators from querying notes:
     ```sql
     ALTER TABLE helper_notes ENABLE ROW LEVEL SECURITY;
     CREATE POLICY helper_notes_privacy ON helper_notes 
       USING (auth.uid() = user_id);
     ```
-*   This ensures that even if a system administrator is queried, or the manager makes a raw API request, helper-private notes are structurally shielded.
 
 ### 5.3 Batas Kasambahay Compliance Engine
-*   **Legal Reference:** RA 10361 (Batas Kasambahay).
-*   **Configuration Settings (Managed in DB or Config file):**
-    *   `MINIMUM_MONTHLY_WAGE`: Configurable by region (e.g., NCR: ₱6,000).
-    *   `MANDATORY_REST_DAYS`: Minimum 1 day (24 hours) per week.
-    *   `13TH_MONTH_PAY`: Automatic monthly accrual calculator: `(Base Monthly Wage / 12) * Months Worked`.
-    *   `REST_DAY_WORK_PREMIUM`: Configurable multiplier (usually 1.3x daily equivalent rate or accrual of equivalent rest hours).
-
-### 5.4 Offline-First Support & Local Storage
-*   Since Filipino domestic workers may have intermittent mobile coverage (e.g., inside concrete house walls, inside wet markets), the client-side app utilizes offline-first caching via IndexedDB or LocalStorage.
-*   Completed tasks and photo evidence are queued locally and automatically uploaded when network connectivity resumes, preventing data loss or accidental "no-work" records.
+*   **Legal Reference:** RA 10361.
+*   **Wage Verification:** Checks regional minimum figures (NCR: ₱6,000).
+*   **Accrual Logic:** Automatic calculations for 13th-month pays: `(Base Monthly Wage / 12) * Months Worked`.
+*   **Statutory Split Matrix:** Auto-calculates contributions based on NCR brackets:
+    *   Employer pays 100% of SSS/PhilHealth/Pag-IBIG if helper wage is less than ₱5,000.
+    *   Standard split applies for wages ₱5,000 and above.
 
 ---
 
-## 6. MVP Roadmap & Feature Gates
+## 6. Verification & Simulated Testing
 
-To maintain a highly simplified MVP scope, features are sequenced into phases:
-
-*   **Phase 1 (MVP Baseline):** Single Household, One-to-One Manager & Helper pairing, Core Pass & Station UI, Standard Library, Scheduled Calendar, Local-storage private Notes, Simple After-Hours Ledger (Accruing hours/minutes manually).
-*   **Phase 2 (Growth & Compliance):** Multi-Helper routing with coverage warnings, Automated "Anchor" task calculations, Interactive Quick Utos with nightly purge, Automatic regional Batas Kasambahay minimum warnings, and PDF payslip exporter.
-*   **Phase 3 (Fintech & Scale):** One-click payroll disbursement via GCash/Maya API integrations, OFW-direct remittance, micro-insurance claims, and worker proof-of-income loan underwriting.
+### 6.1 Operational Testing & Persona Traversal
+To test multi-user real-time synchronization, edge states, and rest boundaries, developers utilize simulated testing offsets:
+*   **The Simulation Clock (`simOffsetMs`):** A client-side global timezone controller that shifts local browser clocks forward or backward.
+*   **Scenario Testing Rules:**
+    1.  **Quiet-Hours & Off-Shift Gates:** Set simulated time to after 10:00 PM. Attempting to assign a task must immediately trigger the off-shift friction warning and log rest-owed minutes upon completion.
+    2.  **Midnight Purges:** Jump simulated time past midnight. The system must automatically trigger the Quick Utos table deletions and increment the manager's aggregated daily count mirror.
+    3.  **Cross-Device Handshakes:** Test invites across multiple tabs simultaneously (Tab 1: Sir Ben, Tab 2: Ate Rosa), validating that flagging terms suspends claims in real-time.

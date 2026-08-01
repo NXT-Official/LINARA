@@ -1,0 +1,104 @@
+import { useState } from "react";
+
+import { AvailabilityGate } from "@/features/availability/components/availability-gate";
+import { useSendGate } from "@/features/availability/hooks/use-send-gate";
+import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
+
+import { useAppStores } from "../app-store-context";
+import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
+
+/** Today at a glance: what needs a decision, then the day itself. */
+export function ManagerPassPage({
+  view,
+  onViewChange,
+}: {
+  view: PassMode | undefined;
+  onViewChange: (mode: PassMode) => void;
+}) {
+  const {
+    session,
+    board,
+    vales,
+    invites: inviteStore,
+    availability,
+    helper,
+    utos,
+    startNewDay,
+  } = useAppStores();
+  const { adminType, currentAdmin } = session;
+  const {
+    tasks,
+    boardClosed,
+    simDate,
+    addTask,
+    rescheduleTask,
+    approveSuggestion,
+    dismissSuggestion,
+  } = board;
+
+  const isRemote = adminType === "remote";
+  const canOverride = adminType === "primary" || adminType === "co";
+  const canStartNewDay = adminType === "primary" || adminType === "co";
+  const authorName = currentAdmin?.name ?? "Manager";
+  const rosaStatus = availability.status;
+
+  const [open, setOpen] = useState(false);
+  const active = tasks.filter((t) => !t.queued && !t.suggested);
+  const gate = useSendGate({
+    status: rosaStatus,
+    authorName,
+    isRemote,
+    onSendUtos: utos.send,
+    onAddTask: addTask,
+  });
+
+  return (
+    <>
+      <h1 className="sr-only">The Pass</h1>
+      <ManagerPassTab
+        active={active}
+        suggestions={tasks.filter((t) => t.suggested)}
+        blocked={active.filter((t) => t.status === "blocked")}
+        pendingVales={vales.vales.filter((v) => v.status === "pending")}
+        flaggedInvites={inviteStore.invites.filter((i) => i.flags.length > 0)}
+        simDate={simDate}
+        boardClosed={boardClosed}
+        rosaStatus={rosaStatus}
+        helperName={helper.name}
+        authorName={authorName}
+        isRemote={isRemote}
+        canStartNewDay={canStartNewDay}
+        onStartNewDay={startNewDay}
+        onReschedule={rescheduleTask}
+        onDecideVale={vales.decide}
+        onResolveFlag={inviteStore.resolveFlag}
+        onApproveSuggestion={approveSuggestion}
+        onDismissSuggestion={dismissSuggestion}
+        onNewTask={() => setOpen(true)}
+        view={view}
+        onViewChange={onViewChange}
+      />
+
+      {open && (
+        <NewTaskModal
+          isRemote={isRemote}
+          onClose={() => setOpen(false)}
+          onAdd={(t, opts) => {
+            gate.addTask(t, opts);
+            setOpen(false);
+          }}
+        />
+      )}
+      {gate.intent && (
+        <AvailabilityGate
+          intent={gate.intent}
+          status={rosaStatus}
+          helperName={helper.name}
+          canOverride={canOverride}
+          onCancel={gate.cancel}
+          onChoose={gate.resolve}
+        />
+      )}
+    </>
+  );
+}

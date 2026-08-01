@@ -39,19 +39,21 @@
   --color-pine: var(--pine);
   --color-pine-deep: var(--pine-deep);
   --color-ink: var(--ink);
-  --shadow-soft: 0 1px 2px oklch(0.35 0.05 170 / 0.04), 0 8px 24px -12px oklch(0.35 0.05 170 / 0.12);
-  --shadow-lift: 0 2px 6px oklch(0.35 0.05 170 / 0.06), 0 20px 40px -20px oklch(0.35 0.05 170 / 0.18);
+  --shadow-soft:
+    0 1px 2px oklch(0.35 0.05 170 / 0.04), 0 8px 24px -12px oklch(0.35 0.05 170 / 0.12);
+  --shadow-lift:
+    0 2px 6px oklch(0.35 0.05 170 / 0.06), 0 20px 40px -20px oklch(0.35 0.05 170 / 0.18);
 }
 
 :root {
   --radius: 1rem;
 
   /* Brand */
-  --sand: oklch(0.965 0.018 82);          /* #F7F3EC bg */
+  --sand: oklch(0.965 0.018 82); /* #F7F3EC bg */
   --sand-deep: oklch(0.93 0.022 82);
-  --pine: oklch(0.42 0.055 180);          /* ~#1F5A54 */
+  --pine: oklch(0.42 0.055 180); /* ~#1F5A54 */
   --pine-deep: oklch(0.32 0.05 180);
-  --terracotta: oklch(0.73 0.11 55);      /* ~#D99A6C */
+  --terracotta: oklch(0.73 0.11 55); /* ~#D99A6C */
   --terracotta-soft: oklch(0.88 0.055 60);
   --ink: oklch(0.22 0.015 180);
 
@@ -77,13 +79,22 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
 }

@@ -7,7 +7,23 @@ import tseslint from "typescript-eslint";
 // import securityPlugin from "eslint-plugin-security"; // Uncomment once eslint-plugin-security is installed
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi", ".tanstack", ".wrangler", "routeTree.gen.ts"] },
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".nitro",
+      ".vinxi",
+      ".tanstack",
+      ".wrangler",
+      "node_modules",
+      "src/routeTree.gen.ts",
+    ],
+  },
+  {
+    // Config files run in Node, not the browser.
+    files: ["*.config.{js,ts}", "src/server.ts", "src/start.ts"],
+    languageOptions: { globals: globals.node },
+  },
   {
     extends: [
       js.configs.recommended,
@@ -67,7 +83,7 @@ export default tseslint.config(
       ],
 
       // 5. Block unsafe RegExp constructs (prevents ReDoS - Regular Expression Denial of Service)
-      "prefer-regex-literals": "error"
+      "prefer-regex-literals": "error",
     },
   },
   eslintPluginPrettier,
