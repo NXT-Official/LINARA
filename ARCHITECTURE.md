@@ -71,11 +71,13 @@
     ├── routes/
     │   ├── README.md            ← routing conventions cheat-sheet
     │   ├── __root.tsx           ← root layout, <html>/<head>, providers, SEO meta
-    │   └── index.tsx            ← the `/` route: renders <LinaraApp />, nothing else
+    │   ├── index.tsx            ← `/` → redirects to /manager/pass
+    │   ├── _app.tsx             ← pathless layout: feature stores + app shell
+    │   └── _app/                ← the routed pages, see §3
     ├── features/                ← one folder per domain, see below
     │   ├── appointments/        ← fixed events + the prep tasks they schedule
     │   ├── availability/        ← quiet hours, shift-derived status, the send gate
-    │   ├── dashboard/           ← composition root, top bar, manager/helper views
+    │   ├── dashboard/           ← store provider, shells, manager/helper pages
     │   ├── groceries/           ← list, budget, receipt (the one React context)
     │   ├── ledger/              ← off-shift work owed back, vales, pay record
     │   ├── notes/               ← the helper's private scratchpad
@@ -114,9 +116,27 @@ one typed hook instead of one 7,900-line component.
 ## 3. Routing & App Shell
 
 - **File-based routing** under `src/routes/` — dots become slashes, `$param` is dynamic, `_prefix` is a pathless layout. See `src/routes/README.md`.
-- Only two routes exist:
-  - `src/routes/__root.tsx` — HTML shell (`<html><head><body>`), `QueryClientProvider`, favicon, Google Fonts `<link>`, SEO meta (title, description, og:\*, twitter:card), and the required global `notFoundComponent` + `errorComponent` boundaries. Renders `<Outlet />`.
-  - `src/routes/index.tsx` — the `/` route that renders the entire Linara prototype (`<LinaraApp />`).
+- Every feature is a real URL. Which persona you are looking through is the route:
+  the admins live under `/manager`, Ate Rosa under `/helper`.
+
+```text
+/                    → redirect to /manager/pass
+/manager             → redirect to /manager/pass
+/manager/pass        The Pass          (?view=line|board)
+/manager/schedule    Shifts, routines, appointments, queued-for-tomorrow
+/manager/pantry      Pantry + grocery list
+/manager/money       Spend, payday, after-hours ledger
+/manager/people      Admins, helpers, invites
+/helper              → redirect to /helper/today
+/helper/today        Week, quick utos, notes, task lists
+/helper/pantry       Pantry + grocery list
+/helper/pay          Vales, ledger, terms
+```
+
+- `src/routes/__root.tsx` — HTML shell (`<html><head><body>`), `QueryClientProvider`, favicon, Google Fonts `<link>`, SEO meta, and the global `notFoundComponent` + `errorComponent` boundaries. Renders `<Outlet />`.
+- `src/routes/_app.tsx` — pathless layout that mounts `AppStoreProvider` (every feature store) inside `AppShell` (top bar + content well). Because it sits above the outlet, navigating between pages never remounts the day's state.
+- `src/routes/_app/manager.tsx` and `_app/helper.tsx` — per-persona layouts: the bottom nav, plus (for the helper) her greeting, availability control, and claim banner.
+- Leaf route files stay small: a title, an error boundary, search validation where it earns its keep, and one feature page component. Page composition lives in `src/features/<feature>/pages/`.
 - Router config lives in `src/router.tsx`: instantiates a `QueryClient`, passes it to the router context (`createRootRouteWithContext<{ queryClient }>`), and sets `defaultPreloadStaleTime: 0` and `scrollRestoration: true`.
 
 ---
@@ -133,7 +153,6 @@ type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
 type Helper  = { id; name; short; initials; station; ... };
 type AdminType = "primary" | "co" | "remote";
 type Admin     = { id; name; short; initials; type; location };
-type ViewAs    = "ben" | "tina" | "lolafe" | "rosa";   // demo persona switcher
 ```
 
 ### Tasks & scheduling
@@ -211,41 +230,38 @@ type Invite = {
 
 ## 5. Component Architecture
 
-`LinaraApp` (`src/features/dashboard/components/linara-app.tsx`) is the composition root:
-it creates each feature store and hands it to the one view that needs it. Approximate
-structure:
+`AppStoreProvider` (`src/features/dashboard/components/app-store-provider.tsx`) is the
+composition root: it creates every feature store once, on the `_app` layout route, and
+shares them through `useAppStores()`. Pages read the stores they need; nothing is threaded
+through the router. Approximate structure:
 
 ```
-<Route />                              ← src/routes/index.tsx, 7 lines
-└── <LinaraApp/>                       ← creates the feature stores, picks the view
-    ├── <TopBar/>                      ← persona switcher, sim clock, EOD toggle
-    │   ├── <EndOfDayToggle/>
-    │   └── <ViewAsSwitcher/>
-    ├── <ManagerView/>                 ← Ben / Tina / Lola Fe (remote)
-    │   ├── <NeedsYou/>                ← blocked tasks, pending vales, invite flags
-    │   ├── <TheBoardStatusLists/>     ← today's live board + lanes
-    │   │   └── <HelperLane/> / <BoardTaskCard/> / <NowMarker/>
-    │   ├── <RoutinesView/> + <NewRoutineModal/>
-    │   ├── Appointments + <EventTemplate> preps
-    │   ├── <ShiftsSection/> + <DayEditor/>    ← hidden for remote admin
-    │   ├── <PeopleSection/>
-    │   │   ├── <InviteHelperModal/>
-    │   │   └── <InviteCodeScreen/>
-    │   ├── <ManagerPassTab/>          ← status line, Needs-you, The Line / The Board
-    │   ├── Pantry + Grocery
-    │   ├── Ledger / Vale approvals
-    │   └── <QuickUtosLauncher/> + <AvailabilityGate/>
-    ├── <HelperView/>                  ← Ate Rosa
-    │   ├── Claim entry → <ClaimAccountFlow/> → <ClaimedWelcome/>
-    │   ├── <HelperTaskLists/>         ← next / later / waiting / done
-    │   │   └── <NextTaskCard/> + <BlockReasonModal/>
-    │   ├── <MyWeekCard/>              ← read-only week view
-    │   ├── <MyTerms/>                 ← "record is yours" transparency card
-    │   ├── <PayRecord/> + <ValeRequestModal/>
-    │   ├── My Notes (voice + text scratchpad → optional task promotion)
-    │   ├── <QuickUtosFeed/>           ← availability-aware, no daily count
-    │   └── <EndOfDay/>
-    └── <BottomNav/>
+<__root/>                              ← html shell, QueryClientProvider
+└── <_app/>                            ← src/routes/_app.tsx
+    └── <AppStoreProvider/>            ← every feature store + <GroceryProvider/>
+        └── <AppShell/>
+            ├── <TopBar/>              ← persona switcher, sim clock, EOD toggle
+            │   ├── <EndOfDayToggle/>
+            │   └── <ViewAsSwitcher/>  ← navigates between /manager and /helper
+            └── <Outlet/>
+                ├── <ManagerShell/>            ← /manager/*, + <BottomNav/>
+                │   ├── <ManagerPassPage/>     ← /manager/pass
+                │   │   ├── <ManagerPassTab/>  ← Needs-you, The Line / The Board
+                │   │   └── <NewTaskModal/> + <AvailabilityGate/>
+                │   ├── <ManagerSchedulePage/> ← /manager/schedule
+                │   │   ├── <ShiftsSection/> + <DayEditor/>   ← read-only for remote
+                │   │   ├── <RoutinesView/> + <NewRoutineModal/>
+                │   │   ├── <AppointmentsSection/>
+                │   │   └── <QuickUtosLauncher/> + <AvailabilityGate/>
+                │   ├── <PantryPage/>          ← /manager/pantry
+                │   ├── <ManagerMoneyPage/>    ← /manager/money
+                │   └── <PeoplePage/>          ← /manager/people
+                └── <HelperShell/>             ← /helper/*, greeting + claim + <BottomNav/>
+                    ├── <HelperTodayPage/>     ← /helper/today
+                    │   ├── <MyWeekCard/>, <QuickUtosFeed/>, <MyNotes/>
+                    │   └── <HelperTaskLists/> or <EndOfDay/>
+                    ├── <PantryPage/>          ← /helper/pantry (same page module)
+                    └── <PayRecordPage/>       ← /helper/pay
 ```
 
 ### Role capabilities (front-end gating only)
@@ -273,13 +289,16 @@ structure:
 
 ### State ownership
 
-Each domain owns its state in a typed hook; `LinaraApp` wires them together and passes the
-stores down. Views destructure the store they were handed rather than taking a prop per
-callback.
+Each domain owns its state in a typed hook; `AppStoreProvider` wires them together on the
+`_app` layout route and publishes them through `useAppStores()`. Pages destructure the
+store they need rather than taking a prop per callback. State that belongs to one page —
+open modals, the send gate, form drafts — stays in that page. State worth sharing or
+refreshing into lives in the URL: the persona (`/manager` vs `/helper`), the page itself,
+and the Pass layout (`/manager/pass?view=board`).
 
 | Hook                           | Owns                                                         |
 | ------------------------------ | ------------------------------------------------------------ |
-| `useSession`                   | `admins`, `viewAs`, derived `role` / `adminType`             |
+| `useSession`                   | `admins`, `currentAdminId`, derived `adminType`              |
 | `useTaskBoard`                 | `tasks`, `routines`, `boardClosed`, `simDate`, `startNewDay` |
 | `useAppointments`              | `appointments`; drives prep tasks through the board          |
 | `useSchedules`                 | `schedules`, `weekFor(helperId)`                             |
@@ -341,14 +360,15 @@ their event.
 The prototype is deliberately state-only. A realistic path to production:
 
 1. ~~**Extract features.**~~ Done — see Sections 2 and 6.
-2. **Persist state.** Add a database (Postgres/Supabase or equivalent). Model tables mirror Section 4 types (`tasks`, `routines`, `appointments`, `helpers`, `admins`, `schedules`, `pantry_items`, `grocery_items`, `vales`, `ledger_entries`, `invites`, `invite_flags`, `quick_utos`, `notes`). Follow the project's user-roles pattern (separate `user_roles` table + `has_role` SECURITY DEFINER; never store roles on profiles). Always pair `CREATE TABLE public.*` with explicit `GRANT`s and RLS policies.
-3. **Server functions.** Move mutations to `createServerFn` in `src/lib/*.functions.ts`, behind an auth middleware. Public webhooks (e.g. SMS invite) go under `src/routes/api/public/*` with signature verification.
-4. **Real-time.** Use realtime channels (e.g. Supabase realtime or a websocket route) for `tasks`, `utos`, and `ledger` so manager and helper devices stay in sync without polling.
-5. **Auth.** A managed auth provider. Invite codes redeem into a real account owned by the helper (matching the "record stays yours" copy).
-6. **Media.** Move Done photos and voice notes to object storage; keep `photo` fields as URLs.
-7. **Reporting.** Introduce TanStack Query per the canonical loader/component pattern already wired in `router.tsx` (loader `ensureQueryData` + component `useSuspenseQuery`).
-8. **SEO/PWA polish.** Route-level `head()` for each shareable page (currently only `/` exists); add manifest + install prompt for helper phones.
-9. **Testing.** Add Vitest + Playwright smoke flows for the invite→claim→board→ledger loop.
+2. ~~**Split into routed pages.**~~ Done — see Section 3.
+3. **Persist state.** Add a database (Postgres/Supabase or equivalent). Model tables mirror Section 4 types (`tasks`, `routines`, `appointments`, `helpers`, `admins`, `schedules`, `pantry_items`, `grocery_items`, `vales`, `ledger_entries`, `invites`, `invite_flags`, `quick_utos`, `notes`). Follow the project's user-roles pattern (separate `user_roles` table + `has_role` SECURITY DEFINER; never store roles on profiles). Always pair `CREATE TABLE public.*` with explicit `GRANT`s and RLS policies.
+4. **Server functions.** Move mutations to `createServerFn` in `src/lib/*.functions.ts`, behind an auth middleware. Public webhooks (e.g. SMS invite) go under `src/routes/api/public/*` with signature verification.
+5. **Real-time.** Use realtime channels (e.g. Supabase realtime or a websocket route) for `tasks`, `utos`, and `ledger` so manager and helper devices stay in sync without polling.
+6. **Auth.** A managed auth provider. Invite codes redeem into a real account owned by the helper (matching the "record stays yours" copy).
+7. **Media.** Move Done photos and voice notes to object storage; keep `photo` fields as URLs.
+8. **Reporting.** Introduce TanStack Query per the canonical loader/component pattern already wired in `router.tsx` (loader `ensureQueryData` + component `useSuspenseQuery`).
+9. **SEO/PWA polish.** Per-page `head()` is wired; still to do are per-page descriptions/og images and a manifest + install prompt for helper phones.
+10. **Testing.** Add Vitest + Playwright smoke flows for the invite→claim→board→ledger loop.
 
 ---
 
