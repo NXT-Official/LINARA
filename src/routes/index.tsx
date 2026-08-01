@@ -55,17 +55,24 @@ import { TheBoardStatusLists } from "@/features/tasks/components/the-board-statu
 
 import { useTaskBoard, type CompletionRecord } from "@/features/tasks/hooks/use-task-board";
 
+import { AppointmentsSection } from "@/features/appointments/components/appointments-section";
+import { SimClock } from "@/features/dashboard/components/sim-clock";
+import { MyWeekCard } from "@/features/shifts/components/my-week-card";
+import { ShiftsSection } from "@/features/shifts/components/shifts-section";
+
+import { useAppointments } from "@/features/appointments/hooks/use-appointments";
+import { useSimClock } from "@/features/dashboard/hooks/use-sim-clock";
+import { useSchedules } from "@/features/shifts/hooks/use-schedules";
+
+import type { AppointmentStore } from "@/features/appointments/hooks/use-appointments";
+import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
+
 export const Route = createFileRoute("/")({
   component: LinaraApp,
 });
 
 import { QUIET_END_HOUR, QUIET_START_HOUR } from "@/features/availability/availability.constants";
 import type { RosaStatus } from "@/features/availability/availability.types";
-import {
-  EVENT_TEMPLATES,
-  INITIAL_APPOINTMENTS,
-} from "@/features/appointments/appointment.constants";
-import type { Appointment, EventTemplate } from "@/features/appointments/appointment.types";
 import type {
   LedgerEntry,
   LedgerReason,
@@ -91,28 +98,19 @@ import type {
   ViewAs,
 } from "@/features/people/people.types";
 import { helperById } from "@/features/people/people.utils";
-import { INITIAL_SCHEDULES } from "@/features/shifts/shift.constants";
-import type { DaySchedule, ShiftSegment, WeekSchedule } from "@/features/shifts/shift.types";
-import { isMinuteInDay, summarizeDay } from "@/features/shifts/shift.utils";
+import type { WeekSchedule } from "@/features/shifts/shift.types";
+import { isMinuteInDay } from "@/features/shifts/shift.utils";
 import type { Routine, Status, Task } from "@/features/tasks/task.types";
 import { isPalengke } from "@/features/tasks/task.utils";
 import { QUICK_UTOS_PRESETS } from "@/features/utos/utos.constants";
 import type { QuickUtos } from "@/features/utos/utos.types";
 import {
-  displayTimeTo24h,
-  fmtHM12,
-  formatAppointmentDate,
-  computePrepSchedule,
-  formatClock,
   formatSimDate,
   formatTimeOfDay,
   parseHM,
-  parseTimeToMinutes,
-  toISODate,
   WEEKDAY_LONG,
   WEEKDAYS,
   weekdayOf,
-  type Weekday,
 } from "@/lib/time";
 
 function LinaraApp() {
@@ -124,7 +122,6 @@ function LinaraApp() {
   const updateAdminType = (id: string, type: AdminType) =>
     setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, type } : a)));
   const [vales, setVales] = useState<ValeRequest[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [ledgerDefault, setLedgerDefault] = useState<LedgerResolution>("rest");
   const [utosList, setUtosList] = useState<QuickUtos[]>([]);
@@ -176,17 +173,10 @@ function LinaraApp() {
     );
   };
   const pantry = usePantry();
+  const schedules = useSchedules();
+  const { nowTs, offsetMs: simOffsetMs, setOffsetMs: setSimOffsetMs } = useSimClock();
 
   const currentHelperId = "rosa";
-
-  // ---- Shift schedules (per helper, per weekday) ----
-  const [schedules, setSchedules] = useState<Record<string, WeekSchedule>>(INITIAL_SCHEDULES);
-  const updateDaySchedule = (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => {
-    setSchedules((prev) => {
-      const wk = prev[helperId] ?? INITIAL_SCHEDULES[helperId];
-      return { ...prev, [helperId]: { ...wk, [day]: { ...wk[day], ...patch } } };
-    });
-  };
 
   const [rosaAvail, setRosaAvail] = useState<{
     manual: "available" | "off";
@@ -200,16 +190,6 @@ function LinaraApp() {
       // ignore
     }
   }, []);
-  // ---- Simulated clock (prototype only) ----
-  // simOffsetMs shifts "now" for demo purposes; null = real time.
-  const [simOffsetMs, setSimOffsetMs] = useState<number | null>(null);
-  const [nowTs, setNowTs] = useState<number>(() => Date.now());
-  useEffect(() => {
-    const tick = () => setNowTs(Date.now() + (simOffsetMs ?? 0));
-    tick();
-    const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
-  }, [simOffsetMs]);
   useEffect(() => {
     try {
       window.localStorage.setItem("linara.rosaAvail", JSON.stringify(rosaAvail));
@@ -231,7 +211,7 @@ function LinaraApp() {
     const d = new Date(nowTs);
     const h = d.getHours();
     const wd = weekdayOf(d);
-    const daySched = (schedules.rosa ?? INITIAL_SCHEDULES.rosa)[wd];
+    const daySched = schedules.weekFor("rosa")[wd];
     const isRestDay = daySched.rest;
     const isQuiet = h >= QUIET_START_HOUR || h < QUIET_END_HOUR;
     const minutes = h * 60 + d.getMinutes();
@@ -295,7 +275,7 @@ function LinaraApp() {
     if (emergency) return "emergency";
     const d = new Date(ts);
     const wd = weekdayOf(d);
-    const day = (schedules.rosa ?? INITIAL_SCHEDULES.rosa)[wd];
+    const day = schedules.weekFor("rosa")[wd];
     if (day.rest) return "rest_day";
     const minutes = d.getHours() * 60 + d.getMinutes();
     if (
@@ -348,6 +328,7 @@ function LinaraApp() {
   };
 
   const board = useTaskBoard({ nowTs, onComplete: logCompletion });
+  const appointments = useAppointments(board.setTasks);
   const {
     tasks,
     routines,
@@ -362,7 +343,6 @@ function LinaraApp() {
     setClosed,
     addRoutine,
     removeRoutine,
-    setTasks,
   } = board;
 
   const updateLedgerEntry = (
@@ -381,59 +361,6 @@ function LinaraApp() {
 
   const decideVale = (id: string, decision: "approved" | "declined") => {
     setVales((prev) => prev.map((v) => (v.id === id ? { ...v, status: decision } : v)));
-  };
-
-  type PrepDraft = { title: string; leadMinutes: number; helperId: string; note?: string };
-  const addAppointment = (a: Omit<Appointment, "id">, preps: PrepDraft[]) => {
-    const id = `a${Date.now()}`;
-    setAppointments((prev) => [...prev, { ...a, id }]);
-    const newTasks: Task[] = preps.map((p, i) => {
-      const { date, time } = computePrepSchedule(a.date, a.time, p.leadMinutes);
-      const helper = helperById(p.helperId);
-      return {
-        id: `${id}-p${i}-${Date.now()}`,
-        title: p.title,
-        note: p.note,
-        time,
-        helperId: p.helperId,
-        station: helper.station,
-        status: "todo",
-        appointmentId: id,
-        appointmentTitle: a.title,
-        scheduledDate: date,
-        leadMinutes: p.leadMinutes,
-      };
-    });
-    if (newTasks.length > 0) setTasks((prev) => [...prev, ...newTasks]);
-  };
-
-  const removeAppointment = (id: string) => {
-    setAppointments((prev) => prev.filter((a) => a.id !== id));
-    setTasks((prev) => prev.filter((t) => t.appointmentId !== id));
-  };
-
-  const updateAppointment = (id: string, patch: { title: string; date: string; time: string }) => {
-    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.appointmentId !== id) return t;
-        const lead = t.leadMinutes ?? 0;
-        const { date: newDate, time: newTime } = computePrepSchedule(patch.date, patch.time, lead);
-        const changed =
-          newDate !== t.scheduledDate || newTime !== t.time || patch.title !== t.appointmentTitle;
-        if (!changed) return { ...t, appointmentTitle: patch.title };
-        const timeMoved = newDate !== t.scheduledDate || newTime !== t.time;
-        return {
-          ...t,
-          time: newTime,
-          scheduledDate: newDate,
-          appointmentTitle: patch.title,
-          rescheduleNotice: timeMoved
-            ? { oldTime: t.time, oldDate: t.scheduledDate, appointmentTitle: patch.title }
-            : t.rescheduleNotice,
-        };
-      }),
-    );
   };
 
   const startNewDay = () => {
@@ -476,9 +403,6 @@ function LinaraApp() {
               onDecideVale={decideVale}
               onAddRoutine={addRoutine}
               onRemoveRoutine={removeRoutine}
-              onAddAppointment={addAppointment}
-              onRemoveAppointment={removeAppointment}
-              onUpdateAppointment={updateAppointment}
               onStartNewDay={startNewDay}
               onSendUtos={sendQuickUtos}
               boardClosed={boardClosed}
@@ -490,7 +414,6 @@ function LinaraApp() {
               onUpdateLedgerEntry={updateLedgerEntry}
               pantry={pantry}
               schedules={schedules}
-              onUpdateDaySchedule={updateDaySchedule}
               invites={invites}
               onAddInvite={addInvite}
               onRemoveInvite={removeInvite}
@@ -515,7 +438,7 @@ function LinaraApp() {
               ledgerDefault={ledgerDefault}
               onUpdateLedgerEntry={updateLedgerEntry}
               pantry={pantry}
-              weekSchedule={schedules[currentHelperId] ?? INITIAL_SCHEDULES[currentHelperId]}
+              weekSchedule={schedules.weekFor(currentHelperId)}
               simDate={simDate}
               onAddTask={(t) => addTask(t)}
               invites={invites}
@@ -665,9 +588,6 @@ function ManagerView({
   onDecideVale,
   onAddRoutine,
   onRemoveRoutine,
-  onAddAppointment,
-  onRemoveAppointment,
-  onUpdateAppointment,
   onStartNewDay,
   onSendUtos,
   boardClosed,
@@ -679,7 +599,6 @@ function ManagerView({
   onUpdateLedgerEntry,
   pantry,
   schedules,
-  onUpdateDaySchedule,
   invites,
   onAddInvite,
   onRemoveInvite,
@@ -692,7 +611,7 @@ function ManagerView({
   tasks: Task[];
   vales: ValeRequest[];
   routines: Routine[];
-  appointments: Appointment[];
+  appointments: AppointmentStore;
   simDate: Date;
   onAdd: (
     t: Omit<Task, "id" | "status" | "station">,
@@ -709,12 +628,6 @@ function ManagerView({
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   onAddRoutine: (r: Omit<Routine, "id" | "station">) => void;
   onRemoveRoutine: (id: string) => void;
-  onAddAppointment: (
-    a: Omit<Appointment, "id">,
-    preps: Array<{ title: string; leadMinutes: number; helperId: string; note?: string }>,
-  ) => void;
-  onRemoveAppointment: (id: string) => void;
-  onUpdateAppointment: (id: string, patch: { title: string; date: string; time: string }) => void;
   onStartNewDay: () => void;
   onSendUtos: (
     content: string,
@@ -731,8 +644,7 @@ function ManagerView({
     patch: Partial<Pick<LedgerEntry, "adjustMinutes" | "resolution">>,
   ) => void;
   pantry: PantryStore;
-  schedules: Record<string, WeekSchedule>;
-  onUpdateDaySchedule: (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => void;
+  schedules: ScheduleStore;
   invites: Invite[];
   onAddInvite: (
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags">,
@@ -1009,21 +921,10 @@ function ManagerView({
               still look at the week and add appointments.
             </div>
           )}
-          <ShiftsSection
-            schedules={schedules}
-            onUpdate={onUpdateDaySchedule}
-            readOnly={!canEditShifts}
-          />
+          <ShiftsSection schedules={schedules} readOnly={!canEditShifts} />
           <QuickUtosLauncher onSend={gatedSendUtos} helperName={helperName} />
           <RoutinesView routines={routines} onAdd={onAddRoutine} onRemove={onRemoveRoutine} />
-          <AppointmentsSection
-            appointments={appointments}
-            tasks={tasks}
-            simDate={simDate}
-            onAdd={onAddAppointment}
-            onRemove={onRemoveAppointment}
-            onUpdate={onUpdateAppointment}
-          />
+          <AppointmentsSection appointments={appointments} tasks={tasks} simDate={simDate} />
           {queued.length > 0 && (
             <section className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5">
               <div className="mb-3 flex items-center justify-between">
@@ -1090,7 +991,7 @@ function ManagerView({
           currentAdmin={currentAdmin}
           canEditAdmins={canEditAdmins}
           onUpdateAdminType={onUpdateAdminType}
-          schedules={schedules}
+          schedules={schedules.byHelper}
           invites={invites}
           canInvite={canInvite}
           onInvite={(data) => onAddInvite(data, authorName)}
@@ -1959,263 +1860,6 @@ function ClaimedWelcome({ invite, onClose }: { invite: Invite; onClose: () => vo
   );
 }
 
-function ShiftsSection({
-  schedules,
-  onUpdate,
-  readOnly = false,
-}: {
-  schedules: Record<string, WeekSchedule>;
-  onUpdate: (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => void;
-  readOnly?: boolean;
-}) {
-  const [editing, setEditing] = useState<{ helperId: string; day: Weekday } | null>(null);
-
-  // Coverage warnings: any weekday where 2+ helpers are on rest.
-  const restByDay = useMemo(() => {
-    const map: Record<Weekday, string[]> = {
-      Mon: [],
-      Tue: [],
-      Wed: [],
-      Thu: [],
-      Fri: [],
-      Sat: [],
-      Sun: [],
-    };
-    for (const h of HELPERS) {
-      const wk = schedules[h.id];
-      if (!wk) continue;
-      for (const d of WEEKDAYS) if (wk[d].rest) map[d].push(h.short);
-    }
-    return map;
-  }, [schedules]);
-  const warnings = WEEKDAYS.map((d) => ({ day: d, offs: restByDay[d] })).filter(
-    (w) => w.offs.length >= 2,
-  );
-
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-xl text-foreground">Shifts</h2>
-          <p className="text-xs text-muted-foreground">
-            Weekly pattern per helper. Tap a day to edit hours or break.
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
-          <CalendarClock className="h-3 w-3" /> {HELPERS.length} helpers
-        </span>
-      </div>
-
-      {warnings.length > 0 && (
-        <div className="mb-4 space-y-1.5">
-          {warnings.map((w) => (
-            <div
-              key={w.day}
-              className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2 text-xs text-[oklch(0.38_0.09_60)]"
-            >
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                <span className="font-semibold">No one covers {WEEKDAY_LONG[w.day]}</span> —{" "}
-                {w.offs.join(" & ")} both off.
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {HELPERS.map((h) => {
-          const wk = schedules[h.id];
-          if (!wk) return null;
-          const restLabel =
-            WEEKDAYS.filter((d) => wk[d].rest)
-              .map((d) => WEEKDAY_LONG[d])
-              .join(", ") || "None";
-          return (
-            <div key={h.id} className="rounded-2xl border border-border/70 bg-background/40 p-3.5">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Avatar initials={h.initials} />
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{h.name}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {h.station} · Rest: {restLabel}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-1.5">
-                {WEEKDAYS.map((d) => {
-                  const day = wk[d];
-                  const isEditing = editing?.helperId === h.id && editing.day === d;
-                  return (
-                    <button
-                      key={d}
-                      disabled={readOnly}
-                      onClick={() => setEditing(isEditing ? null : { helperId: h.id, day: d })}
-                      className={`flex flex-col items-center rounded-xl border px-1 py-1.5 text-[10px] transition ${
-                        isEditing
-                          ? "border-primary bg-primary/10 text-primary"
-                          : day.rest
-                            ? "border-border/60 bg-secondary/50 text-muted-foreground"
-                            : "border-border/70 bg-card text-foreground hover:border-primary/40"
-                      } ${readOnly ? "cursor-default opacity-95" : ""}`}
-                    >
-                      <span className="font-semibold uppercase tracking-wider">{d}</span>
-                      <span className="mt-0.5 leading-tight">
-                        {day.rest ? "Rest" : day.segments.map((s) => `${s.start}`).join("/") || "—"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                {WEEKDAYS.map((d) => (
-                  <div
-                    key={d}
-                    className={
-                      editing?.helperId === h.id && editing.day === d ? "hidden" : "hidden"
-                    }
-                  />
-                ))}
-                {editing && editing.helperId === h.id ? null : (
-                  <span>{readOnly ? "Remote admin — read-only view." : "Tap a day to edit."}</span>
-                )}
-              </div>
-              {editing && editing.helperId === h.id && (
-                <DayEditor
-                  key={editing.day}
-                  day={editing.day}
-                  value={wk[editing.day]}
-                  onChange={(patch) => onUpdate(h.id, editing.day, patch)}
-                  onClose={() => setEditing(null)}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function DayEditor({
-  day,
-  value,
-  onChange,
-  onClose,
-}: {
-  day: Weekday;
-  value: DaySchedule;
-  onChange: (patch: Partial<DaySchedule>) => void;
-  onClose: () => void;
-}) {
-  const toggleRest = () => {
-    if (value.rest) {
-      onChange({ rest: false, segments: [{ start: "08:00", end: "17:00" }] });
-    } else {
-      onChange({ rest: true, segments: [] });
-    }
-  };
-  const updateSeg = (idx: number, patch: Partial<ShiftSegment>) => {
-    const next = value.segments.map((s, i) => (i === idx ? { ...s, ...patch } : s));
-    onChange({ segments: next });
-  };
-  const addSegment = () =>
-    onChange({ segments: [...value.segments, { start: "14:00", end: "18:00" }] });
-  const removeSegment = (idx: number) =>
-    onChange({ segments: value.segments.filter((_, i) => i !== idx) });
-
-  return (
-    <div className="mt-3 rounded-2xl border border-primary/30 bg-secondary/40 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-xs font-semibold text-pine-deep">{WEEKDAY_LONG[day]}</div>
-        <div className="flex items-center gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-medium text-pine-deep">
-            <input
-              type="checkbox"
-              checked={value.rest}
-              onChange={toggleRest}
-              className="h-3.5 w-3.5 accent-current"
-            />
-            Rest day
-          </label>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1 text-muted-foreground hover:bg-card"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-      {!value.rest && (
-        <div className="space-y-2">
-          {value.segments.map((seg, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="time"
-                value={seg.start}
-                onChange={(e) => updateSeg(i, { start: e.target.value })}
-                className="w-full rounded-lg border border-input bg-card px-2 py-1 text-xs"
-              />
-              <span className="text-muted-foreground">–</span>
-              <input
-                type="time"
-                value={seg.end}
-                onChange={(e) => updateSeg(i, { end: e.target.value })}
-                className="w-full rounded-lg border border-input bg-card px-2 py-1 text-xs"
-              />
-              {value.segments.length > 1 && (
-                <button
-                  onClick={() => removeSegment(i)}
-                  className="rounded-full p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            onClick={addSegment}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/5"
-          >
-            <Plus className="h-3 w-3" /> Split shift
-          </button>
-          <div className="mt-3 border-t border-border/60 pt-2">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Daily rest break
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="time"
-                value={value.breakStart ?? ""}
-                onChange={(e) => onChange({ breakStart: e.target.value || undefined })}
-                className="w-full rounded-lg border border-input bg-card px-2 py-1 text-xs"
-              />
-              <span className="text-muted-foreground">–</span>
-              <input
-                type="time"
-                value={value.breakEnd ?? ""}
-                onChange={(e) => onChange({ breakEnd: e.target.value || undefined })}
-                className="w-full rounded-lg border border-input bg-card px-2 py-1 text-xs"
-              />
-              {(value.breakStart || value.breakEnd) && (
-                <button
-                  onClick={() => onChange({ breakStart: undefined, breakEnd: undefined })}
-                  className="rounded-full p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground">Summary: {summarizeDay(value)}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NeedsYou({
   blocked,
   pendingVales,
@@ -2423,118 +2067,6 @@ function NeedsYou({
             );
           }),
         )}
-      </div>
-    </section>
-  );
-}
-
-// ---------- Rosa's own weekly view ----------
-function MyWeekCard({ weekSchedule, simDate }: { weekSchedule: WeekSchedule; simDate: Date }) {
-  const todayWd = weekdayOf(simDate);
-  const today = weekSchedule[todayWd];
-  // Find the next rest day starting from today (0 = today, 1 = tomorrow…).
-  const todayIdx = WEEKDAYS.indexOf(todayWd);
-  let nextRest: { day: Weekday; inDays: number } | null = null;
-  for (let i = 0; i < 7; i++) {
-    const d = WEEKDAYS[(todayIdx + i) % 7];
-    if (weekSchedule[d].rest) {
-      nextRest = { day: d, inDays: i };
-      break;
-    }
-  }
-  const restLabel = nextRest
-    ? nextRest.inDays === 0
-      ? "Today — enjoy your rest"
-      : nextRest.inDays === 1
-        ? `${WEEKDAY_LONG[nextRest.day]} — tomorrow`
-        : `${WEEKDAY_LONG[nextRest.day]} — ${nextRest.inDays} days away`
-    : "No rest day set";
-
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg text-foreground">My Week</h2>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
-          <Calendar className="h-3 w-3" /> {WEEKDAY_LONG[todayWd]}
-        </span>
-      </div>
-
-      {/* Today at a glance */}
-      <div className="mt-3 rounded-2xl bg-secondary/60 p-3.5">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-pine-deep/80">
-          Today
-        </div>
-        {today.rest ? (
-          <div className="mt-1 font-display text-lg text-pine-deep">Rest day — salamat, Ate.</div>
-        ) : (
-          <>
-            <div className="mt-1 font-display text-lg text-pine-deep">
-              {today.segments.map((s) => `${fmtHM12(s.start)} – ${fmtHM12(s.end)}`).join(" & ")}
-            </div>
-            {today.breakStart && today.breakEnd && (
-              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-card px-2 py-0.5 text-[11px] font-medium text-pine-deep">
-                <Moon className="h-3 w-3" /> Break {fmtHM12(today.breakStart)}–
-                {fmtHM12(today.breakEnd)}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Upcoming rest day */}
-      <div className="mt-3 flex items-start gap-2 rounded-2xl border border-terracotta/30 bg-terracotta-soft/40 p-3">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.55_0.13_60)]" />
-        <div className="text-sm text-pine-deep">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-pine-deep/70">
-            Rest day
-          </div>
-          <div className="font-semibold">{restLabel}</div>
-        </div>
-      </div>
-
-      {/* Week ahead */}
-      <div className="mt-4">
-        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Week ahead
-        </div>
-        <div className="grid grid-cols-7 gap-1.5">
-          {WEEKDAYS.map((d, i) => {
-            const day = weekSchedule[d];
-            const isToday = d === todayWd;
-            const rest = day.rest;
-            return (
-              <div
-                key={d}
-                className={`flex flex-col items-center rounded-xl border px-1 py-1.5 text-[10px] transition ${
-                  isToday
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : rest
-                      ? "border-terracotta/40 bg-terracotta-soft/40 text-[oklch(0.38_0.09_60)]"
-                      : "border-border/60 bg-background/40 text-foreground"
-                }`}
-              >
-                <span className="font-semibold uppercase tracking-wider">{d}</span>
-                <span className="mt-0.5 leading-tight">
-                  {rest
-                    ? "Rest"
-                    : day.segments[0]
-                      ? fmtHM12(day.segments[0].start).replace(" ", "")
-                      : "—"}
-                </span>
-                {!rest && day.segments.length > 1 && (
-                  <span
-                    className={`text-[9px] ${isToday ? "text-primary-foreground/80" : "text-muted-foreground"}`}
-                  >
-                    +split
-                  </span>
-                )}
-                <span aria-hidden className="sr-only">
-                  {i}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </section>
   );
@@ -3404,504 +2936,6 @@ function UtosChip({
   );
 }
 
-// ---------- Appointments ----------
-function AppointmentsSection({
-  appointments,
-  tasks,
-  simDate,
-  onAdd,
-  onRemove,
-  onUpdate,
-}: {
-  appointments: Appointment[];
-  tasks: Task[];
-  simDate: Date;
-  onAdd: (
-    a: Omit<Appointment, "id">,
-    preps: Array<{ title: string; leadMinutes: number; helperId: string; note?: string }>,
-  ) => void;
-  onRemove: (id: string) => void;
-  onUpdate: (id: string, patch: { title: string; date: string; time: string }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Appointment | null>(null);
-  const todayIso = toISODate(simDate);
-  const upcoming = [...appointments]
-    .filter((a) => a.date >= todayIso)
-    .sort((a, b) =>
-      a.date === b.date
-        ? parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
-        : a.date < b.date
-          ? -1
-          : 1,
-    );
-
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-soft sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-            <CalendarClock className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-foreground">
-              Appointments · {upcoming.length}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Fixed events. Prep tasks land on the board automatically.
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
-        >
-          <Plus className="h-3.5 w-3.5" /> New appointment
-        </button>
-      </div>
-
-      {upcoming.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
-          No upcoming appointments. Add one to schedule its prep automatically.
-        </p>
-      ) : (
-        <ul className="space-y-2.5">
-          {upcoming.map((a) => {
-            const preps = tasks
-              .filter((t) => t.appointmentId === a.id)
-              .sort(
-                (x, y) =>
-                  (x.scheduledDate ?? "").localeCompare(y.scheduledDate ?? "") ||
-                  parseTimeToMinutes(x.time) - parseTimeToMinutes(y.time),
-              );
-            return (
-              <li key={a.id} className="rounded-2xl border border-border/70 bg-background/60 p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      <CalendarClock className="h-3 w-3" /> {formatAppointmentDate(a.date)} ·{" "}
-                      {a.time}
-                    </div>
-                    <h4 className="mt-1.5 font-display text-lg text-foreground">{a.title}</h4>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => setEditing(a)}
-                      className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => onRemove(a.id)}
-                      className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      aria-label="Remove appointment"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                {preps.length > 0 && (
-                  <ul className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
-                    {preps.map((p) => {
-                      const helper = helperById(p.helperId);
-                      return (
-                        <li key={p.id} className="flex items-start justify-between gap-2 text-xs">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-foreground">{p.title}</span>
-                              <span
-                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${stationTone[p.station]}`}
-                              >
-                                {p.station}
-                              </span>
-                            </div>
-                            <div className="mt-0.5 text-[11px] text-muted-foreground">
-                              {formatAppointmentDate(p.scheduledDate ?? a.date)} · {p.time} ·{" "}
-                              {helper.short}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {open && (
-        <NewAppointmentModal
-          onClose={() => setOpen(false)}
-          onAdd={(a, preps) => {
-            onAdd(a, preps);
-            setOpen(false);
-          }}
-          defaultDate={toISODate(simDate)}
-        />
-      )}
-      {editing && (
-        <EditAppointmentModal
-          appointment={editing}
-          onClose={() => setEditing(null)}
-          onSave={(patch) => {
-            onUpdate(editing.id, patch);
-            setEditing(null);
-          }}
-        />
-      )}
-    </section>
-  );
-}
-
-// ---------- New appointment modal ----------
-type PrepRow = {
-  title: string;
-  leadValue: number;
-  leadUnit: "m" | "h";
-  helperId: string;
-  note: string;
-};
-
-function NewAppointmentModal({
-  onClose,
-  onAdd,
-  defaultDate,
-}: {
-  onClose: () => void;
-  onAdd: (
-    a: Omit<Appointment, "id">,
-    preps: Array<{ title: string; leadMinutes: number; helperId: string; note?: string }>,
-  ) => void;
-  defaultDate: string;
-}) {
-  const [templateId, setTemplateId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState("06:00");
-  const [preps, setPreps] = useState<PrepRow[]>([
-    { title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" },
-  ]);
-
-  const applyTemplate = (tmpl: EventTemplate) => {
-    setTemplateId(tmpl.id);
-    if (!title.trim()) setTitle(tmpl.title);
-    setPreps(
-      tmpl.preps.map((p) => {
-        const useHours = p.leadMinutes % 60 === 0;
-        return {
-          title: p.title,
-          leadValue: useHours ? p.leadMinutes / 60 : p.leadMinutes,
-          leadUnit: useHours ? "h" : "m",
-          helperId: p.helperId,
-          note: p.note,
-        };
-      }),
-    );
-  };
-
-  const clearTemplate = () => {
-    setTemplateId(null);
-    setPreps([{ title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" }]);
-  };
-
-  const addRow = () =>
-    setPreps((p) => [
-      ...p,
-      { title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" },
-    ]);
-  const removeRow = (i: number) => setPreps((p) => p.filter((_, idx) => idx !== i));
-  const updateRow = (i: number, patch: Partial<PrepRow>) =>
-    setPreps((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-
-  const submit = () => {
-    if (!title.trim()) return;
-    const [h, m] = time.split(":").map(Number);
-    const suffix = h >= 12 ? "PM" : "AM";
-    const hr = ((h + 11) % 12) + 1;
-    const appTime = `${hr}:${String(m).padStart(2, "0")} ${suffix}`;
-    const validPreps = preps
-      .filter((r) => r.title.trim())
-      .map((r) => ({
-        title: r.title.trim(),
-        leadMinutes: r.leadUnit === "h" ? r.leadValue * 60 : r.leadValue,
-        helperId: r.helperId,
-        note: r.note.trim() || undefined,
-      }));
-    onAdd({ title: title.trim(), date, time: appTime }, validPreps);
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-xl text-foreground">New appointment</h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-4 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Start from a template
-              </span>
-              {templateId && (
-                <button
-                  type="button"
-                  onClick={clearTemplate}
-                  className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {EVENT_TEMPLATES.map((tmpl) => {
-                const active = templateId === tmpl.id;
-                return (
-                  <button
-                    type="button"
-                    key={tmpl.id}
-                    onClick={() => applyTemplate(tmpl)}
-                    title={tmpl.blurb}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "border-primary bg-primary text-primary-foreground shadow-soft"
-                        : "border-border bg-card text-pine-deep hover:border-primary/40"
-                    }`}
-                  >
-                    {tmpl.title}
-                  </button>
-                );
-              })}
-            </div>
-            {templateId && (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Prep loaded from template. House-standard notes come along — tweak below if needed,
-                then set the date and time.
-              </p>
-            )}
-          </div>
-          <Field label="Title">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Sir's flight"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Date">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </div>
-
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Prep tasks
-              </span>
-              <button
-                type="button"
-                onClick={addRow}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/5"
-              >
-                <Plus className="h-3 w-3" /> Add prep
-              </button>
-            </div>
-            <div className="space-y-3">
-              {preps.map((p, i) => (
-                <div key={i} className="rounded-xl border border-border/70 bg-card p-2.5">
-                  <div className="flex items-start gap-2">
-                    <input
-                      value={p.title}
-                      onChange={(e) => updateRow(i, { title: e.target.value })}
-                      placeholder="Prep task title"
-                      className="flex-1 rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeRow(i)}
-                      className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      aria-label="Remove prep"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        How long before
-                      </span>
-                      <div className="flex gap-1.5">
-                        <input
-                          type="number"
-                          min={0}
-                          value={p.leadValue}
-                          onChange={(e) =>
-                            updateRow(i, { leadValue: Math.max(0, Number(e.target.value) || 0) })
-                          }
-                          className="w-16 rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-                        />
-                        <select
-                          value={p.leadUnit}
-                          onChange={(e) => updateRow(i, { leadUnit: e.target.value as "m" | "h" })}
-                          className="flex-1 rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-                        >
-                          <option value="m">minutes</option>
-                          <option value="h">hours</option>
-                        </select>
-                      </div>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Assign to
-                      </span>
-                      <select
-                        value={p.helperId}
-                        onChange={(e) => updateRow(i, { helperId: e.target.value })}
-                        className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-                      >
-                        {HELPERS.map((h) => (
-                          <option key={h.id} value={h.id}>
-                            {h.short} · {h.station}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <textarea
-                    value={p.note}
-                    onChange={(e) => updateRow(i, { note: e.target.value })}
-                    rows={2}
-                    placeholder="House-standard note (optional)"
-                    className="mt-2 w-full resize-none rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-          >
-            Save appointment
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EditAppointmentModal({
-  appointment,
-  onClose,
-  onSave,
-}: {
-  appointment: Appointment;
-  onClose: () => void;
-  onSave: (patch: { title: string; date: string; time: string }) => void;
-}) {
-  const [title, setTitle] = useState(appointment.title);
-  const [date, setDate] = useState(appointment.date);
-  const [time, setTime] = useState(displayTimeTo24h(appointment.time));
-
-  const submit = () => {
-    if (!title.trim()) return;
-    const [h, m] = time.split(":").map(Number);
-    const suffix = h >= 12 ? "PM" : "AM";
-    const hr = ((h + 11) % 12) + 1;
-    const appTime = `${hr}:${String(m).padStart(2, "0")} ${suffix}`;
-    onSave({ title: title.trim(), date, time: appTime });
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-xl text-foreground">Edit appointment</h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Prep tasks will move automatically to keep their lead offsets.
-        </p>
-        <div className="mt-4 space-y-3">
-          <Field label="Title">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Date">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </div>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-          >
-            Save changes
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function RosaStatusChip({ status }: { status: RosaStatus }) {
   const mounted = useMounted();
   const meta = statusMeta(mounted ? status.status : "off");
@@ -4017,98 +3051,6 @@ function RosaAvailControl({
               </>
             )}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SimClock({
-  nowTs,
-  offsetMs,
-  onChange,
-}: {
-  nowTs: number;
-  offsetMs: number | null;
-  onChange: (v: number | null) => void;
-}) {
-  const mounted = useMounted();
-  const [open, setOpen] = useState(false);
-  const jumpTo = (opts: {
-    dayOffset?: number;
-    toSunday?: boolean;
-    hour: number;
-    minute?: number;
-  }) => {
-    const base = new Date();
-    if (opts.toSunday) {
-      const dow = base.getDay();
-      const add = (7 - dow) % 7 || 7; // next Sunday (never today)
-      base.setDate(base.getDate() + add);
-    } else if (opts.dayOffset) {
-      base.setDate(base.getDate() + opts.dayOffset);
-    }
-    base.setHours(opts.hour, opts.minute ?? 0, 0, 0);
-    onChange(base.getTime() - Date.now());
-    setOpen(false);
-  };
-  const isSim = offsetMs !== null;
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-soft transition sm:text-xs ${
-          isSim
-            ? "border-accent/50 bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]"
-            : "border-border bg-card text-muted-foreground"
-        }`}
-        title="Simulate the clock for demo"
-      >
-        <CalendarClock className="h-3.5 w-3.5" />
-        <span className="whitespace-nowrap tabular-nums" suppressHydrationWarning>
-          {mounted ? formatClock(nowTs) : "—"}
-        </span>
-        {isSim && <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px]">SIM</span>}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-2xl border border-border bg-card p-2 shadow-lift">
-          <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Simulate time
-          </div>
-          {[
-            {
-              label: "Real time",
-              desc: "Now, live",
-              action: () => {
-                onChange(null);
-                setOpen(false);
-              },
-            },
-            {
-              label: "After shift · 7:00 PM",
-              desc: "Off-shift auto-off",
-              action: () => jumpTo({ hour: 19 }),
-            },
-            {
-              label: "Overnight · 11:00 PM",
-              desc: "Quiet hours hard-off",
-              action: () => jumpTo({ hour: 23 }),
-            },
-            {
-              label: "Rest day · Sun 10 AM",
-              desc: "Off by default all day",
-              action: () => jumpTo({ toSunday: true, hour: 10 }),
-            },
-          ].map((opt) => (
-            <button
-              key={opt.label}
-              onClick={opt.action}
-              className="flex w-full flex-col items-start rounded-xl px-2.5 py-2 text-left text-xs transition hover:bg-secondary/60"
-            >
-              <span className="font-semibold text-foreground">{opt.label}</span>
-              <span className="text-[10.5px] text-muted-foreground">{opt.desc}</span>
-            </button>
-          ))}
         </div>
       )}
     </div>
