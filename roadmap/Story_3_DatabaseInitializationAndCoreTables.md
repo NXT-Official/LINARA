@@ -9,7 +9,7 @@ Establish the relational PostgreSQL database schemas inside the Supabase instanc
 *   Legacy Spec: [`original-ARCHITECTURE.md`](../original-ARCHITECTURE.md) Section 4
 
 ## Dependencies
-*   [`Story_2_CodebaseAuditAndBaselineVerification.md`](Story_2_CodebaseAuditAndBaselineVerification.md)
+*   [`Story_2_SASTToolingAndCIDCPipelineSetup.md`](Story_2_SASTToolingAndCIDCPipelineSetup.md)
 
 ## Explicit Inputs
 *   File: [`architecture.md`](../architecture.md) Section 8.1 (Full SQL Schema)

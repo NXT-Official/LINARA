@@ -10,9 +10,9 @@ All stories account for the **CRITICAL PRE-EXISTING CONTEXT PRIORITY**, verifyin
 
 The execution plan is split into 6 structured, independent, and sequential phases:
 
-### Phase 1: Setup
-*   **[`Story_1_ProjectSetupAndDirectoryExtraction.md`](roadmap/Story_1_ProjectSetupAndDirectoryExtraction.md):** Environment files, folder conventions, and bootstrap extraction.
-*   **[`Story_2_CodebaseAuditAndBaselineVerification.md`](roadmap/Story_2_CodebaseAuditAndBaselineVerification.md):** Analysis of the original index.tsx, creating utility boundaries and baseline tests.
+### Phase 1: Setup, DevSecOps, & Pre-Flight Bootstrapping
+*   **[`Story_1_EnvironmentBaselineAndDependencyIngestion.md`](roadmap/Story_1_EnvironmentBaselineAndDependencyIngestion.md):** Establish local environment files, update gitignore boundaries, run clean dependency checks, and verify compiler baseline.
+*   **[`Story_2_SASTToolingAndCIDCPipelineSetup.md`](roadmap/Story_2_SASTToolingAndCIDCPipelineSetup.md):** Configure ESLint security rule engines (SAST), audit code quality rules, and establish automated pull request CI/CD pipeline triggers.
 
 ### Phase 2: Backend Core
 *   **[`Story_3_DatabaseInitializationAndCoreTables.md`](roadmap/Story_3_DatabaseInitializationAndCoreTables.md):** Migration schemas for PostgreSQL tables matching prototype properties.
