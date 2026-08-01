@@ -2,7 +2,7 @@ import { Check, Sparkles } from "lucide-react";
 
 import type { Task } from "@/features/tasks/task.types";
 
-// ---------- Remote-admin "OFW view" glance ----------
+/** The OFW view: what got done today, mostly as photos. Read-only by design. */
 export function RemoteGlance({
   active,
   helperName,

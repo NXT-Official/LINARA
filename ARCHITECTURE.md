@@ -71,20 +71,43 @@
     ├── routes/
     │   ├── README.md            ← routing conventions cheat-sheet
     │   ├── __root.tsx           ← root layout, <html>/<head>, providers, SEO meta
-    │   └── index.tsx            ← ENTIRE APP (~5700 lines, single-file prototype)
+    │   └── index.tsx            ← the `/` route: renders <LinaraApp />, nothing else
+    ├── features/                ← one folder per domain, see below
+    │   ├── appointments/        ← fixed events + the prep tasks they schedule
+    │   ├── availability/        ← quiet hours, shift-derived status, the send gate
+    │   ├── dashboard/           ← composition root, top bar, manager/helper views
+    │   ├── groceries/           ← list, budget, receipt (the one React context)
+    │   ├── ledger/              ← off-shift work owed back, vales, pay record
+    │   ├── notes/               ← the helper's private scratchpad
+    │   ├── pantry/              ← stock levels and par
+    │   ├── people/              ← helpers, admins, invite → claim lifecycle
+    │   ├── shifts/              ← weekly schedule per helper
+    │   ├── tasks/               ← the board, routines, task cards and modals
+    │   └── utos/                ← the day's ephemeral quick asks
     ├── components/
+    │   ├── shared/              ← avatar, field, detail-row, bottom-nav
     │   └── ui/                  ← shadcn primitives (button, card, dialog, …)
     ├── hooks/
-    │   └── use-mobile.tsx
+    │   ├── use-mobile.tsx
+    │   └── use-mounted.ts       ← hydration guard for clock/status UI
     └── lib/
         ├── utils.ts             ← cn() helper
+        ├── time.ts              ← weekdays, time parsing/formatting, prep scheduling
         ├── error-capture.ts     ← records the original error h3 swallows during SSR
         └── error-page.ts        ← static HTML fallback for a failed SSR render
 ```
 
-### Why one big `index.tsx`?
+### Feature folder layout
 
-This is an interactive prototype exploring product shape (roles, flows, tone). Keeping everything in one file lets multi-role state (managers ↔ helper ↔ remote admin) stay trivially in sync and lets the design iterate fast. A production split would extract the components in Section 5 into `src/features/*` folders backed by real data.
+Each feature owns its own `*.types.ts`, `*.constants.ts`, `*.utils.ts`, `hooks/`, and
+`components/`. Dependencies run one way — routes → views → feature hooks → feature
+types/constants/utils → `src/lib`. Cross-feature imports are allowed but only downhill
+(a component may import another feature's types or a shared primitive; a utility never
+imports a component). There are no barrel files: imports name the module they come from.
+
+This is still a front-end-only prototype — all data lives in React state and a refresh
+resets everything. What the split bought is that each domain's state transitions live in
+one typed hook instead of one 7,900-line component.
 
 ---
 
@@ -98,9 +121,10 @@ This is an interactive prototype exploring product shape (roles, flows, tone). K
 
 ---
 
-## 4. Data Model (types in `src/routes/index.tsx`)
+## 4. Data Model
 
-All types are local to the single route file. Grouped by concern:
+Each type lives beside the feature that owns it (`src/features/<feature>/<feature>.types.ts`).
+Grouped by concern:
 
 ### People & roles
 
@@ -176,18 +200,24 @@ type Invite = {
 
 ### Cross-cutting context
 
-- `GroceryCtx` (React `createContext`) shares the grocery list between manager and helper views.
-- Constants: `QUIET_START_HOUR=22`, `QUIET_END_HOUR=6`, `MON_FRI`, `INITIAL_*` seed data for helpers, admins, schedules, tasks, appointments, pantry, and prep tasks derived from event templates.
+- `GroceryContext` (`src/features/groceries/`) is the only React context. It exists because
+  the same list is read from two sibling branches — the Pantry tab and the Palengke task
+  cards — on both the manager and helper sides. `useGrocery()` throws outside its provider.
+- Constants live with their feature: `QUIET_START_HOUR=22` / `QUIET_END_HOUR=6`
+  (`availability`), `MON_FRI` and `INITIAL_TASKS` (`tasks`), `INITIAL_*` seed data for
+  helpers, admins, schedules, appointments, and pantry in their own folders.
 
 ---
 
 ## 5. Component Architecture
 
-The single-file app is organized as one root state container plus role-scoped views and reusable UI blocks. Approximate structure:
+`LinaraApp` (`src/features/dashboard/components/linara-app.tsx`) is the composition root:
+it creates each feature store and hands it to the one view that needs it. Approximate
+structure:
 
 ```
-<Route />
-└── <LinaraApp/>                       ← owns ALL state; wires callbacks
+<Route />                              ← src/routes/index.tsx, 7 lines
+└── <LinaraApp/>                       ← creates the feature stores, picks the view
     ├── <TopBar/>                      ← persona switcher, sim clock, EOD toggle
     │   ├── <EndOfDayToggle/>
     │   └── <ViewAsSwitcher/>
@@ -201,12 +231,14 @@ The single-file app is organized as one root state container plus role-scoped vi
     │   ├── <PeopleSection/>
     │   │   ├── <InviteHelperModal/>
     │   │   └── <InviteCodeScreen/>
+    │   ├── <ManagerPassTab/>          ← status line, Needs-you, The Line / The Board
     │   ├── Pantry + Grocery
     │   ├── Ledger / Vale approvals
-    │   └── <QuickUtosLauncher/> + <QuickUtosFeed/>
+    │   └── <QuickUtosLauncher/> + <AvailabilityGate/>
     ├── <HelperView/>                  ← Ate Rosa
     │   ├── Claim entry → <ClaimAccountFlow/> → <ClaimedWelcome/>
-    │   ├── <NextTaskCard/> + <BlockReasonModal/>
+    │   ├── <HelperTaskLists/>         ← next / later / waiting / done
+    │   │   └── <NextTaskCard/> + <BlockReasonModal/>
     │   ├── <MyWeekCard/>              ← read-only week view
     │   ├── <MyTerms/>                 ← "record is yours" transparency card
     │   ├── <PayRecord/> + <ValeRequestModal/>
@@ -233,7 +265,7 @@ The single-file app is organized as one root state container plus role-scoped vi
 - Brand tokens applied via inline hex + Tailwind utility classes (no ad-hoc `text-white` / arbitrary purples).
 - All modals are Radix Dialogs from `src/components/ui/dialog.tsx`.
 - Icons from `lucide-react`.
-- Time is simulated: `LinaraApp` holds a `simOffsetMs` so the whole UI can be pushed to any hour to demo quiet-hours / after-shift behavior.
+- Time is simulated: `useSimClock()` holds a `simOffsetMs` so the whole UI can be pushed to any hour to demo quiet-hours / after-shift behavior.
 
 ---
 
@@ -241,9 +273,28 @@ The single-file app is organized as one root state container plus role-scoped vi
 
 ### State ownership
 
-`LinaraApp` (in `src/routes/index.tsx`, ~L454+) is the single source of truth. Every mutation is a callback passed down. Notable state slices:
+Each domain owns its state in a typed hook; `LinaraApp` wires them together and passes the
+stores down. Views destructure the store they were handed rather than taking a prop per
+callback.
 
-- `tasks`, `routines`, `appointments`, `pantry`, `grocery`, `ledger`, `vales`, `utosList`, `schedules`, `invites`, `admins`, `boardClosed`, `simOffsetMs`, `rosaStatus`, `viewAs`.
+| Hook                           | Owns                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| `useSession`                   | `admins`, `viewAs`, derived `role` / `adminType`             |
+| `useTaskBoard`                 | `tasks`, `routines`, `boardClosed`, `simDate`, `startNewDay` |
+| `useAppointments`              | `appointments`; drives prep tasks through the board          |
+| `useSchedules`                 | `schedules`, `weekFor(helperId)`                             |
+| `useAvailability`              | Rosa's derived `status` + her bounded manual opt-in          |
+| `useSendGate`                  | the friction wall in front of an Off helper                  |
+| `useLedger` / `useVales`       | off-shift work owed back; cash advances                      |
+| `useUtos`                      | the day's quick asks and the nightly wipe                    |
+| `usePantry` / `useGroceryList` | stock levels; list, budget, receipt                          |
+| `useMyNotes`                   | the helper's private scratchpad                              |
+| `useSimClock`                  | the demo clock offset and 30s tick                           |
+
+Wiring worth knowing: the board does not know about the ledger. On completion it reports a
+`CompletionRecord`, and `useLedger.record` decides whether the work was off-shift and how
+to classify it. `useAppointments` receives the board's `setTasks` so prep tasks move with
+their event.
 
 ### Task lifecycle
 
@@ -289,7 +340,7 @@ The single-file app is organized as one root state container plus role-scoped vi
 
 The prototype is deliberately state-only. A realistic path to production:
 
-1. **Extract features.** Split `src/routes/index.tsx` into `src/features/{board,people,shifts,ledger,pantry,utos,notes,invites}/` with typed hooks and colocated components.
+1. ~~**Extract features.**~~ Done — see Sections 2 and 6.
 2. **Persist state.** Add a database (Postgres/Supabase or equivalent). Model tables mirror Section 4 types (`tasks`, `routines`, `appointments`, `helpers`, `admins`, `schedules`, `pantry_items`, `grocery_items`, `vales`, `ledger_entries`, `invites`, `invite_flags`, `quick_utos`, `notes`). Follow the project's user-roles pattern (separate `user_roles` table + `has_role` SECURITY DEFINER; never store roles on profiles). Always pair `CREATE TABLE public.*` with explicit `GRANT`s and RLS policies.
 3. **Server functions.** Move mutations to `createServerFn` in `src/lib/*.functions.ts`, behind an auth middleware. Public webhooks (e.g. SMS invite) go under `src/routes/api/public/*` with signature verification.
 4. **Real-time.** Use realtime channels (e.g. Supabase realtime or a websocket route) for `tasks`, `utos`, and `ledger` so manager and helper devices stay in sync without polling.

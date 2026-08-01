@@ -4,7 +4,7 @@ import { helperById } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 
-// ---------- Remote admin's own suggestion tray ----------
+/** A remote admin's own pending suggestions, with the option to withdraw one. */
 export function MySuggestions({
   suggestions,
   onWithdraw,

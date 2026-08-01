@@ -7,7 +7,6 @@ import { HELPERS } from "@/features/people/people.constants";
 import { EVENT_TEMPLATES } from "../appointment.constants";
 import type { Appointment, EventTemplate, PrepDraft } from "../appointment.types";
 
-// ---------- New appointment modal ----------
 export type PrepRow = {
   title: string;
   leadValue: number;

@@ -1,6 +1,6 @@
 import type { Admin, AdminType, Helper, Station } from "./people.types";
 
-// ---------- Mock data ----------
+// Seed household. No backend yet — this is the whole roster.
 export const HELPERS: Helper[] = [
   {
     id: "rosa",
@@ -31,7 +31,6 @@ export const HELPERS: Helper[] = [
   },
 ];
 
-// ---------- Admins (household) ----------
 export const INITIAL_ADMINS: Admin[] = [
   {
     id: "ben",

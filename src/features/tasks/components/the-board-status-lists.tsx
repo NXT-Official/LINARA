@@ -6,7 +6,7 @@ import type { Task } from "../task.types";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
-// ---------- The Board: status-oriented view (built, not yet wired) ----------
+/** The Board layout: today's tasks by status, in time order, with a 'now' marker. */
 export function TheBoardStatusLists({ tasks }: { tasks: Task[] }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
   const sorted = useMemo(

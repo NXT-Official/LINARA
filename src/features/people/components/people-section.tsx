@@ -11,8 +11,7 @@ import { initialsOf } from "../people.utils";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
 
-// ---------- Shifts (weekly schedule per helper) ----------
-// ---------- People (household admins + helpers) ----------
+/** The household roster: admins with editable roles, helpers, and pending invites. */
 export function PeopleSection({
   admins,
   currentAdmin,

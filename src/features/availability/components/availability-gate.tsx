@@ -4,7 +4,7 @@ import type { Task } from "@/features/tasks/task.types";
 
 import type { RosaStatus } from "../availability.types";
 
-// ---------- Availability gate ----------
+/** Friction wall before reaching a helper who is Off: wait, override, or emergency. */
 export function AvailabilityGate({
   intent,
   status,

@@ -3,12 +3,11 @@ import type { Status, Task } from "@/features/tasks/task.types";
 import { computePrepSchedule } from "@/lib/time";
 import type { Appointment, EventTemplate } from "./appointment.types";
 
-// ---------- Seed appointments ----------
 export const INITIAL_APPOINTMENTS: Appointment[] = [
   { id: "a1", title: "Sir's airport departure", date: "2026-07-10", time: "6:00 AM" },
 ];
 
-// ---------- Event templates (reusable appointment recipes) ----------
+// Reusable appointment recipes — picking one preloads its prep rows.
 
 export const EVENT_TEMPLATES: EventTemplate[] = [
   {

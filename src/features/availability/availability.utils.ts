@@ -2,7 +2,6 @@ import type { RosaStatus } from "./availability.types";
 
 // Chip styling for each availability state — shared by the manager chip and Rosa's control.
 
-// ---------- Rosa availability ----------
 export function statusMeta(s: RosaStatus["status"]) {
   if (s === "on_shift")
     return {

@@ -1,6 +1,5 @@
 import type { LedgerEntry, LedgerReason } from "./ledger.types";
 
-// ---------- After-hours ledger (identical numbers on both sides) ----------
 export function ledgerEntryMinutes(e: LedgerEntry) {
   return Math.max(0, e.autoMinutes + e.adjustMinutes);
 }

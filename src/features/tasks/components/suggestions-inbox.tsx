@@ -6,7 +6,7 @@ import { helperById } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 
-// ---------- Suggestions inbox (visible to Primary/Co) ----------
+/** Remote-admin suggestions awaiting an on-site manager's approval onto the board. */
 export function SuggestionsInbox({
   suggestions,
   onApprove,

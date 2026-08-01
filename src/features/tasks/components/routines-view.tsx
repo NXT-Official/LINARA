@@ -8,7 +8,6 @@ import type { Routine } from "../task.types";
 import { NewRoutineModal } from "./new-routine-modal";
 import { RoutineRow } from "./routine-row";
 
-// ---------- Routines ----------
 export function RoutinesView({
   routines,
   onAdd,

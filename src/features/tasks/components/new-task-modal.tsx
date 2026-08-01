@@ -7,7 +7,6 @@ import { WEEKDAYS, type Weekday } from "@/lib/time";
 
 import type { Recurrence, Task } from "../task.types";
 
-// ---------- New task modal ----------
 export function NewTaskModal({
   onClose,
   onAdd,

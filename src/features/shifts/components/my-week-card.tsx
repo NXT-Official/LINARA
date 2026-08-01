@@ -4,7 +4,7 @@ import { fmtHM12, WEEKDAY_LONG, WEEKDAYS, weekdayOf, type Weekday } from "@/lib/
 
 import type { WeekSchedule } from "../shift.types";
 
-// ---------- Rosa's own weekly view ----------
+/** The helper's own read-only week: today's hours, next rest day, week ahead. */
 export function MyWeekCard({
   weekSchedule,
   simDate,
