@@ -3,9 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Moon,
   Plus,
-  Play,
   Check,
-  Camera,
   Wallet,
   ClipboardList,
   X,
@@ -15,7 +13,6 @@ import {
   RotateCcw,
   HelpCircle,
   Coins,
-  Repeat,
   Send,
   Mic,
   Zap,
@@ -41,10 +38,22 @@ import { useMounted } from "@/hooks/use-mounted";
 import { GroceryProvider } from "@/features/groceries/components/grocery-provider";
 import { GrocerySection } from "@/features/groceries/components/grocery-section";
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
-import { PalengkeInlineList } from "@/features/groceries/components/palengke-inline-list";
 import { TodaysSpendDial } from "@/features/groceries/components/todays-spend-dial";
 import { PantrySection } from "@/features/pantry/components/pantry-section";
 import { usePantry, type PantryStore } from "@/features/pantry/hooks/use-pantry";
+
+import { BlockReasonModal } from "@/features/tasks/components/block-reason-modal";
+import { HelperLane } from "@/features/tasks/components/helper-lane";
+import { MySuggestions } from "@/features/tasks/components/my-suggestions";
+import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
+import { NextTaskCard } from "@/features/tasks/components/next-task-card";
+import { RescheduleNotice } from "@/features/tasks/components/reschedule-notice";
+import { RoutinesView } from "@/features/tasks/components/routines-view";
+import { SuggestionsInbox } from "@/features/tasks/components/suggestions-inbox";
+import { TaskCard } from "@/features/tasks/components/task-card";
+import { TheBoardStatusLists } from "@/features/tasks/components/the-board-status-lists";
+
+import { useTaskBoard, type CompletionRecord } from "@/features/tasks/hooks/use-task-board";
 
 export const Route = createFileRoute("/")({
   component: LinaraApp,
@@ -55,7 +64,6 @@ import type { RosaStatus } from "@/features/availability/availability.types";
 import {
   EVENT_TEMPLATES,
   INITIAL_APPOINTMENTS,
-  INITIAL_PREP_TASKS,
 } from "@/features/appointments/appointment.constants";
 import type { Appointment, EventTemplate } from "@/features/appointments/appointment.types";
 import type {
@@ -71,7 +79,6 @@ import {
   adminTypeShort,
   HELPERS,
   INITIAL_ADMINS,
-  STATION_HEX,
   stationTone,
 } from "@/features/people/people.constants";
 import type {
@@ -87,9 +94,8 @@ import { helperById } from "@/features/people/people.utils";
 import { INITIAL_SCHEDULES } from "@/features/shifts/shift.constants";
 import type { DaySchedule, ShiftSegment, WeekSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInDay, summarizeDay } from "@/features/shifts/shift.utils";
-import { INITIAL_ROUTINES, INITIAL_TASKS, PHOTO_POOL } from "@/features/tasks/task.constants";
-import type { Recurrence, Routine, Status, Task } from "@/features/tasks/task.types";
-import { isPalengke, recurrenceLabel, routineMatches } from "@/features/tasks/task.utils";
+import type { Routine, Status, Task } from "@/features/tasks/task.types";
+import { isPalengke } from "@/features/tasks/task.utils";
 import { QUICK_UTOS_PRESETS } from "@/features/utos/utos.constants";
 import type { QuickUtos } from "@/features/utos/utos.types";
 import {
@@ -117,10 +123,7 @@ function LinaraApp() {
   const adminType: AdminType | null = currentAdmin ? currentAdmin.type : null;
   const updateAdminType = (id: string, type: AdminType) =>
     setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, type } : a)));
-  const [tasks, setTasks] = useState<Task[]>([...INITIAL_TASKS, ...INITIAL_PREP_TASKS]);
   const [vales, setVales] = useState<ValeRequest[]>([]);
-  const [boardClosed, setBoardClosed] = useState(false);
-  const [routines, setRoutines] = useState<Routine[]>(INITIAL_ROUTINES);
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [ledgerDefault, setLedgerDefault] = useState<LedgerResolution>("rest");
@@ -174,8 +177,6 @@ function LinaraApp() {
   };
   const pantry = usePantry();
 
-  // Simulated "today" — starts on Tuesday, July 7, 2026 to match the seed board.
-  const [simDate, setSimDate] = useState<Date>(new Date(2026, 6, 7));
   const currentHelperId = "rosa";
 
   // ---- Shift schedules (per helper, per weekday) ----
@@ -313,118 +314,62 @@ function LinaraApp() {
     setUtosList((prev) => {
       const u = prev.find((x) => x.id === id);
       const next = prev.map((x) => (x.id === id ? { ...x, ackState: ack } : x));
-      if (u && ack === "done" && currentHelperId === "rosa" && rosaStatus.status !== "on_shift") {
+      if (u && ack === "done") {
         // Utos completed off-shift: a small after-hours ledger entry (5 min).
-        const reason = classifyRosaReason(nowTs, !!u.emergency);
-        logLedger({
+        logCompletion({
           sourceId: u.id,
           kind: "utos",
           title: u.content,
+          helperId: currentHelperId,
           startTs: u.timestamp,
           doneTs: nowTs,
           autoMinutes: 5,
-          reason,
+          emergency: !!u.emergency,
         });
       }
       return next;
     });
   };
 
-  const updateStatus = (id: string, status: Status, photo?: string) => {
-    setTasks((prev) => {
-      const cur = prev.find((t) => t.id === id);
-      if (!cur) return prev;
-      let startedAt = cur.startedAt;
-      if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
-      const updated = {
-        ...cur,
-        status,
-        photo: photo ?? cur.photo,
-        blockReason: status === "blocked" ? cur.blockReason : undefined,
-        startedAt,
-      };
-      // On completion, log if Rosa completes off-shift.
-      if (
-        status === "done" &&
-        cur.status !== "done" &&
-        cur.helperId === "rosa" &&
-        rosaStatus.status !== "on_shift"
-      ) {
-        const start = startedAt ?? nowTs - 5 * 60_000;
-        const autoMinutes = Math.max(1, Math.round((nowTs - start) / 60_000));
-        const reason = classifyRosaReason(nowTs, !!cur.emergency);
-        logLedger({
-          sourceId: cur.id,
-          kind: "task",
-          title: cur.title,
-          station: cur.station,
-          appointmentTitle: cur.appointmentTitle,
-          startTs: start,
-          doneTs: nowTs,
-          autoMinutes,
-          reason,
-        });
-      }
-      return prev.map((t) => (t.id === id ? updated : t));
+  // A completion only reaches the ledger when Rosa worked outside her shift.
+  const logCompletion = (record: CompletionRecord) => {
+    if (record.helperId !== "rosa" || rosaStatus.status === "on_shift") return;
+    logLedger({
+      sourceId: record.sourceId,
+      kind: record.kind,
+      title: record.title,
+      station: record.station,
+      appointmentTitle: record.appointmentTitle,
+      startTs: record.startTs,
+      doneTs: record.doneTs,
+      autoMinutes: record.autoMinutes,
+      reason: classifyRosaReason(record.doneTs, record.emergency),
     });
   };
+
+  const board = useTaskBoard({ nowTs, onComplete: logCompletion });
+  const {
+    tasks,
+    routines,
+    boardClosed,
+    simDate,
+    addTask,
+    updateStatus,
+    blockTask,
+    rescheduleTask,
+    approveSuggestion,
+    dismissSuggestion,
+    setClosed,
+    addRoutine,
+    removeRoutine,
+    setTasks,
+  } = board;
 
   const updateLedgerEntry = (
     id: string,
     patch: Partial<Pick<LedgerEntry, "adjustMinutes" | "resolution">>,
   ) => {
     setLedger((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
-  };
-
-  const blockTask = (id: string, reason: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "blocked", blockReason: reason } : t)),
-    );
-  };
-
-  const rescheduleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, status: "todo", blockReason: undefined, queued: boardClosed ? true : undefined }
-          : t,
-      ),
-    );
-  };
-
-  type AddTaskFlags = SendFlags & { queuedForShift?: boolean; suggested?: boolean };
-  const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
-    const helper = helperById(t.helperId);
-    const shouldQueue = boardClosed || flags.queuedForShift;
-    setTasks((prev) => [
-      ...prev,
-      {
-        ...t,
-        id: `t${Date.now()}`,
-        status: "todo",
-        station: helper.station,
-        queued: shouldQueue || undefined,
-        queuedForShift: flags.queuedForShift || undefined,
-        afterHours: flags.afterHours,
-        emergency: flags.emergency,
-        suggested: flags.suggested || undefined,
-      },
-    ]);
-  };
-
-  const approveSuggestion = (id: string) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, suggested: undefined } : t)));
-  };
-  const dismissSuggestion = (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const setClosed = (closed: boolean) => {
-    setBoardClosed(closed);
-    if (!closed) {
-      // Opening the board — queued tasks graduate to today's To-do
-      setTasks((prev) => prev.map((t) => (t.queued ? { ...t, queued: undefined } : t)));
-    }
   };
 
   const requestVale = (helperId: string, amount: number, reason: string) => {
@@ -436,15 +381,6 @@ function LinaraApp() {
 
   const decideVale = (id: string, decision: "approved" | "declined") => {
     setVales((prev) => prev.map((v) => (v.id === id ? { ...v, status: decision } : v)));
-  };
-
-  const addRoutine = (r: Omit<Routine, "id" | "station">) => {
-    const helper = helperById(r.helperId);
-    setRoutines((prev) => [...prev, { ...r, id: `r${Date.now()}`, station: helper.station }]);
-  };
-
-  const removeRoutine = (id: string) => {
-    setRoutines((prev) => prev.filter((r) => r.id !== id));
   };
 
   type PrepDraft = { title: string; leadMinutes: number; helperId: string; note?: string };
@@ -501,46 +437,10 @@ function LinaraApp() {
   };
 
   const startNewDay = () => {
-    const next = new Date(simDate);
-    next.setDate(next.getDate() + 1);
-    const wd = weekdayOf(next);
-    setSimDate(next);
-    setBoardClosed(false);
     // Nightly wipe: quick utos are genuinely deleted from state — no history array, no log.
     setUtosWipedToday(utosList.length > 0);
     setUtosList([]);
-    setTasks((prev) => {
-      // Keep: unfinished recurring instances (they carry over) and blocked items.
-      // Drop: finished (done) tasks and one-off tasks from yesterday.
-      const kept = prev
-        .filter((t) => {
-          if (t.status === "done") return false;
-          if (t.appointmentId) return true; // appointment prep tasks persist until done
-          if (!t.routineId) return false; // one-offs (including queued one-offs) clear at day-start
-          return true;
-        })
-        .map((t) => ({ ...t, queued: undefined as boolean | undefined }));
-
-      // Spawn a fresh instance for every matching routine that isn't already live.
-      const liveRoutineIds = new Set(kept.map((t) => t.routineId).filter(Boolean));
-      const spawned: Task[] = routines
-        .filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id))
-        .map((r) => ({
-          id: `t-${r.id}-${next.getTime()}`,
-          title: r.title,
-          note: r.note,
-          time: r.time,
-          helperId: r.helperId,
-          station: r.station,
-          status: "todo",
-          recurrence: r.recurrence,
-          routineId: r.id,
-        }));
-
-      return [...kept, ...spawned].sort(
-        (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time),
-      );
-    });
+    board.startNewDay();
   };
 
   return (
@@ -2316,359 +2216,6 @@ function DayEditor({
   );
 }
 
-function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] }) {
-  const [open, setOpen] = useState(false);
-  const color = STATION_HEX[helper.station];
-  const sorted = useMemo(
-    () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
-    [tasks],
-  );
-  const doneCount = sorted.filter((t) => t.status === "done").length;
-  const inProg = sorted.find((t) => t.status === "in_progress");
-  const upcoming = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
-  const nowTask = inProg ?? upcoming[0];
-  const nextTask = upcoming.find((t) => t.id !== nowTask?.id);
-  const nowMin = inProg ? parseTimeToMinutes(inProg.time) : Number.POSITIVE_INFINITY;
-  const overdueSet = new Set(
-    sorted
-      .filter(
-        (t) =>
-          t.id !== inProg?.id &&
-          (t.status === "todo" || t.status === "blocked") &&
-          (t.status === "blocked" || parseTimeToMinutes(t.time) < nowMin),
-      )
-      .map((t) => t.id),
-  );
-
-  const pill =
-    overdueSet.size > 0
-      ? {
-          text: `⚠ ${overdueSet.size} overdue`,
-          cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
-        }
-      : inProg
-        ? {
-            text: `Now: ${inProg.title}`,
-            cls: "bg-[oklch(0.93_0.08_75)] text-[oklch(0.4_0.13_75)]",
-          }
-        : { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
-
-  const pct = sorted.length === 0 ? 0 : Math.round((doneCount / sorted.length) * 100);
-
-  return (
-    <section
-      className="overflow-hidden rounded-3xl border bg-card shadow-soft"
-      style={{ borderColor: `${color.solid}55` }}
-    >
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-secondary/30"
-      >
-        <span
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold text-white shadow-soft"
-          style={{ backgroundColor: color.solid }}
-        >
-          {helper.initials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-base text-foreground">{helper.short}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {helper.station}
-            </span>
-          </div>
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: color.solid }}
-              />
-            </div>
-            <span className="shrink-0 text-[11px] font-semibold text-muted-foreground tabular-nums">
-              {doneCount} of {sorted.length}
-            </span>
-          </div>
-        </div>
-        <span
-          className={`ml-1 max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-1 text-[10.5px] font-semibold ${pill.cls}`}
-        >
-          {pill.text}
-        </span>
-      </button>
-
-      {(nowTask || nextTask) && (
-        <div className="grid gap-2 px-4 pb-3 sm:grid-cols-2">
-          {nowTask && (
-            <LaneNowRow
-              label={inProg ? "Now" : "Next up"}
-              task={nowTask}
-              color={color}
-              late={overdueSet.has(nowTask.id)}
-            />
-          )}
-          {nextTask && (
-            <LaneNowRow
-              label="Next"
-              task={nextTask}
-              color={color}
-              late={overdueSet.has(nextTask.id)}
-              muted
-            />
-          )}
-        </div>
-      )}
-
-      {open && (
-        <div className="border-t border-border/60 px-2 py-2">
-          {sorted.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">No tasks today.</div>
-          ) : (
-            sorted.map((t) => {
-              const isLate = overdueSet.has(t.id);
-              const dotCls =
-                t.status === "done"
-                  ? "bg-[oklch(0.68_0.14_150)]"
-                  : t.status === "in_progress"
-                    ? "bg-accent"
-                    : isLate
-                      ? "bg-[oklch(0.6_0.18_35)]"
-                      : "bg-muted-foreground/40";
-              return (
-                <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
-                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotCls}`} />
-                  <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                    {t.time}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={`text-sm ${t.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}
-                    >
-                      {t.title}
-                    </div>
-                    {t.note && (
-                      <div className="mt-0.5 line-clamp-2 text-[11px] italic text-muted-foreground">
-                        "{t.note}"
-                      </div>
-                    )}
-                  </div>
-                  {isLate && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
-                      Late
-                    </span>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function LaneNowRow({
-  label,
-  task,
-  color,
-  late,
-  muted,
-}: {
-  label: string;
-  task: Task;
-  color: { solid: string; soft: string };
-  late: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <div
-      className="rounded-2xl border px-3 py-2"
-      style={{
-        backgroundColor: muted ? "transparent" : color.soft,
-        borderColor: `${color.solid}40`,
-      }}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-          {label}
-        </span>
-        <span className="text-[11px] font-semibold tabular-nums text-foreground">
-          · {task.time}
-        </span>
-        {late && (
-          <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
-            Late
-          </span>
-        )}
-      </div>
-      <div className="mt-0.5 truncate text-sm font-medium text-foreground">{task.title}</div>
-      {isPalengke(task) && (
-        <div className="mt-1">
-          <PalengkeChip compact />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------- The Board: status-oriented view (built, not yet wired) ----------
-function TheBoardStatusLists({ tasks }: { tasks: Task[] }) {
-  const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
-  const sorted = useMemo(
-    () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
-    [tasks],
-  );
-  const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
-  const doing = sorted.filter((t) => t.status === "in_progress");
-  const done = sorted.filter((t) => t.status === "done");
-  const nowMin = doing.length > 0 ? parseTimeToMinutes(doing[0].time) : null;
-  const overdueId = (t: Task) =>
-    t.status === "blocked" || (nowMin !== null && parseTimeToMinutes(t.time) < nowMin);
-
-  const tabs = [
-    { key: "todo" as const, label: "To-do", count: todo.length, list: todo },
-    { key: "doing" as const, label: "Doing", count: doing.length, list: doing },
-    { key: "done" as const, label: "Done", count: done.length, list: done },
-  ];
-  const current = tabs.find((t) => t.key === tab)!;
-
-  // Insertion index for the "now" marker in the To-do timeline:
-  // place it before the first todo whose time >= the current in-progress time.
-  let nowMarkerIdx = -1;
-  if (tab === "todo" && nowMin !== null) {
-    nowMarkerIdx = todo.findIndex((t) => parseTimeToMinutes(t.time) >= nowMin);
-    if (nowMarkerIdx === -1) nowMarkerIdx = todo.length; // all overdue → marker at the end
-  }
-
-  return (
-    <section className="space-y-3">
-      <div className="inline-flex w-full rounded-full border border-border bg-card p-1 shadow-soft">
-        {tabs.map((t) => {
-          const active = t.key === tab;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
-                active
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-pine-deep"}`}
-              >
-                {t.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="space-y-2.5">
-        {current.list.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            Nothing here.
-          </div>
-        ) : (
-          current.list.map((t, i) => (
-            <div key={t.id}>
-              {tab === "todo" && i === nowMarkerIdx && <NowMarker />}
-              <BoardTaskCard
-                task={t}
-                late={tab !== "done" && overdueId(t)}
-                isDoing={t.status === "in_progress"}
-              />
-            </div>
-          ))
-        )}
-        {tab === "todo" && nowMarkerIdx === current.list.length && current.list.length > 0 && (
-          <NowMarker />
-        )}
-      </div>
-    </section>
-  );
-}
-
-function NowMarker() {
-  return (
-    <div className="flex items-center gap-2 px-1 py-1">
-      <span className="h-2 w-2 rounded-full bg-accent" />
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent-foreground/80">
-        now
-      </span>
-      <span className="h-px flex-1 bg-accent/40" />
-    </div>
-  );
-}
-
-function BoardTaskCard({ task, late, isDoing }: { task: Task; late: boolean; isDoing: boolean }) {
-  const [showNote, setShowNote] = useState(false);
-  const helper = helperById(task.helperId);
-  const color = STATION_HEX[task.station];
-  const isDone = task.status === "done";
-  return (
-    <article
-      className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft"
-      style={{ borderLeft: `4px solid ${color.solid}` }}
-    >
-      <div className="flex items-start gap-2.5 p-3">
-        <span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {task.time}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h4
-              className={`text-sm font-semibold ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}
-            >
-              {task.title}
-            </h4>
-            {isDoing && (
-              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent-foreground">
-                Doing
-              </span>
-            )}
-            {late && (
-              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
-                Late
-              </span>
-            )}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-              style={{ backgroundColor: color.soft, color: "var(--pine-deep)" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color.solid }} />
-              {task.station} · {helper.short}
-            </span>
-            <RecurrenceBadge recurrence={task.recurrence} />
-            {task.appointmentTitle && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] font-medium text-pine-deep">
-                <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
-              </span>
-            )}
-            {task.note && (
-              <button
-                onClick={() => setShowNote((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
-              >
-                <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
-              </button>
-            )}
-            {isPalengke(task) && <PalengkeChip />}
-          </div>
-          {showNote && task.note && (
-            <p className="mt-2 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-              "{task.note}"
-            </p>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function NeedsYou({
   blocked,
   pendingVales,
@@ -2878,268 +2425,6 @@ function NeedsYou({
         )}
       </div>
     </section>
-  );
-}
-
-function TaskCard({ task }: { task: Task }) {
-  const helper = helperById(task.helperId);
-  return (
-    <article className="group rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft transition hover:shadow-lift">
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold leading-snug text-foreground">{task.title}</h4>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[task.station]}`}
-        >
-          {task.station}
-        </span>
-      </div>
-      {(recurrenceLabel(task.recurrence) || task.appointmentTitle) && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          <RecurrenceBadge recurrence={task.recurrence} />
-          {task.appointmentTitle && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-[10px] font-medium text-[oklch(0.38_0.09_60)]">
-              <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
-            </span>
-          )}
-        </div>
-      )}
-      {task.scheduledDate && (
-        <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          {formatAppointmentDate(task.scheduledDate)}
-        </div>
-      )}
-      {task.note && (
-        <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{task.note}</p>
-      )}
-      {isPalengke(task) && (
-        <div className="mt-2">
-          <PalengkeChip />
-        </div>
-      )}
-      {task.photo && (
-        <div className="mt-3 overflow-hidden rounded-xl">
-          <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
-        </div>
-      )}
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Avatar initials={helper.initials} />
-          <span className="text-xs font-medium text-foreground">{helper.short}</span>
-        </div>
-        <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
-      </div>
-      {task.createdBy && (
-        <div className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          from {task.createdBy}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function RescheduleNotice({
-  notice,
-  newTime,
-}: {
-  notice?: Task["rescheduleNotice"];
-  newTime: string;
-}) {
-  if (!notice) return null;
-  return (
-    <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-[11px] leading-snug text-pine-deep">
-      <span className="mt-0.5">⏱</span>
-      <span>
-        <span className="font-semibold">Rescheduled:</span> {notice.oldTime} → {newTime} because{" "}
-        <span className="italic">{notice.appointmentTitle}</span> changed.
-      </span>
-    </div>
-  );
-}
-
-// ---------- New task modal ----------
-function NewTaskModal({
-  onClose,
-  onAdd,
-  isRemote = false,
-}: {
-  onClose: () => void;
-  onAdd: (t: Omit<Task, "id" | "status" | "station">, opts?: { sendLive?: boolean }) => void;
-  isRemote?: boolean;
-}) {
-  const [title, setTitle] = useState("");
-  const [helperId, setHelperId] = useState(HELPERS[0].id);
-  const [time, setTime] = useState("08:00");
-  const [note, setNote] = useState("");
-  const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
-  const [days, setDays] = useState<Weekday[]>([]);
-  const [sendLive, setSendLive] = useState(false);
-
-  const toggleDay = (d: Weekday) => {
-    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
-  };
-
-  const submit = () => {
-    if (!title.trim()) return;
-    const [h, m] = time.split(":").map(Number);
-    const suffix = h >= 12 ? "PM" : "AM";
-    const hr = ((h + 11) % 12) + 1;
-    const recurrence: Recurrence =
-      repeatKind === "daily"
-        ? "daily"
-        : repeatKind === "weekdays" && days.length > 0
-          ? WEEKDAYS.filter((d) => days.includes(d)) // keep canonical order
-          : "none";
-    onAdd(
-      {
-        title: title.trim(),
-        helperId,
-        time: `${hr}:${String(m).padStart(2, "0")} ${suffix}`,
-        note: note.trim() || undefined,
-        recurrence,
-      },
-      { sendLive: isRemote ? sendLive : undefined },
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-xl text-foreground">
-            {isRemote ? "Suggest a task" : "New task"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {isRemote && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            From afar you can propose things — an on-site manager approves them onto the board.
-          </p>
-        )}
-        <div className="mt-4 space-y-3">
-          <Field label="Title">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Fold laundry"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Assign to">
-              <select
-                value={helperId}
-                onChange={(e) => setHelperId(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              >
-                {HELPERS.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} · {h.station}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </div>
-          <Field label="House-standard note (optional)">
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="e.g. Warm water only, fold in thirds."
-              className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <Field label="Repeat">
-            <div className="inline-flex w-full rounded-xl border border-input bg-background p-1">
-              {(
-                [
-                  { key: "none", label: "None" },
-                  { key: "daily", label: "Every day" },
-                  { key: "weekdays", label: "Specific days" },
-                ] as const
-              ).map((opt) => {
-                const active = repeatKind === opt.key;
-                return (
-                  <button
-                    type="button"
-                    key={opt.key}
-                    onClick={() => setRepeatKind(opt.key)}
-                    className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "bg-primary text-primary-foreground shadow-soft"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            {repeatKind === "weekdays" && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {WEEKDAYS.map((d) => {
-                  const active = days.includes(d);
-                  return (
-                    <button
-                      type="button"
-                      key={d}
-                      onClick={() => toggleDay(d)}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </Field>
-        </div>
-        {isRemote && (
-          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border/70 bg-background/60 p-3">
-            <input
-              type="checkbox"
-              checked={sendLive}
-              onChange={(e) => setSendLive(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-primary"
-            />
-            <span className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Send live · urgent</span> — skip
-              approval and drop it straight on the board (still attributed to you).
-            </span>
-          </label>
-        )}
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-          >
-            {isRemote ? (sendLive ? "Send live" : "Send to on-site manager") : "Add to board"}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -3587,176 +2872,6 @@ function HelperView({
   );
 }
 
-function BlockReasonModal({
-  task,
-  onClose,
-  onSubmit,
-}: {
-  task: Task;
-  onClose: () => void;
-  onSubmit: (reason: string) => void;
-}) {
-  const [reason, setReason] = useState("");
-  const suggestions = [
-    "No formula left",
-    "Need more cash",
-    "Waiting on delivery",
-    "Sofia is not feeling well",
-  ];
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-display text-xl text-foreground">Can't do this now?</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Tell Ma'am briefly — she'll see it right away.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-3 rounded-2xl bg-secondary/60 px-3 py-2 text-xs text-pine-deep">
-          <span className="font-semibold">{task.title}</span> · {task.time}
-        </div>
-        <div className="mt-3">
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            placeholder="e.g. No formula left"
-            className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                onClick={() => setReason(s)}
-                className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => reason.trim() && onSubmit(reason.trim())}
-            disabled={!reason.trim()}
-            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:opacity-95 disabled:opacity-50"
-          >
-            Send to Ma'am
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NextTaskCard({
-  task,
-  onUpdate,
-  onAskBlock,
-}: {
-  task: Task;
-  onUpdate: (id: string, s: Status, photo?: string) => void;
-  onAskBlock: () => void;
-}) {
-  const [addingPhoto, setAddingPhoto] = useState(false);
-
-  const start = () => onUpdate(task.id, "in_progress");
-  const done = () => {
-    setAddingPhoto(true);
-    setTimeout(() => {
-      const photo = PHOTO_POOL[Math.floor(Math.random() * PHOTO_POOL.length)];
-      onUpdate(task.id, "done", photo);
-      setAddingPhoto(false);
-    }, 900);
-  };
-
-  return (
-    <article className="rounded-3xl border border-border/70 bg-card p-6 shadow-lift">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-foreground">
-          {task.status === "in_progress" ? "In progress" : "Up next"}
-        </span>
-        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          {task.time}
-        </span>
-      </div>
-      <h2 className="mt-3 font-display text-2xl leading-tight text-foreground">{task.title}</h2>
-      {recurrenceLabel(task.recurrence) && (
-        <div className="mt-2">
-          <RecurrenceBadge recurrence={task.recurrence} />
-        </div>
-      )}
-      {task.appointmentTitle && (
-        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-[10px] font-medium text-[oklch(0.38_0.09_60)]">
-          <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
-        </div>
-      )}
-      <RescheduleNotice notice={task.rescheduleNotice} newTime={task.time} />
-
-      {task.note && (
-        <div className="mt-4 rounded-2xl bg-terracotta-soft/40 p-4">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-pine-deep/80">
-            House standard
-          </div>
-          <p className="mt-1 text-sm leading-relaxed text-pine-deep">{task.note}</p>
-        </div>
-      )}
-      {isPalengke(task) && (
-        <div className="mt-4">
-          <PalengkeInlineList />
-        </div>
-      )}
-      <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-        {task.status === "todo" ? (
-          <button
-            onClick={start}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-          >
-            <Play className="h-4 w-4" /> Start
-          </button>
-        ) : (
-          <button
-            onClick={done}
-            disabled={addingPhoto}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition hover:opacity-95 disabled:opacity-70"
-          >
-            {addingPhoto ? (
-              <>
-                <Camera className="h-4 w-4 animate-pulse" /> Attaching photo…
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4" /> Done · add photo
-              </>
-            )}
-          </button>
-        )}
-        <button
-          onClick={onAskBlock}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3.5 text-sm font-semibold text-muted-foreground shadow-soft hover:border-accent/60 hover:text-accent-foreground sm:flex-none"
-        >
-          <HelpCircle className="h-4 w-4" /> Can't now / Need info
-        </button>
-      </div>
-    </article>
-  );
-}
-
 function EndOfDay({ doneCount }: { doneCount: number }) {
   return (
     <section className="rounded-3xl border border-border/70 bg-card p-8 text-center shadow-lift">
@@ -4066,298 +3181,6 @@ function ValeRequestModal({
             className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
           >
             Send request
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------- Routines ----------
-function RoutinesView({
-  routines,
-  onAdd,
-  onRemove,
-}: {
-  routines: Routine[];
-  onAdd: (r: Omit<Routine, "id" | "station">) => void;
-  onRemove: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const byHelper = HELPERS.map((h) => ({
-    helper: h,
-    items: routines.filter((r) => r.helperId === h.id),
-  }));
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Routines
-            </div>
-            <h1 className="mt-2 font-display text-2xl leading-tight text-foreground sm:text-[28px]">
-              Set the rhythm once.
-            </h1>
-            <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-              Recurring tasks live here. On matching days they'll appear on the Pass automatically —
-              no need to re-add them each morning.
-            </p>
-          </div>
-          <button
-            onClick={() => setOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
-          >
-            <Plus className="h-4 w-4" /> New routine
-          </button>
-        </div>
-      </section>
-
-      {routines.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-pine-deep">
-            <Repeat className="h-5 w-5" />
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            No routines yet. Add one to build the daily rhythm.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {byHelper.map(({ helper, items }) => {
-            if (items.length === 0) return null;
-            return (
-              <section
-                key={helper.id}
-                className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5"
-              >
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar initials={helper.initials} />
-                    <div>
-                      <div className="text-sm font-semibold text-foreground">{helper.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {helper.station} · {helper.shift}
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[helper.station]}`}
-                  >
-                    {items.length} routine{items.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {items.map((r) => (
-                    <RoutineRow key={r.id} routine={r} onRemove={() => onRemove(r.id)} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
-
-      {open && (
-        <NewRoutineModal
-          onClose={() => setOpen(false)}
-          onAdd={(r) => {
-            onAdd(r);
-            setOpen(false);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function RoutineRow({ routine, onRemove }: { routine: Routine; onRemove: () => void }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-sm font-semibold text-foreground">{routine.title}</h4>
-            <RecurrenceBadge recurrence={routine.recurrence} />
-          </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">{routine.time}</div>
-          {routine.note && (
-            <div className="mt-2 rounded-xl bg-terracotta-soft/40 px-2.5 py-1.5 text-xs leading-relaxed text-pine-deep">
-              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-pine-deep/70">
-                House standard ·
-              </span>
-              {routine.note}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={onRemove}
-          aria-label="Remove routine"
-          className="rounded-full border border-border p-1.5 text-muted-foreground transition hover:border-accent/60 hover:text-accent-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function NewRoutineModal({
-  onClose,
-  onAdd,
-}: {
-  onClose: () => void;
-  onAdd: (r: Omit<Routine, "id" | "station">) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [helperId, setHelperId] = useState(HELPERS[0].id);
-  const [time, setTime] = useState("08:00");
-  const [note, setNote] = useState("");
-  const [repeatKind, setRepeatKind] = useState<"daily" | "weekdays">("daily");
-  const [days, setDays] = useState<Weekday[]>([]);
-
-  const toggleDay = (d: Weekday) => {
-    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
-  };
-
-  const canSubmit = title.trim().length > 0 && (repeatKind === "daily" || days.length > 0);
-
-  const submit = () => {
-    if (!canSubmit) return;
-    const [h, m] = time.split(":").map(Number);
-    const suffix = h >= 12 ? "PM" : "AM";
-    const hr = ((h + 11) % 12) + 1;
-    const recurrence: Exclude<Recurrence, "none"> =
-      repeatKind === "daily" ? "daily" : WEEKDAYS.filter((d) => days.includes(d));
-    onAdd({
-      title: title.trim(),
-      helperId,
-      time: `${hr}:${String(m).padStart(2, "0")} ${suffix}`,
-      note: note.trim() || undefined,
-      recurrence,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-xl text-foreground">New routine</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Set it once. It'll appear on the Pass on matching days.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-4 space-y-3">
-          <Field label="Title">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Water the plants"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Assign to">
-              <select
-                value={helperId}
-                onChange={(e) => setHelperId(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              >
-                {HELPERS.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} · {h.station}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </div>
-          <Field label="House-standard note (optional)">
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="e.g. Deep-water the fiddle leaf; light mist for the ferns."
-              className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
-          <Field label="Repeat">
-            <div className="inline-flex w-full rounded-xl border border-input bg-background p-1">
-              {(
-                [
-                  { key: "daily", label: "Every day" },
-                  { key: "weekdays", label: "Specific days" },
-                ] as const
-              ).map((opt) => {
-                const active = repeatKind === opt.key;
-                return (
-                  <button
-                    type="button"
-                    key={opt.key}
-                    onClick={() => setRepeatKind(opt.key)}
-                    className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "bg-primary text-primary-foreground shadow-soft"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            {repeatKind === "weekdays" && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {WEEKDAYS.map((d) => {
-                  const active = days.includes(d);
-                  return (
-                    <button
-                      type="button"
-                      key={d}
-                      onClick={() => toggleDay(d)}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </Field>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!canSubmit}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-          >
-            Save routine
           </button>
         </div>
       </div>
@@ -5685,154 +4508,6 @@ function RemoteGlance({
             ))}
           </ul>
         )}
-      </div>
-    </section>
-  );
-}
-
-// ---------- Suggestions inbox (visible to Primary/Co) ----------
-function SuggestionsInbox({
-  suggestions,
-  onApprove,
-  onDismiss,
-}: {
-  suggestions: Task[];
-  onApprove: (id: string) => void;
-  onDismiss: (id: string) => void;
-}) {
-  // Group by who suggested it.
-  const groups = new Map<string, Task[]>();
-  for (const t of suggestions) {
-    const key = t.createdBy ?? "A remote admin";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(t);
-  }
-  return (
-    <section className="rounded-3xl border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta/20 text-[oklch(0.42_0.15_60)]">
-          <HelpCircle className="h-4 w-4" />
-        </div>
-        <div>
-          <div className="text-sm font-semibold text-foreground">
-            Suggested by remote admins · {suggestions.length}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Approve to place on the board, or dismiss quietly.
-          </div>
-        </div>
-      </div>
-      <div className="space-y-4">
-        {[...groups.entries()].map(([who, items]) => (
-          <div key={who}>
-            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-pine-deep">
-              From {who}
-            </div>
-            <div className="space-y-2">
-              {items.map((t) => {
-                const helper = helperById(t.helperId);
-                return (
-                  <div
-                    key={t.id}
-                    className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <Avatar initials={helper.initials} />
-                          <span className="font-semibold text-foreground">{helper.short}</span>
-                          <span>·</span>
-                          <span>{t.time}</span>
-                        </div>
-                        {t.note && <p className="mt-1.5 text-xs text-muted-foreground">{t.note}</p>}
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
-                      >
-                        {t.station}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => onApprove(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                      >
-                        <Check className="h-3.5 w-3.5" /> Approve to board
-                      </button>
-                      <button
-                        onClick={() => onDismiss(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" /> Dismiss
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---------- Remote admin's own suggestion tray ----------
-function MySuggestions({
-  suggestions,
-  onWithdraw,
-  adminName,
-}: {
-  suggestions: Task[];
-  onWithdraw: (id: string) => void;
-  adminName: string;
-}) {
-  const mine = suggestions.filter((t) => (t.createdBy ?? "") === adminName);
-  const others = suggestions.filter((t) => (t.createdBy ?? "") !== adminName);
-  if (mine.length === 0 && others.length === 0) return null;
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card/70 p-4 shadow-soft sm:p-5">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-          <HelpCircle className="h-4 w-4" />
-        </div>
-        <div>
-          <div className="text-sm font-semibold text-foreground">
-            Waiting on the on-site manager
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Your suggestions sit here until Ben or Tina approves them.
-          </div>
-        </div>
-      </div>
-      {mine.length === 0 && (
-        <p className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-3 text-xs italic text-muted-foreground">
-          Nothing pending from you right now.
-        </p>
-      )}
-      <div className="space-y-2">
-        {mine.map((t) => {
-          const helper = helperById(t.helperId);
-          return (
-            <div key={t.id} className="rounded-2xl border border-border/70 bg-background/60 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    For {helper.short} · {t.time}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onWithdraw(t.id)}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3 w-3" /> Withdraw
-                </button>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </section>
   );
