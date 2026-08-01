@@ -45,20 +45,27 @@ export function ViewAsSwitcher({
   ];
 
   return (
-    <div className="inline-flex shrink-0 flex-col items-start gap-1">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:inline"
+      >
         View as
-      </div>
-      <div className="inline-flex rounded-full border border-border bg-card p-1 shadow-soft">
+      </span>
+      <div
+        role="group"
+        aria-label="View as"
+        className="flex w-full items-center rounded-full border border-border/60 bg-card/80 p-1 shadow-soft backdrop-blur sm:w-auto"
+      >
         {options.map((opt) => (
           <button
             key={opt.key}
             onClick={opt.onSelect}
             aria-pressed={opt.active}
-            className={`flex flex-col items-center rounded-full px-2.5 py-1 text-[11px] font-semibold leading-tight transition sm:px-3 sm:text-xs ${
+            className={`flex flex-1 flex-col items-center rounded-full px-2.5 py-1 text-[11px] font-semibold leading-tight transition sm:flex-none sm:px-3.5 sm:text-xs ${
               opt.active
                 ? "bg-primary text-primary-foreground shadow-soft"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             }`}
           >
             <span>{opt.label}</span>
