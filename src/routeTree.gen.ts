@@ -9,38 +9,197 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppManagerRouteImport } from './routes/_app/manager'
+import { Route as AppHelperRouteImport } from './routes/_app/helper'
+import { Route as AppManagerIndexRouteImport } from './routes/_app/manager/index'
+import { Route as AppHelperIndexRouteImport } from './routes/_app/helper/index'
+import { Route as AppManagerScheduleRouteImport } from './routes/_app/manager/schedule'
+import { Route as AppManagerPeopleRouteImport } from './routes/_app/manager/people'
+import { Route as AppManagerPassRouteImport } from './routes/_app/manager/pass'
+import { Route as AppManagerPantryRouteImport } from './routes/_app/manager/pantry'
+import { Route as AppManagerMoneyRouteImport } from './routes/_app/manager/money'
+import { Route as AppHelperTodayRouteImport } from './routes/_app/helper/today'
+import { Route as AppHelperPayRouteImport } from './routes/_app/helper/pay'
+import { Route as AppHelperPantryRouteImport } from './routes/_app/helper/pantry'
 
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppManagerRoute = AppManagerRouteImport.update({
+  id: '/manager',
+  path: '/manager',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelperRoute = AppHelperRouteImport.update({
+  id: '/helper',
+  path: '/helper',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppManagerIndexRoute = AppManagerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppHelperIndexRoute = AppHelperIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppHelperRoute,
+} as any)
+const AppManagerScheduleRoute = AppManagerScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppManagerPeopleRoute = AppManagerPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppManagerPassRoute = AppManagerPassRouteImport.update({
+  id: '/pass',
+  path: '/pass',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppManagerPantryRoute = AppManagerPantryRouteImport.update({
+  id: '/pantry',
+  path: '/pantry',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppManagerMoneyRoute = AppManagerMoneyRouteImport.update({
+  id: '/money',
+  path: '/money',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppHelperTodayRoute = AppHelperTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => AppHelperRoute,
+} as any)
+const AppHelperPayRoute = AppHelperPayRouteImport.update({
+  id: '/pay',
+  path: '/pay',
+  getParentRoute: () => AppHelperRoute,
+} as any)
+const AppHelperPantryRoute = AppHelperPantryRouteImport.update({
+  id: '/pantry',
+  path: '/pantry',
+  getParentRoute: () => AppHelperRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/helper': typeof AppHelperRouteWithChildren
+  '/manager': typeof AppManagerRouteWithChildren
+  '/helper/pantry': typeof AppHelperPantryRoute
+  '/helper/pay': typeof AppHelperPayRoute
+  '/helper/today': typeof AppHelperTodayRoute
+  '/manager/money': typeof AppManagerMoneyRoute
+  '/manager/pantry': typeof AppManagerPantryRoute
+  '/manager/pass': typeof AppManagerPassRoute
+  '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/schedule': typeof AppManagerScheduleRoute
+  '/helper/': typeof AppHelperIndexRoute
+  '/manager/': typeof AppManagerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/helper/pantry': typeof AppHelperPantryRoute
+  '/helper/pay': typeof AppHelperPayRoute
+  '/helper/today': typeof AppHelperTodayRoute
+  '/manager/money': typeof AppManagerMoneyRoute
+  '/manager/pantry': typeof AppManagerPantryRoute
+  '/manager/pass': typeof AppManagerPassRoute
+  '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/schedule': typeof AppManagerScheduleRoute
+  '/helper': typeof AppHelperIndexRoute
+  '/manager': typeof AppManagerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/helper': typeof AppHelperRouteWithChildren
+  '/_app/manager': typeof AppManagerRouteWithChildren
+  '/_app/helper/pantry': typeof AppHelperPantryRoute
+  '/_app/helper/pay': typeof AppHelperPayRoute
+  '/_app/helper/today': typeof AppHelperTodayRoute
+  '/_app/manager/money': typeof AppManagerMoneyRoute
+  '/_app/manager/pantry': typeof AppManagerPantryRoute
+  '/_app/manager/pass': typeof AppManagerPassRoute
+  '/_app/manager/people': typeof AppManagerPeopleRoute
+  '/_app/manager/schedule': typeof AppManagerScheduleRoute
+  '/_app/helper/': typeof AppHelperIndexRoute
+  '/_app/manager/': typeof AppManagerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/helper'
+    | '/manager'
+    | '/helper/pantry'
+    | '/helper/pay'
+    | '/helper/today'
+    | '/manager/money'
+    | '/manager/pantry'
+    | '/manager/pass'
+    | '/manager/people'
+    | '/manager/schedule'
+    | '/helper/'
+    | '/manager/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/helper/pantry'
+    | '/helper/pay'
+    | '/helper/today'
+    | '/manager/money'
+    | '/manager/pantry'
+    | '/manager/pass'
+    | '/manager/people'
+    | '/manager/schedule'
+    | '/helper'
+    | '/manager'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_app/helper'
+    | '/_app/manager'
+    | '/_app/helper/pantry'
+    | '/_app/helper/pay'
+    | '/_app/helper/today'
+    | '/_app/manager/money'
+    | '/_app/manager/pantry'
+    | '/_app/manager/pass'
+    | '/_app/manager/people'
+    | '/_app/manager/schedule'
+    | '/_app/helper/'
+    | '/_app/manager/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +207,148 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/manager': {
+      id: '/_app/manager'
+      path: '/manager'
+      fullPath: '/manager'
+      preLoaderRoute: typeof AppManagerRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/helper': {
+      id: '/_app/helper'
+      path: '/helper'
+      fullPath: '/helper'
+      preLoaderRoute: typeof AppHelperRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/manager/': {
+      id: '/_app/manager/'
+      path: '/'
+      fullPath: '/manager/'
+      preLoaderRoute: typeof AppManagerIndexRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/helper/': {
+      id: '/_app/helper/'
+      path: '/'
+      fullPath: '/helper/'
+      preLoaderRoute: typeof AppHelperIndexRouteImport
+      parentRoute: typeof AppHelperRoute
+    }
+    '/_app/manager/schedule': {
+      id: '/_app/manager/schedule'
+      path: '/schedule'
+      fullPath: '/manager/schedule'
+      preLoaderRoute: typeof AppManagerScheduleRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/manager/people': {
+      id: '/_app/manager/people'
+      path: '/people'
+      fullPath: '/manager/people'
+      preLoaderRoute: typeof AppManagerPeopleRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/manager/pass': {
+      id: '/_app/manager/pass'
+      path: '/pass'
+      fullPath: '/manager/pass'
+      preLoaderRoute: typeof AppManagerPassRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/manager/pantry': {
+      id: '/_app/manager/pantry'
+      path: '/pantry'
+      fullPath: '/manager/pantry'
+      preLoaderRoute: typeof AppManagerPantryRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/manager/money': {
+      id: '/_app/manager/money'
+      path: '/money'
+      fullPath: '/manager/money'
+      preLoaderRoute: typeof AppManagerMoneyRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/helper/today': {
+      id: '/_app/helper/today'
+      path: '/today'
+      fullPath: '/helper/today'
+      preLoaderRoute: typeof AppHelperTodayRouteImport
+      parentRoute: typeof AppHelperRoute
+    }
+    '/_app/helper/pay': {
+      id: '/_app/helper/pay'
+      path: '/pay'
+      fullPath: '/helper/pay'
+      preLoaderRoute: typeof AppHelperPayRouteImport
+      parentRoute: typeof AppHelperRoute
+    }
+    '/_app/helper/pantry': {
+      id: '/_app/helper/pantry'
+      path: '/pantry'
+      fullPath: '/helper/pantry'
+      preLoaderRoute: typeof AppHelperPantryRouteImport
+      parentRoute: typeof AppHelperRoute
+    }
   }
 }
 
+interface AppHelperRouteChildren {
+  AppHelperPantryRoute: typeof AppHelperPantryRoute
+  AppHelperPayRoute: typeof AppHelperPayRoute
+  AppHelperTodayRoute: typeof AppHelperTodayRoute
+  AppHelperIndexRoute: typeof AppHelperIndexRoute
+}
+
+const AppHelperRouteChildren: AppHelperRouteChildren = {
+  AppHelperPantryRoute: AppHelperPantryRoute,
+  AppHelperPayRoute: AppHelperPayRoute,
+  AppHelperTodayRoute: AppHelperTodayRoute,
+  AppHelperIndexRoute: AppHelperIndexRoute,
+}
+
+const AppHelperRouteWithChildren = AppHelperRoute._addFileChildren(
+  AppHelperRouteChildren,
+)
+
+interface AppManagerRouteChildren {
+  AppManagerMoneyRoute: typeof AppManagerMoneyRoute
+  AppManagerPantryRoute: typeof AppManagerPantryRoute
+  AppManagerPassRoute: typeof AppManagerPassRoute
+  AppManagerPeopleRoute: typeof AppManagerPeopleRoute
+  AppManagerScheduleRoute: typeof AppManagerScheduleRoute
+  AppManagerIndexRoute: typeof AppManagerIndexRoute
+}
+
+const AppManagerRouteChildren: AppManagerRouteChildren = {
+  AppManagerMoneyRoute: AppManagerMoneyRoute,
+  AppManagerPantryRoute: AppManagerPantryRoute,
+  AppManagerPassRoute: AppManagerPassRoute,
+  AppManagerPeopleRoute: AppManagerPeopleRoute,
+  AppManagerScheduleRoute: AppManagerScheduleRoute,
+  AppManagerIndexRoute: AppManagerIndexRoute,
+}
+
+const AppManagerRouteWithChildren = AppManagerRoute._addFileChildren(
+  AppManagerRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppHelperRoute: typeof AppHelperRouteWithChildren
+  AppManagerRoute: typeof AppManagerRouteWithChildren
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppHelperRoute: AppHelperRouteWithChildren,
+  AppManagerRoute: AppManagerRouteWithChildren,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

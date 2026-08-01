@@ -31,9 +31,9 @@ export function RoutinesView({
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Routines
             </div>
-            <h1 className="mt-2 font-display text-2xl leading-tight text-foreground sm:text-[28px]">
+            <h2 className="mt-2 font-display text-2xl leading-tight text-foreground sm:text-[28px]">
               Set the rhythm once.
-            </h1>
+            </h2>
             <p className="mt-2 max-w-lg text-sm text-muted-foreground">
               Recurring tasks live here. On matching days they'll appear on the Pass automatically —
               no need to re-add them each morning.

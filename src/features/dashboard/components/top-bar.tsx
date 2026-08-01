@@ -1,23 +1,13 @@
 import { Sparkles } from "lucide-react";
 
-import type { Session } from "@/features/people/hooks/use-session";
-import type { TaskBoard } from "@/features/tasks/hooks/use-task-board";
-
-import type { SimClock as SimClockState } from "../hooks/use-sim-clock";
+import { useAppStores } from "../app-store-context";
 import { EndOfDayToggle } from "./end-of-day-toggle";
 import { SimClock } from "./sim-clock";
 import { ViewAsSwitcher } from "./view-as-switcher";
 
 /** Brand, persona switcher, demo clock, and (for on-site admins) the end-of-day toggle. */
-export function TopBar({
-  session,
-  board,
-  clock,
-}: {
-  session: Session;
-  board: TaskBoard;
-  clock: SimClockState;
-}) {
+export function TopBar() {
+  const { session, board, clock } = useAppStores();
   const { viewAs, setViewAs: onViewAsChange, admins, adminType } = session;
   const { boardClosed, setClosed: onBoardClosedChange } = board;
   const { nowTs, offsetMs: simOffsetMs, setOffsetMs: onSimOffsetChange } = clock;
