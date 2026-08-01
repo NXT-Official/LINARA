@@ -31,6 +31,15 @@ import {
   StickyNote,
 } from "lucide-react";
 
+import { BottomNav } from "@/components/shared/bottom-nav";
+import { Avatar } from "@/components/shared/avatar";
+import { Row, ReviewRow } from "@/components/shared/detail-row";
+import { Field } from "@/components/shared/field";
+import { statusMeta } from "@/features/availability/availability.utils";
+import { fmtHoursMinutes, ledgerEntryMinutes, reasonLabel } from "@/features/ledger/ledger.utils";
+import { RecurrenceBadge } from "@/features/tasks/components/recurrence-badge";
+import { useMounted } from "@/hooks/use-mounted";
+
 export const Route = createFileRoute("/")({
   component: LinaraApp,
 });
@@ -102,16 +111,6 @@ import {
 
 const GroceryCtx = createContext<GroceryContextValue | null>(null);
 const useGrocery = () => useContext(GroceryCtx);
-
-function RecurrenceBadge({ recurrence }: { recurrence?: Recurrence }) {
-  const label = recurrenceLabel(recurrence);
-  if (!label) return null;
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] font-medium text-pine-deep">
-      <Repeat className="h-2.5 w-2.5" /> {label}
-    </span>
-  );
-}
 
 function LinaraApp() {
   const [viewAs, setViewAs] = useState<ViewAs>("ben");
@@ -1370,42 +1369,6 @@ function ManagerView({
   );
 }
 
-function BottomNav({
-  items,
-  active,
-  onChange,
-}: {
-  items: Array<{ key: string; label: string; Icon: typeof ClipboardList }>;
-  active: string;
-  onChange: (key: string) => void;
-}) {
-  return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
-      aria-label="Primary"
-    >
-      <div className="mx-auto flex max-w-6xl items-stretch justify-around px-2 sm:px-6">
-        {items.map(({ key, label, Icon }) => {
-          const isActive = active === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onChange(key)}
-              aria-current={isActive ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 py-2.5 text-[11px] font-semibold transition ${
-                isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className={`h-5 w-5 ${isActive ? "text-primary" : ""}`} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
 // ---------- Shifts (weekly schedule per helper) ----------
 // ---------- People (household admins + helpers) ----------
 function PeopleSection({
@@ -2202,17 +2165,6 @@ function ClaimAccountFlow({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <span className="text-right text-sm font-semibold text-foreground">{value}</span>
     </div>
   );
 }
@@ -3120,14 +3072,6 @@ function TaskCard({ task }: { task: Task }) {
   );
 }
 
-function Avatar({ initials }: { initials: string }) {
-  return (
-    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-      {initials}
-    </div>
-  );
-}
-
 function RescheduleNotice({
   notice,
   newTime,
@@ -3331,17 +3275,6 @@ function NewTaskModal({
         </div>
       </div>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
 
@@ -4285,17 +4218,6 @@ function ValeRequestModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-semibold ${muted ? "text-muted-foreground" : "text-foreground"}`}>
-        {value}
-      </span>
     </div>
   );
 }
@@ -5306,29 +5228,6 @@ function EditAppointmentModal({
   );
 }
 
-// ---------- Rosa availability ----------
-function statusMeta(s: RosaStatus["status"]) {
-  if (s === "on_shift")
-    return {
-      label: "On shift",
-      dot: "bg-[oklch(0.68_0.14_150)]",
-      cls: "bg-[oklch(0.95_0.05_150)] text-[oklch(0.32_0.1_150)]",
-    };
-  if (s === "available")
-    return {
-      label: "Available",
-      dot: "bg-accent",
-      cls: "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]",
-    };
-  return { label: "Off", dot: "bg-muted-foreground/50", cls: "bg-secondary text-muted-foreground" };
-}
-
-function useMounted() {
-  const [m, setM] = useState(false);
-  useEffect(() => setM(true), []);
-  return m;
-}
-
 function RosaStatusChip({ status }: { status: RosaStatus }) {
   const mounted = useMounted();
   const meta = statusMeta(mounted ? status.status : "off");
@@ -5666,31 +5565,6 @@ function AvailabilityGate({
       </div>
     </div>
   );
-}
-
-// ---------- After-hours ledger (identical numbers on both sides) ----------
-function ledgerEntryMinutes(e: LedgerEntry) {
-  return Math.max(0, e.autoMinutes + e.adjustMinutes);
-}
-
-function reasonLabel(r: LedgerReason) {
-  if (r === "available")
-    return { label: "Available", cls: "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]" };
-  if (r === "emergency")
-    return { label: "Emergency", cls: "bg-[oklch(0.95_0.06_35)] text-[oklch(0.42_0.15_30)]" };
-  if (r === "rest_day")
-    return { label: "Rest day", cls: "bg-[oklch(0.94_0.08_30)] text-[oklch(0.38_0.15_25)]" };
-  if (r === "rest_break")
-    return { label: "Rest break", cls: "bg-[oklch(0.93_0.05_40)] text-[oklch(0.42_0.12_35)]" };
-  return { label: "After shift", cls: "bg-secondary text-pine-deep" };
-}
-
-function fmtHoursMinutes(min: number) {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function AfterHoursLedger({
