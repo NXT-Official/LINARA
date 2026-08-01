@@ -22,8 +22,6 @@ export type Admin = {
   location: string;
 };
 
-export type ViewAs = "ben" | "tina" | "lolafe" | "rosa";
-
 export type Employment = "live-in" | "live-out";
 export type InviteFlag = { id: string; field: string; note?: string; at: number };
 export type Invite = {

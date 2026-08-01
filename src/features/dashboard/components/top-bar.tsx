@@ -8,7 +8,7 @@ import { ViewAsSwitcher } from "./view-as-switcher";
 /** Brand, persona switcher, demo clock, and (for on-site admins) the end-of-day toggle. */
 export function TopBar() {
   const { session, board, clock } = useAppStores();
-  const { viewAs, setViewAs: onViewAsChange, admins, adminType } = session;
+  const { currentAdminId, setCurrentAdminId, admins, adminType } = session;
   const { boardClosed, setClosed: onBoardClosedChange } = board;
   const { nowTs, offsetMs: simOffsetMs, setOffsetMs: onSimOffsetChange } = clock;
   const canEndDay = adminType === "primary" || adminType === "co";
@@ -28,7 +28,11 @@ export function TopBar() {
             </div>
           </div>
         </div>
-        <ViewAsSwitcher viewAs={viewAs} onChange={onViewAsChange} admins={admins} />
+        <ViewAsSwitcher
+          admins={admins}
+          currentAdminId={currentAdminId}
+          onSelectAdmin={setCurrentAdminId}
+        />
         <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} />
         {canEndDay && <EndOfDayToggle closed={boardClosed} onChange={onBoardClosedChange} />}
       </div>
