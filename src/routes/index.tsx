@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, createContext, useContext } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Moon,
   Plus,
@@ -25,8 +25,6 @@ import {
   Users,
   Columns3,
   Package,
-  Minus,
-  ShoppingBasket,
   Calendar,
   StickyNote,
 } from "lucide-react";
@@ -40,6 +38,14 @@ import { fmtHoursMinutes, ledgerEntryMinutes, reasonLabel } from "@/features/led
 import { RecurrenceBadge } from "@/features/tasks/components/recurrence-badge";
 import { useMounted } from "@/hooks/use-mounted";
 
+import { GroceryProvider } from "@/features/groceries/components/grocery-provider";
+import { GrocerySection } from "@/features/groceries/components/grocery-section";
+import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
+import { PalengkeInlineList } from "@/features/groceries/components/palengke-inline-list";
+import { TodaysSpendDial } from "@/features/groceries/components/todays-spend-dial";
+import { PantrySection } from "@/features/pantry/components/pantry-section";
+import { usePantry, type PantryStore } from "@/features/pantry/hooks/use-pantry";
+
 export const Route = createFileRoute("/")({
   component: LinaraApp,
 });
@@ -52,9 +58,6 @@ import {
   INITIAL_PREP_TASKS,
 } from "@/features/appointments/appointment.constants";
 import type { Appointment, EventTemplate } from "@/features/appointments/appointment.types";
-import { RECEIPT_PLACEHOLDER } from "@/features/groceries/grocery.constants";
-import type { GroceryContextValue, GroceryItem } from "@/features/groceries/grocery.types";
-import { fmtPeso } from "@/features/groceries/grocery.utils";
 import type {
   LedgerEntry,
   LedgerReason,
@@ -62,9 +65,6 @@ import type {
   ValeRequest,
 } from "@/features/ledger/ledger.types";
 import type { MyNote } from "@/features/notes/note.types";
-import { INITIAL_PANTRY } from "@/features/pantry/pantry.constants";
-import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
-import type { PantryCategory, PantryItem } from "@/features/pantry/pantry.types";
 import {
   adminPermSummary,
   adminTypeLabel,
@@ -108,9 +108,6 @@ import {
   weekdayOf,
   type Weekday,
 } from "@/lib/time";
-
-const GroceryCtx = createContext<GroceryContextValue | null>(null);
-const useGrocery = () => useContext(GroceryCtx);
 
 function LinaraApp() {
   const [viewAs, setViewAs] = useState<ViewAs>("ben");
@@ -175,117 +172,8 @@ function LinaraApp() {
       ),
     );
   };
-  const [pantry, setPantry] = useState<PantryItem[]>(INITIAL_PANTRY);
-  const adjustPantry = (id: string, delta: number) =>
-    setPantry((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, qty: Math.max(0, Math.round((p.qty + delta) * 100) / 100) } : p,
-      ),
-    );
-  const setPantryQty = (id: string, qty: number) =>
-    setPantry((prev) => prev.map((p) => (p.id === id ? { ...p, qty: Math.max(0, qty) } : p)));
-  const addPantryItem = (item: Omit<PantryItem, "id">) =>
-    setPantry((prev) => [...prev, { ...item, id: `p${Date.now()}` }]);
-  const removePantryItem = (id: string) => setPantry((prev) => prev.filter((p) => p.id !== id));
+  const pantry = usePantry();
 
-  // ---- Grocery list ----
-  const [grocery, setGrocery] = useState<GroceryItem[]>([]);
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
-  const [groceryModalOpen, setGroceryModalOpen] = useState(false);
-  const [groceryBudget, setGroceryBudget] = useState(1500);
-  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
-  // Auto-derived suggestions: low pantry items not already in grocery and not dismissed.
-  const groceryDisplay = useMemo<GroceryItem[]>(() => {
-    const covered = new Set(grocery.map((g) => g.pantryItemId).filter(Boolean) as string[]);
-    const suggestions: GroceryItem[] = pantry
-      .filter((p) => p.qty <= p.par && !covered.has(p.id) && !dismissedSuggestions.has(p.id))
-      .map((p) => ({
-        id: `sug-${p.id}`,
-        name: p.name,
-        qty: Math.max(1, Math.round((p.par - p.qty) * 100) / 100),
-        unit: p.unit,
-        pantryItemId: p.id,
-        bought: false,
-      }));
-    return [...grocery, ...suggestions];
-  }, [grocery, pantry, dismissedSuggestions]);
-  const toBuyCount = groceryDisplay.filter((g) => !g.bought).length;
-  const grocerySpent = useMemo(
-    () => grocery.filter((g) => g.bought).reduce((s, g) => s + (g.costPHP ?? 0), 0),
-    [grocery],
-  );
-  const addManualGrocery = (name: string, qty: number, unit: string) => {
-    if (!name.trim()) return;
-    setGrocery((prev) => [
-      ...prev,
-      { id: `g${Date.now()}`, name: name.trim(), qty, unit: unit.trim() || "pcs", bought: false },
-    ]);
-  };
-  const toggleGroceryBought = (item: GroceryItem) => {
-    const isSuggestion = item.id.startsWith("sug-");
-    if (isSuggestion) {
-      // Promote suggestion into state as bought AND bump pantry.
-      setGrocery((prev) => [...prev, { ...item, id: `g${Date.now()}`, bought: true }]);
-      if (item.pantryItemId) adjustPantry(item.pantryItemId, item.qty);
-      return;
-    }
-    // Existing state item — flip bought and adjust pantry accordingly.
-    setGrocery((prev) =>
-      prev.map((g) =>
-        g.id === item.id
-          ? { ...g, bought: !g.bought, costPHP: g.bought ? undefined : g.costPHP }
-          : g,
-      ),
-    );
-    if (item.pantryItemId) adjustPantry(item.pantryItemId, item.bought ? -item.qty : item.qty);
-  };
-  const setGroceryCost = (item: GroceryItem, cost: number | undefined) => {
-    if (item.id.startsWith("sug-")) return;
-    setGrocery((prev) => prev.map((g) => (g.id === item.id ? { ...g, costPHP: cost } : g)));
-  };
-  const removeGroceryItem = (item: GroceryItem) => {
-    if (item.id.startsWith("sug-")) {
-      // Dismiss this suggestion until pantry qty changes and it re-qualifies.
-      if (item.pantryItemId)
-        setDismissedSuggestions((prev) => new Set(prev).add(item.pantryItemId!));
-      return;
-    }
-    // If already marked bought, roll back the pantry bump so counts stay honest.
-    if (item.bought && item.pantryItemId) adjustPantry(item.pantryItemId, -item.qty);
-    setGrocery((prev) => prev.filter((g) => g.id !== item.id));
-  };
-  // Clear dismissals if the pantry item is no longer low (so a fresh dip re-suggests).
-  useEffect(() => {
-    setDismissedSuggestions((prev) => {
-      let changed = false;
-      const next = new Set(prev);
-      for (const id of prev) {
-        const p = pantry.find((x) => x.id === id);
-        if (!p || p.qty > p.par) {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [pantry]);
-  const groceryCtxValue: GroceryContextValue = {
-    display: groceryDisplay,
-    toBuyCount,
-    budget: groceryBudget,
-    spent: grocerySpent,
-    remaining: groceryBudget - grocerySpent,
-    receiptPhoto,
-    addManual: addManualGrocery,
-    toggleBought: toggleGroceryBought,
-    setCost: setGroceryCost,
-    setBudget: (n) => setGroceryBudget(Math.max(0, n)),
-    attachReceipt: () => setReceiptPhoto(RECEIPT_PLACEHOLDER),
-    clearReceipt: () => setReceiptPhoto(null),
-    remove: removeGroceryItem,
-    isPalengkeTask: isPalengke,
-    openModal: () => setGroceryModalOpen(true),
-  };
   // Simulated "today" — starts on Tuesday, July 7, 2026 to match the seed board.
   const [simDate, setSimDate] = useState<Date>(new Date(2026, 6, 7));
   const currentHelperId = "rosa";
@@ -668,7 +556,7 @@ function LinaraApp() {
         onSimOffsetChange={setSimOffsetMs}
         adminType={adminType}
       />
-      <GroceryCtx.Provider value={groceryCtxValue}>
+      <GroceryProvider pantry={pantry}>
         <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6">
           {role === "manager" ? (
             <ManagerView
@@ -701,10 +589,6 @@ function LinaraApp() {
               onSetLedgerDefault={setLedgerDefault}
               onUpdateLedgerEntry={updateLedgerEntry}
               pantry={pantry}
-              onAdjustPantry={adjustPantry}
-              onSetPantryQty={setPantryQty}
-              onAddPantryItem={addPantryItem}
-              onRemovePantryItem={removePantryItem}
               schedules={schedules}
               onUpdateDaySchedule={updateDaySchedule}
               invites={invites}
@@ -731,10 +615,6 @@ function LinaraApp() {
               ledgerDefault={ledgerDefault}
               onUpdateLedgerEntry={updateLedgerEntry}
               pantry={pantry}
-              onAdjustPantry={adjustPantry}
-              onSetPantryQty={setPantryQty}
-              onAddPantryItem={addPantryItem}
-              onRemovePantryItem={removePantryItem}
               weekSchedule={schedules[currentHelperId] ?? INITIAL_SCHEDULES[currentHelperId]}
               simDate={simDate}
               onAddTask={(t) => addTask(t)}
@@ -745,8 +625,7 @@ function LinaraApp() {
             />
           )}
         </main>
-        {groceryModalOpen && <GroceryModal onClose={() => setGroceryModalOpen(false)} />}
-      </GroceryCtx.Provider>
+      </GroceryProvider>
     </div>
   );
 }
@@ -899,10 +778,6 @@ function ManagerView({
   onSetLedgerDefault,
   onUpdateLedgerEntry,
   pantry,
-  onAdjustPantry,
-  onSetPantryQty,
-  onAddPantryItem,
-  onRemovePantryItem,
   schedules,
   onUpdateDaySchedule,
   invites,
@@ -955,11 +830,7 @@ function ManagerView({
     id: string,
     patch: Partial<Pick<LedgerEntry, "adjustMinutes" | "resolution">>,
   ) => void;
-  pantry: PantryItem[];
-  onAdjustPantry: (id: string, delta: number) => void;
-  onSetPantryQty: (id: string, qty: number) => void;
-  onAddPantryItem: (item: Omit<PantryItem, "id">) => void;
-  onRemovePantryItem: (id: string) => void;
+  pantry: PantryStore;
   schedules: Record<string, WeekSchedule>;
   onUpdateDaySchedule: (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => void;
   invites: Invite[];
@@ -1282,13 +1153,7 @@ function ManagerView({
 
       {view === "pantry" && (
         <div className="space-y-6">
-          <PantrySection
-            items={pantry}
-            onAdjust={onAdjustPantry}
-            onSetQty={onSetPantryQty}
-            onAdd={onAddPantryItem}
-            onRemove={onRemovePantryItem}
-          />
+          <PantrySection pantry={pantry} />
           <GrocerySection />
         </div>
       )}
@@ -3410,10 +3275,6 @@ function HelperView({
   ledgerDefault,
   onUpdateLedgerEntry,
   pantry,
-  onAdjustPantry,
-  onSetPantryQty,
-  onAddPantryItem,
-  onRemovePantryItem,
   weekSchedule,
   simDate,
   onAddTask,
@@ -3441,11 +3302,7 @@ function HelperView({
     id: string,
     patch: Partial<Pick<LedgerEntry, "adjustMinutes" | "resolution">>,
   ) => void;
-  pantry: PantryItem[];
-  onAdjustPantry: (id: string, delta: number) => void;
-  onSetPantryQty: (id: string, qty: number) => void;
-  onAddPantryItem: (item: Omit<PantryItem, "id">) => void;
-  onRemovePantryItem: (id: string) => void;
+  pantry: PantryStore;
   weekSchedule: WeekSchedule;
   simDate: Date;
   onAddTask: (t: Omit<Task, "id" | "status" | "station">) => void;
@@ -3662,13 +3519,7 @@ function HelperView({
         </>
       ) : tab === "pantry" ? (
         <div className="space-y-5">
-          <PantrySection
-            items={pantry}
-            onAdjust={onAdjustPantry}
-            onSetQty={onSetPantryQty}
-            onAdd={onAddPantryItem}
-            onRemove={onRemovePantryItem}
-          />
+          <PantrySection pantry={pantry} />
           <GrocerySection />
         </div>
       ) : (
@@ -5764,860 +5615,6 @@ function AfterHoursLedger({
         Rest-day premium rates follow local law (placeholder, configurable).
       </p>
     </section>
-  );
-}
-
-// ---------- Pantry ----------
-function PantrySection({
-  items,
-  onAdjust,
-  onSetQty,
-  onAdd,
-  onRemove,
-}: {
-  items: PantryItem[];
-  onAdjust: (id: string, delta: number) => void;
-  onSetQty: (id: string, qty: number) => void;
-  onAdd: (item: Omit<PantryItem, "id">) => void;
-  onRemove: (id: string) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const lowCount = items.filter((i) => i.qty <= i.par).length;
-  const grouped = PANTRY_CATEGORIES.map((cat) => ({
-    cat,
-    items: items
-      .filter((i) => i.category === cat)
-      .sort((a, b) => (a.qty <= a.par ? -1 : 1) - (b.qty <= b.par ? -1 : 1)),
-  })).filter((g) => g.items.length > 0);
-
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-              <Package className="h-4 w-4" />
-            </div>
-            <h2 className="font-display text-xl text-foreground">Pantry</h2>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Shared with the Cook. Keep supplies at or above par.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {lowCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-[11px] font-semibold text-[oklch(0.42_0.12_50)]">
-              <AlertCircle className="h-3 w-3" /> {lowCount} running low
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
-              <Check className="h-3 w-3" /> All stocked
-            </span>
-          )}
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add item
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-4">
-        {grouped.map((g) => (
-          <div key={g.cat}>
-            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {g.cat}
-            </div>
-            <div className="space-y-2">
-              {g.items.map((i) => (
-                <PantryRow
-                  key={i.id}
-                  item={i}
-                  onAdjust={onAdjust}
-                  onSetQty={onSetQty}
-                  onRemove={onRemove}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {adding && (
-        <AddPantryItemModal
-          onClose={() => setAdding(false)}
-          onAdd={(item) => {
-            onAdd(item);
-            setAdding(false);
-          }}
-        />
-      )}
-    </section>
-  );
-}
-
-function PantryRow({
-  item,
-  onAdjust,
-  onSetQty,
-  onRemove,
-}: {
-  item: PantryItem;
-  onAdjust: (id: string, delta: number) => void;
-  onSetQty: (id: string, qty: number) => void;
-  onRemove: (id: string) => void;
-}) {
-  const low = item.qty <= item.par;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(item.qty));
-  useEffect(() => {
-    setDraft(String(item.qty));
-  }, [item.qty]);
-  const commit = () => {
-    const n = parseFloat(draft);
-    if (!isNaN(n)) onSetQty(item.id, n);
-    setEditing(false);
-  };
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-2xl border p-2.5 sm:p-3 ${low ? "border-terracotta/40 bg-terracotta-soft/30" : "border-border/70 bg-background/60"}`}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
-          {low && (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-              Low
-            </span>
-          )}
-        </div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">
-          par {item.par} {item.unit}
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          onClick={() => onAdjust(item.id, -1)}
-          className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label="Decrease"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        {editing ? (
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commit();
-              if (e.key === "Escape") {
-                setDraft(String(item.qty));
-                setEditing(false);
-              }
-            }}
-            className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
-          />
-        ) : (
-          <button
-            onClick={() => setEditing(true)}
-            className="min-w-[64px] rounded-lg px-2 py-1 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-secondary"
-            aria-label={`Edit ${item.name} quantity`}
-          >
-            {item.qty}{" "}
-            <span className="text-[11px] font-normal text-muted-foreground">{item.unit}</span>
-          </button>
-        )}
-        <button
-          onClick={() => onAdjust(item.id, 1)}
-          className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label="Increase"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={() => onRemove(item.id)}
-          className="ml-1 grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-          aria-label={`Remove ${item.name}`}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AddPantryItemModal({
-  onClose,
-  onAdd,
-}: {
-  onClose: () => void;
-  onAdd: (item: Omit<PantryItem, "id">) => void;
-}) {
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unit, setUnit] = useState("pcs");
-  const [par, setPar] = useState("1");
-  const [category, setCategory] = useState<PantryCategory>("Pantry");
-  const valid = name.trim().length > 0 && !isNaN(parseFloat(qty)) && !isNaN(parseFloat(par));
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-start justify-between">
-          <h3 className="font-display text-xl text-foreground">Add pantry item</h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Name
-            </span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Toilet paper"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Qty
-              </span>
-              <input
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                inputMode="decimal"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Unit
-              </span>
-              <input
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                placeholder="pcs, kg, L"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Par
-              </span>
-              <input
-                value={par}
-                onChange={(e) => setPar(e.target.value)}
-                inputMode="decimal"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Category
-            </span>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as PantryCategory)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              {PANTRY_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={!valid}
-            onClick={() =>
-              onAdd({
-                name: name.trim(),
-                qty: parseFloat(qty),
-                unit: unit.trim() || "pcs",
-                par: parseFloat(par),
-                category,
-              })
-            }
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BudgetBar({ compact }: { compact?: boolean } = {}) {
-  const ctx = useGrocery();
-  if (!ctx) return null;
-  const pct = ctx.budget > 0 ? Math.min(100, (ctx.spent / ctx.budget) * 100) : 0;
-  const over = ctx.spent > ctx.budget;
-  return (
-    <div className={compact ? "" : "rounded-2xl bg-background/60 p-3"}>
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-baseline gap-1.5">
-          <span
-            className={`font-display ${compact ? "text-lg" : "text-2xl"} tabular-nums text-foreground`}
-          >
-            {fmtPeso(ctx.spent)}
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            / {fmtPeso(ctx.budget)}
-          </span>
-        </div>
-        <span
-          className={`text-[11px] font-semibold tabular-nums ${over ? "text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
-        >
-          {over ? `over by ${fmtPeso(ctx.spent - ctx.budget)}` : `${fmtPeso(ctx.remaining)} left`}
-        </span>
-      </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div
-          className={`h-full rounded-full transition-all ${over ? "bg-[oklch(0.55_0.18_35)]" : "bg-primary"}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
-  const ctx = useGrocery();
-  const [preview, setPreview] = useState(false);
-  if (!ctx) return null;
-  if (ctx.receiptPhoto) {
-    return (
-      <>
-        <div
-          className={`flex items-center gap-2 rounded-2xl border border-border/70 bg-background/60 p-2 ${compact ? "" : "sm:p-3"}`}
-        >
-          <button onClick={() => setPreview(true)} className="shrink-0 overflow-hidden rounded-xl">
-            <img src={ctx.receiptPhoto} alt="Receipt" className="h-12 w-12 object-cover" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-foreground">Receipt attached</div>
-            <div className="text-[11px] text-muted-foreground">Tap to view</div>
-          </div>
-          <button
-            onClick={ctx.clearReceipt}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-            aria-label="Remove receipt"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        {preview && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
-            onClick={() => setPreview(false)}
-          >
-            <img
-              src={ctx.receiptPhoto}
-              alt="Receipt"
-              className="max-h-[85vh] rounded-2xl shadow-lift"
-            />
-          </div>
-        )}
-      </>
-    );
-  }
-  return (
-    <button
-      onClick={ctx.attachReceipt}
-      className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-background/60 px-3 py-2 text-xs font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground"
-    >
-      <Camera className="h-3.5 w-3.5" /> Attach receipt photo
-    </button>
-  );
-}
-
-function TodaysSpendDial() {
-  const ctx = useGrocery();
-  if (!ctx) return null;
-  const over = ctx.spent > ctx.budget;
-  const pct = ctx.budget > 0 ? Math.min(100, (ctx.spent / ctx.budget) * 100) : 0;
-  return (
-    <div className="rounded-3xl border border-border/70 bg-card p-4 shadow-soft">
-      <div className="flex items-center justify-between">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Today's spend
-        </div>
-        <button
-          onClick={ctx.openModal}
-          className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
-        >
-          <Wallet className="h-3 w-3" /> Palengke run
-        </button>
-      </div>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="font-display text-2xl tabular-nums text-foreground">
-          {fmtPeso(ctx.spent)}
-        </span>
-        <span className="text-xs text-muted-foreground tabular-nums">/ {fmtPeso(ctx.budget)}</span>
-      </div>
-      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div
-          className={`h-full rounded-full ${over ? "bg-[oklch(0.55_0.18_35)]" : "bg-primary"}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[11px]">
-        <span
-          className={`tabular-nums ${over ? "font-semibold text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
-        >
-          {over
-            ? `over by ${fmtPeso(ctx.spent - ctx.budget)}`
-            : `${fmtPeso(ctx.remaining)} remaining`}
-        </span>
-        {ctx.receiptPhoto ? (
-          <button
-            onClick={ctx.openModal}
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-          >
-            <Camera className="h-3 w-3" /> Receipt
-          </button>
-        ) : (
-          <span className="text-muted-foreground/70">No receipt yet</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PalengkeChip({ compact }: { compact?: boolean } = {}) {
-  const ctx = useGrocery();
-  if (!ctx) return null;
-  return (
-    <button
-      onClick={ctx.openModal}
-      className={`inline-flex items-center gap-1 rounded-full border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-[oklch(0.4_0.13_55)] transition hover:bg-terracotta-soft ${
-        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]"
-      }`}
-      title="Grocery list attached"
-    >
-      <ShoppingBasket className="h-2.5 w-2.5" />
-      Grocery · {ctx.toBuyCount} to buy · {fmtPeso(ctx.spent)}
-    </button>
-  );
-}
-
-function PalengkeInlineList() {
-  const ctx = useGrocery();
-  if (!ctx) return null;
-  const toBuy = ctx.display.filter((g) => !g.bought);
-  const bought = ctx.display.filter((g) => g.bought);
-  return (
-    <div className="rounded-2xl border border-terracotta/40 bg-terracotta-soft/30 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-card text-[oklch(0.4_0.13_55)]">
-            <ShoppingBasket className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-pine-deep">Your list · your budget</div>
-            <div className="text-[11px] text-muted-foreground">
-              {toBuy.length} to buy · {bought.length} bought
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={ctx.openModal}
-          className="rounded-full border border-primary/30 bg-card px-3 py-1 text-[11px] font-semibold text-primary shadow-soft hover:bg-primary/5"
-        >
-          Open list
-        </button>
-      </div>
-
-      <div className="mt-3 rounded-2xl bg-card/70 p-3">
-        <BudgetBar compact />
-      </div>
-
-      {ctx.display.length === 0 ? (
-        <p className="mt-3 text-xs italic text-muted-foreground">
-          Nothing to buy — pantry is stocked.
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-1.5">
-          {ctx.display.slice(0, 5).map((g) => (
-            <li key={g.id}>
-              <GroceryRow
-                item={g}
-                onToggle={() => ctx.toggleBought(g)}
-                onRemove={() => ctx.remove(g)}
-                onCost={(c) => ctx.setCost(g, c)}
-                tone="light"
-              />
-            </li>
-          ))}
-          {ctx.display.length > 5 && (
-            <li className="pt-1 text-center text-[11px] text-muted-foreground">
-              +{ctx.display.length - 5} more · tap Open list
-            </li>
-          )}
-        </ul>
-      )}
-
-      <div className="mt-3">
-        <ReceiptSlot compact />
-      </div>
-    </div>
-  );
-}
-
-function GrocerySection() {
-  const ctx = useGrocery();
-  // Hooks stay above the null guard — bailing out first changes hook order between renders.
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unit, setUnit] = useState("pcs");
-  const [budgetDraft, setBudgetDraft] = useState(String(ctx?.budget ?? 0));
-  const budget = ctx?.budget;
-  useEffect(() => {
-    if (budget !== undefined) setBudgetDraft(String(budget));
-  }, [budget]);
-  if (!ctx) return null;
-  const toBuy = ctx.display.filter((g) => !g.bought);
-  const bought = ctx.display.filter((g) => g.bought);
-  const submit = () => {
-    if (!name.trim()) return;
-    const n = parseFloat(qty);
-    ctx.addManual(name, isNaN(n) ? 1 : n, unit);
-    setName("");
-    setQty("1");
-    setUnit("pcs");
-  };
-  return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta-soft text-[oklch(0.4_0.13_55)]">
-              <ShoppingBasket className="h-4 w-4" />
-            </div>
-            <h2 className="font-display text-xl text-foreground">Grocery list</h2>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Auto-suggested from Pantry lows. Attached to the Palengke run.
-          </p>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
-          {toBuy.length} to buy
-        </span>
-      </div>
-
-      {/* Petty cash / budget */}
-      <div className="mt-4 rounded-2xl bg-background/60 p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Petty cash budget
-          </div>
-          <label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-            ₱
-            <input
-              value={budgetDraft}
-              onChange={(e) => setBudgetDraft(e.target.value)}
-              onBlur={() => {
-                const n = parseFloat(budgetDraft);
-                if (!isNaN(n)) ctx.setBudget(n);
-                else setBudgetDraft(String(ctx.budget));
-              }}
-              inputMode="numeric"
-              className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
-            />
-          </label>
-        </div>
-        <BudgetBar compact />
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {toBuy.length === 0 && bought.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border bg-background/60 p-4 text-center text-xs text-muted-foreground">
-            Pantry is stocked — nothing suggested. Add manual items below.
-          </div>
-        )}
-        {toBuy.map((g) => (
-          <GroceryRow
-            key={g.id}
-            item={g}
-            onToggle={() => ctx.toggleBought(g)}
-            onRemove={() => ctx.remove(g)}
-            onCost={(c) => ctx.setCost(g, c)}
-          />
-        ))}
-      </div>
-
-      {bought.length > 0 && (
-        <div className="mt-4">
-          <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Bought · {bought.length}
-          </div>
-          <div className="space-y-1.5">
-            {bought.map((g) => (
-              <GroceryRow
-                key={g.id}
-                item={g}
-                onToggle={() => ctx.toggleBought(g)}
-                onRemove={() => ctx.remove(g)}
-                onCost={(c) => ctx.setCost(g, c)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Receipt */}
-      <div className="mt-4">
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Receipt
-        </div>
-        <ReceiptSlot />
-      </div>
-
-      {/* Add manual */}
-      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
-        <label className="min-w-0 flex-1">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Add item
-          </span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-            }}
-            placeholder="e.g. ulam for Sunday"
-            className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
-        <label className="w-16">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Qty
-          </span>
-          <input
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            inputMode="decimal"
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
-          />
-        </label>
-        <label className="w-20">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Unit
-          </span>
-          <input
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm outline-none focus:border-primary"
-          />
-        </label>
-        <button
-          onClick={submit}
-          className="inline-flex items-center gap-1 rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function GroceryRow({
-  item,
-  onToggle,
-  onRemove,
-  onCost,
-  tone,
-}: {
-  item: GroceryItem;
-  onToggle: () => void;
-  onRemove: () => void;
-  onCost?: (cost: number | undefined) => void;
-  tone?: "light";
-}) {
-  const suggested = item.id.startsWith("sug-");
-  const [draft, setDraft] = useState(item.costPHP != null ? String(item.costPHP) : "");
-  useEffect(() => {
-    setDraft(item.costPHP != null ? String(item.costPHP) : "");
-  }, [item.costPHP]);
-  const commit = () => {
-    if (!onCost) return;
-    if (draft.trim() === "") {
-      onCost(undefined);
-      return;
-    }
-    const n = parseFloat(draft);
-    if (!isNaN(n) && n >= 0) onCost(n);
-  };
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-xl border p-2 ${tone === "light" ? "border-transparent bg-card/70" : "border-border/70 bg-background/60"}`}
-    >
-      <button
-        onClick={onToggle}
-        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
-          item.bought
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-card text-transparent hover:border-primary/60"
-        }`}
-        aria-label={item.bought ? "Mark not bought" : "Mark bought"}
-      >
-        <Check className="h-3.5 w-3.5" />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div
-          className={`flex items-center gap-1.5 text-sm ${item.bought ? "text-muted-foreground" : "text-foreground"}`}
-        >
-          <span className={`truncate font-medium ${item.bought ? "line-through" : ""}`}>
-            {item.name}
-          </span>
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-            · {item.qty} {item.unit}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-          {suggested && !item.bought && (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 font-semibold text-pine-deep">
-              Suggested
-            </span>
-          )}
-          {item.pantryItemId && (
-            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-              <Package className="h-2.5 w-2.5" /> restocks pantry
-            </span>
-          )}
-        </div>
-      </div>
-      {item.bought && !suggested && onCost && (
-        <label className="inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card px-1.5 py-1 text-xs text-muted-foreground focus-within:border-primary">
-          <span>₱</span>
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            inputMode="decimal"
-            placeholder="—"
-            className="w-14 bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
-          />
-        </label>
-      )}
-      <button
-        onClick={onRemove}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-        aria-label={`Remove ${item.name}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-function GroceryModal({ onClose }: { onClose: () => void }) {
-  const ctx = useGrocery();
-  if (!ctx) return null;
-  const toBuy = ctx.display.filter((g) => !g.bought);
-  const bought = ctx.display.filter((g) => g.bought);
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="max-h-[90vh] w-full max-w-md overflow-hidden rounded-3xl border border-border bg-card shadow-lift">
-        <div className="flex items-start justify-between border-b border-border/60 p-5">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Palengke run
-            </div>
-            <h3 className="mt-1 font-display text-xl text-foreground">Grocery & budget</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {toBuy.length} to buy · {bought.length} bought
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto p-4 space-y-4">
-          <div className="rounded-2xl bg-background/60 p-3">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Spent vs. budget
-            </div>
-            <BudgetBar compact />
-          </div>
-          <div>
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Receipt
-            </div>
-            <ReceiptSlot />
-          </div>
-          <div>
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              To buy
-            </div>
-            {toBuy.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                All checked off. Salamat!
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {toBuy.map((g) => (
-                  <GroceryRow
-                    key={g.id}
-                    item={g}
-                    onToggle={() => ctx.toggleBought(g)}
-                    onRemove={() => ctx.remove(g)}
-                    onCost={(c) => ctx.setCost(g, c)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          {bought.length > 0 && (
-            <div>
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Bought
-              </div>
-              <div className="space-y-1.5">
-                {bought.map((g) => (
-                  <GroceryRow
-                    key={g.id}
-                    item={g}
-                    onToggle={() => ctx.toggleBought(g)}
-                    onRemove={() => ctx.remove(g)}
-                    onCost={(c) => ctx.setCost(g, c)}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 px-1 text-[11px] italic text-muted-foreground">
-                Enter what each item actually cost. Checking off a suggested item also bumps the
-                pantry back up.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
