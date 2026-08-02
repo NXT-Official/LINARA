@@ -15,8 +15,8 @@ The execution plan is split into 6 structured, independent, and sequential phase
 *   **[completed] [`Story_2_SASTToolingAndCIDCPipelineSetup.md`](roadmap/Story_2_SASTToolingAndCIDCPipelineSetup.md):** Configure ESLint security rule engines (SAST), audit code quality rules, and establish automated pull request CI/CD pipeline triggers.
 
 ### Phase 2: Backend Core
-*   **[`Story_3_DatabaseInitializationAndCoreTables.md`](roadmap/Story_3_DatabaseInitializationAndCoreTables.md):** Migration schemas for PostgreSQL tables matching prototype properties.
-*   **[`Story_4_DatabaseRLSPoliciesAndIsolation.md`](roadmap/Story_4_DatabaseRLSPoliciesAndIsolation.md):** Row-Level Security policies isolating profiles by `household_id` and securing notes.
+*   **[completed] [`Story_3_DatabaseInitializationAndCoreTables.md`](roadmap/Story_3_DatabaseInitializationAndCoreTables.md):** Migration schemas for PostgreSQL tables matching prototype properties.
+*   **[completed] [`Story_4_DatabaseRLSPoliciesAndIsolation.md`](roadmap/Story_4_DatabaseRLSPoliciesAndIsolation.md):** Row-Level Security policies isolating profiles by `household_id` and securing notes.
 *   **[`Story_5_InvitationAndClaimHandshakeAPIs.md`](roadmap/Story_5_InvitationAndClaimHandshakeAPIs.md):** Single-use invitation generation, verification, and claimant password-lock APIs.
 
 ### Phase 3: Frontend Core
