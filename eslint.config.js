@@ -40,11 +40,11 @@ export default tseslint.config(
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      "react": reactPlugin,
+      react: reactPlugin,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      
+
       // ------------------------------------------------------------------
       // A. TanStack Start & SSR Boundaries
       // ------------------------------------------------------------------
@@ -72,17 +72,17 @@ export default tseslint.config(
       // 2. Prevent dynamic script injections / Cross-Site Scripting (XSS) (CWE-79)
       // Enforces strict code review before rendering raw strings as HTML
       "react/no-danger": "warn",
-      
+
       // 3. Prevent Type Evasion bugs (Any escapes type check and introduces runtime vulnerabilities)
       "@typescript-eslint/no-explicit-any": "error",
-      
+
       // 4. Clean Code Audit: Ensure unused parameters are flagged (helps avoid logic/dead-branch bugs)
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { 
+        {
           argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_" 
-        }
+          varsIgnorePattern: "^_",
+        },
       ],
 
       // 5. Block unsafe RegExp constructs (prevents ReDoS - Regular Expression Denial of Service)
@@ -91,4 +91,3 @@ export default tseslint.config(
   },
   eslintPluginPrettier,
 );
-
