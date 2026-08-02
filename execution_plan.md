@@ -11,8 +11,8 @@ All stories account for the **CRITICAL PRE-EXISTING CONTEXT PRIORITY**, verifyin
 The execution plan is split into 6 structured, independent, and sequential phases:
 
 ### Phase 1: Setup, DevSecOps, & Pre-Flight Bootstrapping
-*   **[`Story_1_EnvironmentBaselineAndDependencyIngestion.md`](roadmap/Story_1_EnvironmentBaselineAndDependencyIngestion.md):** Establish local environment files, update gitignore boundaries, run clean dependency checks, and verify compiler baseline.
-*   **[`Story_2_SASTToolingAndCIDCPipelineSetup.md`](roadmap/Story_2_SASTToolingAndCIDCPipelineSetup.md):** Configure ESLint security rule engines (SAST), audit code quality rules, and establish automated pull request CI/CD pipeline triggers.
+*   **[completed] [`Story_1_EnvironmentBaselineAndDependencyIngestion.md`](roadmap/Story_1_EnvironmentBaselineAndDependencyIngestion.md):** Establish local environment files, update gitignore boundaries, run clean dependency checks, and verify compiler baseline.
+*   **[completed] [`Story_2_SASTToolingAndCIDCPipelineSetup.md`](roadmap/Story_2_SASTToolingAndCIDCPipelineSetup.md):** Configure ESLint security rule engines (SAST), audit code quality rules, and establish automated pull request CI/CD pipeline triggers.
 
 ### Phase 2: Backend Core
 *   **[`Story_3_DatabaseInitializationAndCoreTables.md`](roadmap/Story_3_DatabaseInitializationAndCoreTables.md):** Migration schemas for PostgreSQL tables matching prototype properties.
@@ -20,10 +20,10 @@ The execution plan is split into 6 structured, independent, and sequential phase
 *   **[`Story_5_InvitationAndClaimHandshakeAPIs.md`](roadmap/Story_5_InvitationAndClaimHandshakeAPIs.md):** Single-use invitation generation, verification, and claimant password-lock APIs.
 
 ### Phase 3: Frontend Core
-*   **[`Story_6_ModularFrontendFeatureExtraction.md`](roadmap/Story_6_ModularFrontendFeatureExtraction.md):** Partitioning index.tsx into modular features directories under `src/features/`.
+*   **[completed] [`Story_6_ModularFrontendFeatureExtraction.md`](roadmap/Story_6_ModularFrontendFeatureExtraction.md):** Partitioning index.tsx into modular features directories under `src/features/`.
 *   **[`Story_7_AuthAndClaimOnboardingScreens.md`](roadmap/Story_7_AuthAndClaimOnboardingScreens.md):** Connecting claim review terms and password-setup screens to backend endpoints.
 *   **[`Story_8_DashboardsPassAndStation.md`](roadmap/Story_8_DashboardsPassAndStation.md):** Implementing the visual Pass layout (Line/Board lane toggling) and the Station focused ticket page.
-*   **[`Story_9_PantryAndPalengkeSharedContext.md`](roadmap/Story_9_PantryAndPalengkeSharedContext.md):** Synchronizing low-par pantry suggest logs with Palengke Run checklists via `GroceryCtx`.
+*   **[completed] [`Story_9_PantryAndPalengkeSharedContext.md`](roadmap/Story_9_PantryAndPalengkeSharedContext.md):** Synchronizing low-par pantry suggest logs with Palengke Run checklists via `GroceryCtx`.
 
 ### Phase 4: AI Intelligence
 *   **[`Story_10_AISOPGeneratorEdgeFunction.md`](roadmap/Story_10_AISOPGeneratorEdgeFunction.md):** Developing and deploying the House Standard SOP creator with strict schema checks.
