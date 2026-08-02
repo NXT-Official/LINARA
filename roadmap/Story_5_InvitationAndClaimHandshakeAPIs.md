@@ -1,7 +1,10 @@
 # Story 5: Invitation and Claim Handshake APIs
 
 ## Objective
-Implement the digital handshake APIs in Nitro server functions, supporting the safe creation of invitations by managers and secure claiming of accounts by helpers.
+Implement the digital handshake APIs in type-safe TanStack Start Server Functions, supporting the safe creation of invitations by managers and secure claiming of accounts by helpers.
+
+### Architectural Decision Note (Tech Lead Upgrade)
+To avoid client-side bundling leakage and ensure 100% compile-time type-safety between our onboarding screens and backend handshakes, we implement these handlers as `@tanstack/react-start` **Server Functions** (`createServerFn`) inside `src/features/people/people.actions.ts`. These compile to secure, server-only RPC endpoints and completely resolve client-side imports/bundler conflicts.
 
 ## Context References
 *   PRD Spec: [`plan.md`](../plan.md) Section 2.1 & 3.1

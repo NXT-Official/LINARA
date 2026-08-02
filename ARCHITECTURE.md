@@ -377,8 +377,9 @@ Establishes the data structures and ledger webhook points required to supportGCa
 ## 7. API Design
 
 ### 7.1 Helper Account Management
+*Note: To ensure complete compile-time type safety across the frontend and server environments, these handshakes are implemented as **TanStack Start Server Functions** (`createServerFn`) located under [`src/features/people/people.actions.ts`](src/features/people/people.actions.ts). They are directly invocable by clients with zero HTTP configuration or hydration bottlenecks, though they compile down to secure server RPC nodes.*
 
-#### `POST /api/helpers/invite`
+#### `POST /api/helpers/invite` (Invocable via `inviteHelperFn`)
 Creates a pending helper slot and returns a 6-character alphanumeric invitation code.
 *   **Auth Level:** Primary Manager or Co-Manager JWT (`Authorization: Bearer <JWT>`).
 *   **Request Body:**
