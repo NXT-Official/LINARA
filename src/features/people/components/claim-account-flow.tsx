@@ -1,7 +1,9 @@
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { ReviewRow } from "@/components/shared/detail-row";
+import { verifyClaimFn, flagInviteFn, claimInviteFn } from "@/features/people/people.actions";
 
 import type { Invite } from "../people.types";
 
@@ -23,37 +25,114 @@ export function ClaimAccountFlow({
   const [codeError, setCodeError] = useState<string | null>(null);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [pin, setPin] = useState("");
-  const [pin2, setPin2] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [flagField, setFlagField] = useState("Shift hours");
   const [flagNote, setFlagNote] = useState("");
   const [flagged, setFlagged] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const submitCode = () => {
-    const found = onFindInvite(codeInput);
-    if (!found) {
-      setCodeError("Hindi namin nakita 'yang code. Check the letters and numbers, tapos try ulit.");
+  const submitCode = async () => {
+    if (!codeInput.trim()) return;
+    setLoading(true);
+    setCodeError(null);
+    try {
+      const terms = await verifyClaimFn({ data: { inviteCode: codeInput.trim() } });
+      const mappedInvite: Invite = {
+        id: terms.inviteCode,
+        code: terms.inviteCode,
+        name: terms.name,
+        station: terms.station as any,
+        employment: "live-in", // fallback default
+        shift: `${terms.shiftStart} - ${terms.shiftEnd}`,
+        restDay: ["Linggo", "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado"][terms.weeklyRestDay] || "Sunday",
+        wagePHP: terms.monthlyRate,
+        phone: "",
+        createdAt: Date.now(),
+        createdBy: "Manager",
+        status: "pending",
+        flags: [],
+      };
+      setInvite(mappedInvite);
+      setDisplayName(terms.name);
+      setCodeError(null);
+      setStep("review");
+      toast.success("Nahanap ang iyong invite record!");
+    } catch (err: any) {
+      console.error(err);
+      setCodeError("Hindi namin nakita 'yang code o may server issue. Paki-check ang code at subukan ulit.");
+      toast.error("Hindi nakita ang invite code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitFlag = async () => {
+    if (!invite) return;
+    setLoading(true);
+    try {
+      await flagInviteFn({
+        data: {
+          inviteCode: invite.code,
+          field: flagField,
+          note: flagNote.trim(),
+        },
+      });
+      // Update local mock store as fallback/synergy
+      onFlag(invite.id, flagField, flagNote.trim() || undefined);
+      setFlagged(true);
+      setStep("review");
+      toast.success("Dispute sent! Sinabi na namin sa manager mo ang tungkol sa issue.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("May error sa pagpapadala ng flag.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitClaim = async () => {
+    if (!invite) return;
+    if (!displayName.trim() || !email.trim() || !password.trim()) {
+      toast.error("Kumpletuhin muna ang lahat ng detalye.");
       return;
     }
-    setInvite(found);
-    setDisplayName(found.name);
-    setCodeError(null);
-    setStep("review");
-  };
+    if (password !== confirmPassword) {
+      toast.error("Hindi magkatugma ang passwords.");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Dapat may kahit anim (6) na characters ang password.");
+      return;
+    }
 
-  const submitClaim = () => {
-    if (!invite) return;
-    if (!displayName.trim()) return;
-    if (pin.length < 4 || pin !== pin2) return;
-    onClaim(invite.id, displayName.trim());
-    onFinished({ ...invite, status: "active", claimedName: displayName.trim() });
-  };
+    setLoading(true);
+    try {
+      const result = await claimInviteFn({
+        data: {
+          inviteCode: invite.code,
+          email: email.trim(),
+          password,
+        },
+      });
 
-  const submitFlag = () => {
-    if (!invite) return;
-    onFlag(invite.id, flagField, flagNote.trim() || undefined);
-    setFlagged(true);
-    setStep("review");
+      // Persist credentials locally
+      window.localStorage.setItem("linara_helper_token", result.accessToken);
+      window.localStorage.setItem("linara_helper_refresh_token", result.refreshToken);
+      window.localStorage.setItem("linara_helper_id", result.helperId);
+      window.localStorage.setItem("linara_user_id", result.userId);
+
+      // Trigger client callbacks to sync state
+      onClaim(invite.id, displayName.trim());
+      onFinished({ ...invite, status: "active", claimedName: displayName.trim() });
+      toast.success("Tagumpay! Claimed na ang account mo.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Hindi nagtagumpay ang pag-claim ng account.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -81,6 +160,7 @@ export function ClaimAccountFlow({
             onClick={onClose}
             className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
             aria-label="Close"
+            disabled={loading}
           >
             <X className="h-4 w-4" />
           </button>
@@ -89,8 +169,8 @@ export function ClaimAccountFlow({
         {step === "code" && (
           <div className="space-y-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              I-enter mo 'yung invite code galing sa employer mo. Mukhang{" "}
-              <span className="font-mono font-semibold text-foreground">LINARA-1234</span>.
+              I-enter mo 'yung invite code galing sa employer mo. Halimbawa:{" "}
+              <span className="font-mono font-semibold text-foreground">LN98A2</span>.
             </p>
             <div>
               <label
@@ -102,13 +182,14 @@ export function ClaimAccountFlow({
               <input
                 id="claim-code"
                 autoFocus
+                disabled={loading}
                 value={codeInput}
                 onChange={(e) => {
                   setCodeInput(e.target.value.toUpperCase());
                   setCodeError(null);
                 }}
-                placeholder="LINARA-1234"
-                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-4 text-center font-mono text-xl tracking-[0.2em] text-foreground outline-none focus:border-primary"
+                placeholder="LN98A2"
+                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-4 text-center font-mono text-xl tracking-[0.2em] text-foreground outline-none focus:border-primary disabled:opacity-60"
               />
               {codeError && (
                 <p className="mt-2 flex items-start gap-1.5 text-xs text-[oklch(0.38_0.09_60)]">
@@ -118,10 +199,16 @@ export function ClaimAccountFlow({
             </div>
             <button
               onClick={submitCode}
-              disabled={!codeInput.trim()}
-              className="w-full rounded-full bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+              disabled={loading || !codeInput.trim()}
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
             >
-              Continue
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Verifying...
+                </>
+              ) : (
+                "Continue"
+              )}
             </button>
           </div>
         )}
@@ -135,11 +222,7 @@ export function ClaimAccountFlow({
             <div className="space-y-2 rounded-2xl border border-border/70 bg-background/60 p-4 text-sm">
               <ReviewRow label="Pangalan" value={invite.name} />
               <ReviewRow label="Role / station" value={invite.station} />
-              <ReviewRow
-                label="Employment"
-                value={invite.employment === "live-in" ? "Live-in" : "Live-out"}
-              />
-              <ReviewRow label="Shift" value={invite.shift} />
+              <ReviewRow label="Shift hours" value={invite.shift} />
               <ReviewRow label="Rest day" value={invite.restDay} />
               <ReviewRow label="Monthly wage" value={`₱${invite.wagePHP.toLocaleString()}`} />
             </div>
@@ -154,21 +237,24 @@ export function ClaimAccountFlow({
             )}
             <button
               type="button"
+              disabled={loading}
               onClick={() => setStep("flag")}
-              className="w-full text-left text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+              className="w-full text-left text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
             >
               Something's not right? →
             </button>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => setStep("code")}
-                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                disabled={loading}
+                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep("setup")}
-                className="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+                disabled={loading}
+                className="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
               >
                 Looks right — continue
               </button>
@@ -191,13 +277,13 @@ export function ClaimAccountFlow({
               </label>
               <select
                 id="flag-field"
+                disabled={loading}
                 value={flagField}
                 onChange={(e) => setFlagField(e.target.value)}
-                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-3 py-3 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-3 py-3 text-sm outline-none focus:border-primary disabled:opacity-60"
               >
                 <option>Pangalan</option>
                 <option>Role / station</option>
-                <option>Employment</option>
                 <option>Shift hours</option>
                 <option>Rest day</option>
                 <option>Monthly wage</option>
@@ -213,25 +299,34 @@ export function ClaimAccountFlow({
               </label>
               <textarea
                 id="flag-note"
+                disabled={loading}
                 value={flagNote}
                 onChange={(e) => setFlagNote(e.target.value)}
                 rows={3}
-                placeholder="e.g. Ang usapan namin ay 7 AM – 6 PM, hindi 6 AM – 7 PM."
-                className="mt-1.5 w-full resize-none rounded-2xl border border-input bg-background px-3 py-3 text-sm outline-none focus:border-primary"
+                placeholder="Hal. Ang usapan namin ay ₱8,500 monthly rate, hindi ₱8,000."
+                className="mt-1.5 w-full resize-none rounded-2xl border border-input bg-background px-3 py-3 text-sm outline-none focus:border-primary disabled:opacity-60"
               />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => setStep("review")}
-                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                disabled={loading}
+                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 onClick={submitFlag}
-                className="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+                disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
               >
-                Send flag to manager
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Sending...
+                  </>
+                ) : (
+                  "Send flag to manager"
+                )}
               </button>
             </div>
           </div>
@@ -252,68 +347,99 @@ export function ClaimAccountFlow({
               </label>
               <input
                 id="claim-name"
+                disabled={loading}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-base outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-base outline-none focus:border-primary disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label
+                className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                htmlFor="claim-email"
+              >
+                Your Email Address
+              </label>
+              <input
+                id="claim-email"
+                disabled={loading}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="hal. rosa@gmail.com"
+                className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-base outline-none focus:border-primary disabled:opacity-60"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label
                   className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                  htmlFor="claim-pin"
+                  htmlFor="claim-password"
                 >
-                  4-digit PIN
+                  Password
                 </label>
                 <input
-                  id="claim-pin"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="••••"
-                  className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-center font-mono text-lg tracking-[0.3em] outline-none focus:border-primary"
+                  id="claim-password"
+                  disabled={loading}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••"
+                  className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-center text-lg outline-none focus:border-primary disabled:opacity-60"
                 />
               </div>
               <div>
                 <label
                   className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                  htmlFor="claim-pin2"
+                  htmlFor="claim-password-confirm"
                 >
-                  Ulitin
+                  Confirm
                 </label>
                 <input
-                  id="claim-pin2"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={pin2}
-                  onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))}
-                  placeholder="••••"
-                  className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-center font-mono text-lg tracking-[0.3em] outline-none focus:border-primary"
+                  id="claim-password-confirm"
+                  disabled={loading}
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••"
+                  className="mt-1.5 w-full rounded-2xl border border-input bg-background px-4 py-3 text-center text-lg outline-none focus:border-primary disabled:opacity-60"
                 />
               </div>
             </div>
-            {pin.length >= 4 && pin !== pin2 && pin2.length >= pin.length && (
+            {password.length > 0 && confirmPassword.length > 0 && password !== confirmPassword && (
               <p className="text-xs text-[oklch(0.38_0.09_60)]">
-                Hindi magkatugma 'yung PIN. Try again.
+                Hindi magkatugma ang password. Paki-check at ulitin.
               </p>
             )}
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              PIN lang muna para sa prototype — hindi ito ipinapadala kahit kanino.
+              Ito ay ise-save nang ligtas sa system. Iyong-iyo lang ang password na ito at hindi ito nakikita ng manager mo.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => setStep("review")}
-                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                disabled={loading}
+                className="rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 Back
               </button>
               <button
                 onClick={submitClaim}
-                disabled={!displayName.trim() || pin.length < 4 || pin !== pin2}
-                className="flex-1 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+                disabled={
+                  loading ||
+                  !displayName.trim() ||
+                  !email.trim() ||
+                  password.length < 6 ||
+                  password !== confirmPassword
+                }
+                className="flex-1 flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
               >
-                Claim my account
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Locking...
+                  </>
+                ) : (
+                  "Lock & claim account"
+                )}
               </button>
             </div>
           </div>
