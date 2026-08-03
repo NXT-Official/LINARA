@@ -31,7 +31,7 @@ export function HelperTaskLists({
       {next && (
         <NextTaskCard task={next} onUpdate={onUpdate} onAskBlock={() => onAskBlock(next.id)} />
       )}
-      {upcoming.length > 0 && (
+      {!next && upcoming.length > 0 && (
         <div>
           <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Later today
