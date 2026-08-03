@@ -19,6 +19,7 @@ export function NextTaskCard({
   onAskBlock: () => void;
 }) {
   const [addingPhoto, setAddingPhoto] = useState(false);
+  const [slideIdx, setSlideIdx] = useState(0);
 
   const start = () => onUpdate(task.id, "in_progress");
   const done = () => {
@@ -29,6 +30,14 @@ export function NextTaskCard({
       setAddingPhoto(false);
     }, 900);
   };
+
+  // Split task.note into individual steps (slides)
+  const slides = task.note
+    ? task.note
+        .split(/[.;•\n]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : [];
 
   return (
     <article className="rounded-3xl border border-border/70 bg-card p-6 shadow-lift">
@@ -53,12 +62,36 @@ export function NextTaskCard({
       )}
       <RescheduleNotice notice={task.rescheduleNotice} newTime={task.time} />
 
-      {task.note && (
-        <div className="mt-4 rounded-2xl bg-terracotta-soft/40 p-4">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-pine-deep/80">
-            House standard
+      {slides.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-terracotta-soft/45 p-4 shadow-soft border border-terracotta/20 animate-fade-in">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-pine-deep/80">
+              House standard · Step {slideIdx + 1} of {slides.length}
+            </span>
+            {slides.length > 1 && (
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSlideIdx((prev) => Math.max(0, prev - 1))}
+                  disabled={slideIdx === 0}
+                  className="rounded-full bg-card px-2.5 py-1 text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSlideIdx((prev) => Math.min(slides.length - 1, prev + 1))}
+                  disabled={slideIdx === slides.length - 1}
+                  className="rounded-full bg-card px-2.5 py-1 text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
-          <p className="mt-1 text-sm leading-relaxed text-pine-deep">{task.note}</p>
+          <p className="mt-2 text-sm leading-relaxed text-pine-deep font-semibold transition-all duration-200">
+            {slides[slideIdx]}
+          </p>
         </div>
       )}
       {isPalengke(task) && (

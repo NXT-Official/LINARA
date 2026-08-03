@@ -1,413 +1,924 @@
-# Linara — Architecture & Technical Overview
+# Linara Home — System Architecture & Technical Blueprint
 
-> Linara is a calm, shared home-management prototype for Filipino households — designed to coordinate between family members (Primary manager, Co-manager, Remote admin/OFW) and household helpers (yaya, cook, driver, laundry, all-around). This document describes the full tech stack, folder layout, data model, and execution model of the current codebase.
+This document defines the complete technical architecture, API design, database schema, and data flow patterns for **Linara** (app) / **Linara Home** (product & entity). It transitions the single-file front-end prototype in [`src/routes/index.tsx`](src/routes/index.tsx) into a multi-user, real-time, production-ready system backed by Supabase and TanStack Start.
 
-**Status:** Front-end-only prototype. All data lives in React state; there is no database, no login, no network calls. Refreshing the page resets everything.
-
----
-
-## 1. Tech Stack
-
-### Runtime & framework
-
-- **React 19** with the new JSX runtime (`react-jsx`).
-- **TanStack Start v1** — full-stack React framework built on **Vite 8**. Provides SSR shell, file-based routing, and (unused here) server functions.
-- **TanStack Router v1** — type-safe, file-based router. Generates `src/routeTree.gen.ts` from files under `src/routes/`.
-- **TanStack Query v5** — QueryClient is wired into the router context via `src/router.tsx` and provided in `__root.tsx`, but the app currently uses local `useState` for all data (no queries defined yet).
-- **TypeScript 5.8** in `strict` mode. Path alias `@/* → src/*`.
-
-### Styling
-
-- **Tailwind CSS v4** via `@tailwindcss/vite` (native `@import` + `@theme` in `src/styles.css`, no legacy `tailwind.config.js`).
-- **shadcn/ui** components (Radix UI primitives) generated under `src/components/ui/`.
-- **`tw-animate-css`**, **`class-variance-authority`**, **`clsx`**, **`tailwind-merge`** for variant/composition utilities.
-- **`lucide-react`** for icons.
-- **Fonts:** Fraunces (serif headings) + Nunito Sans (humanist body), loaded via `<link>` in `__root.tsx` head.
-
-### UI / Interaction libraries (installed, mostly via shadcn)
-
-- Radix UI: dialog, dropdown, popover, select, tabs, tooltip, switch, checkbox, slider, radio-group, scroll-area, accordion, avatar, etc.
-- `sonner` (toasts), `cmdk` (command palette), `vaul` (drawer), `input-otp`, `embla-carousel-react`, `react-day-picker`, `recharts`, `react-hook-form`.
-
-### Backend runtime (available, barely used)
-
-- **Nitro v3** (`nitro/vite`) builds the deployable server into `.output/` — default preset is a portable Node/Bun server; set `NITRO_PRESET` for a platform target.
-- `src/server.ts` wraps the Start SSR entry to turn catastrophic SSR failures into a readable HTML error page instead of an h3 JSON 500.
-- **`@tanstack/react-start` `createServerFn`** and server routes under `src/routes/api/` are available for future backend work but nothing is defined yet.
-
-### Tooling
-
-- **Bun** as package manager (`bunfig.toml`).
-- **ESLint 9** flat config + Prettier.
-- **Vite 8** dev server on port 8080.
-- **`vite.config.ts`** registers, in order: `@tailwindcss/vite`, `nitro/vite`, `@tanstack/react-start/plugin/vite`, `@vitejs/plugin-react`. The `@/*` alias comes from Vite 8's native `resolve.tsconfigPaths`, reading `tsconfig.json`. No config wrappers or presets.
-
-### Design system (brand tokens)
-
-- Pine-teal `#1F5A54` (primary), sand `#F7F3EC` (app background), card cream `#FDFBF6`, terracotta-gold `#D99A6C` (accent).
-- Serif headings (Fraunces), humanist sans body (Nunito Sans), rounded corners, generous spacing — deliberately calm, non-corporate.
+The specifications in this file are strictly derived from [`plan.md`](plan.md), which serves as the single source of truth for features and behaviors.
 
 ---
 
-## 2. Folder Structure
+## 1. System Overview
+
+### 1.1 High-Level Concept
+
+Linara serves as a kitchen-style operating system for domestic households in the Philippines. It models household tasks as "tickets" associated with specific "stations" (Yaya, Cook, Laundry, Driver, House), where every ticket carries a designated "House Standard" (SOP).
+
+The platform supports two-sided transparency:
+
+- **The Manager's Pass:** A read-mostly executive dashboard for on-site and remote OFW (Overseas Filipino Worker) family managers to monitor the home's pulse, coordinate schedules, and manage budgets/pay.
+- **The Worker's Station:** A focused, high-contrast, task-oriented mobile interface for the helper, displaying a predictable weekly schedule, active ticket execution, private scratchpad notes, and portable financial records (vales, base wage, and accrued rest-owed hours) to ensure dignity by design.
+
+### 1.2 Tech Stack
+
+#### Client Runtime & Framework
+
+- **Frontend SPA / SSR Shell:** React 19 inside TanStack Start v1 (powered by Vite 8).
+- **Client Routing:** TanStack Router v1 (typed file-based routes generated under `src/routes/` and compiled in `src/routeTree.gen.ts`).
+- **State & Cache Management:** TanStack Query v5 configured in [`src/router.tsx`](src/router.tsx) and shared via React context.
+- **TypeScript:** TypeScript 5.8 in `strict` mode with path alias `@/*` pointing to `src/*`.
+
+#### Styling & Design Tokens
+
+- **Styling Engine:** Tailwind CSS v4 via `@tailwindcss/vite` (native `@import` and `@theme` variables declared in [`src/styles.css`](src/styles.css), no legacy `tailwind.config.js`).
+- **UI Components:** shadcn/ui (Radix UI primitives) located under `src/components/ui/`.
+- **Utilities:** `tw-animate-css`, `class-variance-authority`, `clsx`, and `tailwind-merge` for variant composition and classes merging.
+- **Icons:** Lucide React icons via the `lucide-react` package.
+- **Typography:** Fraunces (serif headings) + Nunito Sans (humanist sans body), loaded via `<link>` tags in the [`src/routes/__root.tsx`](src/routes/__root.tsx) head element.
+- **Brand Tokens:**
+  - Pine-teal: `#1F5A54` (Primary brand color)
+  - Sand: `#F7F3EC` (App body background)
+  - Card Cream: `#FDFBF6` (High-contrast card background)
+  - Terracotta-gold: `#D99A6C` (Accent / Action color)
+
+#### Backend Runtime & Services
+
+- **Backend Server Worker:** Nitro v3 (`nitro/vite`) building the deployable server into `.output/` using portable Node/Bun runtime presets.
+- **API & Server Functions:** `@tanstack/react-start` server functions (`createServerFn`) and server routes configured under `src/routes/api/`.
+- **Core Server Wrapper:** [`src/server.ts`](src/server.ts) wraps the Start SSR entry, catching rendering failures and transforming them into readable, structured HTML error pages rather than generic h3 JSON 500 payloads.
+- **Data & Auth Provider:** Supabase local development engine and production cloud services.
+  - _Database:_ PostgreSQL instance with strict schema constraints.
+  - _Security:_ Row-Level Security (RLS) policies isolating tenants.
+  - _Real-time Synchronization:_ PostgreSQL Realtime channels.
+  - _Authentication:_ GoTrue Gateway managing session tokens (JWTs) and user registrations.
+  - _Object Storage:_ Supabase Storage buckets (S3 compatible) for photo evidence and voice memos.
+
+#### Tooling
+
+- **Package Manager:** Bun (`bunfig.toml`, `bun.lock`).
+- **Code Quality:** ESLint 9 flat configuration paired with Prettier formatting.
+- **Dev Server:** Vite 8 listening on port 8080.
+
+---
+
+## 2. Textual Architecture Diagram
+
+The system follows an N-Tier architecture pattern, routing state mutations from client devices through a secure serverless API layer into highly segmented transactional datastores.
+
+### 2.1 System Components and Data Routing
 
 ```
-.
-├── ARCHITECTURE.md              ← this file
-├── AGENTS.md                    ← agent-facing notes
-├── README.md                    ← setup, scripts, deployment
-├── package.json                 ← Bun-managed deps
-├── vite.config.ts               ← Tailwind + Nitro + Start + React plugins
-├── tsconfig.json                ← strict TS, @/* alias
-├── components.json              ← shadcn/ui config
-├── eslint.config.js
-├── .editorconfig, .prettierrc.json, .prettierignore, .env.example, .gitignore, bunfig.toml
-└── src/
-    ├── router.tsx               ← getRouter(): QueryClient + createRouter
-    ├── server.ts                ← Nitro SSR entry wrapper (error reporting)
-    ├── start.ts                 ← TanStack Start client boot
-    ├── styles.css               ← Tailwind v4 @theme tokens + globals
-    ├── routeTree.gen.ts         ← AUTO-GENERATED — do not edit
-    ├── routes/
-    │   ├── README.md            ← routing conventions cheat-sheet
-    │   ├── __root.tsx           ← root layout, <html>/<head>, providers, SEO meta
-    │   ├── index.tsx            ← `/` → redirects to /manager/pass
-    │   ├── _app.tsx             ← pathless layout: feature stores + app shell
-    │   └── _app/                ← the routed pages, see §3
-    ├── features/                ← one folder per domain, see below
-    │   ├── appointments/        ← fixed events + the prep tasks they schedule
-    │   ├── availability/        ← quiet hours, shift-derived status, the send gate
-    │   ├── dashboard/           ← store provider, shells, manager/helper pages
-    │   ├── groceries/           ← list, budget, receipt (the one React context)
-    │   ├── ledger/              ← off-shift work owed back, vales, pay record
-    │   ├── notes/               ← the helper's private scratchpad
-    │   ├── pantry/              ← stock levels and par
-    │   ├── people/              ← helpers, admins, invite → claim lifecycle
-    │   ├── shifts/              ← weekly schedule per helper
-    │   ├── tasks/               ← the board, routines, task cards and modals
-    │   └── utos/                ← the day's ephemeral quick asks
-    ├── components/
-    │   ├── shared/              ← avatar, field, detail-row, bottom-nav
-    │   └── ui/                  ← shadcn primitives (button, card, dialog, …)
-    ├── hooks/
-    │   ├── use-mobile.tsx
-    │   └── use-mounted.ts       ← hydration guard for clock/status UI
-    └── lib/
-        ├── utils.ts             ← cn() helper
-        ├── time.ts              ← weekdays, time parsing/formatting, prep scheduling
-        ├── error-capture.ts     ← records the original error h3 swallows during SSR
-        └── error-page.ts        ← static HTML fallback for a failed SSR render
+       ┌────────────────────────────────────────────────────────┐
+       │                     CLIENT TIER                        │
+       │                                                        │
+       │   ┌────────────────────────┐  ┌────────────────────┐   │
+       │   │  Manager's Pass (Web)  │  │ Helper's Mobile St │   │
+       │   └───────────┬────────────┘  └─────────┬──────────┘   │
+       │               │                         │              │
+       │               └────────────┬────────────┘              │
+       │                            ▼                           │
+       │       State Controller (TanStack Query Cache)          │
+       │       Local Scratchpad Cache (LocalStorage/IndexedDB)  │
+       └────────────────────────────┬───────────────────────────┘
+                                    │
+                                    │ HTTPS (API Route Calls) / WSS (Realtime Broadcasts)
+                                    ▼
+       ┌────────────────────────────────────────────────────────┐
+       │                     SERVICES TIER                      │
+       │                                                        │
+       │   ┌────────────────────────┐  ┌────────────────────┐   │
+       │   │  Nitro Server Worker   │  │  Supabase Auth /   │   │
+       │   │  (TanStack Server Fn)  │  │  GoTrue Gateway    │   │
+       │   └───────────┬────────────┘  └─────────┬──────────┘   │
+       │               │                         │              │
+       │               └────────────┬────────────┘              │
+       │                            ▼                           │
+       │      Business Logic Engine (Batas Kasambahay Core)     │
+       └────────────────────────────┬───────────────────────────┘
+                                    │
+                                    │ Transaction SQL Query / Signed Storage Post
+                                    ▼
+       ┌────────────────────────────────────────────────────────┐
+       │                   DATA & STORAGE TIER                  │
+       │                                                        │
+       │   ┌────────────────────────┐  ┌────────────────────┐   │
+       │   │  PostgreSQL Database   │  │ Supabase S3 bucket │   │
+       │   │   (RLS Partitioning)   │  │ (Receipts/Photos)  │   │
+       │   └────────────────────────┘  └────────────────────┘   │
+       └────────────────────────────────────────────────────────┘
 ```
 
-### Feature folder layout
+### 2.2 Project Codebase Structure
 
-Each feature owns its own `*.types.ts`, `*.constants.ts`, `*.utils.ts`, `hooks/`, and
-`components/`. Dependencies run one way — routes → views → feature hooks → feature
-types/constants/utils → `src/lib`. Cross-feature imports are allowed but only downhill
-(a component may import another feature's types or a shared primitive; a utility never
-imports a component). There are no barrel files: imports name the module they come from.
-
-This is still a front-end-only prototype — all data lives in React state and a refresh
-resets everything. What the split bought is that each domain's state transitions live in
-one typed hook instead of one 7,900-line component.
-
----
-
-## 3. Routing & App Shell
-
-- **File-based routing** under `src/routes/` — dots become slashes, `$param` is dynamic, `_prefix` is a pathless layout. See `src/routes/README.md`.
-- Every feature is a real URL. Which persona you are looking through is the route:
-  the admins live under `/manager`, Ate Rosa under `/helper`.
+The file structure and modules are organized to colocate domain logic within isolated feature directories.
 
 ```text
-/                    → redirect to /manager/pass
-/manager             → redirect to /manager/pass
-/manager/pass        The Pass          (?view=line|board)
-/manager/schedule    Shifts, routines, appointments, queued-for-tomorrow
-/manager/pantry      Pantry + grocery list
-/manager/money       Spend, payday, after-hours ledger
-/manager/people      Admins, helpers, invites
-/helper              → redirect to /helper/today
-/helper/today        Week, quick utos, notes, task lists
-/helper/pantry       Pantry + grocery list
-/helper/pay          Vales, ledger, terms
+.
+├── ARCHITECTURE.md              ← This system architecture specification
+├── README.md                    ← Setup, scripts, and deployment instructions
+├── plan.md                      ← Product Requirements Document (PRD) — Single Source of Truth
+├── package.json                 ← Bun-managed dependencies
+├── vite.config.ts               ← Tailwind + Nitro + Start + React plugins configuration
+├── tsconfig.json                ← Strict TypeScript configuration with @/* path aliases
+├── components.json              ← shadcn/ui design setup file
+├── eslint.config.js             ← ESLint 9 configuration
+└── src/
+    ├── router.tsx               ← getRouter() instantiation (QueryClient + Router creation)
+    ├── server.ts                ← Nitro SSR entry wrapper (catches SSR failures safely)
+    ├── start.ts                 ← TanStack Start client bootstrapper
+    ├── styles.css               ← Tailwind v4 @theme configuration and global variables
+    ├── routeTree.gen.ts         ← Auto-generated typed router file — Do not edit
+    ├── routes/
+    │   ├── README.md            ← Routing conventions cheat-sheet
+    │   ├── __root.tsx           ← Root layout, <html> shell, providers, SEO metadata
+    │   ├── index.tsx            ← Route `/` — redirects to /manager/pass
+    │   ├── _app.tsx             ← Pathless layout route containing app shell & stores
+    │   └── _app/                ← Routed pages with folder boundaries
+    │       ├── helper.tsx       ← Helper shell layout (Greeting, availability control, claim banner)
+    │       ├── manager.tsx      ← Manager shell layout (TopBar, BottomNav)
+    │       ├── helper/
+    │       │   ├── index.tsx    ← Helper home redirection
+    │       │   ├── pantry.tsx   ← Shared pantry view
+    │       │   ├── pay.tsx      ← Helper payslips, vales list, and contract terms
+    │       │   └── today.tsx    ← Today's task checklist, private notes, quick utos feed
+    │       └── manager/
+    │           ├── index.tsx    ← Manager home redirection
+    │           ├── money.tsx    ← Ledger accruals, vales approval, and budgets
+    │           ├── pantry.tsx   ← Shared pantry inventory & shopping list manager
+    │           ├── pass.tsx     ← Pulse indicator, The Line vertical view, or Kanban Board
+    │           ├── people.tsx   ← Admins, helper invite generator & claimed terms audit
+    │           └── schedule.tsx ← Shift routines, fixed events, and Quick Utos launcher
+    ├── features/                ← Domain-driven feature directories (downhill dependencies only)
+    │   ├── appointments/        ← Fixed events + backward-computed preparation routines
+    │   ├── availability/        ← Shift tracking, quiet-hours gating, send gates
+    │   ├── dashboard/           ← Shared application stores, sim-clock, manager/helper wrappers
+    │   ├── groceries/           ← Shopping list, receipt slots, spend tracking context
+    │   ├── ledger/              ← After-hours ledger, REST-owed accrual calculations, vales
+    │   ├── notes/               ← Helper private notepad (scratchpad)
+    │   ├── pantry/              ← Stock level tracker and PAR values
+    │   ├── people/              ← Household membership & invite handshake APIs
+    │   ├── shifts/              ← Shift schedules and calendar day-editors
+    │   ├── tasks/               ← Routines, Kanban boards, and SOP standards cards
+    │   └── utos/                ← Ephemeral short-order quick asks
+    ├── components/
+    │   ├── shared/              ← Shared custom UI elements (avatar, field, bottom-nav)
+    │   └── ui/                  ← shadcn UI Radix components (dialog, cards, inputs)
+    ├── hooks/
+    │   ├── use-mobile.tsx       ← Layout breakpoint utilities
+    │   └── use-mounted.ts       ← Hydration shield for clock and status elements
+    └── lib/
+        ├── utils.ts             ← Standard cn() layout composition utility
+        ├── time.ts              ← Weekday parsers, offset generators, shift overlaps
+        ├── error-capture.ts     ← SSR error listener
+        └── error-page.ts        ← Error fallback page template
 ```
 
-- `src/routes/__root.tsx` — HTML shell (`<html><head><body>`), `QueryClientProvider`, favicon, Google Fonts `<link>`, SEO meta, and the global `notFoundComponent` + `errorComponent` boundaries. Renders `<Outlet />`.
-- `src/routes/_app.tsx` — pathless layout that mounts `AppStoreProvider` (every feature store) inside `AppShell` (top bar + content well). Because it sits above the outlet, navigating between pages never remounts the day's state.
-- `src/routes/_app/manager.tsx` and `_app/helper.tsx` — per-persona layouts: the bottom nav, plus (for the helper) her greeting, availability control, and claim banner.
-- Leaf route files stay small: a title, an error boundary, search validation where it earns its keep, and one feature page component. Page composition lives in `src/features/<feature>/pages/`.
-- Router config lives in `src/router.tsx`: instantiates a `QueryClient`, passes it to the router context (`createRootRouteWithContext<{ queryClient }>`), and sets `defaultPreloadStaleTime: 0` and `scrollRestoration: true`.
+### 2.3 Feature Folder Design Conventions
+
+To maintain structural order and clean boundaries, dependencies are unidirectional:
+
+```
+Routes (Pages) ──► Views ──► Feature Hooks ──► Feature Constants/Types/Utils ──► Shared Library (src/lib)
+```
+
+Cross-feature imports are allowed strictly downstream (e.g., a component under `features/tasks/` may import types from `features/shifts/`; but a utility file under `features/shifts/` must never import a component from `features/tasks/`). No barrel files (`index.ts`) are used; all imports explicitly name the module files they extract from to preserve tree-shaking efficiency.
 
 ---
 
-## 4. Data Model
+## 3. Frontend Architecture
 
-Each type lives beside the feature that owns it (`src/features/<feature>/<feature>.types.ts`).
-Grouped by concern:
+### 3.1 Component Hierarchy & Role Isolation
 
-### People & roles
+The client UI mounts pathless route wrappers under [`src/routes/_app.tsx`](src/routes/_app.tsx) to instantiate state providers without tearing them down during page navigations.
 
-```ts
-type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
-type Helper  = { id; name; short; initials; station; ... };
-type AdminType = "primary" | "co" | "remote";
-type Admin     = { id; name; short; initials; type; location };
+```
+<__root> (HTML & Query Context Shell)
+└── <AppStoreProvider> (Global context providing all domain-level feature stores)
+    └── <AppShell> (Simulated clock simulator offsets and state)
+        ├── <TopBar> (Persona switcher, Simulated Clock controller, EOD toggler)
+        │
+        ├── <ManagerView> (Routed under /manager)
+        │   ├── <PulseHeader> (Completed ticket counts, Needs You actionable alerts)
+        │   ├── <NeedsYouList> (Approve Remote Suggestions, Resolve Ticket Blocks, Vale approvals, Onboarding flags)
+        │   ├── <TheBoardStatusLists> (Active board rendering)
+        │   │   ├── <TheLineView> (Lanes grouped vertically by Helper/Station)
+        │   │   └── <TheBoardView> (Lanes grouped horizontally by Kanban status: Todo, Doing, Done)
+        │   │       └── <BoardTaskCard> (Contextual action buttons, "Done" evidence viewer)
+        │   ├── <CalendarSection> (Monthly overview, Appointment creator)
+        │   │   └── <EventRecipeSelector> (Preset templates: "Airport departure", "Typhoon Prep")
+        │   ├── <PantrySection> (Pantry item counters, Low-stock indicators)
+        │   ├── <MoneySection> (Spend tracking, Base wage accrual ledger, Vale ledger)
+        │   └── <QuickUtosLauncher> (Compact quick text/chip trigger)
+        │
+        └── <HelperView> (Routed under /helper)
+            ├── <ClaimAccountFlow> (Invite Code lookup, Terms audit screen, Password creation lock)
+            ├── <DignityHeader> (Greeting, Shift-end countdown, Rest-day visual tracker)
+            ├── <NextTaskCard> (Single-focus card showing Active task, interactive SOP slides, and Start/Finish actions)
+            ├── <QuickUtosFeed> (Floating alert-chips for immediate action items, "Got it/Done" button trigger)
+            ├── <PrivateNotesScratchpad> (Helper private text list + offline voice recorder with 'Promote to Board' trigger)
+            └── <PayRecordView> (Accrued wages, Current Rest-owed hour counts, SSS/Philhealth/Pag-IBIG compliance logs)
 ```
 
-### Tasks & scheduling
+### 3.2 State Management & Client-Side Cache
 
-```ts
-type Status     = "todo" | "in_progress" | "done" | "blocked";
-type Weekday    = "Mon" | ... | "Sun";
-type Recurrence = "none" | "daily" | Weekday[];
-type Task = {
-  id; title; helperId; time; status; station;
-  recurrence?; photo?; blockedReason?; suggested?;
-  suggestedBy?; queuedForShift?; emergency?; afterHours?;
-  rescheduleNotice?; ...
-};
-type Routine     = Omit<Task, "status"> + template metadata;
-type Appointment = { id; title; date; time; ... };
-type ShiftSegment = { start: "HH:MM"; end: "HH:MM" };
-type DaySchedule  = { rest; segments: ShiftSegment[]; breakStart?; breakEnd? };
-type WeekSchedule = Record<Weekday, DaySchedule>;
-```
+The client utilizes three structured layers of state management to maintain native-speed transitions:
 
-### Ledger (time / pay reconciliation)
+1.  **TanStack Query Cache:** Caches read operations from transactional database tables (`tickets`, `pantry_items`, `ledger_entries`). Handled via loaders configured inside [`src/router.tsx`](src/router.tsx) utilizing `.ensureQueryData()` and `.useSuspenseQuery()` hooks.
+2.  **`GroceryCtx` (React Context):** Shared local context that synchronizes the active grocery checklist between the Pantry tab (manager side) and the focused Palengke Run task card (helper side).
+3.  **Local Sync Queue (IndexedDB):** Stores completed tickets, offline scratchpad notes, and local photo captures when network state is offline (`navigator.onLine === false`). A service worker processes the sync queue automatically once online status transitions back.
 
-```ts
-type LedgerResolution = "rest" | "premium";
-type LedgerReason     = "available" | "override" | "emergency" | "rest_day" | "rest_break";
-type LedgerEntry      = { id; helperId; minutes; reason; resolution; adjustMinutes; ... };
-type ValeStatus  = "pending" | "approved" | "declined";
-type ValeRequest = { id; helperId; amount; reason; status };
-```
+### 3.3 State Ownership: Feature Stores Mapping
 
-### Household state
+State is kept in specific domain hooks created at the `_app` composition root:
 
-```ts
-type PantryItem  = { id; name; category: PantryCategory; qty; unit; par };
-type GroceryItem = { id; name; qty; unit; added; bought };
-type QuickUtos   = { id; content; from; to; ack?: "seen" | "done"; afterHours?; waiting?; ... };
-type RosaStatus  = { status: "on_shift" | "available" | "off"; until; quiet; restDay };
-type MyNote      = { id; text; done; voice?; createdAt };   // helper's private notepad
-```
+| Store Hook                     | State Responsibility                                                                                |
+| :----------------------------- | :-------------------------------------------------------------------------------------------------- |
+| `useSession`                   | Holds `admins` registry, `currentAdminId`, and computed `adminType` roles.                          |
+| `useTaskBoard`                 | Manages `tasks`, `routines`, `boardClosed` end-of-day flags, and `startNewDay` re-seeding triggers. |
+| `useAppointments`              | Manages fixed calendar events and triggers backward prep-task computation on the board.             |
+| `useSchedules`                 | Manages helper weekly shift boundaries (`shiftStart`, `shiftEnd`, `weeklyRestDay`).                 |
+| `useAvailability`              | Calculates active helper status (`on_shift`, `available`, `off`) and manual override opt-ins.       |
+| `useSendGate`                  | Operates the friction modal blocker whenever an Off-shift helper is pinged.                         |
+| `useLedger` / `useVales`       | Accrues overtime/emergency minutes, resolves compensation formats, and processes cash advances.     |
+| `useUtos`                      | Coordinates momentary quick-ask signals and midnight database sweep triggers.                       |
+| `usePantry` / `useGroceryList` | Monitors pantry item PAR indicators and manages grocery budgets/receipt attachments.                |
+| `useMyNotes`                   | Houses private scratchpad entries with mock voice notes and board-promotion templates.              |
+| `useSimClock`                  | Propagates the simulated time offset across the entire application interface.                       |
 
-### Onboarding / portability
+### 3.4 Role Gating & Operational Capabilities
 
-```ts
-type Employment = "live-in" | "live-out";
-type InviteFlag = { id; field; note?; at };
-type Invite = {
-  id;
-  code; // e.g. "LINARA-7429"
-  name;
-  station;
-  employment;
-  shiftHours;
-  restDay;
-  wage;
-  contact;
-  status: "pending" | "active";
-  claimedName?;
-  flags: InviteFlag[];
-  createdAt;
-  createdBy;
-};
-```
+Frontend interfaces block actions based on active user scopes:
 
-### Cross-cutting context
-
-- `GroceryContext` (`src/features/groceries/`) is the only React context. It exists because
-  the same list is read from two sibling branches — the Pantry tab and the Palengke task
-  cards — on both the manager and helper sides. `useGrocery()` throws outside its provider.
-- Constants live with their feature: `QUIET_START_HOUR=22` / `QUIET_END_HOUR=6`
-  (`availability`), `MON_FRI` and `INITIAL_TASKS` (`tasks`), `INITIAL_*` seed data for
-  helpers, admins, schedules, appointments, and pantry in their own folders.
+| Capability                          | Primary Manager | Co-Manager |    Remote Admin (OFW)     |    Helper (Station)    |
+| :---------------------------------- | :-------------: | :--------: | :-----------------------: | :--------------------: |
+| **Approve Suggested Tasks**         |   Yes (Live)    | Yes (Live) | No (Creates Suggestions)  |           No           |
+| **Direct Override / Send-Live**     |       Yes       |    Yes     | Yes (Bypasses Suggestion) |           No           |
+| **Modify Shift Limits & Calendars** |       Yes       |    Yes     |        No (Hidden)        |           No           |
+| **Generate Helper Invites**         |       Yes       |    Yes     |            No             |           No           |
+| **Approve Vales & Cash Requests**   |       Yes       |    Yes     |   Yes (Provides Funds)    |           No           |
+| **Review Receipts & Evidence URLS** |       Yes       |    Yes     |     Yes (Focus Area)      | Yes (Own records only) |
+| **Claim Accounts & Write Notes**    |       No        |     No     |            No             |          Yes           |
 
 ---
 
-## 5. Component Architecture
+## 4. Backend Architecture
 
-`AppStoreProvider` (`src/features/dashboard/components/app-store-provider.tsx`) is the
-composition root: it creates every feature store once, on the `_app` layout route, and
-shares them through `useAppStores()`. Pages read the stores they need; nothing is threaded
-through the router. Approximate structure:
+Type-safe backend API operations are handled via TanStack Start server functions executed within Nitro worker nodes, keeping business rules securely on the server.
+
+### 4.1 Separation of Concerns
 
 ```
-<__root/>                              ← html shell, QueryClientProvider
-└── <_app/>                            ← src/routes/_app.tsx
-    └── <AppStoreProvider/>            ← every feature store + <GroceryProvider/>
-        └── <AppShell/>
-            ├── <TopBar/>              ← persona switcher, sim clock, EOD toggle
-            │   ├── <EndOfDayToggle/>
-            │   └── <ViewAsSwitcher/>  ← navigates between /manager and /helper
-            └── <Outlet/>
-                ├── <ManagerShell/>            ← /manager/*, + <BottomNav/>
-                │   ├── <ManagerPassPage/>     ← /manager/pass
-                │   │   ├── <ManagerPassTab/>  ← Needs-you, The Line / The Board
-                │   │   └── <NewTaskModal/> + <AvailabilityGate/>
-                │   ├── <ManagerSchedulePage/> ← /manager/schedule
-                │   │   ├── <ShiftsSection/> + <DayEditor/>   ← read-only for remote
-                │   │   ├── <RoutinesView/> + <NewRoutineModal/>
-                │   │   ├── <AppointmentsSection/>
-                │   │   └── <QuickUtosLauncher/> + <AvailabilityGate/>
-                │   ├── <PantryPage/>          ← /manager/pantry
-                │   ├── <ManagerMoneyPage/>    ← /manager/money
-                │   └── <PeoplePage/>          ← /manager/people
-                └── <HelperShell/>             ← /helper/*, greeting + claim + <BottomNav/>
-                    ├── <HelperTodayPage/>     ← /helper/today
-                    │   ├── <MyWeekCard/>, <QuickUtosFeed/>, <MyNotes/>
-                    │   └── <HelperTaskLists/> or <EndOfDay/>
-                    ├── <PantryPage/>          ← /helper/pantry (same page module)
-                    └── <PayRecordPage/>       ← /helper/pay
+  ┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
+  │      Route Loader      │      │    Server Function     │      │   Data Access Layer    │
+  │                        │      │                        │      │                        │
+  │ Pre-fetches database   │ ───► │ Enforces Auth, Checks  │ ───► │ Executes transactional │
+  │ tables to populate the │      │ regional labor rules,  │      │ SQL queries, returns   │
+  │ TanStack Query Cache.  │      │ executes mutations.    │      │ normalized types.      │
+  │ (Ensures zero hydration│      │ (Validates constraints │      │ (Protects references,  │
+  │ flickers on device).   │      │ before writing).       │      │ handles DB locks).     │
+  └────────────────────────┘      └────────────────────────┘      └────────────────────────┘
 ```
 
-### Role capabilities (front-end gating only)
+### 4.2 Security Boundaries & Multi-Tenant Isolation
 
-| Capability                               | Primary | Co-manager |  Remote (OFW)   |   Helper   |
-| ---------------------------------------- | :-----: | :--------: | :-------------: | :--------: |
-| Approve tasks onto the board             |    ✔    |     ✔      | (via Send-live) |     —      |
-| Send task suggestion                     |    ✔    |     ✔      |   ✔ (default)   |     —      |
-| Edit shifts / off-hours override         |    ✔    |     ✔      |    ✖ hidden     |     —      |
-| Invite a helper                          |    ✔    |     ✔      |        ✖        |     —      |
-| Approve / decline vale                   |    ✔    |     ✔      |        ✔        |     —      |
-| See Done photos / ledger / board glance  |    ✔    |     ✔      | ✔ (emphasized)  | own record |
-| Claim account, flag terms, private notes |    —    |     —      |        —        |     ✔      |
+Strict data segmentation is enforced at the database layer via PostgreSQL Row-Level Security (RLS) rules and server middleware.
 
-### Design conventions
-
-- Brand tokens applied via inline hex + Tailwind utility classes (no ad-hoc `text-white` / arbitrary purples).
-- All modals are Radix Dialogs from `src/components/ui/dialog.tsx`.
-- Icons from `lucide-react`.
-- Time is simulated: `useSimClock()` holds a `simOffsetMs` so the whole UI can be pushed to any hour to demo quiet-hours / after-shift behavior.
+- **Household Segregation:** Users are assigned a `household_id` UUID during enrollment. General tables (`tickets`, `schedules`, `pantry_items`, `vales`) store a `household_id` foreign key. The primary RLS policy ensures users can only query rows matching their own session's `household_id`.
+- **Helper Note Isolation:** To protect helper privacy, the `helper_notes` table maintains a "Privacy Wall." RLS policies block anyone from reading, inserting, or modifying these notes unless their authenticated PostgreSQL UUID matches the note's `helper_id`. Managers cannot bypass this database constraint.
+- **Server/Client Boundary Security:** Webhook handlers (e.g., automated third-party integrations) live in public api endpoints under `src/routes/api/public/*` and require verification of SHA256 cryptographic signatures. Core endpoints require the `requireSupabaseAuth` middleware.
 
 ---
 
-## 6. Execution Model & Behaviour Rules
+## 5. External Integration Designs
 
-### State ownership
+### 5.1 Supabase Object Storage Media Pipe
 
-Each domain owns its state in a typed hook; `AppStoreProvider` wires them together on the
-`_app` layout route and publishes them through `useAppStores()`. Pages destructure the
-store they need rather than taking a prop per callback. State that belongs to one page —
-open modals, the send gate, form drafts — stays in that page. State worth sharing or
-refreshing into lives in the URL: the persona (`/manager` vs `/helper`), the page itself,
-and the Pass layout (`/manager/pass?view=board`).
+- **Evidence Uploads:** Client devices compress task-completion images client-side (to a maximum width of 1200px) to minimize data costs. Uploads are posted directly to the `household-evidence` storage bucket via signed headers generated by a server function.
+- **File Restrictions:** Bucket policies enforce MIME types: `image/jpeg`, `image/png`, and `audio/webm` (for helper voice memos). File sizes are capped at 10MB.
+- **Media Security:** Bucket objects are private. The application requests temporary pre-signed URLs with a strict 15-minute expiration:
+  ```typescript
+  const { data } = await supabase.storage
+    .from("household-evidence")
+    .createSignedUrl("receipts/rec_0182.jpg", 900);
+  ```
 
-| Hook                           | Owns                                                         |
-| ------------------------------ | ------------------------------------------------------------ |
-| `useSession`                   | `admins`, `currentAdminId`, derived `adminType`              |
-| `useTaskBoard`                 | `tasks`, `routines`, `boardClosed`, `simDate`, `startNewDay` |
-| `useAppointments`              | `appointments`; drives prep tasks through the board          |
-| `useSchedules`                 | `schedules`, `weekFor(helperId)`                             |
-| `useAvailability`              | Rosa's derived `status` + her bounded manual opt-in          |
-| `useSendGate`                  | the friction wall in front of an Off helper                  |
-| `useLedger` / `useVales`       | off-shift work owed back; cash advances                      |
-| `useUtos`                      | the day's quick asks and the nightly wipe                    |
-| `usePantry` / `useGroceryList` | stock levels; list, budget, receipt                          |
-| `useMyNotes`                   | the helper's private scratchpad                              |
-| `useSimClock`                  | the demo clock offset and 30s tick                           |
+### 5.2 Batas Kasambahay Compliance Engine
 
-Wiring worth knowing: the board does not know about the ledger. On completion it reports a
-`CompletionRecord`, and `useLedger.record` decides whether the work was off-shift and how
-to classify it. `useAppointments` receives the board's `setTasks` so prep tasks move with
-their event.
+The backend implements labor guidelines based on Republic Act No. 10361 (Batas Kasambahay):
 
-### Task lifecycle
+- **Minimum Wage Audit:** Validates registered wages against regional limits (e.g., NCR: ₱6,000/mo) stored in a static database lookup table. Inserts warning flags if an invitation's base rate is below legal requirements.
+- **Statutory Contribution Matrix:** Automates SSS, PhilHealth, and Pag-IBIG monthly calculations:
+  - _If base wage < ₱5,000:_ The employer covers 100% of the statutory contributions (per RA 10361).
+  - _If base wage >= ₱5,000:_ The cost is split according to national government contribution tables.
+- **Rest Premium Compensation:** Automatically calculates after-hours work and rest day overrides, logging the overtime minutes to the ledger. Out-of-hours tasks accrue time-off in lieu ("Rest Owed") or premium pay calculated at a standard 1.3x multiplier of the helper's hourly rate equivalent.
 
-1. Primary/Co-manager `onAdd` → task lands on the board (`status: "todo"`).
-2. Remote admin `onAdd` → task is `suggested: true, suggestedBy: "Lola Fe"`; shows in the on-site manager's Pass as _"Suggested by Lola Fe"_. Manager `onApproveSuggestion` promotes it; `onDismissSuggestion` drops it. Optional **Send live** flag from the remote admin bypasses the queue for genuine urgencies (still attributed).
-3. Helper flips `todo → in_progress → done`; Done can carry a photo. `onBlock` sets `blocked` with a reason and surfaces in `NeedsYou`.
-4. Recurring tasks respect `Recurrence` (`daily` / weekday set) and reseed at start-of-day.
+### 5.3 Fintech Outbound Payment Pipeline (Future Phase 3 Setup)
 
-### Reachability (quiet hours & rest days)
+Establishes the data structures and ledger webhook points required to supportGCash and Maya mobile wallet integration:
 
-- Quick utos and non-emergency tasks respect `QUIET_START_HOUR`/`QUIET_END_HOUR` and per-day `rest` flag.
-- Off-hours items land as **"waiting when off"** for the helper; nightly clear wipes the utos feed at start-of-day (`onStartNewDay`).
-- **Note:** the daily quick-utos tally/count UI was removed on both sides per product direction; sending, receiving, "Got it/Done", availability-aware waiting, and nightly clear all remain.
-
-### Ledger
-
-- Off-shift work, emergencies, rest-day work, and skipped rest breaks create `LedgerEntry` rows. Household default (`ledgerDefault`) resolves to time-off (`rest`) or premium pay (`premium`); either party can override per entry via `onUpdateLedgerEntry`.
-
-### Vale (cash-advance) flow
-
-- Helper submits via `ValeRequestModal`. Managers (including remote admin) approve/decline in `NeedsYou`. Approved vales appear in `PayRecord`.
-
-### Invite → Claim → Portability
-
-1. Manager `InviteHelperModal` records name/role/shift/wage/contact → generates `LINARA-XXXX` code. Row appears in People as **Invited — pending**.
-2. Helper enters code in `ClaimAccountFlow`: (a) match code, (b) review terms (`MyTerms` reused later as always-on transparency), (c) set own name + PIN (mock), (d) land in Today.
-3. On claim, invite `status` flips to `"active"`; People list shows helper as **Active**.
-4. If she taps _"Something's not right?"_ during review, an `InviteFlag` is recorded and surfaces in the manager's `NeedsYou` with a **Mark resolved** action.
-5. `PayRecord` shows the calm "This record is yours" portability note.
-
-### Helper's private notes
-
-- One-line text input, "🎙️ Hold to record" mock voice note → `MyNote`.
-- Each note can be marked done/deleted, or **Add to board** to open the task form prefilled with the note text. This is the only crossover; notes stay private otherwise.
-
-### Simulated time & end-of-day
-
-- `simOffsetMs` shifts the wall clock. `boardClosed` + `onStartNewDay` resets utos, reseeds daily routines/appointments, and closes the day cleanly.
+- Finalized payroll details and approved vale requests compile in the `PayRecordView` component.
+- A webhook payload model is prepared to transmit transaction records to partner payout aggregators (e.g., Brankas or PayMongo), mapping payouts directly to the ledger:
+  ```json
+  {
+    "payout_id": "po_99182",
+    "recipient_wallet": "+639171234567",
+    "payout_amount": 4250.0,
+    "payout_currency": "PHP",
+    "reference_ledger_entry_id": "le_0182-ab"
+  }
+  ```
 
 ---
 
-## 7. Planned Execution / Next Steps
+## 6. Step-by-Step Data Flow
 
-The prototype is deliberately state-only. A realistic path to production:
+### 6.1 Helper Invitation & Handshake Flow
 
-1. ~~**Extract features.**~~ Done — see Sections 2 and 6.
-2. ~~**Split into routed pages.**~~ Done — see Section 3.
-3. **Persist state.** Add a database (Postgres/Supabase or equivalent). Model tables mirror Section 4 types (`tasks`, `routines`, `appointments`, `helpers`, `admins`, `schedules`, `pantry_items`, `grocery_items`, `vales`, `ledger_entries`, `invites`, `invite_flags`, `quick_utos`, `notes`). Follow the project's user-roles pattern (separate `user_roles` table + `has_role` SECURITY DEFINER; never store roles on profiles). Always pair `CREATE TABLE public.*` with explicit `GRANT`s and RLS policies.
-4. **Server functions.** Move mutations to `createServerFn` in `src/lib/*.functions.ts`, behind an auth middleware. Public webhooks (e.g. SMS invite) go under `src/routes/api/public/*` with signature verification.
-5. **Real-time.** Use realtime channels (e.g. Supabase realtime or a websocket route) for `tasks`, `utos`, and `ledger` so manager and helper devices stay in sync without polling.
-6. **Auth.** A managed auth provider. Invite codes redeem into a real account owned by the helper (matching the "record stays yours" copy).
-7. **Media.** Move Done photos and voice notes to object storage; keep `photo` fields as URLs.
-8. **Reporting.** Introduce TanStack Query per the canonical loader/component pattern already wired in `router.tsx` (loader `ensureQueryData` + component `useSuspenseQuery`).
-9. **SEO/PWA polish.** Per-page `head()` is wired; still to do are per-page descriptions/og images and a manifest + install prompt for helper phones.
-10. **Testing.** Add Vitest + Playwright smoke flows for the invite→claim→board→ledger loop.
+```
+[Primary Manager]                 [Backend API]                    [Database / SMS]
+        │                                │                                │
+        ├─► POST /api/helpers/invite ───►│                                │
+        │   (Terms & schedule details)   ├─► Validate Wage & Rest day     │
+        │                                ├─► Generate inviteCode, insert  │
+        │                                │   row into helper_profiles     │
+        │                                └─► Send Invite SMS (Optional) ─► [Helper Mobile]
+        │                                                                         │
+[Helper Device]                                                                   │
+        │                                                                         │
+        ├─► Receives SMS with Code "LN98A2" ◄─────────────────────────────────────┘
+        │
+        ├─► Enters Code "LN98A2"
+        ├─► GET /api/helpers/claim/verify ───────────────────────────────┐
+        │   ◄────────────────── Return un-claimed terms ─────────────────┘
+        │
+        ├─► Reviews Wage: ₱8,000/mo, Rest Day: Sunday (Accepts)
+        ├─► POST /api/helpers/claim (Sets Password) ─────────────────────┐
+        │                                                                ├─► Creates Auth User
+        │                                                                ├─► Sets Profile Active
+        │   ◄────────────────── Returns Session JWT ─────────────────────┘
+        ▼
+   (Helper Enters Station)
+```
+
+### 6.2 Anchor-Based Rescheduling Flow
+
+```
+[Manager Device]                  [Backend API]                    [Database]
+        │                                │                                │
+        ├─► PATCH /api/appointments/:id ─►│                                │
+        │   (Time shifts 6am -> 9am)     ├─► Update appointment row       │
+        │                                ├─► Query dependent tasks (lead) │
+        │                                ├─► Update each task start/end   │
+        │                                ├─► Insert notification rows     │
+        │                                └─► Broadcast change event ─────►[Helper Device]
+        │                                                                      │
+        │                                ◄── Realtime push (Websocket) ────────┘
+        ▼                                ▼
+ (Pass displays shifted)          (Station flashes Alert:
+                                   "Flight moved to 9am.
+                                   Fold clothes shifted.")
+```
+
+### 6.3 Quick Utos Dispatch & Midnight Purge
+
+```
+[Manager Device]                  [Backend API]                    [Database]
+        │                                │                                │
+        ├─► POST /api/utos/send ────────►│                                │
+        │   (Content: "+ Rice",          ├─► Check Helper Reachability    │
+        │    Recipient: Rosa)            ├─► Insert utos row              │
+        │                                └─► Broadcast event ────────────►[Helper Device]
+        │                                                                      │
+        │                                                                      ├─► Displays floating chip
+        │                                                                      ├─► Helper taps "Got It"
+        │                                ◄── Send ACK status ──────────────────┘
+        │                                │
+        ├─► Received Realtime Update ◄───┤
+        ▼                                ▼
+ (Pass updates: Done)             (Chip vanishes from Station)
+                                         │
+                                         ▼ (System Midnight Cron)
+                                  DELETE FROM quick_utos WHERE created_at < NOW()
+```
 
 ---
 
-## 8. Development Notes
+## 7. API Design
 
-- Dev server: `bun dev` → http://localhost:8080. HMR is on.
-- Build: `bun run build` → `.output/server/index.mjs` + `.output/public/`. Dev build: `bun run build:dev`. Preview: `bun run preview`.
-- Checks: `bun run lint`, `bun run typecheck`, `bun run format:check`. Prettier is enforced through ESLint, so `bun run format` is usually what fixes a failing lint.
-- Never edit `src/routeTree.gen.ts`; the router plugin regenerates it from `src/routes/`.
-- Never bypass shadcn tokens with hardcoded colors in components — brand hexes are applied inline only inside the prototype `index.tsx` for speed and will migrate to `@theme` tokens in `styles.css` during extraction.
+### 7.1 Helper Account Management
+
+_Note: To ensure complete compile-time type safety across the frontend and server environments, these handshakes are implemented as **TanStack Start Server Functions** (`createServerFn`) located under [`src/features/people/people.actions.ts`](src/features/people/people.actions.ts). They are directly invocable by clients with zero HTTP configuration or hydration bottlenecks, though they compile down to secure server RPC nodes._
+
+#### `POST /api/helpers/invite` (Invocable via `inviteHelperFn`)
+
+Creates a pending helper slot and returns a 6-character alphanumeric invitation code.
+
+- **Auth Level:** Primary Manager or Co-Manager JWT (`Authorization: Bearer <JWT>`).
+- **Request Body:**
+  ```json
+  {
+    "name": "Maria Rosa",
+    "station": "Cook",
+    "monthlyRate": 8000.0,
+    "paydayInterval": "semi_monthly",
+    "shiftStart": "06:00:00",
+    "shiftEnd": "18:00:00",
+    "dailyBreakDuration": 120,
+    "weeklyRestDay": 0,
+    "contactPhone": "+639171112222"
+  }
+  ```
+- **Response Codes:** `201 Created`, `400 Bad Request`, `401 Unauthorized`.
+- **Response Body:**
+  ```json
+  {
+    "helperId": "hp_981273",
+    "inviteCode": "LN98A2",
+    "inviteUrl": "https://linara.ph/claim?code=LN98A2",
+    "status": "PENDING_CLAIM"
+  }
+  ```
+
+#### `GET /api/helpers/claim/verify`
+
+Fetches the designated employment terms for an invite code prior to registration.
+
+- **Auth Level:** Unauthenticated.
+- **Query Parameters:** `code=LN98A2`
+- **Response Codes:** `200 OK`, `404 Not Found`.
+- **Response Body:**
+  ```json
+  {
+    "inviteCode": "LN98A2",
+    "name": "Maria Rosa",
+    "station": "Cook",
+    "monthlyRate": 8000.0,
+    "shiftStart": "06:00:00",
+    "shiftEnd": "18:00:00",
+    "weeklyRestDay": 0
+  }
+  ```
+
+#### `POST /api/helpers/claim/flag`
+
+Flags a mismatch in invitation terms prior to claiming, suspending the handshake process.
+
+- **Auth Level:** Unauthenticated.
+- **Request Body:**
+  ```json
+  {
+    "inviteCode": "LN98A2",
+    "field": "wage",
+    "note": "We agreed on ₱8,500 monthly rate, not ₱8,000."
+  }
+  ```
+- **Response Codes:** `200 OK`, `400 Bad Request`, `404 Not Found`.
+- **Response Body:**
+  ```json
+  {
+    "flagId": "flg_19283a",
+    "status": "SUSPENDED"
+  }
+  ```
+
+#### `POST /api/helpers/claim`
+
+Claims the invitation code, registers the helper profile, and returns an access token.
+
+- **Auth Level:** Unauthenticated.
+- **Request Body:**
+  ```json
+  {
+    "inviteCode": "LN98A2",
+    "email": "rosa.maria@gmail.com",
+    "password": "securepassword123"
+  }
+  ```
+- **Response Codes:** `200 OK`, `400 Invalid Code`, `409 Email Conflict`.
+- **Response Body:**
+  ```json
+  {
+    "accessToken": "jwt_token_here",
+    "refreshToken": "refresh_token_here",
+    "userId": "usr_991823",
+    "helperId": "hp_981273"
+  }
+  ```
+
+### 7.2 Ticket Operations
+
+#### `PATCH /api/tickets/:id/status`
+
+Updates the operational status of a ticket.
+
+- **Auth Level:** Assigned Helper or Manager JWT.
+- **Request Body:**
+  ```json
+  {
+    "status": "in_progress",
+    "timestamp": "2026-07-24T18:05:00Z"
+  }
+  ```
+- **Response Codes:** `200 OK`, `403 Forbidden`, `404 Not Found`.
+- **Response Body:**
+  ```json
+  {
+    "ticketId": "tk_55021",
+    "status": "in_progress",
+    "activeSince": "2026-07-24T18:05:00Z"
+  }
+  ```
+
+#### `POST /api/tickets/:id/complete`
+
+Submits photo evidence to finalize a ticket and calculate any rest-owed overrides.
+
+- **Auth Level:** Assigned Helper JWT.
+- **Content-Type:** `multipart/form-data`
+- **Request Payload:**
+  - `photo`: Binary image payload (JPG/PNG)
+  - `notes`: Optional operational text notes
+- **Response Codes:** `200 OK`, `400 File Too Large`, `401 Unauthorized`.
+- **Response Body:**
+  ```json
+  {
+    "ticketId": "tk_55021",
+    "status": "done",
+    "photoEvidenceUrl": "https://storage.linara.ph/evidence/tk_55021_done.jpg",
+    "ledgerEntryCreated": false
+  }
+  ```
+
+### 7.3 Instant Messages & System triggers
+
+#### `POST /api/utos/send`
+
+Dispatches a quick, non-archived task or vocal instruction to a helper.
+
+- **Auth Level:** Admin / Manager JWT.
+- **Request Body:**
+  ```json
+  {
+    "recipientId": "hp_981273",
+    "content": "+ Rice"
+  }
+  ```
+- **Response Codes:** `201 Created`, `401 Unauthorized`.
+- **Response Body:**
+  ```json
+  {
+    "utosId": "ut_00192a",
+    "status": "sent",
+    "timestamp": "2026-07-24T19:30:00Z",
+    "isWaitingOffline": false
+  }
+  ```
+
+#### `POST /api/utos/:id/ack`
+
+Acknowledges a quick uto, moving its status to seen or done.
+
+- **Auth Level:** Recipient Helper JWT.
+- **Request Body:**
+  ```json
+  {
+    "ackState": "done"
+  }
+  ```
+- **Response Body:**
+  ```json
+  {
+    "utosId": "ut_00192a",
+    "ackState": "done"
+  }
+  ```
+
+#### `POST /api/system/purge-utos`
+
+Midnight cron executor that aggregates count metrics and wipes Quick Utos rows.
+
+- **Auth Level:** System Private JWT (`Authorization: Bearer <SYSTEM_CRON_SECRET>`).
+- **Response Codes:** `200 OK`, `401 Unauthorized`.
+- **Response Body:**
+  ```json
+  {
+    "success": true,
+    "rowsPurged": 18,
+    "timestamp": "2026-08-01T00:00:00Z"
+  }
+  ```
 
 ---
 
-## 9. Server / Client Boundary & Environment
+## 8. Data Structures (Normalized Database Schemas)
 
-### Boundary
+This database structure outlines the PostgreSQL relational mappings required to build out the operational platform. All tables are defined inside the `public` schema.
 
-- Everything under `src/routes/` and `src/components/` is rendered on the server for the
-  initial HTML and then hydrated in the browser — treat it as client code.
-- Server-only modules are `src/server.ts` (SSR entry), `src/start.ts` (request middleware),
-  and anything created later with `createServerFn` or named `*.server.ts`. ESLint blocks the
-  Next.js `server-only` package to keep that convention explicit.
-- The app makes no network calls today, so there is no data-fetching boundary to defend yet;
-  `QueryClient` is created per request in `getRouter()` (`src/router.tsx`), which is the
-  SSR-safe pattern — never hoist it to a module-level singleton.
+```sql
+-- 1. Profiles Table (Holds global users)
+CREATE TABLE public.user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    household_id UUID NOT NULL,
+    full_name TEXT NOT NULL,
+    user_type TEXT NOT NULL CHECK (user_type IN ('primary_manager', 'co_manager', 'remote_admin', 'helper')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
 
-### Environment variables
+-- 2. Helper Profiles (Holds terms of employment)
+CREATE TABLE public.helper_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    household_id UUID NOT NULL,
+    name TEXT NOT NULL,
+    station TEXT NOT NULL CHECK (station IN ('Yaya', 'Cook', 'Laundry', 'Driver', 'House')),
+    monthly_rate NUMERIC(10,2) NOT NULL,
+    payday_interval TEXT NOT NULL CHECK (payday_interval IN ('semi_monthly', 'monthly')),
+    shift_start TIME NOT NULL,
+    shift_end TIME NOT NULL,
+    daily_break_duration INTEGER NOT NULL DEFAULT 60, -- in minutes
+    weekly_rest_day INTEGER NOT NULL CHECK (weekly_rest_day BETWEEN 0 AND 6), -- Sunday = 0, etc.
+    invite_code VARCHAR(12) UNIQUE,
+    status TEXT NOT NULL CHECK (status IN ('PENDING_CLAIM', 'ACTIVE', 'INACTIVE')) DEFAULT 'PENDING_CLAIM'
+);
 
-- None are read today. `.env.example` documents the convention and is the only env file in
-  version control.
-- `VITE_*` variables are inlined into the browser bundle — public by definition.
-- Unprefixed variables stay in the server bundle; use them for anything secret.
+-- 3. House SOP Library
+CREATE TABLE public.house_sops (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    standard_image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
 
-### Build & deployment flow
+-- 4. Tickets Table (Operational tasks)
+CREATE TABLE public.tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    notes TEXT,
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')) DEFAULT 'todo',
+    sop_id UUID REFERENCES public.house_sops(id) ON DELETE SET NULL,
+    photo_evidence_url TEXT,
+    is_after_hours BOOLEAN NOT NULL DEFAULT FALSE,
+    scheduled_start TIMESTAMP WITH TIME ZONE NOT NULL,
+    actual_start TIMESTAMP WITH TIME ZONE,
+    actual_end TIMESTAMP WITH TIME ZONE,
+    created_by UUID REFERENCES public.user_profiles(id)
+);
 
-1. `bun run build` runs the Vite client build, then the SSR build, then Nitro bundles both
-   into `.output/` (`server/index.mjs` + `public/`).
-2. `node .output/server/index.mjs` (or `bun`) serves it; `PORT` selects the port.
-3. `bun run preview` serves the same build locally through Vite on port 8080.
-4. Platform targets (Cloudflare, Vercel, Netlify, …) are a Nitro preset choice — set
-   `NITRO_PRESET` or pass options to `nitro()` in `vite.config.ts`. Nothing platform-specific
-   is committed.
+-- 5. Appointments Table (Schedule Anchors)
+CREATE TABLE public.appointments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    recipe_type TEXT -- Track if event matches a preset template
+);
+
+-- 6. After-Hours Ledger
+CREATE TABLE public.ledger_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    source_type TEXT NOT NULL CHECK (source_type IN ('overtime', 'rest_break_work', 'rest_day_work', 'emergency')),
+    associated_ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    duration_minutes INTEGER NOT NULL,
+    resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    resolution_type TEXT CHECK (resolution_type IN ('rest_owed', 'premium_pay')),
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 7. Vale Requests (Salary Advances)
+CREATE TABLE public.vales (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'declined')) DEFAULT 'pending',
+    approved_by UUID REFERENCES public.user_profiles(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 8. Pantry Inventory Items
+CREATE TABLE public.pantry_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    name TEXT NOT NULL,
+    qty NUMERIC(6,2) NOT NULL,
+    unit TEXT NOT NULL,
+    par NUMERIC(6,2) NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('Rice & grains', 'Fresh', 'Baby', 'Cleaning', 'Pantry')),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 9. Grocery Checklist Items
+CREATE TABLE public.grocery_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    name TEXT NOT NULL,
+    qty NUMERIC(6,2) NOT NULL,
+    unit TEXT NOT NULL,
+    pantry_item_id UUID REFERENCES public.pantry_items(id) ON DELETE SET NULL,
+    bought BOOLEAN NOT NULL DEFAULT FALSE,
+    actual_cost NUMERIC(10,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 10. Quick Utos Table (Temporary storage, cleared nightly)
+CREATE TABLE public.quick_utos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_name TEXT NOT NULL, -- Display name of admin (e.g., "Sir Ben")
+    recipient_id UUID REFERENCES public.helper_profiles(id) NOT NULL,
+    content TEXT NOT NULL,
+    ack_state TEXT NOT NULL CHECK (ack_state IN ('sent', 'seen', 'done')) DEFAULT 'sent',
+    after_hours BOOLEAN NOT NULL DEFAULT FALSE,
+    emergency BOOLEAN NOT NULL DEFAULT FALSE,
+    waiting BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 11. Helper Private Notes (Protected by strict RLS)
+CREATE TABLE public.helper_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    text TEXT NOT NULL,
+    done BOOLEAN NOT NULL DEFAULT FALSE,
+    voice TEXT, -- URL or pointer to recorded voice note snippet
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 12. Invite Flags Table (Tracks terms mismatch during claiming)
+CREATE TABLE public.invite_flags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    invite_id UUID NOT NULL,
+    field TEXT NOT NULL, -- Field flagged (e.g., 'wage', 'shift', 'restDay')
+    note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- --------------------------------------------------
+-- INDEXES FOR ENHANCED QUERY PERFORMANCE
+-- --------------------------------------------------
+CREATE INDEX idx_tickets_household_helper ON public.tickets(household_id, helper_id);
+CREATE INDEX idx_helper_profiles_invite ON public.helper_profiles(invite_code) WHERE invite_code IS NOT NULL;
+CREATE INDEX idx_quick_utos_recipient_created ON public.quick_utos(recipient_id, created_at);
+CREATE INDEX idx_user_profiles_household ON public.user_profiles(household_id);
+
+-- --------------------------------------------------
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- --------------------------------------------------
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.helper_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.house_sops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ledger_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pantry_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.grocery_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quick_utos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.helper_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invite_flags ENABLE ROW LEVEL SECURITY;
+
+-- General Tenant (Household) Isolation Policies
+CREATE POLICY user_profiles_isolation ON public.user_profiles
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY helper_profiles_isolation ON public.helper_profiles
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY house_sops_isolation ON public.house_sops
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY tickets_isolation ON public.tickets
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY appointments_isolation ON public.appointments
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY pantry_items_isolation ON public.pantry_items
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+CREATE POLICY grocery_items_isolation ON public.grocery_items
+    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+
+-- Helper Private Notes Policy (The Privacy Wall)
+-- Prevents any non-owner (including managers) from reading/writing notes
+CREATE POLICY helper_notes_privacy ON public.helper_notes
+    FOR ALL USING (
+        helper_id = (
+            SELECT id FROM public.helper_profiles
+            WHERE user_id = auth.uid()
+        )
+    );
+```
+
+---
+
+## 9. State and Context Handling
+
+### 9.1 The Simulated Clock (`simOffsetMs`)
+
+To facilitate accurate shift transitions and testing of off-hours alerts, simulated time offsets are kept globally:
+
+```typescript
+interface ClockState {
+  simOffsetMs: number; // Milliseconds between local system and simulated time
+  getCurrentTime: () => Date; // Returns new Date(Date.now() + simOffsetMs)
+}
+```
+
+All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative to `getCurrentTime()` rather than the user's unadjusted machine time.
+
+### 9.2 The Grocery State Context
+
+`GroceryCtx` coordinates between Pantry stocking and the active Palengke checklist:
+
+- `pantryAutoSuggestions` are populated dynamically on load by selecting `pantry_items` where `qty <= par`.
+- `manualGroceryItems` contains manual purchases added to the list.
+- Once a helper completes a Palengke Run task, the client triggers a transaction:
+  1. Sets `bought = true` on the `grocery_items` rows.
+  2. Increments `qty` in `pantry_items` to match the required `par` limits.
+
+---
+
+## 10. Error Handling Strategy
+
+### 10.1 Authentication & Credential Anomalies
+
+- **Session Expiry:** A client interceptor captures HTTP `401 Unauthorized` responses and triggers GoTrue's session refresh. If token refresh fails, local cache is purged, and the user is redirected to `<AuthScreen />` displaying an error toast: `"Session expired. Please log in again."`
+- **Handshake Wage Flagging:** During the claiming process, if a helper notices incorrect terms (such as wage rates below their verbal agreements) and taps `"Something's not right?"`, the registration process is suspended, and the mismatch is reported in the manager's `<NeedsYou />` panel.
+
+### 10.2 Invalid & Empty API Responses
+
+- **Reachability Warnings:** When dispatching a Quick Uto while the recipient is `Off`, the API interrupts and returns a reachability warning:
+  ```json
+  {
+    "error": "RECIPIENT_UNAVAILABLE",
+    "message": "Rosa is currently Off-Shift. Proceeding will trigger off-hours logs.",
+    "accrualRate": "30m"
+  }
+  ```
+  The client catches this to display the friction modal, forcing the manager to confirm the override parameters before executing the request.
+- **Network Failure Resilience:** In-progress ticket updates are captured inside local IndexedDB. If an image upload fails, the task state is kept in the client queue and retried when network state transitions back to online.
+
+---
+
+## 11. Local Deployment Model
+
+### 11.1 Local Environment Variables (`.env`)
+
+Create a `.env` file in the project's root folder:
+
+```env
+# 1. Supabase Local Configuration Coordinates (Run via Supabase CLI)
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsLWVudmlyb25tZW50Ii...
+
+# 2. Security Tokens
+JWT_SECRET=super_secret_local_dev_jwt_key_string_32_chars
+SYSTEM_CRON_SECRET=local_cron_purger_verification_hash_192837
+
+# 3. regional labor parameter configuration
+REGIONAL_MINIMUM_WAGE=6000.00
+```
+
+### 11.2 Run & Verification Procedures
+
+#### 1. Setup Dependencies
+
+Verify your Bun environment is active, then install dependencies:
+
+```bash
+bun install
+```
+
+#### 2. Apply Database Schema
+
+Execute the normalization SQL script defined in Section 8 of this document directly onto your local PostgreSQL instance or via the Supabase SQL editor.
+
+#### 3. Run Development Server
+
+Start the local server using:
+
+```bash
+bun dev
+```
+
+The application will boot and run on `http://localhost:8080`. Open multiple browser tabs (tab 1 as `Sir Ben`, tab 2 as `Ate Rosa`) to test live handshakes, real-time ticket movements, and inventory counters.
+
+#### 4. Project Build & Checks
+
+To test compilation, linting, and formatting:
+
+```bash
+# Build the application output and edge servers
+bun run build
+
+# Run linting tests and check types
+bun run lint
+bun run typecheck
+bun run format:check
+```
+
+_Note: Never edit [`src/routeTree.gen.ts`](src/routeTree.gen.ts) manually; TanStack Router updates this automatically on change during `bun dev`._

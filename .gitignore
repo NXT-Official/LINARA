@@ -1,25 +1,76 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-.output/
-.vercel/
-.netlify/
-.tanstack/
-.nitro/
-
-# Caches
-.cache/
-.vite/
-*.tsbuildinfo
-
-# Environment variables
+# ========================================================================
+# 1. LOCAL SECRETS & ENVIRONMENT VARIABLES (Security Critical)
+# ========================================================================
 .env
+.env.local
 .env.*
+.dev.vars
+*.pem
+*.key
 !.env.example
 
-# Logs
+# ========================================================================
+# 2. SYSTEM DEPENDENCIES & PACKAGE MANAGERS
+# ========================================================================
+node_modules/
+/jspm_packages/
+web_modules/
+.npm
+.eslintcache
+
+# ========================================================================
+# 3. COMPILATION & BUILD OUTPUTS (Nitro / Vite / Wrangler Pages / Edge Hosting)
+# ========================================================================
+.output/
+dist/
+build/
+.next/
+.nuxt/
+.vercel/
+.netlify/
+
+# ========================================================================
+# 4. COMPILER ENGINE & LOCAL EMULATION CACHES
+# ========================================================================
+.tanstack/
+.vinxi/
+.wrangler/
+.turbo/
+.cache/
+.vite/
+.nitro/
+.parcel-cache
+*.tsbuildinfo
+
+# ========================================================================
+# 5. TESTING & CODE QUALITY REPORTS
+# ========================================================================
+coverage/
+playwright-report/
+test-results/
+
+# ========================================================================
+# 6. IDE, EDITOR, & OPERATING SYSTEM JUNK
+# ========================================================================
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ========================================================================
+# 7. TEMPORARY FILES & CACHED LOGS
+# ========================================================================
+tmp/
+temp/
+*.tmp
 logs/
 *.log
 npm-debug.log*
@@ -27,28 +78,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 bun-debug.log*
+terminal_log.log
 
-# Testing
-coverage/
-playwright-report/
-test-results/
-
-# Editors
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-.idea/
-*.swp
-*.swo
-
-# Operating system files
-.DS_Store
-Thumbs.db
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Local AI tool settings
+# ========================================================================
+# 8. LOCAL AI TOOL SETTINGS
+# ========================================================================
 .claude/settings.local.json
