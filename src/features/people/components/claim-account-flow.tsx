@@ -5,11 +5,10 @@ import { toast } from "sonner";
 import { ReviewRow } from "@/components/shared/detail-row";
 import { verifyClaimFn, flagInviteFn, claimInviteFn } from "@/features/people/people.actions";
 
-import type { Invite } from "../people.types";
+import type { Invite, Station } from "../people.types";
 
 export function ClaimAccountFlow({
   onClose,
-  onFindInvite,
   onClaim,
   onFlag,
   onFinished,
@@ -43,10 +42,13 @@ export function ClaimAccountFlow({
         id: terms.inviteCode,
         code: terms.inviteCode,
         name: terms.name,
-        station: terms.station as any,
+        station: terms.station as Station,
         employment: "live-in", // fallback default
         shift: `${terms.shiftStart} - ${terms.shiftEnd}`,
-        restDay: ["Linggo", "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado"][terms.weeklyRestDay] || "Sunday",
+        restDay:
+          ["Linggo", "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado"][
+            terms.weeklyRestDay
+          ] || "Sunday",
         wagePHP: terms.monthlyRate,
         phone: "",
         createdAt: Date.now(),
@@ -59,9 +61,11 @@ export function ClaimAccountFlow({
       setCodeError(null);
       setStep("review");
       toast.success("Nahanap ang iyong invite record!");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setCodeError("Hindi namin nakita 'yang code o may server issue. Paki-check ang code at subukan ulit.");
+      setCodeError(
+        "Hindi namin nakita 'yang code o may server issue. Paki-check ang code at subukan ulit.",
+      );
       toast.error("Hindi nakita ang invite code.");
     } finally {
       setLoading(false);
@@ -84,7 +88,7 @@ export function ClaimAccountFlow({
       setFlagged(true);
       setStep("review");
       toast.success("Dispute sent! Sinabi na namin sa manager mo ang tungkol sa issue.");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error("May error sa pagpapadala ng flag.");
     } finally {
@@ -98,6 +102,7 @@ export function ClaimAccountFlow({
       toast.error("Kumpletuhin muna ang lahat ng detalye.");
       return;
     }
+    // eslint-disable-next-line security/detect-possible-timing-attacks -- False positive. Client-side double-entry verification check.
     if (password !== confirmPassword) {
       toast.error("Hindi magkatugma ang passwords.");
       return;
@@ -127,9 +132,11 @@ export function ClaimAccountFlow({
       onClaim(invite.id, displayName.trim());
       onFinished({ ...invite, status: "active", claimedName: displayName.trim() });
       toast.success("Tagumpay! Claimed na ang account mo.");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || "Hindi nagtagumpay ang pag-claim ng account.");
+      const errorMessage =
+        err instanceof Error ? err.message : "Hindi nagtagumpay ang pag-claim ng account.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -412,7 +419,8 @@ export function ClaimAccountFlow({
               </p>
             )}
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Ito ay ise-save nang ligtas sa system. Iyong-iyo lang ang password na ito at hindi ito nakikita ng manager mo.
+              Ito ay ise-save nang ligtas sa system. Iyong-iyo lang ang password na ito at hindi ito
+              nakikita ng manager mo.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button

@@ -30,7 +30,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       dailyBreakDuration?: number;
       weeklyRestDay: number;
       token: string;
-    }) => data
+    }) => data,
   )
   .handler(async ({ data }) => {
     const {
@@ -153,13 +153,7 @@ export const verifyClaimFn = createServerFn({ method: "POST" })
  * Flags a mismatch in invitation terms prior to claiming, suspending the handshake process.
  */
 export const flagInviteFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      inviteCode: string;
-      field: string;
-      note: string;
-    }) => data
-  )
+  .validator((data: { inviteCode: string; field: string; note: string }) => data)
   .handler(async ({ data }) => {
     const { inviteCode, field, note } = data;
 
@@ -200,13 +194,7 @@ export const flagInviteFn = createServerFn({ method: "POST" })
  * Claims the invitation code, registers the helper profile, and returns an access token/session details.
  */
 export const claimInviteFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      inviteCode: string;
-      email: string;
-      password: string;
-    }) => data
-  )
+  .validator((data: { inviteCode: string; email: string; password: string }) => data)
   .handler(async ({ data }) => {
     const { inviteCode, email, password } = data;
 
@@ -237,10 +225,12 @@ export const claimInviteFn = createServerFn({ method: "POST" })
 
     // C. If auto-sign-in was not direct, sign in manually to get a valid session
     if (!session) {
-      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword(
+        {
+          email,
+          password,
+        },
+      );
 
       if (signInError || !signInData.session) {
         throw new Error(signInError?.message || "Auth signin failed after registration");

@@ -2,9 +2,9 @@ name: Linara CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 # Ensure concurrent runs on the same branch cancel previous builds to save pipeline resources
 concurrency:
@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm' # Automates caching of node_modules and npm dependencies
+          cache: "npm" # Automates caching of node_modules and npm dependencies
 
       - name: 3. Install Package Dependencies (Clean Install)
         run: npm ci
