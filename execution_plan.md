@@ -27,6 +27,7 @@ The execution plan is split into 6 structured, independent, and sequential phase
 - **[completed] [`Story_7_AuthAndClaimOnboardingScreens.md`](roadmap/Story_7_AuthAndClaimOnboardingScreens.md):** Connecting claim review terms and password-setup screens to backend endpoints.
 - **[completed] [`Story_8_DashboardsPassAndStation.md`](roadmap/Story_8_DashboardsPassAndStation.md):** Implementing the visual Pass layout (Line/Board lane toggling) and the Station focused ticket page.
 - **[completed] [`Story_9_PantryAndPalengkeSharedContext.md`](roadmap/Story_9_PantryAndPalengkeSharedContext.md):** Synchronizing low-par pantry suggest logs with Palengke Run checklists via `GroceryCtx`.
+- **[`Story_9_5_TestingFrameworkAndE2ESmokeSetup.md`](roadmap/Story_9_5_TestingFrameworkAndE2ESmokeSetup.md):** Installing and configuring Vitest and Playwright test engines with run scripts and base onboarding smoke tests.
 
 ### Phase 4: AI Intelligence
 
@@ -58,9 +59,9 @@ P1 (Setup)   ─► Story 1 & 2
 P2 (Backend) ─► Story 3 ─► Story 4 ─► Story 5
                  │
                  ▼
-P3 (Frontend)─► Story 6 ─► Story 7 ─► Story 8 ─► Story 9
-                 │                                 │
-                 ▼                                 ▼
+P3 (Frontend)─► Story 6 ─► Story 7 ─► Story 8 ─► Story 9 ─► Story 9_5
+                 │                                            │
+                 ▼                                            ▼
 P4 (AI Intel)─► Story 10 ─────────► Story 11 ────► Story 12
                  │                                 │
                  ▼                                 ▼
