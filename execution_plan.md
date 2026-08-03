@@ -21,8 +21,8 @@ The execution plan is split into 6 structured, independent, and sequential phase
 
 ### Phase 3: Frontend Core
 *   **[completed] [`Story_6_ModularFrontendFeatureExtraction.md`](roadmap/Story_6_ModularFrontendFeatureExtraction.md):** Partitioning index.tsx into modular features directories under `src/features/`.
-*   **[`Story_7_AuthAndClaimOnboardingScreens.md`](roadmap/Story_7_AuthAndClaimOnboardingScreens.md):** Connecting claim review terms and password-setup screens to backend endpoints.
-*   **[`Story_8_DashboardsPassAndStation.md`](roadmap/Story_8_DashboardsPassAndStation.md):** Implementing the visual Pass layout (Line/Board lane toggling) and the Station focused ticket page.
+*   **[completed] [`Story_7_AuthAndClaimOnboardingScreens.md`](roadmap/Story_7_AuthAndClaimOnboardingScreens.md):** Connecting claim review terms and password-setup screens to backend endpoints.
+*   **[completed] [`Story_8_DashboardsPassAndStation.md`](roadmap/Story_8_DashboardsPassAndStation.md):** Implementing the visual Pass layout (Line/Board lane toggling) and the Station focused ticket page.
 *   **[completed] [`Story_9_PantryAndPalengkeSharedContext.md`](roadmap/Story_9_PantryAndPalengkeSharedContext.md):** Synchronizing low-par pantry suggest logs with Palengke Run checklists via `GroceryCtx`.
 
 ### Phase 4: AI Intelligence
