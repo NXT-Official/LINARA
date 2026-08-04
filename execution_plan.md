@@ -33,11 +33,11 @@ The execution plan is split into 6 structured, independent, and sequential phase
 
 - **[completed] [`Story_10_AISOPGeneratorEdgeFunction.md`](roadmap/Story_10_AISOPGeneratorEdgeFunction.md):** Developing and deploying the House Standard SOP creator with strict schema checks.
 - **[completed] [`Story_11_AITemporalSchedulerEdgeFunction.md`](roadmap/Story_11_AITemporalSchedulerEdgeFunction.md):** Creating natural language scheduler engines to compute appointment offsets.
-- **[`Story_12_AIUtosRoutingEdgeFunction.md`](roadmap/Story_12_AIUtosRoutingEdgeFunction.md):** Deploying the context-router with shift boundary warnings.
+- **[completed] [`Story_12_AIUtosRoutingEdgeFunction.md`](roadmap/Story_12_AIUtosRoutingEdgeFunction.md):** Deploying the context-router with shift boundary warnings.
 
 ### Phase 5: Interaction
 
-- **[`Story_13_RealtimeSynchronizationChannels.md`](roadmap/Story_13_RealtimeSynchronizationChannels.md):** Subscribing client components to real-time database modifications via Supabase Channels.
+- **[completed] [`Story_13_RealtimeSynchronizationChannels.md`](roadmap/Story_13_RealtimeSynchronizationChannels.md):** Subscribing client components to real-time database modifications via Supabase Channels.
 - **[`Story_14_OfflineFirstSyncQueue.md`](roadmap/Story_14_OfflineFirstSyncQueue.md):** Constructing offline IndexedDB caches for completing tickets and caching receipt photos.
 - **[`Story_15_AfterHoursFrictionGatingAndLedger.md`](roadmap/Story_15_AfterHoursFrictionGatingAndLedger.md):** Building out-of-shift confirmation dialog gates and automatic rest-accrual ledgers.
 
