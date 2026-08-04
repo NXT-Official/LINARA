@@ -1,10 +1,13 @@
-import { CalendarClock, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
-import { stationTone } from "@/features/people/people.constants";
+import { HELPERS, stationTone } from "@/features/people/people.constants";
 import { helperById } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
-import { formatAppointmentDate, parseTimeToMinutes, toISODate } from "@/lib/time";
+import { formatAppointmentDate, formatDisplayTime, parseTimeToMinutes, toISODate } from "@/lib/time";
+import { parseSchedulerFn } from "../appointment.actions";
+import type { PrepDraft } from "../appointment.types";
 
 import type { Appointment } from "../appointment.types";
 import type { AppointmentStore } from "../hooks/use-appointments";
@@ -24,6 +27,56 @@ export function AppointmentsSection({
   const { appointments: all, add: onAdd, remove: onRemove, update: onUpdate } = appointments;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  const handleAISchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+
+    setIsScheduling(true);
+    try {
+      const result = await parseSchedulerFn({
+        data: {
+          prompt: prompt.trim(),
+          simDate: simDate.toISOString(),
+        },
+      });
+
+      if (result) {
+        const dt = new Date(result.appointment.scheduledTime);
+        const dateIso = toISODate(dt);
+        const timeDisplay = formatDisplayTime(dt.getHours() * 60 + dt.getMinutes());
+
+        const preps: PrepDraft[] = result.prepTasks.map((p) => {
+          const helper = HELPERS.find((h) => h.station.toLowerCase() === p.station.toLowerCase()) || HELPERS[0];
+          return {
+            title: p.title,
+            leadMinutes: -p.offsetMinutes, // mathematically maps offset to leadMinutes (e.g. -720 -> 720, 60 -> -60)
+            helperId: helper.id,
+          };
+        });
+
+        onAdd(
+          {
+            title: result.appointment.title,
+            date: dateIso,
+            time: timeDisplay,
+          },
+          preps
+        );
+
+        setPrompt("");
+        toast.success("Successfully scheduled appointment and all prep tasks with AI!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to parse and schedule with AI. Please try again.");
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
   const todayIso = toISODate(simDate);
   const upcoming = [...all]
     .filter((a) => a.date >= todayIso)
@@ -58,6 +111,35 @@ export function AppointmentsSection({
           <Plus className="h-3.5 w-3.5" /> New appointment
         </button>
       </div>
+
+      <form onSubmit={handleAISchedule} className="mb-4">
+        <div className="flex gap-2 rounded-2xl border border-border/80 bg-background/50 p-1.5 focus-within:border-primary">
+          <input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={isScheduling}
+            placeholder="✨ e.g., Flight on Friday at 8am, pack bags 12h before"
+            className="flex-1 bg-transparent px-3 py-2 text-xs outline-none text-foreground placeholder:text-muted-foreground/70"
+          />
+          <button
+            type="submit"
+            disabled={isScheduling || !prompt.trim()}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-40"
+          >
+            {isScheduling ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Scheduling...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3 w-3" />
+                Schedule
+              </>
+            )}
+          </button>
+        </div>
+      </form>
 
       {upcoming.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
