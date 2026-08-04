@@ -38,6 +38,9 @@
   --color-terracotta-soft: var(--terracotta-soft);
   --color-pine: var(--pine);
   --color-pine-deep: var(--pine-deep);
+  --color-pine-teal: var(--pine-teal);
+  --color-card-cream: var(--card-cream);
+  --color-terracotta-gold: var(--terracotta-gold);
   --color-ink: var(--ink);
   --shadow-soft:
     0 1px 2px oklch(0.35 0.05 170 / 0.04), 0 8px 24px -12px oklch(0.35 0.05 170 / 0.12);
@@ -48,7 +51,7 @@
 :root {
   --radius: 1rem;
 
-  /* Brand */
+  /* Brand & PWA/Visual Polishing Custom Tokens */
   --sand: oklch(0.965 0.018 82); /* #F7F3EC bg */
   --sand-deep: oklch(0.93 0.022 82);
   --pine: oklch(0.42 0.055 180); /* ~#1F5A54 */
@@ -56,6 +59,10 @@
   --terracotta: oklch(0.73 0.11 55); /* ~#D99A6C */
   --terracotta-soft: oklch(0.88 0.055 60);
   --ink: oklch(0.22 0.015 180);
+  
+  --pine-teal: var(--pine);
+  --card-cream: oklch(0.99 0.008 82);
+  --terracotta-gold: var(--terracotta);
 
   --background: var(--sand);
   --foreground: var(--ink);
@@ -97,4 +104,49 @@
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
+}
+
+/* Calm Home Visual Polishing & Micro-interactions */
+@layer utilities {
+  .calm-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+button, a {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active, a:active {
+  transform: scale(0.98);
+}
+
+/* Rounded scrollbar to match calm warm tone */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+
+/* Soft card/button glow pulse */
+@keyframes calm-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.42 0.055 180 / 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px oklch(0.42 0.055 180 / 0.08);
+  }
+}
+
+.calm-glow {
+  animation: calm-glow 3s infinite ease-in-out;
 }
