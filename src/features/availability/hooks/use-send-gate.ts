@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
+import { routeUtosFn } from "@/features/utos/utos.actions";
 import type { SendFlags } from "@/features/utos/hooks/use-utos";
 
 import type { RosaStatus } from "../availability.types";
@@ -45,9 +47,38 @@ export function useSendGate({
   // Attribute the task to whoever is looking, unless it already carries an author.
   const stamp = (t: TaskDraft): TaskDraft => ({ ...t, createdBy: t.createdBy ?? authorName });
 
-  const sendUtos = (content: string) => {
-    if (rosaOff) setIntent({ kind: "utos", content });
-    else onSendUtos(content, { from: authorName });
+  const sendUtos = async (content: string) => {
+    try {
+      const result = await routeUtosFn({
+        data: {
+          prompt: content,
+          helperId: "rosa",
+          helperStatus: status.status,
+          senderType: "manager",
+        },
+      });
+
+      if (result) {
+        if (result.classification === "ROUTINE") {
+          toast.info(`Classified as ROUTINE! Automatically structured as: "${result.contentCleaned}"`);
+        } else if (result.classification === "TASK") {
+          toast.info(`Classified as heavy TASK! Automatically structured as: "${result.contentCleaned}"`);
+        }
+
+        if (result.boundaryWarn) {
+          setIntent({ kind: "utos", content: result.contentCleaned });
+        } else {
+          onSendUtos(result.contentCleaned, { from: authorName });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      if (rosaOff) {
+        setIntent({ kind: "utos", content });
+      } else {
+        onSendUtos(content, { from: authorName });
+      }
+    }
   };
 
   const addTask = (t: TaskDraft, opts: { sendLive?: boolean } = {}) => {
