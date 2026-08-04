@@ -38,7 +38,7 @@ The execution plan is split into 6 structured, independent, and sequential phase
 ### Phase 5: Interaction
 
 - **[completed] [`Story_13_RealtimeSynchronizationChannels.md`](roadmap/Story_13_RealtimeSynchronizationChannels.md):** Subscribing client components to real-time database modifications via Supabase Channels.
-- **[`Story_14_OfflineFirstSyncQueue.md`](roadmap/Story_14_OfflineFirstSyncQueue.md):** Constructing offline IndexedDB caches for completing tickets and caching receipt photos.
+- **[completed] [`Story_14_OfflineFirstSyncQueue.md`](roadmap/Story_14_OfflineFirstSyncQueue.md):** Constructing offline IndexedDB caches for completing tickets and caching receipt photos.
 - **[`Story_15_AfterHoursFrictionGatingAndLedger.md`](roadmap/Story_15_AfterHoursFrictionGatingAndLedger.md):** Building out-of-shift confirmation dialog gates and automatic rest-accrual ledgers.
 
 ### Phase 6: Polish

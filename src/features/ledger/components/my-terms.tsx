@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ReviewRow } from "@/components/shared/detail-row";
 import type { Helper, Invite } from "@/features/people/people.types";
+import { LegalContributionSplitCard } from "@/features/people/components/legal-contribution-split-card";
 
 export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | null }) {
   const [open, setOpen] = useState(false);
@@ -38,14 +39,19 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
         </span>
       </button>
       {open && (
-        <div className="mt-4 space-y-2 rounded-2xl bg-background/60 p-4 text-sm">
-          <ReviewRow label="Pangalan" value={invite?.name ?? helper.name} />
-          <ReviewRow label="Role / station" value={role} />
-          <ReviewRow label="Employment" value={employment} />
-          <ReviewRow label="Shift" value={shift} />
-          <ReviewRow label="Rest day" value={restDay} />
-          <ReviewRow label="Monthly wage" value={wage} />
-          {invite?.phone && <ReviewRow label="Contact on file" value={invite.phone} />}
+        <div className="mt-4 space-y-4 rounded-2xl bg-background/60 p-4 text-sm">
+          <div className="space-y-2">
+            <ReviewRow label="Pangalan" value={invite?.name ?? helper.name} />
+            <ReviewRow label="Role / station" value={role} />
+            <ReviewRow label="Employment" value={employment} />
+            <ReviewRow label="Shift" value={shift} />
+            <ReviewRow label="Rest day" value={restDay} />
+            <ReviewRow label="Monthly wage" value={wage} />
+            {invite?.phone && <ReviewRow label="Contact on file" value={invite.phone} />}
+          </div>
+
+          <LegalContributionSplitCard wagePHP={invite?.wagePHP ?? 16000} />
+
           <p className="pt-2 text-[11px] leading-relaxed text-muted-foreground">
             May mali? Sabihin mo sa manager mo — huwag muna pumirma kung hindi tugma sa usapan.
           </p>

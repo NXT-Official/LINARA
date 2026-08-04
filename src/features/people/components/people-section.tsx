@@ -1,15 +1,16 @@
-import { AlertCircle, Plus, Users } from "lucide-react";
+import { AlertCircle, Info, Plus, Users } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import type { WeekSchedule } from "@/features/shifts/shift.types";
 import { WEEKDAY_LONG, WEEKDAYS } from "@/lib/time";
 
-import { adminPermSummary, adminTypeLabel, HELPERS } from "../people.constants";
+import { adminPermSummary, adminTypeLabel, HELPERS, REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Admin, AdminType, Invite } from "../people.types";
 import { initialsOf } from "../people.utils";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
+import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 
 /** The household roster: admins with editable roles, helpers, and pending invites. */
 export function PeopleSection({
@@ -37,6 +38,7 @@ export function PeopleSection({
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issued, setIssued] = useState<Invite | null>(null);
+  const [showContributions, setShowContributions] = useState<Record<string, boolean>>({});
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
@@ -200,7 +202,7 @@ export function PeopleSection({
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
                     {inv.employment === "live-in" ? "Live-in" : "Live-out"} · {inv.shift} · Rest:{" "}
-                    {inv.restDay}
+                    {inv.restDay} · Wage: ₱{(inv.wagePHP || 0).toLocaleString()}
                   </div>
                   {!isActive ? (
                     <div className="text-[11px] text-muted-foreground">
@@ -211,6 +213,31 @@ export function PeopleSection({
                   ) : (
                     <div className="text-[11px] text-muted-foreground">
                       Claimed her own account · joined via {inv.createdBy}
+                    </div>
+                  )}
+
+                  {inv.wagePHP < REGIONAL_MINIMUM_WAGE && (
+                    <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200">Batas Kasambahay Compliance Warning:</span> Wage is below the regional minimum of <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>.
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowContributions(prev => ({ ...prev, [inv.id]: !prev[inv.id] }))}
+                      className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Info className="h-3 w-3" /> {showContributions[inv.id] ? "Hide contributions" : "View contributions split"}
+                    </button>
+                  </div>
+
+                  {showContributions[inv.id] && (
+                    <div className="mt-2.5">
+                      <LegalContributionSplitCard wagePHP={inv.wagePHP} />
                     </div>
                   )}
                   {inv.flags.length > 0 && (

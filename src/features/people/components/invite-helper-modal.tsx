@@ -1,9 +1,11 @@
-import { X } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
 import { useState } from "react";
 
 import { Field } from "@/components/shared/field";
 
 import type { Employment, Invite, Station } from "../people.types";
+import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
+import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 
 export function InviteHelperModal({
   onClose,
@@ -112,6 +114,18 @@ export function InviteHelperModal({
               />
             </Field>
           </div>
+
+          {parseInt(wage, 10) < REGIONAL_MINIMUM_WAGE && (
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-semibold block mb-0.5">Batas Kasambahay Compliance Warning</span>
+                Ang sweldong ₱{(parseInt(wage, 10) || 0).toLocaleString()} ay mababa sa regional minimum wage na <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span> para sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
+              </div>
+            </div>
+          )}
+
+          <LegalContributionSplitCard wagePHP={parseInt(wage, 10) || 0} />
           <Field label="Contact number">
             <input
               value={phone}

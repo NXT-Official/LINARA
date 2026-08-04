@@ -50,6 +50,9 @@ export const INITIAL_ADMINS: Admin[] = [
   },
   { id: "lolafe", name: "Lola Fe", short: "Fe", initials: "LF", type: "remote", location: "Dubai" },
 ];
+// Regional minimum wage for Metro Manila (Batas Kasambahay)
+export const REGIONAL_MINIMUM_WAGE = 6000;
+
 export const adminTypeLabel: Record<AdminType, string> = {
   primary: "Primary manager",
   co: "Co-manager",
