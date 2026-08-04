@@ -28,6 +28,7 @@ export type Task = {
   startedAt?: number;
   createdBy?: string; // display name of admin who created it
   suggested?: boolean; // pending approval by an on-site admin (used for Remote-admin picks)
+  pendingSync?: boolean; // offline pending status
 };
 
 // A recurring template that spawns a Task on matching weekdays.
