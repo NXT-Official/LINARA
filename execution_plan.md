@@ -43,8 +43,8 @@ The execution plan is split into 6 structured, independent, and sequential phase
 
 ### Phase 6: Polish
 
-- **[`Story_16_ComplianceAuditWagesAndFintechPreviews.md`](roadmap/Story_16_ComplianceAuditWagesAndFintechPreviews.md):** Integrating Batas Kasambahay contribution tables, visual dials, and GCash previews.
-- **[`Story_17_VisualCSSPolishingAndPWAReadiness.md`](roadmap/Story_17_VisualCSSPolishingAndPWAReadiness.md):** Loading custom Fraunces & Nunito Sans fonts, adding CSS transitions, and configuring PWA manifests.
+- **[completed] [`Story_16_ComplianceAuditWagesAndFintechPreviews.md`](roadmap/Story_16_ComplianceAuditWagesAndFintechPreviews.md):** Integrating Batas Kasambahay contribution tables, visual dials, and GCash previews.
+- **[completed] [`Story_17_VisualCSSPolishingAndPWAReadiness.md`](roadmap/Story_17_VisualCSSPolishingAndPWAReadiness.md):** Loading custom Fraunces & Nunito Sans fonts, adding CSS transitions, and configuring PWA manifests.
 
 ---
 
