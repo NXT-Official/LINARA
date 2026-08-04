@@ -1,9 +1,11 @@
-import { X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 import { HELPERS } from "@/features/people/people.constants";
 import { WEEKDAYS, type Weekday } from "@/lib/time";
+import { generateSopFn } from "../task.actions";
 
 import type { Recurrence, Routine } from "../task.types";
 
@@ -20,6 +22,47 @@ export function NewRoutineModal({
   const [note, setNote] = useState("");
   const [repeatKind, setRepeatKind] = useState<"daily" | "weekdays">("daily");
   const [days, setDays] = useState<Weekday[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleAIGenerate = async () => {
+    if (!title.trim()) {
+      toast.error("Mangyaring maglagay muna ng title para maging batayan ng AI SOP.");
+      return;
+    }
+
+    setIsGenerating(true);
+    const assignedHelper = HELPERS.find((h) => h.id === helperId);
+
+    try {
+      const result = await generateSopFn({
+        data: {
+          prompt: title.trim(),
+          station: assignedHelper?.station,
+        },
+      });
+
+      if (result) {
+        setTitle(result.title);
+
+        const formattedNote = [
+          result.description,
+          "\n📋 SEKWENSIYAL NA HAKBANG:",
+          ...result.steps.map((step, idx) => `${idx + 1}. ${step}`),
+          "\n🛠️ MGA KASANGKAPAN (TOOLS REQUIRED):",
+          ...result.toolsRequired.map((tool) => `- ${tool}`),
+          `\n⚠️ SAFETY PROTOCOL & PAG-IINGAT:\n${result.safetyProtocol}`,
+        ].join("\n");
+
+        setNote(formattedNote);
+        toast.success("Standard SOP successfully generated & populated!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Hindi nagtagumpay ang pag-generate ng SOP gamit ang AI.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const toggleDay = (d: Weekday) => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
@@ -92,15 +135,38 @@ export function NewRoutineModal({
               />
             </Field>
           </div>
-          <Field label="House-standard note (optional)">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted-foreground">
+                House-standard note (optional)
+              </label>
+              <button
+                type="button"
+                disabled={!title.trim() || isGenerating}
+                onClick={handleAIGenerate}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary transition hover:text-pine-deep disabled:opacity-45"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate SOP with AI
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              rows={2}
+              rows={5}
               placeholder="e.g. Deep-water the fiddle leaf; light mist for the ferns."
               className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
-          </Field>
+          </div>
           <Field label="Repeat">
             <div className="inline-flex w-full rounded-xl border border-input bg-background p-1">
               {(
