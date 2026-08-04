@@ -29,6 +29,7 @@ export type CompletionRecord = {
   doneTs: number;
   autoMinutes: number;
   emergency: boolean;
+  afterHours?: boolean;
 };
 
 export type TaskBoard = ReturnType<typeof useTaskBoard>;
@@ -104,6 +105,7 @@ export function useTaskBoard({
             doneTs: nowTs,
             autoMinutes: Math.max(1, Math.round((nowTs - start) / 60_000)),
             emergency: !!cur.emergency,
+            afterHours: !!cur.afterHours,
           });
         }
         return prev.map((t) => (t.id === id ? updated : t));
@@ -144,6 +146,7 @@ export function useTaskBoard({
           doneTs: nowTs,
           autoMinutes: Math.max(1, Math.round((nowTs - start) / 60_000)),
           emergency: !!cur.emergency,
+          afterHours: !!cur.afterHours,
         });
       }
       return prev.map((t) => (t.id === id ? updated : t));
