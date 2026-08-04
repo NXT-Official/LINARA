@@ -1,21 +1,21 @@
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig } from "vitest/config";
+import path from "path";
 
 export default defineConfig({
   plugins: [],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname || '', './src'),
+      "@": path.resolve(import.meta.dirname || "", "./src"),
     },
   },
   test: {
-    environment: 'node',
+    environment: "node",
     globals: true,
     exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/tests/**',
-      '**/.{idea,git,cache,output,temp}/**'
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/tests/**",
+      "**/.{idea,git,cache,output,temp}/**",
     ],
   },
 });

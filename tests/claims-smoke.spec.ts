@@ -1,15 +1,17 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test.describe('Helper Claimant Onboarding Smoke Test', () => {
-  test('should load the helper today page and render claim-your-account onboarding elements', async ({ page }) => {
+test.describe("Helper Claimant Onboarding Smoke Test", () => {
+  test("should load the helper today page and render claim-your-account onboarding elements", async ({
+    page,
+  }) => {
     // 1. Visit the helper landing/today page
-    await page.goto('/helper/today');
+    await page.goto("/helper/today");
 
     // 2. Verify that page title / header loads (Ate Rosa's Station greeting)
-    await expect(page.locator('text=Magandang umaga, Ate Rosa.')).toBeVisible();
+    await expect(page.locator("text=Magandang umaga, Ate Rosa.")).toBeVisible();
 
     // 3. Verify that the claimant onboarding banner is present
-    await expect(page.locator('text=New here? Claim your account.')).toBeVisible();
+    await expect(page.locator("text=New here? Claim your account.")).toBeVisible();
 
     // 4. Verify that the "Enter code" button is visible and click it
     const enterCodeBtn = page.locator('button:has-text("Enter code")');
