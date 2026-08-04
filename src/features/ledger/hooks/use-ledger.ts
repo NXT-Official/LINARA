@@ -46,7 +46,12 @@ export function useLedger({
 
   /** Called for every completion; only off-shift work by Rosa is recorded. */
   const record = (completion: CompletionRecord) => {
-    if (completion.helperId !== "rosa" || rosaStatus.status === "on_shift") return;
+    if (completion.helperId !== "rosa") return;
+    const isOffShift = rosaStatus.status !== "on_shift";
+    const isExplicitAfterHours = completion.afterHours || completion.emergency;
+
+    if (!isOffShift && !isExplicitAfterHours) return;
+
     const { emergency, helperId: _helperId, ...rest } = completion;
     setEntries((prev) => [
       ...prev,
