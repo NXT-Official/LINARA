@@ -13,6 +13,8 @@ import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
 import { useUtos } from "@/features/utos/hooks/use-utos";
 import { supabaseClient } from "@/lib/supabase";
+import { getQueue, removeFromQueue } from "@/lib/offline-queue";
+import { toast } from "sonner";
 
 import { AppStoreContext, type AppStores } from "../app-store-context";
 import { useSimClock } from "../hooks/use-sim-clock";
@@ -34,6 +36,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const clock = useSimClock();
   const availability = useAvailability({ nowTs: clock.nowTs, schedules });
   const ledger = useLedger({ rosaStatus: availability.status, schedules });
+
+  // Physical and simulated online/offline tracking
+  const [isPhysicalOnline, setIsPhysicalOnline] = useState(() =>
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [isOfflineSimulated, setOfflineSimulated] = useState(false);
+
+  const isOnline = isPhysicalOnline && !isOfflineSimulated;
 
   // A ref to keep track of whether we are currently receiving/applying an action
   // to prevent re-broadcasting it.
@@ -57,6 +67,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         payload: action,
       });
     },
+    isOnline,
   });
 
   const appointments = useAppointments(board.setTasks);
@@ -202,6 +213,74 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     };
   }, [currentHelperId, helper.name]);
 
+  // Background Sync Daemon
+  const syncOfflineQueue = async () => {
+    try {
+      const items = await getQueue();
+      if (items.length === 0) return;
+
+      console.log(`[Offline Sync] Synchronizing ${items.length} queued offline actions...`);
+
+      for (const item of items) {
+        if (item.action === "update_status") {
+          const { id, status } = item.payload;
+          // Apply to local board state
+          boardRef.current.receiveAction({
+            type: "UPDATE_STATUS",
+            payload: { id, status, photo: item.binaryPhoto },
+          });
+          // Broadcast to other devices/screens
+          householdBoardChannelRef.current?.send({
+            type: "broadcast",
+            event: "board-action",
+            payload: {
+              type: "UPDATE_STATUS",
+              payload: { id, status, photo: item.binaryPhoto },
+            },
+          });
+          // Clear pendingSync status flag
+          boardRef.current.setTasks((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, pendingSync: undefined } : t))
+          );
+        }
+        await removeFromQueue(item.id);
+      }
+
+      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa. 📶");
+    } catch (err) {
+      console.error("[Offline Sync] Sync failed:", err);
+    }
+  };
+
+  // Sync when transitioning back to online
+  useEffect(() => {
+    if (isOnline) {
+      syncOfflineQueue();
+    }
+  }, [isOnline]);
+
+  // Network connection status listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsPhysicalOnline(true);
+    };
+    const handleOffline = () => {
+      setIsPhysicalOnline(false);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      }
+    };
+  }, []);
+
   const value: AppStores = {
     helper,
     session,
@@ -215,6 +294,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     board,
     appointments,
     utos,
+    isOnline,
+    isOfflineSimulated,
+    setOfflineSimulated,
     startNewDay: () => {
       utos.clearForNewDay();
       board.startNewDay();

@@ -36,6 +36,9 @@ export type AppStores = {
   board: TaskBoard;
   appointments: AppointmentStore;
   utos: UtosStore;
+  isOnline: boolean;
+  isOfflineSimulated: boolean;
+  setOfflineSimulated: (b: boolean) => void;
   startNewDay: () => void;
 };
 
