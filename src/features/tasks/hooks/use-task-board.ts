@@ -39,12 +39,14 @@ export type TaskBoard = ReturnType<typeof useTaskBoard>;
 export function useTaskBoard({
   nowTs,
   onComplete,
+  onAction,
 }: {
   nowTs: number;
   onComplete: (record: CompletionRecord) => void;
+  onAction?: (action: { type: string; payload: any }) => void;
 }) {
-  const [tasks, setTasks] = useState<Task[]>([...INITIAL_TASKS, ...INITIAL_PREP_TASKS]);
-  const [routines, setRoutines] = useState<Routine[]>(INITIAL_ROUTINES);
+  const [tasks, setTasks] = useState<Task[]>(() => [...INITIAL_TASKS, ...INITIAL_PREP_TASKS]);
+  const [routines, setRoutines] = useState<Routine[]>(() => INITIAL_ROUTINES);
   const [boardClosed, setBoardClosed] = useState(false);
   // Simulated "today" — starts on Tuesday, July 7, 2026 to match the seed board.
   const [simDate, setSimDate] = useState<Date>(new Date(2026, 6, 7));
@@ -52,20 +54,20 @@ export function useTaskBoard({
   const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
     const helper = helperById(t.helperId);
     const shouldQueue = boardClosed || flags.queuedForShift;
-    setTasks((prev) => [
-      ...prev,
-      {
-        ...t,
-        id: `t${Date.now()}`,
-        status: "todo",
-        station: helper.station,
-        queued: shouldQueue || undefined,
-        queuedForShift: flags.queuedForShift || undefined,
-        afterHours: flags.afterHours,
-        emergency: flags.emergency,
-        suggested: flags.suggested || undefined,
-      },
-    ]);
+    const generatedId = `t${Date.now()}`;
+    const newTask: Task = {
+      ...t,
+      id: generatedId,
+      status: "todo",
+      station: helper.station,
+      queued: shouldQueue || undefined,
+      queuedForShift: flags.queuedForShift || undefined,
+      afterHours: flags.afterHours,
+      emergency: flags.emergency,
+      suggested: flags.suggested || undefined,
+    };
+    setTasks((prev) => [...prev, newTask]);
+    onAction?.({ type: "ADD_TASK", payload: { task: newTask, flags } });
   };
 
   const updateStatus = (id: string, status: Status, photo?: string) => {
@@ -98,12 +100,14 @@ export function useTaskBoard({
       }
       return prev.map((t) => (t.id === id ? updated : t));
     });
+    onAction?.({ type: "UPDATE_STATUS", payload: { id, status, photo } });
   };
 
   const blockTask = (id: string, reason: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: "blocked", blockReason: reason } : t)),
     );
+    onAction?.({ type: "BLOCK_TASK", payload: { id, reason } });
   };
 
   const rescheduleTask = (id: string) => {
@@ -114,12 +118,18 @@ export function useTaskBoard({
           : t,
       ),
     );
+    onAction?.({ type: "RESCHEDULE_TASK", payload: { id } });
   };
 
-  const approveSuggestion = (id: string) =>
+  const approveSuggestion = (id: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, suggested: undefined } : t)));
+    onAction?.({ type: "APPROVE_SUGGESTION", payload: { id } });
+  };
 
-  const dismissSuggestion = (id: string) => setTasks((prev) => prev.filter((t) => t.id !== id));
+  const dismissSuggestion = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    onAction?.({ type: "DISMISS_SUGGESTION", payload: { id } });
+  };
 
   const setClosed = (closed: boolean) => {
     setBoardClosed(closed);
@@ -127,14 +137,21 @@ export function useTaskBoard({
       // Opening the board — queued tasks graduate to today's To-do
       setTasks((prev) => prev.map((t) => (t.queued ? { ...t, queued: undefined } : t)));
     }
+    onAction?.({ type: "SET_CLOSED", payload: { closed } });
   };
 
   const addRoutine = (r: Omit<Routine, "id" | "station">) => {
     const helper = helperById(r.helperId);
-    setRoutines((prev) => [...prev, { ...r, id: `r${Date.now()}`, station: helper.station }]);
+    const generatedId = `r${Date.now()}`;
+    const newRoutine: Routine = { ...r, id: generatedId, station: helper.station };
+    setRoutines((prev) => [...prev, newRoutine]);
+    onAction?.({ type: "ADD_ROUTINE", payload: { r: newRoutine } });
   };
 
-  const removeRoutine = (id: string) => setRoutines((prev) => prev.filter((r) => r.id !== id));
+  const removeRoutine = (id: string) => {
+    setRoutines((prev) => prev.filter((r) => r.id !== id));
+    onAction?.({ type: "REMOVE_ROUTINE", payload: { id } });
+  };
 
   /** Roll the board to the next day: drop what's finished, respawn matching routines. */
   const startNewDay = () => {
@@ -175,6 +192,139 @@ export function useTaskBoard({
         (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time),
       );
     });
+    onAction?.({ type: "START_NEW_DAY", payload: {} });
+  };
+
+  const receiveAction = (action: { type: string; payload: any }) => {
+    switch (action.type) {
+      case "ADD_TASK": {
+        const { task } = action.payload;
+        setTasks((prev) => {
+          if (prev.some((t) => t.id === task.id)) return prev;
+          return [...prev, task];
+        });
+        break;
+      }
+      case "UPDATE_STATUS": {
+        const { id, status, photo } = action.payload;
+        setTasks((prev) => {
+          const cur = prev.find((t) => t.id === id);
+          if (!cur) return prev;
+          let startedAt = cur.startedAt;
+          if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
+          const updated = {
+            ...cur,
+            status,
+            photo: photo ?? cur.photo,
+            blockReason: status === "blocked" ? cur.blockReason : undefined,
+            startedAt,
+          };
+          if (status === "done" && cur.status !== "done") {
+            const start = startedAt ?? nowTs - 5 * 60_000;
+            onComplete({
+              sourceId: cur.id,
+              kind: "task",
+              title: cur.title,
+              station: cur.station,
+              appointmentTitle: cur.appointmentTitle,
+              helperId: cur.helperId,
+              startTs: start,
+              doneTs: nowTs,
+              autoMinutes: Math.max(1, Math.round((nowTs - start) / 60_000)),
+              emergency: !!cur.emergency,
+            });
+          }
+          return prev.map((t) => (t.id === id ? updated : t));
+        });
+        break;
+      }
+      case "BLOCK_TASK": {
+        const { id, reason } = action.payload;
+        setTasks((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, status: "blocked", blockReason: reason } : t)),
+        );
+        break;
+      }
+      case "RESCHEDULE_TASK": {
+        const { id } = action.payload;
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? { ...t, status: "todo", blockReason: undefined, queued: boardClosed ? true : undefined }
+              : t,
+          ),
+        );
+        break;
+      }
+      case "APPROVE_SUGGESTION": {
+        const { id } = action.payload;
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, suggested: undefined } : t)));
+        break;
+      }
+      case "DISMISS_SUGGESTION": {
+        const { id } = action.payload;
+        setTasks((prev) => prev.filter((t) => t.id !== id));
+        break;
+      }
+      case "SET_CLOSED": {
+        const { closed } = action.payload;
+        setBoardClosed(closed);
+        if (!closed) {
+          setTasks((prev) => prev.map((t) => (t.queued ? { ...t, queued: undefined } : t)));
+        }
+        break;
+      }
+      case "ADD_ROUTINE": {
+        const { r } = action.payload;
+        setRoutines((prev) => {
+          if (prev.some((x) => x.id === r.id)) return prev;
+          return [...prev, r];
+        });
+        break;
+      }
+      case "REMOVE_ROUTINE": {
+        const { id } = action.payload;
+        setRoutines((prev) => prev.filter((r) => r.id !== id));
+        break;
+      }
+      case "START_NEW_DAY": {
+        const next = new Date(simDate);
+        next.setDate(next.getDate() + 1);
+        const wd = weekdayOf(next);
+        setSimDate(next);
+        setBoardClosed(false);
+        setTasks((prev) => {
+          const kept = prev
+            .filter((t) => {
+              if (t.status === "done") return false;
+              if (t.appointmentId) return true;
+              if (!t.routineId) return false;
+              return true;
+            })
+            .map((t) => ({ ...t, queued: undefined as boolean | undefined }));
+
+          const liveRoutineIds = new Set(kept.map((t) => t.routineId).filter(Boolean));
+          const spawned: Task[] = routines
+            .filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id))
+            .map((r) => ({
+              id: `t-${r.id}-${next.getTime()}`,
+              title: r.title,
+              note: r.note,
+              time: r.time,
+              helperId: r.helperId,
+              station: r.station,
+              status: "todo",
+              recurrence: r.recurrence,
+              routineId: r.id,
+            }));
+
+          return [...kept, ...spawned].sort(
+            (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time),
+          );
+        });
+        break;
+      }
+    }
   };
 
   return {
@@ -192,6 +342,7 @@ export function useTaskBoard({
     addRoutine,
     removeRoutine,
     startNewDay,
+    receiveAction,
     /** Escape hatch for `useAppointments`, which creates and reschedules prep tasks. */
     setTasks,
   };
