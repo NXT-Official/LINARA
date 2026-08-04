@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { INITIAL_PREP_TASKS } from "@/features/appointments/appointment.constants";
 import { helperById } from "@/features/people/people.utils";
 import { parseTimeToMinutes, weekdayOf } from "@/lib/time";
+import { addToQueue } from "@/lib/offline-queue";
 
 import { INITIAL_ROUTINES, INITIAL_TASKS } from "../task.constants";
 import type { Routine, Status, Task } from "../task.types";
@@ -40,10 +42,12 @@ export function useTaskBoard({
   nowTs,
   onComplete,
   onAction,
+  isOnline = true,
 }: {
   nowTs: number;
   onComplete: (record: CompletionRecord) => void;
   onAction?: (action: { type: string; payload: any }) => void;
+  isOnline?: boolean;
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => [...INITIAL_TASKS, ...INITIAL_PREP_TASKS]);
   const [routines, setRoutines] = useState<Routine[]>(() => INITIAL_ROUTINES);
@@ -71,6 +75,50 @@ export function useTaskBoard({
   };
 
   const updateStatus = (id: string, status: Status, photo?: string) => {
+    if (!isOnline) {
+      // Offline mode!
+      setTasks((prev) => {
+        const cur = prev.find((t) => t.id === id);
+        if (!cur) return prev;
+        let startedAt = cur.startedAt;
+        if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
+        const updated = {
+          ...cur,
+          status,
+          photo: photo ?? cur.photo,
+          blockReason: status === "blocked" ? cur.blockReason : undefined,
+          startedAt,
+          pendingSync: true, // mark pending sync
+        };
+        // Trigger local ledger record simulation even if offline so that local metrics are computed
+        if (status === "done" && cur.status !== "done") {
+          const start = startedAt ?? nowTs - 5 * 60_000;
+          onComplete({
+            sourceId: cur.id,
+            kind: "task",
+            title: cur.title,
+            station: cur.station,
+            appointmentTitle: cur.appointmentTitle,
+            helperId: cur.helperId,
+            startTs: start,
+            doneTs: nowTs,
+            autoMinutes: Math.max(1, Math.round((nowTs - start) / 60_000)),
+            emergency: !!cur.emergency,
+          });
+        }
+        return prev.map((t) => (t.id === id ? updated : t));
+      });
+      // Save to IndexedDB offline queue
+      addToQueue("update_status", { id, status }, photo)
+        .then(() => {
+          toast.info("Naka-save offline! Aayusin natin pag may internet na ulit.");
+        })
+        .catch((err) => {
+          console.error("Failed to add to offline queue:", err);
+        });
+      return;
+    }
+
     setTasks((prev) => {
       const cur = prev.find((t) => t.id === id);
       if (!cur) return prev;

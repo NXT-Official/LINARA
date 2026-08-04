@@ -42,9 +42,16 @@ export function NextTaskCard({
   return (
     <article className="rounded-3xl border border-border/70 bg-card p-6 shadow-lift">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-foreground">
-          {task.status === "in_progress" ? "In progress" : "Up next"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-foreground">
+            {task.status === "in_progress" ? "In progress" : "Up next"}
+          </span>
+          {task.pendingSync && (
+            <span className="inline-flex items-center rounded-full bg-[oklch(0.96_0.08_80)] px-2 py-0.5 text-[9px] font-semibold text-[oklch(0.38_0.09_60)] animate-pulse border border-[oklch(0.85_0.12_80)]">
+              Offline Pending Sync
+            </span>
+          )}
+        </div>
         <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           {task.time}
         </span>
