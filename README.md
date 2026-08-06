@@ -8,6 +8,7 @@ For deeper project specifications and technical layouts, please refer to the fol
 - System Architecture Blueprint: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Conceptual Foundations: [`home-management-concept.md`](home-management-concept.md)
 - Design Tokens & Globals: [`src/styles.css`](src/styles.css)
+- Feature Composition Root: [`src/features/dashboard/components/app-store-provider.tsx`](src/features/dashboard/components/app-store-provider.tsx)
 
 ---
 
@@ -62,7 +63,7 @@ Appointments act as schedule anchors, generating preparation tasks that fire bac
   - `Pack bags` (Lead time: `-10 hours` -> Thursday at 8:00 PM)
   - `Prepare baon` (Lead time: `-2 hours` -> Friday at 4:00 AM)
   - `Wake driver & load car` (Lead time: `-45 minutes` -> Friday at 5:15 AM)
-- **Rescheduling Propagation:** If Sir's flight is delayed to Friday at 9:00 AM, the manager shifts the appointment. The system automatically recalculates and shifts all dependent tasks, highlighting the shift on the helper's station without silent schedule changes.
+- **Rescheduling Propagation:** If Sir's flight is delayed to Friday at 9:00 AM, the manager shifts the appointment. The system automatically recalculates and shifts all dependent tasks, highlighting the shift on the helper's station without silent schedule changes via [`computePrepSchedule()`](src/lib/time.ts:55).
 
 ### 3.3 Quick Utos & Nightly Purge
 
@@ -92,7 +93,7 @@ Ties kitchen inventory levels to shopping runs, cash spend, and budget tracking.
 
 ---
 
-## 4. Technical Architecture
+## 4. Technical Architecture & Modular Layout
 
 Linara is structured as an N-Tier architecture designed to handle unreliable network states and maintain high-fidelity separation of concerns:
 
@@ -100,13 +101,98 @@ Linara is structured as an N-Tier architecture designed to handle unreliable net
 - **Routing:** TanStack Router v1 (fully typed, file-based routes under `src/routes/`).
 - **Styling:** Tailwind CSS v4 featuring warm design tokens (Teal, Sand, Cream, Terracotta) inside [`src/styles.css`](src/styles.css).
 - **Database & Auth:** Supabase PostgreSQL with strict Row-Level Security (RLS) policies and GoTrue Auth.
-- **Client Cache:** TanStack Query v5 + IndexedDB / LocalStorage queue for offline-first support.
+- **Client Cache:** TanStack Query v5 + IndexedDB queue for offline-first support.
 - **APIs:** Type-safe Server Functions (`createServerFn`).
 - **Server Runtime:** Nitro v3 Edge server bundling.
 
+### 4.1 Modular Feature Directories
+
+To maintain codebase cleanliness, the project features have been extracted from monolithic entry points into structured folders under `src/features/`. Each folder encapsulates its respective types, hooks, components, and actions:
+
+- **`appointments/`** — Schedule anchors and dependent task calculations.
+- **`availability/`** — Duty monitoring, rest boundaries, quiet hour gating rules.
+- **`dashboard/`** — Layout shells, simulated clock controllers, workspace navigation, and shared application context.
+- **`groceries/`** — Shopping checklists, cost entries, and shared market context.
+- **`ledger/`** — After-hours compensation journals, REST-owed hour meters, vales advances, and fintech previews.
+- **`notes/`** — Helper-private digital scratchpads (completely hidden from managers).
+- **`pantry/`** — Inventory level monitoring, Par value definitions, and low-par alerts.
+- **`people/`** — Single-use claim invitations, secure digital handshakes, and helper profiles.
+- **`shifts/`** — Structured duty schedules and calendars.
+- **`tasks/`** — Core task boards, status trackers (todo, in progress, done, blocked), and SOP instruction cards.
+- **`utos/`** — Ephemeral short-order commands.
+
+### 4.2 Application Composition Root
+
+The shared application store and real-time syncing pipelines are consolidated in the composition root: [`src/features/dashboard/components/app-store-provider.tsx`](src/features/dashboard/components/app-store-provider.tsx). It encapsulates feature-specific states and provides them downstream via `AppStoreContext` so page routing transitions do not remount active daily sessions.
+
 ---
 
-## 5. Project Directory Structure
+## 5. Supabase Database Schema & RLS Security
+
+Linara maps household relationships and interactions via a highly relational PostgreSQL schema. Complete definitions can be inspected in Section 8 of [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+### 5.1 Central Schemas & Relations
+
+1.  **`user_profiles`** — Tracks global registered users.
+2.  **`helper_profiles`** — Captures the formal terms of work including `base_wage`, shift hours (`shift_start`, `shift_end`), rest days, and current status (`PENDING` or `ACTIVE`).
+3.  **`house_sops`** — Custom standard procedures mapped to specific stations.
+4.  **`tickets`** — Standard task records carrying status states (`'todo'`, `'in_progress'`, `'done'`, `'blocked'`) and optional image evidence URLs.
+5.  **`appointments`** — Calendar anchors used to compute preparation chains.
+6.  **`ledger_entries`** — Tracks after-hours occurrences and maps them to accumulated "Rest Owed" hours.
+7.  **`vales`** — Digital records of advanced salary amounts and approvals.
+8.  **`pantry_items`** & **`grocery_items`** — Real-time kitchen inventory and matching shopping run registers.
+9.  **`quick_utos`** — Short-order commands.
+10. **`helper_notes`** — Secure scratchpad rows written and owned by the helper.
+11. **`invite_flags`** — Log files capturing mismatch arguments flagged by the helper during the onboarding handshake.
+
+### 5.2 Row-Level Security (RLS) Isolation
+
+To protect privacy and ensure absolute multi-tenant boundaries:
+
+- **Tenant Isolation:** All operational tables carry a `household_id` UUID column. Active RLS policies restrict SELECT/INSERT/UPDATE/DELETE queries, allowing users to query only rows containing their authorized `household_id`.
+- **Helper Private Notes:** Tables like `helper_notes` enforce a strict policy matching the authenticated user's credentials (`auth.uid()`). Familiy managers and administrative employers have **no database privilege** to read or mutate helper scratchpads.
+
+---
+
+## 6. AI Integration Layer (Live vs. Mock AI)
+
+Linara leverages artificial intelligence to organize household operations without imposing dry, corporate language constructs.
+
+### 6.1 The client-side fallback `USE_MOCK_AI`
+
+During local offline work or testing cycles, developers can bypass live LLM costs and latency by setting `USE_MOCK_AI=true` inside `.env`. This activates the high-fidelity mock engines (e.g. [`generateMockSOP()`](supabase/functions/generate-sop/index.ts:15)) to instantly resolve realistic Taglish schemas.
+
+### 6.2 Supabase Edge Functions
+
+The system contains three dedicated serverless Deno edge functions located under `supabase/functions/`:
+
+1.  **`generate-sop/`** — Evaluates raw prompts (e.g., "how to prepare formula") and uses structured JSON schema configurations to output formal, warm, step-by-step SOPs mapped to designated stations (Yaya, Cook, etc.).
+2.  **`parse-scheduler/`** — Takes natural language entries and parses recurring schedulers.
+3.  **`route-utos/`** — Categorizes incoming "Utos" tasks and triggers warnings if they violate a worker's shift rest windows.
+
+---
+
+## 7. Batas Kasambahay & Regional Labor Compliance
+
+To elevate domestic work into a formal, respected profession, Linara provides automatic compliance audits aligned with Republic Act 10361:
+
+- **Minimum Wage Verification:** If a helper's wage parameters fall below the `REGIONAL_MINIMUM_WAGE` value configured in `.env`, the system immediately displays an inline legal warning card citing compliance issues.
+- **Legal Contribution Rules:** If a worker's monthly base wage is set below ₱5,000, SSS, PhilHealth, and Pag-IBIG allocations compute 100% of contributions as employer-covered. Above this limit, standard employee-employer splits are calculated.
+- **Interactive Dashboard Dials:** Custom SVG progress meters represent budget spends, completed task velocities, and proximity to the next payday.
+- **Fintech Webhook Previews:** Includes a "Transfer via GCash / Maya" payload preview modal displaying the exact raw JSON transaction payload destined for payout partners, allowing instant auditing before committing real-world disbursements.
+
+---
+
+## 8. Real-time & Offline-First Core
+
+To handle erratic local connectivity without throwing critical errors:
+
+- **Supabase Realtime Sync:** Subscribes to live PostgreSQL transactions via `household-board-channel` and `quick-utos-channel`. Ticket changes, Quick Utos alerts, and ledger adjustments broadcast instantaneously between managers and helpers.
+- **IndexedDB Offline Queue:** Managed in [`src/lib/offline-queue.ts`](src/lib/offline-queue.ts), offline actions (e.g., status updates, receipt image capture) are stored securely in local browser memory via [`addToQueue()`](src/lib/offline-queue.ts:43). Once connectivity re-hydrates, the system automatically triggers a sync loop, committing the queue items and resolving state conflicts seamlessly.
+
+---
+
+## 9. Project Directory Structure
 
 ```text
 .
@@ -117,7 +203,7 @@ Linara is structured as an N-Tier architecture designed to handle unreliable net
 ├── vite.config.ts               ← Tailwind + Nitro + Start + React plugins configuration
 ├── tsconfig.json                ← Strict TypeScript configuration with @/* path aliases
 ├── components.json              ← shadcn/ui design setup file
-├── eslint.config.js             ← ESLint 9 configuration
+├── eslint.config.js             ← ESLint 9 configuration with strict SAST rules
 └── src/
     ├── router.tsx               ← createRouter() + QueryClient initialization
     ├── start.ts                 ← TanStack Start client bootstrapper
@@ -144,22 +230,20 @@ Linara is structured as an N-Tier architecture designed to handle unreliable net
     ├── components/
     │   └── ui/                  ← shadcn-style Radix UI primitives (button, card, dialog, etc.)
     ├── hooks/                   ← Shared hooks (use-mobile, use-mounted)
-    └── lib/                     ← Standard cn() helper, SSR error capturing
+    └── lib/                     ← Standard cn() helper, SSR error capturing, offline queue
 ```
 
 ---
 
-## 6. Local Development & Setup
+## 10. Local Development & Setup
 
-Follow these steps to set up and run the Linara application locally:
-
-### 6.1 Prerequisites
+### 10.1 Prerequisites
 
 - [Bun runtime](https://bun.sh/) (v1.1+ recommended)
 - [Supabase CLI](https://supabase.com/docs/guides/cli) (or access to a running Postgres database instance)
-- Node.js 20+ (if you wish to run the built server with `node` rather than `bun`)
+- Node.js 20+ (if running server tasks via Node)
 
-### 6.2 Installation Steps
+### 10.2 Installation Steps
 
 1.  **Clone the Repository:**
 
@@ -169,39 +253,30 @@ Follow these steps to set up and run the Linara application locally:
     ```
 
 2.  **Install Dependencies:**
-    Use Bun to install required libraries and setup packages:
 
     ```bash
     bun install
     ```
 
 3.  **Configure Environment Variables:**
-    Create a `.env` file in the root directory. You can copy the template from `.env.sample` (or `.env.example`):
+    Copy the `.env.example` file to `.env`:
 
     ```bash
     cp .env.example .env
     ```
 
-    Provide valid Supabase coordinates, JWT credentials, and local configuration flags inside `.env`:
+    Populate the file with your local database coordinates, system secrets, and keys:
 
     ```env
-    # Supabase Coordinates
     SUPABASE_URL=http://localhost:54321
     SUPABASE_ANON_KEY=your_supabase_anon_key
-
-    # Server Run Credentials
     JWT_SECRET=your_32_character_jwt_secret
     SYSTEM_CRON_SECRET=your_system_cron_secret
-
-    # Regional labor configuration
     REGIONAL_MINIMUM_WAGE=6000.00
+    USE_MOCK_AI=true
     ```
 
-4.  **Initialize Database Schema:**
-    Apply the normalization SQL setup definitions (detailed in [`ARCHITECTURE.md`](ARCHITECTURE.md) Section 8) to your local PostgreSQL instance or configure them via the Supabase Dashboard SQL Editor.
-
-5.  **Start Development Server:**
-    Run the local Vite web worker environment:
+4.  **Start Development Server:**
     ```bash
     bun dev
     ```
@@ -209,7 +284,7 @@ Follow these steps to set up and run the Linara application locally:
 
 ---
 
-## 7. Production Build & Commands
+## 11. Production Build & Commands
 
 To build and compile the application for production, use the following scripts:
 
@@ -223,7 +298,7 @@ bun run build:dev
 # Preview production build locally
 bun run preview        # serves the production build on http://localhost:8080
 
-# Execute ESLint inspections
+# Execute ESLint inspections with strict SAST guardrails
 bun run lint
 
 # Automatically format project files via Prettier
@@ -238,22 +313,80 @@ bun run typecheck
 
 ---
 
-## 8. Deployment Notes
+## 12. Deployment Notes
 
-`bun run build` produces a highly optimized Nitro server bundle in `.output/`, runnable anywhere Node or Bun is available:
+`bun run build` produces an optimized Nitro server bundle in `.output/`, runnable anywhere Node or Bun is available:
 
 ```bash
 node .output/server/index.mjs   # PORT=3000 by default
 ```
 
-For specific platform targets (e.g. Cloudflare Workers, Vercel, Netlify), set the matching Nitro preset via the `nitro()` plugin options inside `vite.config.ts` or set the `NITRO_PRESET` environment variable prior to rebuilding.
+For specific platform targets (e.g. Cloudflare Workers, Vercel, Netlify), set the matching Nitro preset via the `nitro()` plugin options inside [`vite.config.ts`](vite.config.ts) or set the `NITRO_PRESET` environment variable prior to rebuilding.
 
 ---
 
-## 9. Operational Testing & Personas Sim
+## 13. Testing Guide & Quality Gates
 
-To test real-time features and boundaries during development:
+To protect against regression bugs and maintain strict quality standards, Linara carries double testing frameworks:
 
-1.  Open **Tab 1** in your browser and log in as a **Primary Manager** persona (e.g. _Sir Ben_).
-2.  Open **Tab 2** (or use an Incognito window) and log in as a **Helper** persona (e.g. _Ate Rosa_).
-3.  Use the integrated **Simulated Clock Controller** (`simOffsetMs` dynamic header clock) to jump forward/backward in time to trigger off-shift alerts, task transitions, nightly purges, and after-hours overtime compensation approvals.
+### 13.1 Unit & Integration Testing (Vitest)
+
+Vitest is configured to run fast, serverless unit checks (such as date transformations and wage computations):
+
+```bash
+# Run unit tests
+bun run test
+
+# Run tests in hot watch mode
+bun run test:watch
+```
+
+Unit tests are kept clean from browser layout behaviors and operate in a high-speed sandbox environment.
+
+### 13.2 Browser End-to-End Testing (Playwright)
+
+Playwright runs physical browser-driven evaluations. It executes full user flows (such as launching the portal, checking Ate Rosa's landing layout, triggering claimant forms, and rendering modal claims):
+
+```bash
+# Execute end-to-end browser specs
+bun run test:e2e
+```
+
+**Quality Gates & Safeguards:**
+
+- **Console Error Capture:** E2E tests automatically capture, filter, and pipe browser runtime exceptions directly to the local terminal, preventing silent JS failures in front-end components.
+- **Hydration Wait Guard:** E2E specs incorporate hydration guards (`networkidle` states and small micro-delays) to guarantee React binds click event handlers correctly before clicking on button nodes, eliminating race-condition test failures.
+
+---
+
+## 14. Troubleshooting & Developer FAQ
+
+### Q1: Why do absolute import routes throwing path resolution errors in Node scripts?
+
+Ensure your environment loads aliases matching your [`tsconfig.json`](tsconfig.json). In [`vite.config.ts`](vite.config.ts), we set `resolve: { tsconfigPaths: true }` to automatically direct `@/*` aliases during build times.
+
+### Q2: How can I resolve Vite port 8080 conflicts?
+
+If port 8080 is blocked by another project, edit [`vite.config.ts`](vite.config.ts) server port settings or pass port arguments to the CLI script:
+
+```bash
+bun dev --port 8081
+```
+
+### Q3: Why does my browser block Edge function queries due to CORS errors?
+
+Deno edge functions under `supabase/functions/` must handle HTTP preflight requests (`OPTIONS` method) by returning standard access control headers (`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods`). If headers are omitted or mismatched, browser calls will be rejected.
+
+### Q4: I am seeing Hydration Mismatch warnings on page loads. How can I resolve them?
+
+TanStack Start uses SSR. If a client component renders timestamp formats using localized browser dates (which vary based on user local timezones), the SSR result will differ from the client's output, prompting a warning. To fix this:
+
+1. Use our simulated offset hooks to synchronize timezones.
+2. Bind time displays inside components using client-only mounts (`useMounted`).
+
+### Q5: How do I audit off-shift warnings and ledger calculations?
+
+Open two windows:
+
+- **Window 1 (Manager Pass):** Add a task to Ate Rosa during her off-shift rest window. The system will display the friction modal. Proceed with the task.
+- **Window 2 (Worker Station):** Open Ate Rosa's dashboard and complete the task. Check both logs to observe the automatic minimum 30-minute Rest Owed ledger accrual reflected in the real-time databases.

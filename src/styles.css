@@ -59,7 +59,7 @@
   --terracotta: oklch(0.73 0.11 55); /* ~#D99A6C */
   --terracotta-soft: oklch(0.88 0.055 60);
   --ink: oklch(0.22 0.015 180);
-  
+
   --pine-teal: var(--pine);
   --card-cream: oklch(0.99 0.008 82);
   --terracotta-gold: var(--terracotta);
@@ -113,11 +113,13 @@
   }
 }
 
-button, a {
+button,
+a {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-button:active, a:active {
+button:active,
+a:active {
   transform: scale(0.98);
 }
 
@@ -139,7 +141,8 @@ button:active, a:active {
 
 /* Soft card/button glow pulse */
 @keyframes calm-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 oklch(0.42 0.055 180 / 0);
   }
   50% {
