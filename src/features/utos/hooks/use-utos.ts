@@ -27,6 +27,7 @@ export function useUtos({
   toHelperId: string;
   /** Fired when the helper taps Done — the app decides if it is owed back. */
   onDone: (utos: QuickUtos) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onAction?: (action: { type: string; payload: any }) => void;
 }) {
   const [list, setList] = useState<QuickUtos[]>([]);
@@ -66,6 +67,7 @@ export function useUtos({
     onAction?.({ type: "CLEAR_UTOS", payload: { wasWiped } });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const receiveAction = (action: { type: string; payload: any }) => {
     switch (action.type) {
       case "SEND_UTO": {

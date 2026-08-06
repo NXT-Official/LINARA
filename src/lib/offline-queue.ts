@@ -1,6 +1,6 @@
 /**
  * Offline-First IndexedDB Synchronization Queue
- * 
+ *
  * Manages cached actions (such as completing tasks, capturing receipt photos,
  * and checking off grocery runs) during network disruptions.
  */
@@ -8,8 +8,8 @@
 export interface OfflineQueueItem {
   id: string;
   action: "complete_ticket" | "buy_grocery" | "toggle_bought" | "update_status";
-  payload: any;
-  binaryPhoto?: string | null; // stored as base64 string for ease of serialization & preview
+  payload: unknown; // Changed from any to unknown
+  binaryPhoto?: string | null;
   timestamp: number;
 }
 
@@ -42,8 +42,8 @@ function getDB(): Promise<IDBDatabase> {
  */
 export async function addToQueue(
   action: OfflineQueueItem["action"],
-  payload: any,
-  binaryPhoto?: string | null
+  payload: unknown, // Changed from any to unknown
+  binaryPhoto?: string | null,
 ): Promise<OfflineQueueItem> {
   const db = await getDB();
   return new Promise((resolve, reject) => {

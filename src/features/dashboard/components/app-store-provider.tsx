@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { useAppointments } from "@/features/appointments/hooks/use-appointments";
 import { useAvailability } from "@/features/availability/hooks/use-availability";
@@ -39,7 +40,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   // Physical and simulated online/offline tracking
   const [isPhysicalOnline, setIsPhysicalOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true
+    typeof navigator !== "undefined" ? navigator.onLine : true,
   );
   const [isOfflineSimulated, setOfflineSimulated] = useState(false);
 
@@ -50,11 +51,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const isSyncingBoardRef = useRef(false);
   const isSyncingUtosRef = useRef(false);
 
-  const householdBoardChannelRef = useRef<any>(null);
-  const quickUtosChannelRef = useRef<any>(null);
+  const householdBoardChannelRef = useRef<RealtimeChannel | null>(null);
+  const quickUtosChannelRef = useRef<RealtimeChannel | null>(null);
 
-  const [boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
-  const [utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
+  const [_boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
+  const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
   const board = useTaskBoard({
     nowTs: clock.nowTs,
@@ -118,9 +119,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           table: "tickets",
           filter: `household_id=eq.${householdId}`,
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
           console.log("[Realtime] Received tickets table postgres change:", payload);
-        }
+        },
       )
       .on("broadcast", { event: "board-action" }, ({ payload }) => {
         console.log("[Realtime] Received board broadcast action:", payload);
@@ -156,6 +158,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           schema: "public",
           table: "quick_utos",
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
           console.log("[Realtime] Received quick_utos table postgres change:", payload);
           if (payload.new && payload.new.helper_id === currentHelperId) {
@@ -183,7 +186,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               isSyncingUtosRef.current = false;
             }
           }
-        }
+        },
       )
       .on("broadcast", { event: "utos-action" }, ({ payload }) => {
         console.log("[Realtime] Received utos broadcast action:", payload);
@@ -223,7 +226,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       for (const item of items) {
         if (item.action === "update_status") {
-          const { id, status } = item.payload;
+          const { id, status } = item.payload as { id: string; status: string };
           // Apply to local board state
           boardRef.current.receiveAction({
             type: "UPDATE_STATUS",
@@ -240,7 +243,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           });
           // Clear pendingSync status flag
           boardRef.current.setTasks((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, pendingSync: undefined } : t))
+            prev.map((t) => (t.id === id ? { ...t, pendingSync: undefined } : t)),
           );
         }
         await removeFromQueue(item.id);

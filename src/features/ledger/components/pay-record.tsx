@@ -89,26 +89,45 @@ export function PayRecord({
           const rHours = rMin / 60;
           const overtimePay = rHours * 120; // ₱120 per hour rate
 
-          const dynamicNetPay = Math.max(0, baseSalary + overtimePay + mealAllowance - govDeductions - approvedTotal);
+          const dynamicNetPay = Math.max(
+            0,
+            baseSalary + overtimePay + mealAllowance - govDeductions - approvedTotal,
+          );
 
           return (
             <>
               <div className="mt-2 flex items-baseline justify-between">
-                <div className="font-display text-3xl text-foreground">₱{dynamicNetPay.toLocaleString()}</div>
+                <div className="font-display text-3xl text-foreground">
+                  ₱{dynamicNetPay.toLocaleString()}
+                </div>
                 <span className="text-xs font-semibold text-primary">Expected payout</span>
               </div>
               <div className="mt-4 space-y-2 text-sm border-b border-border/40 pb-4">
                 <Row label="Base salary (half-month)" value={`₱${baseSalary.toLocaleString()}`} />
                 {overtimePay > 0 && (
-                  <Row label={`Overtime · ${rHours.toFixed(1)} hrs`} value={`₱${overtimePay.toLocaleString()}`} />
+                  <Row
+                    label={`Overtime · ${rHours.toFixed(1)} hrs`}
+                    value={`₱${overtimePay.toLocaleString()}`}
+                  />
                 )}
-                <Row label="SSS / PhilHealth share" value={`− ₱${govDeductions.toLocaleString()}`} muted />
-                <Row label="Meal + transport allowance" value={`₱${mealAllowance.toLocaleString()}`} />
+                <Row
+                  label="SSS / PhilHealth share"
+                  value={`− ₱${govDeductions.toLocaleString()}`}
+                  muted
+                />
+                <Row
+                  label="Meal + transport allowance"
+                  value={`₱${mealAllowance.toLocaleString()}`}
+                />
                 {approvedTotal > 0 && (
-                  <Row label="Vale deduction" value={`− ₱${approvedTotal.toLocaleString()}`} muted />
+                  <Row
+                    label="Vale deduction"
+                    value={`− ₱${approvedTotal.toLocaleString()}`}
+                    muted
+                  />
                 )}
               </div>
-              
+
               {/* Webhook Preview Buttons */}
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <button
@@ -235,34 +254,35 @@ export function PayRecord({
         />
       )}
 
-      {webhookOpen && (() => {
-        const baseSalary = 8000;
-        const govDeductions = 240;
-        const mealAllowance = 1000;
+      {webhookOpen &&
+        (() => {
+          const baseSalary = 8000;
+          const govDeductions = 240;
+          const mealAllowance = 1000;
 
-        const tMin = ledger.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-        const pMin = ledger
-          .filter((e) => e.resolution === "premium")
-          .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-        const rMin = tMin - pMin;
-        const rHours = rMin / 60;
-        const overtimePay = rHours * 120;
+          const tMin = ledger.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
+          const pMin = ledger
+            .filter((e) => e.resolution === "premium")
+            .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
+          const rMin = tMin - pMin;
+          const rHours = rMin / 60;
+          const overtimePay = rHours * 120;
 
-        const gross = baseSalary + overtimePay + mealAllowance;
-        const deductions = govDeductions + approvedTotal;
-        const net = Math.max(0, gross - deductions);
+          const gross = baseSalary + overtimePay + mealAllowance;
+          const deductions = govDeductions + approvedTotal;
+          const net = Math.max(0, gross - deductions);
 
-        return (
-          <WebhookPreviewModal
-            onClose={() => setWebhookOpen(false)}
-            provider={webhookProvider}
-            recipientMobile={myInvite?.phone ?? "+639175551234"}
-            grossPayAmount={gross}
-            valeDeductions={deductions}
-            netDisbursement={net}
-          />
-        );
-      })()}
+          return (
+            <WebhookPreviewModal
+              onClose={() => setWebhookOpen(false)}
+              provider={webhookProvider}
+              recipientMobile={myInvite?.phone ?? "+639175551234"}
+              grossPayAmount={gross}
+              valeDeductions={deductions}
+              netDisbursement={net}
+            />
+          );
+        })()}
     </div>
   );
 }

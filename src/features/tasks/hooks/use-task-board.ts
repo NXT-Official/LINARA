@@ -47,6 +47,7 @@ export function useTaskBoard({
 }: {
   nowTs: number;
   onComplete: (record: CompletionRecord) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onAction?: (action: { type: string; payload: any }) => void;
   isOnline?: boolean;
 }) {
@@ -82,7 +83,8 @@ export function useTaskBoard({
         const cur = prev.find((t) => t.id === id);
         if (!cur) return prev;
         let startedAt = cur.startedAt;
-        if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
+        if (status === "in_progress" && cur.status !== "in_progress" && !startedAt)
+          startedAt = nowTs;
         const updated = {
           ...cur,
           status,
@@ -246,6 +248,7 @@ export function useTaskBoard({
     onAction?.({ type: "START_NEW_DAY", payload: {} });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const receiveAction = (action: { type: string; payload: any }) => {
     switch (action.type) {
       case "ADD_TASK": {
@@ -262,7 +265,8 @@ export function useTaskBoard({
           const cur = prev.find((t) => t.id === id);
           if (!cur) return prev;
           let startedAt = cur.startedAt;
-          if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
+          if (status === "in_progress" && cur.status !== "in_progress" && !startedAt)
+            startedAt = nowTs;
           const updated = {
             ...cur,
             status,
@@ -301,7 +305,12 @@ export function useTaskBoard({
         setTasks((prev) =>
           prev.map((t) =>
             t.id === id
-              ? { ...t, status: "todo", blockReason: undefined, queued: boardClosed ? true : undefined }
+              ? {
+                  ...t,
+                  status: "todo",
+                  blockReason: undefined,
+                  queued: boardClosed ? true : undefined,
+                }
               : t,
           ),
         );

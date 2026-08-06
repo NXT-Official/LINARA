@@ -5,7 +5,12 @@ import { toast } from "sonner";
 import { HELPERS, stationTone } from "@/features/people/people.constants";
 import { helperById } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
-import { formatAppointmentDate, formatDisplayTime, parseTimeToMinutes, toISODate } from "@/lib/time";
+import {
+  formatAppointmentDate,
+  formatDisplayTime,
+  parseTimeToMinutes,
+  toISODate,
+} from "@/lib/time";
 import { parseSchedulerFn } from "../appointment.actions";
 import type { PrepDraft } from "../appointment.types";
 
@@ -49,7 +54,8 @@ export function AppointmentsSection({
         const timeDisplay = formatDisplayTime(dt.getHours() * 60 + dt.getMinutes());
 
         const preps: PrepDraft[] = result.prepTasks.map((p) => {
-          const helper = HELPERS.find((h) => h.station.toLowerCase() === p.station.toLowerCase()) || HELPERS[0];
+          const helper =
+            HELPERS.find((h) => h.station.toLowerCase() === p.station.toLowerCase()) || HELPERS[0];
           return {
             title: p.title,
             leadMinutes: -p.offsetMinutes, // mathematically maps offset to leadMinutes (e.g. -720 -> 720, 60 -> -60)
@@ -63,7 +69,7 @@ export function AppointmentsSection({
             date: dateIso,
             time: timeDisplay,
           },
-          preps
+          preps,
         );
 
         setPrompt("");

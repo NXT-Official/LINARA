@@ -60,9 +60,13 @@ export function useSendGate({
 
       if (result) {
         if (result.classification === "ROUTINE") {
-          toast.info(`Classified as ROUTINE! Automatically structured as: "${result.contentCleaned}"`);
+          toast.info(
+            `Classified as ROUTINE! Automatically structured as: "${result.contentCleaned}"`,
+          );
         } else if (result.classification === "TASK") {
-          toast.info(`Classified as heavy TASK! Automatically structured as: "${result.contentCleaned}"`);
+          toast.info(
+            `Classified as heavy TASK! Automatically structured as: "${result.contentCleaned}"`,
+          );
         }
 
         if (result.boundaryWarn) {

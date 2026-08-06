@@ -54,7 +54,8 @@ export function WebhookPreviewModal({
               Fintech Disbursement Webhook
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Inspeksyunin ang raw webhook payload na ipapadala sa disbursement gateway para sa payout na ito.
+              Inspeksyunin ang raw webhook payload na ipapadala sa disbursement gateway para sa
+              payout na ito.
             </p>
           </div>
           <button
@@ -94,16 +95,28 @@ export function WebhookPreviewModal({
         {/* Dynamic calculations list */}
         <div className="mt-4 p-4 rounded-2xl bg-secondary/50 border border-border/40 grid grid-cols-3 gap-2 text-center text-xs">
           <div>
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Gross Pay</span>
-            <span className="font-bold text-foreground font-mono">₱{grossPayAmount.toLocaleString()}</span>
+            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
+              Gross Pay
+            </span>
+            <span className="font-bold text-foreground font-mono">
+              ₱{grossPayAmount.toLocaleString()}
+            </span>
           </div>
           <div className="border-x border-border/60">
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Deductions</span>
-            <span className="font-bold text-destructive font-mono">−₱{valeDeductions.toLocaleString()}</span>
+            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
+              Deductions
+            </span>
+            <span className="font-bold text-destructive font-mono">
+              −₱{valeDeductions.toLocaleString()}
+            </span>
           </div>
           <div>
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Net Payout</span>
-            <span className="font-bold text-emerald font-mono">₱{netDisbursement.toLocaleString()}</span>
+            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
+              Net Payout
+            </span>
+            <span className="font-bold text-emerald font-mono">
+              ₱{netDisbursement.toLocaleString()}
+            </span>
           </div>
         </div>
 

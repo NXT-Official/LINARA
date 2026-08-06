@@ -14,15 +14,7 @@ export interface ParsedSchedule {
 
 // Helper to compute weekday date based on baseline
 function getNextWeekdayDate(baseDate: Date, targetDayStr: string): Date {
-  const daysOfWeek = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-  ];
+  const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const targetDay = daysOfWeek.indexOf(targetDayStr.toLowerCase().trim());
   if (targetDay === -1) return new Date(baseDate);
 
@@ -47,9 +39,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {
-      console.log(
-        `[ServerAction:parseSchedulerFn] Generating mock schedule for: "${prompt}"`,
-      );
+      console.log(`[ServerAction:parseSchedulerFn] Generating mock schedule for: "${prompt}"`);
       // Simulate small delay
       await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -89,11 +79,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
 
       if (query.includes("flight") || query.includes("airport")) {
         title = "Sir Ben's Flight to Singapore";
-      } else if (
-        query.includes("lunch") ||
-        query.includes("dinner") ||
-        query.includes("party")
-      ) {
+      } else if (query.includes("lunch") || query.includes("dinner") || query.includes("party")) {
         title = "Family Sunday Dinner";
       } else if (
         query.includes("doctor") ||
@@ -120,11 +106,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
         });
       }
 
-      if (
-        query.includes("driver") ||
-        query.includes("drive") ||
-        query.includes("wake")
-      ) {
+      if (query.includes("driver") || query.includes("drive") || query.includes("wake")) {
         prepTasks.push({
           title: "Wake Kuya Manuel (Driver)",
           station: "Driver" as const,
@@ -174,9 +156,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Edge function returned error: ${response.status} ${errorText}`,
-      );
+      throw new Error(`Edge function returned error: ${response.status} ${errorText}`);
     }
 
     const result = await response.json();

@@ -34,7 +34,6 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
 
   // Default targets
   let targetDate = new Date(baseline);
-  let timeStr = "08:00 AM";
   let title = "Calendar Appointment";
 
   // Parse Date keywords (e.g. Friday, Monday)
@@ -48,16 +47,12 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
 
   // Parse Time keywords
   if (query.includes("8am") || query.includes("8:00")) {
-    timeStr = "08:00 AM";
     targetDate.setHours(8, 0, 0, 0);
   } else if (query.includes("6am") || query.includes("6:00")) {
-    timeStr = "06:00 AM";
     targetDate.setHours(6, 0, 0, 0);
   } else if (query.includes("12pm") || query.includes("12:00")) {
-    timeStr = "12:00 PM";
     targetDate.setHours(12, 0, 0, 0);
   } else if (query.includes("2pm") || query.includes("14:00")) {
-    timeStr = "02:00 PM";
     targetDate.setHours(14, 0, 0, 0);
   } else {
     // Default to 8 AM
@@ -87,7 +82,7 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
     prepTasks.push({
       title: "Pack luggage bags",
       station: "Yaya",
-      offsetMinutes: offset
+      offsetMinutes: offset,
     });
   }
 
@@ -96,16 +91,21 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
     prepTasks.push({
       title: "Wake Kuya Manuel (Driver)",
       station: "Driver",
-      offsetMinutes: -45
+      offsetMinutes: -45,
     });
   }
 
   // Parse "prep lunch" or "cook"
-  if (query.includes("cook") || query.includes("lunch") || query.includes("meal") || query.includes("baon")) {
+  if (
+    query.includes("cook") ||
+    query.includes("lunch") ||
+    query.includes("meal") ||
+    query.includes("baon")
+  ) {
     prepTasks.push({
       title: "Prepare meal provisions",
       station: "Cook",
-      offsetMinutes: -120
+      offsetMinutes: -120,
     });
   }
 
@@ -114,16 +114,16 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
     prepTasks.push({
       title: "Final preparation checks",
       station: "House",
-      offsetMinutes: -60
+      offsetMinutes: -60,
     });
   }
 
   return {
     appointment: {
       title,
-      scheduledTime: targetDate.toISOString()
+      scheduledTime: targetDate.toISOString(),
     },
-    prepTasks
+    prepTasks,
   };
 }
 
@@ -154,7 +154,9 @@ serve(async (req) => {
     const model = Deno.env.get("UTOS_ROUTER_MODEL") || "gpt-4o-mini";
 
     if (useMockAI || !apiKey) {
-      console.log(`[parse-scheduler] Returning mock response. Reason: useMockAI=${useMockAI}, apiKeyPresent=${!!apiKey}`);
+      console.log(
+        `[parse-scheduler] Returning mock response. Reason: useMockAI=${useMockAI}, apiKeyPresent=${!!apiKey}`,
+      );
       const mockResult = parseMockSchedule(prompt, simDate);
       return new Response(JSON.stringify(mockResult), {
         status: 200,
@@ -164,7 +166,9 @@ serve(async (req) => {
 
     console.log(`[parse-scheduler] Initiating live LLM request with model ${model}`);
 
-    const baseClockContext = simDate ? `The current baseline simulation clock is: "${simDate}"` : "";
+    const baseClockContext = simDate
+      ? `The current baseline simulation clock is: "${simDate}"`
+      : "";
 
     const systemPrompt = `You are the Linara Temporal Scheduler, a specialized assistant for household organization. Your job is to extract calendar anchors (appointments) and parse relative dependent preparation sequences.
 
@@ -189,13 +193,13 @@ Input: "${prompt}"`;
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userPrompt },
         ],
         response_format: {
           type: "json_schema",
@@ -209,10 +213,10 @@ Input: "${prompt}"`;
                   type: "object",
                   properties: {
                     title: { type: "string" },
-                    scheduledTime: { type: "string" }
+                    scheduledTime: { type: "string" },
                   },
                   required: ["title", "scheduledTime"],
-                  additionalProperties: false
+                  additionalProperties: false,
                 },
                 prepTasks: {
                   type: "array",
@@ -220,18 +224,21 @@ Input: "${prompt}"`;
                     type: "object",
                     properties: {
                       title: { type: "string" },
-                      station: { type: "string", enum: ["Yaya", "Cook", "Laundry", "Driver", "House"] },
-                      offsetMinutes: { type: "integer" }
+                      station: {
+                        type: "string",
+                        enum: ["Yaya", "Cook", "Laundry", "Driver", "House"],
+                      },
+                      offsetMinutes: { type: "integer" },
                     },
                     required: ["title", "station", "offsetMinutes"],
-                    additionalProperties: false
-                  }
-                }
+                    additionalProperties: false,
+                  },
+                },
               },
               required: ["appointment", "prepTasks"],
-              additionalProperties: false
-            }
-          }
+              additionalProperties: false,
+            },
+          },
         },
         temperature: 0.1,
       }),
@@ -255,12 +262,14 @@ Input: "${prompt}"`;
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("[parse-scheduler] Fatal error processing request:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

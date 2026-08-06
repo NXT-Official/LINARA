@@ -1,4 +1,4 @@
-import { CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles, TrendingUp } from "lucide-react";
+import { CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles } from "lucide-react";
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
@@ -29,23 +29,25 @@ export function SpendAndPayday() {
     .reduce((s, v) => s + v.amount, 0);
 
   // Sum up rest-owed minutes
-  const totalMin = ledger.entries
-    .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-  
+  const totalMin = ledger.entries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
+
   const premiumMin = ledger.entries
     .filter((e) => e.resolution === "premium")
     .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-  
+
   const restMin = totalMin - premiumMin;
   const restOwedHours = restMin / 60;
-  
+
   // Custom overtime/accrued hourly rate (e.g. ₱120 per hour)
   const restOwedRate = 120;
   const restOwedEarnings = restOwedHours * restOwedRate;
 
   // Net Pay = Base Salary - Gov Deductions - Vales + Rest Owed
-  const netPay = Math.max(0, baseSalary - governmentDeductions - approvedValesTotal + restOwedEarnings);
-  
+  const netPay = Math.max(
+    0,
+    baseSalary - governmentDeductions - approvedValesTotal + restOwedEarnings,
+  );
+
   // Pay Dial scale relative to baseline salary
   const payPct = Math.min(100, Math.round((netPay / baseSalary) * 100));
   const payDashoffset = circumference - (payPct / 100) * circumference;
@@ -63,10 +65,11 @@ export function SpendAndPayday() {
               {fmtPeso(spent)}
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly target
+              out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly
+              target
             </p>
           </div>
-          
+
           {/* Circular Progress Ring */}
           <div className="relative h-16 w-16 shrink-0 flex items-center justify-center">
             <svg className="h-full w-full -rotate-90">
@@ -98,7 +101,9 @@ export function SpendAndPayday() {
 
         {/* Micro status details */}
         <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-[11px]">
-          <span className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}>
+          <span
+            className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
+          >
             {isSpendOver ? (
               <>
                 <ArrowUpRight className="h-3 w-3" /> Over by {fmtPeso(spent - budget)}
@@ -109,9 +114,7 @@ export function SpendAndPayday() {
               </>
             )}
           </span>
-          <span className="text-muted-foreground/80 font-mono text-[10px]">
-            PALENGKE LIMIT
-          </span>
+          <span className="text-muted-foreground/80 font-mono text-[10px]">PALENGKE LIMIT</span>
         </div>
       </div>
 
@@ -126,7 +129,8 @@ export function SpendAndPayday() {
               {fmtPeso(netPay)}
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              Base: <span className="font-semibold text-foreground">{fmtPeso(baseSalary)}</span> half-month
+              Base: <span className="font-semibold text-foreground">{fmtPeso(baseSalary)}</span>{" "}
+              half-month
             </p>
           </div>
 

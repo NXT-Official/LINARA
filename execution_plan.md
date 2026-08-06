@@ -24,7 +24,7 @@ The execution roadmap is divided into six independent, sequential phases:
 * **[completed] [`Story_7_AuthAndClaimOnboardingScreens.md`](roadmap/Story_7_AuthAndClaimOnboardingScreens.md):** Bind onboarding screens and claim reviews to secure backend endpoints.
 * **[completed] [`Story_8_DashboardsPassAndStation.md`](roadmap/Story_8_DashboardsPassAndStation.md):** Build the responsive visual Pass view (Board vs. Line layout toggles) and the focused Station detail page.
 * **[completed] [`Story_9_PantryAndPalengkeSharedContext.md`](roadmap/Story_9_PantryAndPalengkeSharedContext.md):** Sync low-par pantry thresholds with Palengke Run task lists via `GroceryCtx`.
-* **[`Story_9_5_TestingFrameworkAndE2ESmokeSetup.md`](roadmap/Story_9_5_TestingFrameworkAndE2ESmokeSetup.md):** Install Vitest and Playwright test suites alongside baseline onboarding smoke tests.
+* **[completed] [`Story_9_5_TestingFrameworkAndE2ESmokeSetup.md`](roadmap/Story_9_5_TestingFrameworkAndE2ESmokeSetup.md):** Install Vitest and Playwright test suites alongside baseline onboarding smoke tests.
 
 ### Phase 4: AI Engine Integration
 * **[completed] [`Story_10_AISOPGeneratorEdgeFunction.md`](roadmap/Story_10_AISOPGeneratorEdgeFunction.md):** Build and deploy the House Standard SOP generator utilizing structured JSON validation.

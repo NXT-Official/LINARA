@@ -5,7 +5,12 @@ import { Avatar } from "@/components/shared/avatar";
 import type { WeekSchedule } from "@/features/shifts/shift.types";
 import { WEEKDAY_LONG, WEEKDAYS } from "@/lib/time";
 
-import { adminPermSummary, adminTypeLabel, HELPERS, REGIONAL_MINIMUM_WAGE } from "../people.constants";
+import {
+  adminPermSummary,
+  adminTypeLabel,
+  HELPERS,
+  REGIONAL_MINIMUM_WAGE,
+} from "../people.constants";
 import type { Admin, AdminType, Invite } from "../people.types";
 import { initialsOf } from "../people.utils";
 import { InviteCodeScreen } from "./invite-code-screen";
@@ -220,7 +225,14 @@ export function PeopleSection({
                     <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div>
-                        <span className="font-semibold text-amber-900 dark:text-amber-200">Batas Kasambahay Compliance Warning:</span> Wage is below the regional minimum of <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>.
+                        <span className="font-semibold text-amber-900 dark:text-amber-200">
+                          Batas Kasambahay Compliance Warning:
+                        </span>{" "}
+                        Wage is below the regional minimum of{" "}
+                        <span className="font-semibold">
+                          ₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}
+                        </span>
+                        .
                       </div>
                     </div>
                   )}
@@ -228,10 +240,15 @@ export function PeopleSection({
                   <div className="mt-2 flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowContributions(prev => ({ ...prev, [inv.id]: !prev[inv.id] }))}
+                      onClick={() =>
+                        setShowContributions((prev) => ({ ...prev, [inv.id]: !prev[inv.id] }))
+                      }
                       className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1"
                     >
-                      <Info className="h-3 w-3" /> {showContributions[inv.id] ? "Hide contributions" : "View contributions split"}
+                      <Info className="h-3 w-3" />{" "}
+                      {showContributions[inv.id]
+                        ? "Hide contributions"
+                        : "View contributions split"}
                     </button>
                   </div>
 

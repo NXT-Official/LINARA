@@ -64,9 +64,7 @@ export const routeUtosFn = createServerFn({ method: "POST" })
         query.includes("isulat")
       ) {
         classification = "PRIVATE_NOTE";
-        contentCleaned = prompt
-          .replace(/(remind myself to|isulat ang|list down)/gi, "")
-          .trim();
+        contentCleaned = prompt.replace(/(remind myself to|isulat ang|list down)/gi, "").trim();
         suggestedStation = "House";
       }
       // 3. Heavy tasks with duration tracking / photo completions -> TASK
@@ -84,20 +82,13 @@ export const routeUtosFn = createServerFn({ method: "POST" })
       else {
         classification = "QUICK_UTO";
         contentCleaned = prompt.replace(/(please|paki|paki-)/gi, "").trim();
-        if (
-          query.includes("get more water") ||
-          query.includes("kumuha ng tubig")
-        ) {
+        if (query.includes("get more water") || query.includes("kumuha ng tubig")) {
           contentCleaned = "Get more water";
         }
 
         if (query.includes("laba") || query.includes("laundry")) {
           suggestedStation = "Laundry";
-        } else if (
-          query.includes("luto") ||
-          query.includes("cook") ||
-          query.includes("pantry")
-        ) {
+        } else if (query.includes("luto") || query.includes("cook") || query.includes("pantry")) {
           suggestedStation = "Cook";
         } else if (query.includes("sundo") || query.includes("drive")) {
           suggestedStation = "Driver";
@@ -107,8 +98,7 @@ export const routeUtosFn = createServerFn({ method: "POST" })
       }
 
       if (contentCleaned.length > 0) {
-        contentCleaned =
-          contentCleaned.charAt(0).toUpperCase() + contentCleaned.slice(1);
+        contentCleaned = contentCleaned.charAt(0).toUpperCase() + contentCleaned.slice(1);
       }
 
       return {
@@ -131,9 +121,7 @@ export const routeUtosFn = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Edge function returned error: ${response.status} ${errorText}`,
-      );
+      throw new Error(`Edge function returned error: ${response.status} ${errorText}`);
     }
 
     const result = await response.json();

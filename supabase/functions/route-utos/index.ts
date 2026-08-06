@@ -18,7 +18,7 @@ function parseMockUtos(
   prompt: string,
   helperId: string,
   helperStatus: string,
-  senderType: string = "manager"
+  senderType: string = "manager",
 ) {
   const query = prompt.toLowerCase();
   let classification = "QUICK_UTO";
@@ -27,7 +27,12 @@ function parseMockUtos(
   let boundaryWarn = helperStatus === "off";
 
   // Rule 1: Repetitive daily/weekly -> ROUTINE
-  if (query.includes("every") || query.includes("tuwing") || query.includes("araw-araw") || query.includes("daily")) {
+  if (
+    query.includes("every") ||
+    query.includes("tuwing") ||
+    query.includes("araw-araw") ||
+    query.includes("daily")
+  ) {
     classification = "ROUTINE";
     contentCleaned = prompt.replace(/(please|paki|paki-)/gi, "").trim();
     if (query.includes("laundry") || query.includes("laba")) {
@@ -41,14 +46,24 @@ function parseMockUtos(
     }
   }
   // Rule 2: Helper-authored notes -> PRIVATE_NOTE
-  else if (senderType === "helper" || query.includes("remind myself") || query.includes("list down") || query.includes("isulat")) {
+  else if (
+    senderType === "helper" ||
+    query.includes("remind myself") ||
+    query.includes("list down") ||
+    query.includes("isulat")
+  ) {
     classification = "PRIVATE_NOTE";
     contentCleaned = prompt.replace(/(remind myself to|isulat ang|list down)/gi, "").trim();
     suggestedStation = "House";
     boundaryWarn = false; // Internal reminders do not warn boundaries
   }
   // Rule 3: Heavy tasks with duration tracking / photo completions -> TASK
-  else if (query.includes("clean the whole") || query.includes("linisin ang buong") || query.includes("renew") || query.includes("paint")) {
+  else if (
+    query.includes("clean the whole") ||
+    query.includes("linisin ang buong") ||
+    query.includes("renew") ||
+    query.includes("paint")
+  ) {
     classification = "TASK";
     contentCleaned = prompt.replace(/(please|paki|paki-)/gi, "").trim();
     suggestedStation = "House";
@@ -61,7 +76,7 @@ function parseMockUtos(
     if (query.includes("get more water") || query.includes("kumuha ng tubig")) {
       contentCleaned = "Get more water";
     }
-    
+
     // Assign station
     if (query.includes("laba") || query.includes("laundry")) {
       suggestedStation = "Laundry";
@@ -83,7 +98,7 @@ function parseMockUtos(
     classification,
     contentCleaned,
     suggestedStation,
-    boundaryWarn
+    boundaryWarn,
   };
 }
 
@@ -114,7 +129,9 @@ serve(async (req) => {
     const model = Deno.env.get("UTOS_ROUTER_MODEL") || "gpt-4o-mini";
 
     if (useMockAI || !apiKey) {
-      console.log(`[route-utos] Returning mock response. Reason: useMockAI=${useMockAI}, apiKeyPresent=${!!apiKey}`);
+      console.log(
+        `[route-utos] Returning mock response. Reason: useMockAI=${useMockAI}, apiKeyPresent=${!!apiKey}`,
+      );
       const mockResult = parseMockUtos(prompt, helperId, helperStatus, senderType);
       return new Response(JSON.stringify(mockResult), {
         status: 200,
@@ -147,13 +164,13 @@ Sender Type: "${senderType || "manager"}"`;
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userPrompt },
         ],
         response_format: {
           type: "json_schema",
@@ -163,15 +180,21 @@ Sender Type: "${senderType || "manager"}"`;
             schema: {
               type: "object",
               properties: {
-                classification: { type: "string", enum: ["ROUTINE", "TASK", "QUICK_UTO", "PRIVATE_NOTE"] },
+                classification: {
+                  type: "string",
+                  enum: ["ROUTINE", "TASK", "QUICK_UTO", "PRIVATE_NOTE"],
+                },
                 contentCleaned: { type: "string" },
-                suggestedStation: { type: "string", enum: ["Yaya", "Cook", "Laundry", "Driver", "House"] },
-                boundaryWarn: { type: "boolean" }
+                suggestedStation: {
+                  type: "string",
+                  enum: ["Yaya", "Cook", "Laundry", "Driver", "House"],
+                },
+                boundaryWarn: { type: "boolean" },
               },
               required: ["classification", "contentCleaned", "suggestedStation", "boundaryWarn"],
-              additionalProperties: false
-            }
-          }
+              additionalProperties: false,
+            },
+          },
         },
         temperature: 0.1,
       }),
@@ -195,12 +218,14 @@ Sender Type: "${senderType || "manager"}"`;
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("[route-utos] Fatal error processing request:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
