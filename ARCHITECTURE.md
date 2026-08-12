@@ -780,27 +780,48 @@ ALTER TABLE public.quick_utos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.helper_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invite_flags ENABLE ROW LEVEL SECURITY;
 
+-- Recursion-safe household lookup, used by every isolation policy below.
+-- A naive `(SELECT household_id FROM public.user_profiles WHERE id = auth.uid())`
+-- inline subquery applied ON public.user_profiles' own policy re-triggers
+-- that same policy to evaluate the subquery, forever (Postgres error 42P17,
+-- "infinite recursion detected in policy"). SECURITY DEFINER runs this
+-- function's internal SELECT with RLS bypassed, breaking the cycle. See
+-- supabase/fix-household-rls-recursion.sql for the incident this fixed —
+-- confirmed live against every table that used the old inline-subquery
+-- pattern, discovered while wiring up LINARA_MOBILE's storage RLS.
+CREATE OR REPLACE FUNCTION public.current_household_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT household_id FROM public.user_profiles WHERE id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION public.current_household_id() TO authenticated, anon;
+
 -- General Tenant (Household) Isolation Policies
 CREATE POLICY user_profiles_isolation ON public.user_profiles
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY helper_profiles_isolation ON public.helper_profiles
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY house_sops_isolation ON public.house_sops
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY tickets_isolation ON public.tickets
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY appointments_isolation ON public.appointments
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY pantry_items_isolation ON public.pantry_items
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 CREATE POLICY grocery_items_isolation ON public.grocery_items
-    FOR ALL USING (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()));
+    FOR ALL USING (household_id = public.current_household_id());
 
 -- Helper Private Notes Policy (The Privacy Wall)
 -- Prevents any non-owner (including managers) from reading/writing notes
@@ -809,6 +830,55 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
         helper_id = (
             SELECT id FROM public.helper_profiles
             WHERE user_id = auth.uid()
+        )
+    );
+
+-- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
+-- policy at all until the recursion fix — meaning default-deny for every
+-- role, including legitimate managers and claimed helpers. None of the
+-- three carry household_id directly, so each is scoped by joining through
+-- helper_profiles, which does.
+CREATE POLICY quick_utos_isolation ON public.quick_utos
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = quick_utos.recipient_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+CREATE POLICY vales_isolation ON public.vales
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = vales.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+CREATE POLICY ledger_entries_isolation ON public.ledger_entries
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = ledger_entries.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+-- invite_flags also had RLS enabled with no policy, but only gets a SELECT
+-- policy here (not FOR ALL). Its documented API — POST /api/helpers/claim/flag,
+-- Section 7.1 above — is unauthenticated by design: a helper flags a term
+-- mismatch before they've claimed an account, so there's no auth.uid() for
+-- a household-scoped INSERT check to run against. That write path still
+-- needs an explicit decision (a SECURITY DEFINER RPC the claim flow calls
+-- instead of a direct table insert, or confirming the server function
+-- already writes through a privileged connection) — not made here.
+CREATE POLICY invite_flags_isolation_select ON public.invite_flags
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = invite_flags.invite_id
+              AND hp.household_id = public.current_household_id()
         )
     );
 ```
