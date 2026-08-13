@@ -87,7 +87,10 @@ export function NewAppointmentModal({
         helperId: r.helperId,
         note: r.note.trim() || undefined,
       }));
-    onAdd({ title: title.trim(), date, time: appTime }, validPreps);
+    onAdd(
+      { title: title.trim(), date, time: appTime, recipeType: templateId ?? undefined },
+      validPreps,
+    );
   };
 
   return (

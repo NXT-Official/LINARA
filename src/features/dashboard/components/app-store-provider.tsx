@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { useAppointments } from "@/features/appointments/hooks/use-appointments";
 import { useAvailability } from "@/features/availability/hooks/use-availability";
@@ -12,6 +11,8 @@ import { useSession } from "@/features/people/hooks/use-session";
 import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import type { Task } from "@/features/tasks/task.types";
+import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
@@ -67,13 +68,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const isOnline = isPhysicalOnline && !isOfflineSimulated;
 
-  // A ref to keep track of whether we are currently receiving/applying a board
-  // action to prevent re-broadcasting it. Quick utos has no equivalent ref --
-  // it has no broadcast path to echo-suppress, see useUtos's doc comment.
-  const isSyncingBoardRef = useRef(false);
-
-  const householdBoardChannelRef = useRef<RealtimeChannel | null>(null);
-
   const [_boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
@@ -81,18 +75,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     nowTs: clock.nowTs,
     helpers,
     onComplete: ledger.record,
-    onAction: (action) => {
-      if (isSyncingBoardRef.current) return;
-      householdBoardChannelRef.current?.send({
-        type: "broadcast",
-        event: "board-action",
-        payload: action,
-      });
-    },
     isOnline,
+    token: session.token,
+    ready: session.status === "authed",
   });
 
-  const appointments = useAppointments(board.setTasks, helpers);
+  const appointments = useAppointments({
+    token: session.token,
+    ready: session.status === "authed",
+    refreshTasks: board.refresh,
+  });
 
   const utos = useUtos({
     toHelperId: currentHelperId,
@@ -118,57 +110,74 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const boardRef = useRef(board);
   boardRef.current = board;
 
+  const appointmentsRef = useRef(appointments);
+  appointmentsRef.current = appointments;
+
   const utosRef = useRef(utos);
   utosRef.current = utos;
 
   useEffect(() => {
-    // 1. household-board-channel
+    // 1. household-board-channel -- as of Closed Gap C12, tickets is real, so
+    // any change (INSERT/UPDATE/DELETE, from this device or another) just
+    // triggers a refetch, same "refetch on any change" pattern as
+    // quick-utos-channel below rather than hand-applying the payload. This
+    // also replaced the old broadcast-based `board-action` tab-sync channel --
+    // now that writes are real, Postgres Realtime alone covers every case
+    // that broadcast used to (including tab-to-tab), so keeping both would
+    // risk the same edit being applied twice under two different local copies.
     const boardChannel = supabaseClient.channel("household-board-channel");
-    householdBoardChannelRef.current = boardChannel;
 
     // Only the signed-in manager's session carries a real household_id
     // (see use-session.ts -- a helper's own session isn't tracked here).
-    // Without one there's no real household to filter Postgres changes by,
-    // so skip that listener -- the broadcast listener below still handles
-    // tab-to-tab sync regardless of auth state.
+    // Without one there's no real household to filter Postgres changes by.
     if (session.householdId) {
-      boardChannel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tickets",
-          filter: `household_id=eq.${session.householdId}`,
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (payload: any) => {
-          console.log("[Realtime] Received tickets table postgres change:", payload);
-        },
-      );
+      boardChannel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tickets",
+            filter: `household_id=eq.${session.householdId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            console.log("[Realtime] Received tickets table postgres change:", payload);
+            boardRef.current.refresh().catch((err) => {
+              console.error("[Realtime] Failed to refresh board:", err);
+            });
+          },
+        )
+        // Appointments themselves (Closed Gap C14) -- same "any change ->
+        // refetch" treatment, on the same channel as tickets since both are
+        // filtered by the same household_id.
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "appointments",
+            filter: `household_id=eq.${session.householdId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            console.log("[Realtime] Received appointments table postgres change:", payload);
+            appointmentsRef.current.refresh().catch((err) => {
+              console.error("[Realtime] Failed to refresh appointments:", err);
+            });
+          },
+        )
+        .subscribe((status, err) => {
+          console.log(`[Realtime] household-board-channel status: ${status}`, err || "");
+          setBoardChannelStatus(status);
+          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
+            setTimeout(() => {
+              console.log("[Realtime] Attempting to reconnect household-board-channel...");
+              boardChannel.subscribe();
+            }, 5000);
+          }
+        });
     }
-
-    boardChannel
-      .on("broadcast", { event: "board-action" }, ({ payload }) => {
-        console.log("[Realtime] Received board broadcast action:", payload);
-        isSyncingBoardRef.current = true;
-        try {
-          boardRef.current.receiveAction(payload);
-        } catch (err) {
-          console.error("[Realtime] Failed to sync board action:", err);
-        } finally {
-          isSyncingBoardRef.current = false;
-        }
-      })
-      .subscribe((status, err) => {
-        console.log(`[Realtime] household-board-channel status: ${status}`, err || "");
-        setBoardChannelStatus(status);
-        if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-          setTimeout(() => {
-            console.log("[Realtime] Attempting to reconnect household-board-channel...");
-            boardChannel.subscribe();
-          }, 5000);
-        }
-      });
 
     // 2. quick-utos-channel -- unlike the board channel, this listener is the
     // *only* sync path for quick utos (no broadcast fallback, see useUtos's
@@ -224,25 +233,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       for (const item of items) {
         if (item.action === "update_status") {
-          const { id, status } = item.payload as { id: string; status: string };
-          // Apply to local board state
-          boardRef.current.receiveAction({
-            type: "UPDATE_STATUS",
-            payload: { id, status, photo: item.binaryPhoto },
-          });
-          // Broadcast to other devices/screens
-          householdBoardChannelRef.current?.send({
-            type: "broadcast",
-            event: "board-action",
-            payload: {
-              type: "UPDATE_STATUS",
-              payload: { id, status, photo: item.binaryPhoto },
-            },
-          });
-          // Clear pendingSync status flag
-          boardRef.current.setTasks((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, pendingSync: undefined } : t)),
-          );
+          const { id, status } = item.payload as { id: string; status: Task["status"] };
+          // Now that we're back online, replay as a real write -- updateStatus's
+          // online branch writes to `tickets` and refetches, which naturally
+          // clears the local pendingSync flag (the refetched row has no such
+          // field) without needing a manual clear step.
+          boardRef.current.updateStatus(id, status, item.binaryPhoto ?? undefined);
         }
         await removeFromQueue(item.id);
       }
@@ -308,7 +304,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppStoreContext.Provider value={value}>
-      <GroceryProvider pantry={pantry}>{children}</GroceryProvider>
+      <GroceryProvider
+        pantry={pantry}
+        token={session.token}
+        ready={session.status === "authed"}
+        receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
+      >
+        {children}
+      </GroceryProvider>
     </AppStoreContext.Provider>
   );
 }

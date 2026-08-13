@@ -207,3 +207,370 @@ export const insertHouseSopFn = createServerFn({ method: "POST" })
 
     return { id: sop.id as string };
   });
+
+// --------------------------------------------------------------------------
+// Pass board (`tickets`) -- closes KNOWN_GAPS.md gap #4. See
+// supabase/add-ticket-board-columns.sql for the columns these functions read
+// and write beyond the original schema (block_reason, emergency, suggested,
+// queued, queued_for_shift, recurrence, routine_id, appointment_id,
+// appointment_title, lead_minutes, reschedule_notice).
+// --------------------------------------------------------------------------
+
+export interface TicketRow {
+  id: string;
+  title: string;
+  notes: string | null;
+  helper_id: string;
+  status: "todo" | "in_progress" | "done" | "blocked";
+  photo_evidence_url: string | null;
+  is_after_hours: boolean;
+  emergency: boolean;
+  suggested: boolean;
+  queued: boolean;
+  queued_for_shift: boolean;
+  block_reason: string | null;
+  recurrence: string[] | null;
+  routine_id: string | null;
+  appointment_id: string | null;
+  appointment_title: string | null;
+  lead_minutes: number | null;
+  reschedule_notice: { oldTime: string; oldDate?: string; appointmentTitle: string } | null;
+  scheduled_start: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  created_by: string | null;
+  created_by_profile: { full_name: string } | null;
+}
+
+const HOUSEHOLD_EVIDENCE_BUCKET = "household-evidence";
+// Matches LINARA_MOBILE's media-upload.ts SIGNED_URL_EXPIRY_SECONDS -- both
+// sides agree on a 15-minute window for the private-bucket security model
+// documented in architecture.md 5.1.
+const SIGNED_URL_EXPIRY_SECONDS = 900;
+
+/**
+ * A Supabase Storage signed URL embeds its own storage path -- only the
+ * trailing `?token=...` expires. Recovers that path from an already-expired
+ * `household-evidence` signed URL so it can be re-signed fresh. Returns null
+ * for anything that isn't a signed URL for this bucket (e.g. a leftover
+ * pre-C12 PHOTO_POOL mock string), so callers know to leave it untouched.
+ */
+function extractHouseholdEvidencePath(url: string): string | null {
+  const match = url.match(/\/storage\/v1\/object\/sign\/household-evidence\/([^?]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Closes KNOWN_GAPS.md gap #13: `tickets.photo_evidence_url` stores the
+ * signed URL LINARA_MOBILE's uploadEvidenceImage() returned at upload time,
+ * which expires 15 minutes later. Re-signs it fresh from its embedded
+ * storage path on every read instead. A resign failure (or a URL that isn't
+ * one of ours) falls back to the stored value rather than failing the whole
+ * board fetch over one bad photo.
+ */
+async function resignPhotoEvidenceUrl(
+  authedClient: ReturnType<typeof createAuthedClient>,
+  url: string | null,
+): Promise<string | null> {
+  if (!url) return url;
+
+  const path = extractHouseholdEvidencePath(url);
+  if (!path) return url;
+
+  const { data, error } = await authedClient.storage
+    .from(HOUSEHOLD_EVIDENCE_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS);
+
+  if (error || !data) {
+    console.error("[listTicketsFn] Failed to re-sign evidence photo:", error?.message);
+    return url;
+  }
+
+  return data.signedUrl;
+}
+
+/**
+ * Lists the household's "live" board: every not-done ticket (any date --
+ * appointment/routine-linked ones persist until done, and unlike the
+ * local-only prototype an unfinished one-off no longer silently vanishes at
+ * day-roll, since real data shouldn't be discarded), plus done tickets whose
+ * scheduled_start falls on/after `sinceIso` (today's completed list, which
+ * rolls off the board once the simulated day advances past it). See
+ * KNOWN_GAPS.md gap #4's closure notes for why this replaces the old
+ * client-side startNewDay() keep/drop filter.
+ */
+export const listTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; sinceIso: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, sinceIso } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("tickets")
+      .select("*, created_by_profile:user_profiles(full_name)")
+      .or(`status.neq.done,scheduled_start.gte.${sinceIso}`)
+      .order("scheduled_start", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const resigned = await Promise.all(
+      (rows ?? []).map(async (row) => ({
+        ...row,
+        photo_evidence_url: await resignPhotoEvidenceUrl(authedClient, row.photo_evidence_url),
+      })),
+    );
+
+    return resigned as unknown as TicketRow[];
+  });
+
+/** Creates one ticket -- addTask, and each freshly spawned routine instance. */
+export const insertTicketFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      title: string;
+      notes?: string;
+      helperId: string;
+      scheduledStartIso: string;
+      photoEvidenceUrl?: string;
+      isAfterHours?: boolean;
+      emergency?: boolean;
+      suggested?: boolean;
+      queued?: boolean;
+      queuedForShift?: boolean;
+      recurrence?: string[] | null;
+      routineId?: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const {
+      token,
+      title,
+      notes,
+      helperId,
+      scheduledStartIso,
+      photoEvidenceUrl,
+      isAfterHours,
+      emergency,
+      suggested,
+      queued,
+      queuedForShift,
+      recurrence,
+      routineId,
+    } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    const { data: row, error } = await authedClient
+      .from("tickets")
+      .insert({
+        household_id: profile.household_id,
+        title,
+        notes: notes ?? null,
+        helper_id: helperId,
+        scheduled_start: scheduledStartIso,
+        photo_evidence_url: photoEvidenceUrl ?? null,
+        is_after_hours: !!isAfterHours,
+        emergency: !!emergency,
+        suggested: !!suggested,
+        queued: !!queued,
+        queued_for_shift: !!queuedForShift,
+        recurrence: recurrence ?? null,
+        routine_id: routineId ?? null,
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (error || !row) {
+      throw new Error(error?.message || "Failed to create task");
+    }
+
+    return { id: row.id as string };
+  });
+
+export interface TicketPatch {
+  status?: "todo" | "in_progress" | "done" | "blocked";
+  photoEvidenceUrl?: string | null;
+  blockReason?: string | null;
+  queued?: boolean;
+  suggested?: boolean;
+  actualStart?: string | null;
+}
+
+/** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
+ * them are just a patch onto one ticket row. */
+export const updateTicketFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string; patch: TicketPatch }) => data)
+  .handler(async ({ data }) => {
+    const { token, ticketId, patch } = data;
+
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.photoEvidenceUrl !== undefined) dbPatch.photo_evidence_url = patch.photoEvidenceUrl;
+    if (patch.blockReason !== undefined) dbPatch.block_reason = patch.blockReason;
+    if (patch.queued !== undefined) dbPatch.queued = patch.queued;
+    if (patch.suggested !== undefined) dbPatch.suggested = patch.suggested;
+    if (patch.actualStart !== undefined) dbPatch.actual_start = patch.actualStart;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { ticketId };
+  });
+
+/** dismissSuggestion/withdraw -- a suggested task a manager or remote admin
+ * discards outright, not just marked done. */
+export const deleteTicketFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, ticketId } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient.from("tickets").delete().eq("id", ticketId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { ticketId };
+  });
+
+/** Reopening the board graduates every queued ticket to today's To-do in one
+ * shot. Relies on tickets_isolation (household-scoped RLS) rather than an
+ * explicit household_id filter, same posture as openQueuedTicketsFn's sibling
+ * bulk updates elsewhere in this app (e.g. clearUtosForHelperFn). */
+export const openQueuedTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const { token } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("tickets")
+      .update({ queued: false })
+      .eq("queued", true);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  });
+
+// Appointment prep-ticket writes used to live here (KNOWN_GAPS.md gap #4's
+// partial resolution of gap #7). As of Closed Gap C14, appointment creation/
+// reschedule/removal is atomic across `appointments` + its prep `tickets`,
+// via SECURITY DEFINER RPCs -- see
+// src/features/appointments/appointment.actions.ts, which now owns that
+// whole flow even though it writes to `tickets` too.
+
+// --------------------------------------------------------------------------
+// Board open/closed-for-the-night flag (`households.board_closed`) --
+// closes KNOWN_GAPS.md gap #11. See supabase/add-household-board-closed.sql.
+// --------------------------------------------------------------------------
+
+/** Reads the caller's household's current board-closed state. */
+export const getBoardClosedFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const { token } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    const { data: household, error } = await authedClient
+      .from("households")
+      .select("board_closed")
+      .eq("id", profile.household_id)
+      .single();
+
+    if (error || !household) {
+      throw new Error(error?.message || "Failed to load board status");
+    }
+
+    return { boardClosed: household.board_closed as boolean };
+  });
+
+/** Sets the household's board-closed state. Manager-only -- same role check
+ * pattern as updateHouseholdBudgetFn, since `households`' UPDATE policy is
+ * household-scoped only (see the migration's comment). */
+export const setBoardClosedFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; closed: boolean }) => data)
+  .handler(async ({ data }) => {
+    const { token, closed } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id, user_type")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can open or close the board");
+    }
+
+    const { error } = await authedClient
+      .from("households")
+      .update({ board_closed: closed })
+      .eq("id", profile.household_id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { closed };
+  });

@@ -1,24 +1,23 @@
 import { Info } from "lucide-react";
 
+import { computeStatutorySplit } from "../people.utils";
+
 interface LegalContributionSplitCardProps {
   wagePHP: number;
 }
 
 export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCardProps) {
-  const isUnder5k = wagePHP < 5000;
-
-  // Split values based on Batas Kasambahay guidelines
-  const sssEmployer = isUnder5k ? 400 : 350;
-  const sssEmployee = isUnder5k ? 0 : 150;
-
-  const philhealthEmployer = isUnder5k ? 150 : 125;
-  const philhealthEmployee = isUnder5k ? 0 : 125;
-
-  const pagibigEmployer = isUnder5k ? 100 : 100;
-  const pagibigEmployee = isUnder5k ? 0 : 100;
-
-  const totalEmployer = sssEmployer + philhealthEmployer + pagibigEmployer;
-  const totalEmployee = sssEmployee + philhealthEmployee + pagibigEmployee;
+  const {
+    isUnder5k,
+    sssEmployer,
+    sssEmployee,
+    philhealthEmployer,
+    philhealthEmployee,
+    pagibigEmployer,
+    pagibigEmployee,
+    totalEmployer,
+    totalEmployee,
+  } = computeStatutorySplit(wagePHP);
 
   return (
     <div className="rounded-2xl border border-border/80 bg-background/50 p-4 space-y-3">

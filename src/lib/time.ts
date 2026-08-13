@@ -63,6 +63,28 @@ export const computePrepSchedule = (
   return { date: toISODate(dt), time: formatDisplayTime(dt.getHours() * 60 + dt.getMinutes()) };
 };
 
+// Combine a YYYY-MM-DD date and a "6:30 AM"-style display time into a full
+// ISO timestamp -- how a client-side (date, time) pair becomes tickets.scheduled_start.
+export const combineDateAndTime = (dateIso: string, time: string): string => {
+  const [y, mo, d] = dateIso.split("-").map(Number);
+  const dt = new Date(y, mo - 1, d, 0, 0, 0, 0);
+  dt.setMinutes(parseTimeToMinutes(time));
+  return dt.toISOString();
+};
+
+// Start of the local calendar day containing `d`, as an ISO timestamp -- the
+// "has this ticket's day already passed" boundary for listTicketsFn.
+export const startOfDayIso = (d: Date): string =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString();
+
+// The reverse of combineDateAndTime -- split a stored ISO timestamp back into
+// its display-time and date-string components.
+export const isoToDisplayTime = (iso: string): string => {
+  const d = new Date(iso);
+  return formatDisplayTime(d.getHours() * 60 + d.getMinutes());
+};
+export const isoToISODate = (iso: string): string => toISODate(new Date(iso));
+
 export const parseHM = (s: string): number => {
   const m = s.match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return 0;

@@ -16,105 +16,38 @@ the bottom.
 
 ## Open Gaps
 
-### 2. `grocery_items` has no receipt/photo column, and no table carries an allocated petty-cash budget
+### 9. No real archive backs "wage histories" or "HitPay transfers" for the mobile Pay tab's digital payslip
 
-- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 8 (Pantry & Palengke checklist).
-- **What's missing:**
-  1. `plan.md` 3.2 describes attaching "a picture of the paper receipt" to a
-     Palengke Run, but `grocery_items` has no photo/receipt column (see
-     `LINARA/architecture.md`, comment above the `grocery_items`
-     `CREATE TABLE`). A receipt also naturally covers many `grocery_items`
-     rows at once, so a column on this table would be the wrong shape even
-     if added.
-  2. `plan.md` 3.2 describes displaying "the allocated petty-cash budget,"
-     but no column anywhere holds a manager-set allocation. Both
-     `LINARA/src/features/groceries/hooks/use-grocery-list.ts` (web) and
-     `LINARA_MOBILE/hooks/use-palengke-budget.ts` (mobile) keep this in
-     local component/device state only, defaulting to ₱1500.
-- **Blocks:** Nothing yet — both workarounds below are functionally
-  complete for what's been built so far.
-- **Current workaround:**
-  1. `LINARA_MOBILE` routes the captured receipt to the Palengke Run
-     ticket's existing `tickets.photo_evidence_url` instead (see
-     `LINARA_MOBILE/services/api/tickets.ts`'s `getActivePalengkeTicket`).
-  2. Budget stays device-local via `AsyncStorage` on mobile, matching the
-     web prototype's own `useState(1500)`-only behavior — not a regression,
-     just not yet a real product decision either side has made.
-- **To close:** If a manager-set allocation that syncs across devices is
-  ever wanted, add a real column (e.g. per-run or per-household) on the
-  `LINARA` side and update both repos together.
-
-### 4. Pass board (`tickets`) is never actually written to
-
-- **Found:** 2026-08-13, auditing `LINARA` Stories 8/13/14 against the live schema.
-- **What's missing:** `LINARA/src/features/tasks/hooks/use-task-board.ts` is
-  pure local `useState`; `LINARA/src/lib/offline-queue.ts`'s IndexedDB queue
-  only replays queued actions into that same local state
-  (`app-store-provider.tsx`'s `syncOfflineQueue`); the
-  `household-board-channel` Realtime subscription only relays broadcast
-  actions between browser tabs and logs (but never applies) incoming
-  `postgres_changes` on `tickets`. No code path anywhere inserts, updates,
-  or reads a real `tickets` row. Separately, the client `Task` type
-  (`LINARA/src/features/tasks/task.types.ts`) and the `tickets` table
-  (`LINARA/architecture.md`) have diverged: `tickets` has `sop_id`,
-  `actual_start`, `actual_end` with no client-side equivalent at all, while
-  `Task` has `queued`, `suggested`, `pendingSync`, `recurrence`/`routineId`,
-  and the appointment-prep bookkeeping fields (`appointmentId`,
-  `leadMinutes`, `rescheduleNotice`, ...) with no matching column.
-- **Blocks:** Nothing yet (nothing downstream expects live board data), but
-  this is the core of what Stories 8/13/14's "completed" status doesn't
-  actually cover.
-- **Current workaround:** None — it's a fully local simulation today,
-  starting empty (the old `INITIAL_TASKS`/`INITIAL_ROUTINES` seed data was
-  removed 2026-08-13 alongside Closed Gap C8's mock-roster rewrite, since it
-  hardcoded helper ids that don't exist in a real household's
-  `helper_profiles`).
-- **To close:** Real migration work: wire `useTaskBoard`'s mutations to
-  `tickets` inserts/updates, fix the Realtime listener to apply incoming
-  changes instead of only logging them, and reconcile the field mismatches
-  above (routines/recurrence have no table at all yet either).
-
-### 7. Appointments (`appointments`) is never actually written to, and prep-task creation has no server-side design yet
-
-- **Found:** 2026-08-13, auditing `LINARA` Story 8/13 against the live schema.
-- **What's missing:** `LINARA/src/features/appointments/hooks/use-appointments.ts`
-  is local `useState`, taking the task board's `setTasks` as a direct
-  dependency — adding an appointment synthesizes prep `Task` rows and
-  pushes them straight into local board state. There is no separate
-  "prep task" table; prep tasks are meant to become ordinary `tickets` rows
-  (see gap #4), so closing this requires deciding how one client action
-  becomes an atomic write across two tables (an `appointments` insert plus
-  N `tickets` inserts), not just pointing the existing hook at Supabase.
-- **Blocks:** Gap #4 (tickets) for the prep-task half specifically.
-- **Current workaround:** None — fully local.
-- **To close:** Needs the atomic-write design decision above, likely a
-  `SECURITY DEFINER` RPC (same pattern as `claim_helper_invite`) that
-  inserts the appointment and its prep tickets together.
-
-### 8. `helper_notes.voice` is never populated -- mobile transcribes and discards raw audio instead of persisting it
-
-- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 9 (Voice-to-Task
-  Promoter & SOP Translator).
-- **What's missing:** `plan.md` 5.1 and `helper_notes.voice`'s column comment
-  ("Local URL path or pre-signed storage reference URL") both imply voice
-  memos get a durable storage pointer. But the shared `household-evidence`
-  bucket (`LINARA_MOBILE/supabase/storage-policies.sql`) only allows
-  `['image/jpeg', 'image/png', 'audio/webm']`, and `expo-audio` (the mobile
-  recorder) only ever produces AAC/M4A on both iOS and Android -- no mobile
-  OS ships a native WebM encoder. The `audio/webm` assumption came from the
-  web app's browser `MediaRecorder`, which mobile can't replicate without an
-  extra transcode dependency.
-- **Blocks:** Nothing yet -- `helper_notes.text` (the transcript) is the
-  actually-consumed data; no feature depends on replaying the original audio.
-- **Current workaround:** `LINARA_MOBILE`'s voice-to-task pipeline records
-  locally, POSTs the audio to the `transcribe-notes` edge function for
-  Whisper transcription, then deletes the local file. `helper_notes.voice`
-  stays `NULL` for voice-originated notes; only the transcript is persisted.
-- **To close:** Either (a) widen `household-evidence`'s `allowed_mime_types`
-  to include the real mobile MIME type (`LINARA`-owned bucket policy change),
-  or (b) add a client-side WebM transcode step in `LINARA_MOBILE` (extra
-  dependency weight, likely not worth it unless audio playback is a real
-  product requirement later).
+- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 11 (Pay Ledger
+  Statutory Breakdowns & EAS Builds).
+- **What's missing:** `LINARA_MOBILE/roadmap/Story_11_...md` step 1 asks for
+  a payslip "mapping wage histories, HitPay transfers, and statutory split
+  columns," but no table backs the first two: `ledger_entries` and `vales`
+  are the only wage-adjacent tables, and neither stores a per-cutoff
+  payslip snapshot or a payment-confirmation record. This tracks with
+  `architecture.md` Section 5.3 itself, titled "Fintech Outbound Payment
+  Pipeline (**Future Phase 3 Setup**)" -- the story's own reference docs
+  already mark this as not-yet-buildable, so this isn't a schema bug, just
+  the roadmap step text describing more than the current phase supports.
+- **Blocks:** Nothing today. Would block a future "payment history" or
+  "HitPay confirmation" feature on either app until a real ingestion table
+  exists.
+- **Current workaround:** `LINARA_MOBILE`'s `DigitalPayslip`
+  (`components/features/pay/digital-payslip.tsx`) shows only the current
+  cutoff, computed live from `helper_profiles.monthly_rate` +
+  `.payday_interval` (real columns) plus the real Batas Kasambahay
+  statutory split and any real approved `vales` total -- no fake HitPay
+  confirmation UI, no multi-cutoff history list. `LINARA`'s
+  `SpendAndPayday` used to disagree with this (a hardcoded demo
+  `baseSalary = 8000` and a flat ₱240 gov't deduction vs. the real
+  formula's ₱375 for that same wage) but now reads the same real
+  `monthly_rate`/`payday_interval` and the same statutory-split formula --
+  see Closed Gap C19. `PayRecordPage` (the other, vestigial helper-facing
+  web surface) still isn't in scope here.
+- **To close:** Needs a real payout-ingestion table (e.g. `payslips` or
+  `payment_confirmations`) written by an actual HitPay/Xendit webhook
+  handler -- Phase 3 scope per architecture.md, `LINARA`-owned since it's a
+  new schema addition.
 
 ---
 
@@ -482,6 +415,515 @@ re-investigates something already resolved.
 - **Known residual limitation, not closed by this fix:** Same helper-auth
   caveat as C9/C10 — sends/acks always authenticate as whatever session
   token `AppStoreProvider` carries (today, always a manager's).
+
+### C12. Pass board (`tickets`) was never actually written to (former gap #4)
+
+- **Found:** 2026-08-13, auditing `LINARA` Stories 8/13/14 against the live
+  schema. `use-task-board.ts` was pure local `useState`; the offline queue
+  only replayed into that same local state; the `household-board-channel`
+  Realtime subscription logged incoming `postgres_changes` on `tickets` but
+  never applied them. No code path anywhere inserted, updated, or read a
+  real `tickets` row.
+- **Decisions (user-confirmed before writing code, same as C10's approach):**
+  1. **Field mapping** — denormalize every client `Task` field with no table
+     equivalent directly onto `tickets` (`block_reason`, `emergency`,
+     `suggested`, `queued`, `queued_for_shift`, `recurrence`, `routine_id`,
+     `appointment_id`, `appointment_title`, `lead_minutes`,
+     `reschedule_notice` — see `supabase/add-ticket-board-columns.sql`),
+     same reasoning as C10's `title`/`kind` on `ledger_entries`. `station`
+     and `scheduled_date` were deliberately *not* added: `station` was
+     already always derived live from the assigned helper at every call
+     site (never independently set, confirmed by tracing every mutator), so
+     a column would only reintroduce a staleness bug that behavior never
+     actually had; `scheduled_date` is just the date component of the new
+     `scheduled_start` timestamp, extracted client-side for
+     appointment-linked tickets only.
+  2. **Realtime** — `household-board-channel`'s `postgres_changes` listener
+     now triggers a plain refetch on any event, mirroring Closed Gap C11's
+     `quick-utos-channel` fix exactly. The old broadcast-based
+     `board-action` tab-sync channel (`onAction`/`receiveAction` in
+     `use-task-board.ts`) is removed entirely, for the same reason C11
+     dropped quick utos' broadcast path: once writes are real, keeping both
+     an optimistic local copy and a Realtime-delivered copy risks the same
+     edit being applied twice.
+  3. **Routines** — `Routine` templates stay local-only `useState` (no real
+     `routines` table this pass); only the *spawned* `Task` instances become
+     real `tickets` rows, carrying `routine_id` as plain TEXT provenance
+     (not a FK, since there's nothing to reference yet).
+  4. **Appointments overlap** — also partially resolved gap #7's prep-task
+     half: `useAppointments`' `add`/`remove`/`update` now write real
+     `tickets` rows for prep tasks (via new `insertPrepTicketsFn`/
+     `deleteTicketsByAppointmentFn`/`rescheduleAppointmentTicketsFn`), since
+     leaving them as local-only `setTasks` injections would make them vanish
+     the next time anything else triggered the board's refetch. The
+     `appointments` calendar-event table itself, and an atomic RPC across
+     both tables, stay open — see gap #7's narrowed writeup.
+- **Fixed by:** `supabase/add-ticket-board-columns.sql` (11 new columns +
+  1 index, decisions above). `LINARA/src/features/tasks/task.actions.ts`
+  gained `listTicketsFn`/`insertTicketFn`/`updateTicketFn`/`deleteTicketFn`/
+  `openQueuedTicketsFn` (bulk-clears `queued` when the board reopens) plus
+  three appointment-prep bulk functions. `use-task-board.ts` was rewritten
+  end to end: `tasks` is now server-fetched state (`listTicketsFn`, filtered
+  to `status != 'done' OR scheduled_start >= <today>` — see below), every
+  mutator (`addTask`/`updateStatus`/`blockTask`/`rescheduleTask`/
+  `approveSuggestion`/`dismissSuggestion`/`setClosed`) writes through and
+  refetches, same "write then refresh" pattern as C9/C10/C11.
+  `startNewDay` no longer filters/keeps/drops tasks in local memory — that
+  job moved into `listTicketsFn`'s query itself (see below) — it now only
+  advances `simDate` and inserts fresh `tickets` rows for routines matching
+  the new weekday that don't already have a live instance. The offline queue
+  (`lib/offline-queue.ts`) is unchanged; `app-store-provider.tsx`'s
+  `syncOfflineQueue` now replays a queued status change by calling the real
+  `board.updateStatus()` (which takes the online write-then-refetch path
+  once back online) instead of hand-patching local state and manually
+  clearing `pendingSync` — the refetch does that for free, since a
+  server-fetched `Task` never has a `pendingSync` field to begin with.
+  `use-appointments.ts` and `app-store-provider.tsx`'s Realtime/offline
+  wiring were updated to match, per decisions 2 and 4 above.
+- **Deliberate behavior change (not a regression):** the old local-only
+  `startNewDay` silently dropped any unfinished one-off task (no
+  `routineId`/`appointmentId`) the moment the simulated day rolled, even if
+  it was still `todo` or `blocked`. `listTicketsFn`'s filter no longer does
+  this — any not-done ticket stays visible regardless of age; only *done*
+  tickets roll off the board once their day passes. Silently losing track of
+  unfinished work seemed like the wrong default once the data is real and
+  persistent rather than a discardable in-memory array.
+- **Verification:** `tsc --noEmit`, `eslint` (project-wide — only
+  pre-existing warnings unrelated to this change remain), the Vitest suite,
+  and a full `vite build` all pass clean. This session had no service-role
+  key or database connection string available (only `SUPABASE_ANON_KEY` in
+  `.env`), so `supabase/add-ticket-board-columns.sql` was applied by the user
+  directly (e.g. via the Supabase Studio SQL editor) rather than by this
+  session — confirmed live 2026-08-13 with an unauthenticated PostgREST
+  `select` naming all 11 new columns against the real `tickets` table
+  (`GET .../rest/v1/tickets?select=id,block_reason,emergency,...`): a
+  `200 []` response, not PostgREST's "column does not exist" 400, which
+  confirms column existence independent of RLS row-filtering. Not yet
+  verified against a live signed-in session end-to-end, same posture as
+  C9–C11.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9–C11 — writes always authenticate as whatever session token
+  `AppStoreProvider` carries (today, always a manager's). `boardClosed` (the
+  household's "is the board closed for the night" toggle) stays local-only
+  UI state, not persisted anywhere — only the per-ticket `queued` flag it
+  drives is real now, so a page refresh resets the toggle's visible state
+  (though queued tickets themselves stay correctly queued). Real photo
+  upload is still a mock (`next-task-card.tsx`'s `PHOTO_POOL` random-pick
+  stand-in) — `photo_evidence_url` now persists whatever string that mock
+  produces, but nothing uploads an actual photo file anywhere. Gap #7's
+  `appointments` table and atomic-write RPC remain open, narrowed per above.
+
+### C13. Grocery petty-cash budget had no shared column, and `LINARA`'s web-side Palengke checklist duplicated helper-only execution work that belongs to `LINARA_MOBILE` (former gap #2)
+
+- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 8. **Rescoped:**
+  2026-08-13, revisiting after Closed Gap C12 made `tickets` real — auditing
+  what `LINARA` actually does with groceries turned up a bigger problem than
+  the original gap text: `LINARA`'s `PalengkeInlineList`/`GroceryModal`
+  (check off items, enter cost, attach a mock receipt) were reachable from
+  this repo's vestigial helper-facing surface (`next-task-card.tsx`), fully
+  duplicating shopping-execution actions `LINARA_MOBILE` already performs
+  for real — against `AGENTS.md`'s explicit division (helper work lives
+  exclusively in `LINARA_MOBILE`). Worse: the *manager*-facing Pantry page
+  (`GrocerySection`) had the exact same interactive toggle/cost/receipt UI,
+  and the manager Money tab's Spend Dial (`use-grocery-list.ts`) was pure
+  local `useState` — meaning a manager's "₱1,120 of ₱1,500 spent" reading
+  was never connected to `LINARA_MOBILE`'s real `grocery_items` writes at
+  all, even though those real purchases were genuinely happening.
+- **Decisions (user-confirmed before writing code):**
+  1. Remove the interactive checklist (toggle bought / enter cost / attach
+     receipt) from `LINARA` entirely, on both the vestigial helper surface
+     and the manager Pantry page — not just leave it inert. Shopping
+     execution is `LINARA_MOBILE`'s job; `LINARA` should only curate the
+     planned list (add/remove not-yet-bought items) and observe real state.
+  2. The manager's Spend Dial should read real `grocery_items` data instead
+     of local state, in scope for this pass (not deferred).
+  3. Petty-cash budget: one household-level default (not per-run — neither
+     app models a "run" as a discrete entity to hang a per-run amount off
+     of), manager-writable from `LINARA`, read by both apps.
+- **Fixed by:**
+  - `supabase/add-household-petty-cash-budget.sql` adds
+    `households.petty_cash_budget` (default 1500) plus a household-scoped
+    `UPDATE` policy (`households` previously had none at all beyond its
+    bootstrap `INSERT`, since only `bootstrap_manager_household()` wrote to
+    it before).
+  - New `src/features/groceries/grocery.actions.ts`: `listGroceryItemsFn`
+    (real read of `grocery_items`), `insertGroceryItemFn`/`deleteGroceryItemFn`
+    (list curation only — always `bought: false`, never touches `bought`/
+    `actual_cost`), `getHouseholdBudgetFn`/`updateHouseholdBudgetFn` (the
+    latter manager-only, same role-check pattern as `insertHouseSopFn`/
+    `decideValeFn` — `households`' RLS is household-scoped only, not
+    role-aware, matching how every other role restriction in this app is
+    enforced in the server function rather than in the policy).
+  - `use-grocery-list.ts` rewritten to fetch on mount/token-change and
+    refetch after every write, same "write then refresh" pattern as
+    C9–C12. `receiptPhoto` is **not** fetched by this hook at all — it's
+    threaded in from `app-store-provider.tsx` as
+    `board.tasks.find(isPalengke)?.photo`, since a receipt lives on
+    `tickets.photo_evidence_url` (already real via C12), not on any
+    `grocery_items` row.
+  - `toggleBought`/`setCost`/`attachReceipt`/`clearReceipt`/`openModal`
+    removed from `GroceryContextValue` entirely. Deleted:
+    `grocery-modal.tsx`, `palengke-inline-list.tsx` (the vestigial
+    execution UI), `todays-spend-dial.tsx` and `grocery.constants.ts`
+    (both already-dead code, confirmed zero importers before deleting).
+    `grocery-row.tsx`/`receipt-slot.tsx` simplified to read-only display.
+    `grocery-section.tsx` keeps only the add-item form and budget input as
+    real writes. `palengke-chip.tsx` now `Link`s to `/manager/pantry` (or
+    `/helper/pantry`, via a new `to` prop) instead of opening the removed
+    modal.
+  - Small related fix: `board-task-card.tsx` (the manager board's actual
+    "Done" card) never rendered `task.photo` at all — only `task-card.tsx`
+    (used solely for the "queued for tomorrow" list) did. Added a
+    toggleable photo view to `board-task-card.tsx` too, since plan.md 3.2
+    explicitly describes the manager viewing the receipt "directly on the
+    Done card."
+- **Verification:** `tsc --noEmit`, `eslint` (project-wide — only the same
+  pre-existing warning noted in C12 remains), the Vitest suite, and a full
+  `vite build` all pass clean. `supabase/add-household-petty-cash-budget.sql`
+  was applied by the user directly (same no-service-role-key posture as
+  C12) — confirmed live 2026-08-13 with an unauthenticated PostgREST
+  `select id,petty_cash_budget` against the real `households` table: a
+  `200 []` response, not a "column does not exist" 400. Not yet verified
+  against a live signed-in session end-to-end.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9–C12 applies to `insertGroceryItemFn`/`deleteGroceryItemFn`/
+  `updateHouseholdBudgetFn`.
+- **`LINARA_MOBILE` half closed:** 2026-08-14 — `use-palengke-budget.ts` now
+  reads `households.petty_cash_budget` directly (real, read-only; its old
+  AsyncStorage-backed value could silently disagree with the manager's real
+  allocation). `services/api/household.ts` added; `BudgetBar`'s tap-to-edit
+  affordance is now conditional on an `onChangeBudget` prop, which mobile's
+  Pantry screen no longer passes — the budget stays manager-only, set from
+  the web dashboard, matching the migration's own "LINARA (manager-writable)
+  and LINARA_MOBILE (read-only)" comment.
+
+### C14. Appointments (`appointments`) was never actually written to (former gap #7)
+
+- **Found:** 2026-08-13, auditing `LINARA` Story 8/13 against the live
+  schema. **Narrowed:** 2026-08-13, closing gap #4 (Closed Gap C12), which
+  made prep tickets real but left `appointments` itself local-only and the
+  two writes non-atomic.
+- **Decisions (user-confirmed before writing code):**
+  1. Atomic treatment for all three operations (create/reschedule/remove),
+     not just create — an inconsistent reschedule or delete is just as
+     broken as an inconsistent create.
+  2. Record which `EVENT_TEMPLATES` recipe an appointment was created from
+     (`appointments.recipe_type`, a column that already existed but nothing
+     wrote to) — `NULL` for a manually-built or AI-scheduled one.
+- **Fixed by:** `supabase/add-appointment-atomic-writes.sql`:
+  1. Upgrades `tickets.appointment_id` from the plain TEXT provenance column
+     C12 added (back when `appointments` had no rows to reference at all) to
+     a real `UUID REFERENCES public.appointments(id) ON DELETE CASCADE`.
+  2. Three `SECURITY DEFINER` RPCs, manager-only (same role-check pattern as
+     `insertHouseSopFn`/`decideValeFn`/`updateHouseholdBudgetFn` — enforced
+     in the function body, not RLS, matching every other role restriction in
+     this app): `create_appointment_with_preps` (inserts the appointment +
+     every prep ticket in one transaction), `reschedule_appointment_with_preps`
+     (updates the appointment + every prep ticket's `scheduled_start`/
+     `appointment_title`/`reschedule_notice` in one transaction), and
+     `delete_appointment_with_preps` (deletes the appointment; `ON DELETE
+     CASCADE` handles its prep tickets, no separate ticket-delete needed).
+  3. `reschedule_appointment_with_preps` takes pre-computed per-ticket
+     updates from its caller rather than formatting dates in SQL — the old
+     `oldTime`/`oldDate` `reschedule_notice` fields still go through
+     `isoToDisplayTime`/`isoToISODate` in TypeScript (`appointment.actions.ts`),
+     which the RPC just writes verbatim. A ticket whose time didn't move
+     omits the `reschedule_notice` key entirely (not `null`) so the RPC's
+     `COALESCE(v_update->'reschedule_notice', reschedule_notice)` preserves
+     whatever notice was already there — matches the old
+     `useAppointments.update()`'s "only set a notice when the time moved"
+     behavior exactly.
+  - New `src/features/appointments/appointment.actions.ts`:
+    `listAppointmentsFn` (plain authed select — `appointments_isolation` is
+    a household-scoped `FOR ALL` policy, no RPC needed for reads),
+    `createAppointmentFn`/`rescheduleAppointmentFn`/`deleteAppointmentFn`
+    (each a thin wrapper calling the matching RPC via `.rpc(...)`). The
+    `insertPrepTicketsFn`/`deleteTicketsByAppointmentFn`/
+    `rescheduleAppointmentTicketsFn` functions C12 added to
+    `task.actions.ts` are removed — fully superseded, since the atomic RPCs
+    now own the whole appointment+prep-ticket flow even though they touch
+    `tickets` too.
+  - `use-appointments.ts` rewritten: `appointments` is now server-fetched
+    state (fetch on mount/token-change, refetch after every write, same
+    "write then refresh" pattern as C9–C13), and `add`/`remove`/`update`
+    each call one RPC wrapper then refetch both `appointments` and the
+    board's `tasks` (`refreshTasks`, threaded in from `app-store-provider.tsx`
+    as `board.refresh`).
+  - `new-appointment-modal.tsx` now threads its local `templateId` through
+    `onAdd` as `recipeType` (previously computed but silently dropped).
+  - `app-store-provider.tsx`'s `household-board-channel` gained a second
+    `postgres_changes` listener (same channel, same household_id filter) for
+    the `appointments` table, refetching `appointments` on any change —
+    same "refetch on any change" treatment as `tickets`/`quick_utos`.
+- **Verification:** `tsc --noEmit`, `eslint` (project-wide — same
+  pre-existing warnings/CRLF noise noted in C12/C13, unrelated to this
+  change), the Vitest suite, and a full `vite build` all pass clean.
+  `supabase/add-appointment-atomic-writes.sql` was applied by the user
+  directly (same no-service-role-key posture as C12/C13) — confirmed live
+  2026-08-13: an unauthenticated PostgREST embed
+  (`tickets?select=id,appointment_id,appointments(title)`) returned `200
+  []` rather than a "could not find a relationship" error, confirming
+  `tickets.appointment_id` is a real FK to `appointments`; all three RPCs
+  (`create_appointment_with_preps`/`reschedule_appointment_with_preps`/
+  `delete_appointment_with_preps`) responded with the expected `"Not
+  authenticated"` exception (not a 404), confirming they exist live. Not
+  yet verified against a live signed-in session end-to-end.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9–C13 (writes always authenticate as whatever session token
+  `AppStoreProvider` carries, today always a manager's) — though here it's
+  moot in practice, since the RPCs' own manager-only check would reject a
+  genuine helper session anyway. The three RPCs' manager-only checks are
+  enforced in the function body, not RLS — same accepted-risk posture
+  already documented for `house_sops`/`tickets`/`vales`/`households` in this
+  app (a caller bypassing the `createServerFn` HTTP layer to call
+  `.from("appointments").insert(...)` directly would still be subject to
+  `appointments_isolation`'s household scoping, just not the role check),
+  not a new gap introduced here.
+
+### C15. `helper_notes.voice` never being populated is accepted as-is, not a bug (former gap #8)
+
+- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 9 (Voice-to-Task
+  Promoter & SOP Translator). **Closed as accepted/no-action:** 2026-08-13,
+  after re-reading the actual pipeline end to end (`transcribe-notes` and
+  `promote-voice-task`, both in `LINARA/supabase/functions/`, added in the
+  "voice-to-task and SOP simplifier edge functions" commit): neither edge
+  function ever writes the audio anywhere -- `transcribe-notes` takes the
+  base64 audio, runs it through Whisper, and returns only the transcript
+  text; `promote-voice-task` takes that transcript and structures it into a
+  task. The raw recording is deleted client-side immediately after. This
+  isn't an incomplete implementation of a durable-audio feature -- it's a
+  complete implementation of a transcript-only one. User-confirmed: there is
+  no product need to keep the recording; the transcript is only useful as
+  the resulting `helper_notes`/ticket content, not as something to play back.
+- **Original finding, kept for context:** `plan.md` 5.1 and
+  `helper_notes.voice`'s column comment ("Local URL path or pre-signed
+  storage reference URL") both imply voice memos get a durable storage
+  pointer, and the shared `household-evidence` bucket's
+  `allowed_mime_types` (`['image/jpeg', 'image/png', 'audio/webm']`) doesn't
+  even include the MIME type mobile's recorder actually produces
+  (`audio/m4a` -- no mobile OS ships a native WebM encoder, so the
+  `audio/webm` assumption only ever fit the web app's browser
+  `MediaRecorder`). That mismatch is real, but moot: nothing tries to upload
+  audio to that bucket in the first place, so it was never actually blocking
+  anything.
+- **Current/final state:** `helper_notes.voice` stays `NULL` for every
+  voice-originated note, permanently, by design. Only the transcript is
+  persisted (`helper_notes.text`). No further schema or code change is
+  planned unless a real product requirement to replay original audio shows
+  up later, at which point this would need to be reopened as a real feature
+  request, not a bug fix.
+
+### C16. `tickets.photo_evidence_url` stored an expiring signed URL, not a durable reference (former gap #13)
+
+- **Found:** 2026-08-14, while answering a question about whether photos
+  get cached client-side to avoid re-pulling from the storage bucket.
+  **Fixed:** 2026-08-14, same session, after the user confirmed the
+  re-signing approach below before any code was written.
+- **Root cause:** `LINARA_MOBILE/services/media-upload.ts`'s
+  `uploadEvidenceImage()` creates a signed URL with a 15-minute expiry and
+  returns both that URL and the durable storage `path`, but the only call
+  site (`app/(app)/pantry.tsx`'s `captureReceipt`) persists the expiring
+  `signedUrl` (not the `path`) all the way into `tickets.photo_evidence_url`
+  via `completeTicket()`. Nothing ever re-signed it, so every receipt or
+  Done-card photo went dead ~15 minutes after upload.
+- **Fixed by:** `src/features/tasks/task.actions.ts`'s `listTicketsFn` now
+  re-signs `photo_evidence_url` on every read rather than requiring a
+  `LINARA_MOBILE` change. A Supabase signed URL embeds its own storage path
+  (only the trailing `?token=...` expires), so
+  `extractHouseholdEvidencePath()` recovers the path with a regex against
+  the `/storage/v1/object/sign/household-evidence/` segment, and
+  `resignPhotoEvidenceUrl()` calls `storage.createSignedUrl()` fresh against
+  it using the same authed client (a manager's) already used for the
+  ticket query -- `storage-policies.sql`'s `household_evidence_isolation`
+  policy is household-scoped via `current_household_id()`, the same as
+  every other table's RLS, so that client already has standing to re-sign
+  any object under its own household's path. A URL that doesn't match the
+  pattern (e.g. a leftover pre-C18 `PHOTO_POOL` mock string, a plain
+  Unsplash URL) or a resign that errors both fall back to the stored value
+  unchanged rather than failing the whole board fetch over one bad photo.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. No migration was needed for this one (the
+  fix reads the existing bucket/policy set up for C1/C12), so there's
+  nothing new to confirm live via PostgREST. Not yet verified against a
+  live signed-in session with a real (non-mock) uploaded photo older than
+  15 minutes.
+- **Known residual limitation, not closed by this fix:** The more correct
+  long-term fix -- `LINARA_MOBILE` storing the durable `path` instead of the
+  expiring `signedUrl`, so `LINARA` never has to parse a URL to recover it
+  -- is still open on the mobile side, but no longer blocking: this fix
+  works against the already-expired URLs mobile writes today, so the two
+  repos don't need to land in lockstep.
+
+### C17. `boardClosed` (the Pass board's open/closed-for-the-night flag) was not persisted anywhere (former gap #11)
+
+- **Found:** 2026-08-14, while explaining Closed Gap C12's residual
+  limitations in more depth. **Fixed:** 2026-08-14, same session.
+- **Root cause:** `use-task-board.ts`'s `boardClosed` was plain
+  `useState(false)` -- no table or column backed it, unlike the `queued`
+  flag it drives (real, per C12) -- so it reset on every refresh, new tab,
+  new device, or re-login even though the manager's mental model treats
+  "closed for the night" as a standing state.
+- **Fixed by:** `supabase/add-household-board-closed.sql` adds
+  `households.board_closed BOOLEAN NOT NULL DEFAULT FALSE`. No new RLS
+  policy was needed -- C13's `households_update_budget` UPDATE policy has
+  no column list, so its existing `USING`/`WITH CHECK` (household-scoped)
+  already covers this column too. `task.actions.ts` gained
+  `getBoardClosedFn`/`setBoardClosedFn` (the latter manager-only, same
+  role-check pattern as `updateHouseholdBudgetFn`). `use-task-board.ts`
+  fetches the real value once on mount/token-change (alongside the existing
+  `refresh()`), and `setClosed()` now writes through
+  (`setBoardClosedFn`) in addition to updating local state, same
+  optimistic-then-persist shape as every other write-then-refresh hook in
+  this app. `startNewDay()`'s existing local `setBoardClosed(false)` reset
+  now also persists via `setBoardClosedFn({ closed: false })` -- without
+  this, a fresh simulated day would locally show the board reopened while
+  the database still held `board_closed = true` from the night before,
+  reintroducing the exact staleness this gap was about.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. This session had no service-role key (same
+  posture as every prior migration), so
+  `supabase/add-household-board-closed.sql` needs to be applied by hand --
+  confirmed **not yet live** 2026-08-14 via an unauthenticated PostgREST
+  `select id,board_closed` against `households`: a `42703` "column
+  households.board_closed does not exist" 400, not the `200 []` a landed
+  migration would return. Flagging here so the next session doesn't assume
+  it's already applied the way C12–C14's migrations were.
+- **Known residual limitation, not closed by this fix:** Per the gap's own
+  scoped fix shape ("read it as an initial fetched value"), `board_closed`
+  is fetched once on load, not kept in sync via Realtime the way
+  `tickets`/`quick_utos`/`appointments` are (see C11/C12/C14's
+  `postgres_changes` listeners) -- two managers with the board open on
+  different devices won't see each other's open/close toggle until a fresh
+  page load. Extending this to a live listener, if wanted, would follow the
+  exact same pattern already used for those three tables.
+
+### C18. General task photo evidence mock removed from `LINARA`'s vestigial helper surface (`LINARA` half of former gap #12)
+
+- **Found:** 2026-08-14, investigating whether `LINARA`'s task-completion
+  photo mock (`next-task-card.tsx`'s `PHOTO_POOL` random-pick) should be
+  wired to something real. **Decided/fixed:** 2026-08-14, same session --
+  there's nothing real to wire it to yet on either app (see original
+  finding below), and per `AGENTS.md`'s helper-work-belongs-on-mobile
+  boundary, a working-looking "Done · add photo" button that fakes an
+  Unsplash stock photo on every tap doesn't belong on this repo's vestigial
+  helper-facing surface regardless -- same reasoning as C13's removal of
+  the vestigial grocery checklist.
+- **Original finding, kept for context:** `LINARA_MOBILE/services/api/
+  tickets.ts`'s `completeTicket(ticketId, photoEvidenceUrl?)` is already
+  generic (Palengke is just its documented example, not the whole scope),
+  and the upload plumbing (`uploadEvidenceImage`/`household-evidence`
+  bucket) already exists. But the general "Today" focus-task completion
+  flow (`app/(app)/today.tsx`) only ever calls `completeTicket(ticketId)`
+  with no photo -- no camera-capture UI exists there. Only
+  `app/(app)/pantry.tsx`'s Palengke-specific flow actually captures one.
+- **Fixed by:** `next-task-card.tsx`'s `done()` now calls
+  `onUpdate(task.id, "done")` directly, with no photo argument, no
+  `addingPhoto` fake-upload delay state, and no `Camera`/"Attaching
+  photo…" UI -- the button just reads "Done". `task.constants.ts` (whose
+  only export was `PHOTO_POOL`) is deleted outright rather than left with a
+  dead constant, matching C13's "delete confirmed-zero-importer files"
+  precedent.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. Nothing to verify live -- this fix only
+  removes client-side mock behavior, no schema or write path changed.
+- **Known residual limitation, not closed by this fix:** The
+  `LINARA_MOBILE` half -- real camera-capture photo evidence for the
+  general Today completion flow, reusing `pantry.tsx`'s
+  `uploadEvidenceImage`/`completeTicket(ticketId, photoUrl)` pattern -- is
+  unchanged and out of scope for this repo, per `AGENTS.md`.
+
+### C19. `LINARA`'s Pay Dial (`SpendAndPayday`) computed net pay from hardcoded numbers instead of the real `helper_profiles.monthly_rate` (former gap #10)
+
+- **Found:** 2026-08-14, cross-checking `execution_plan.md`'s "all 17
+  stories complete" claim against live behavior while closing gaps
+  #2/#4/#7. **Decisions (user-confirmed before writing code):** port the
+  real per-cutoff Batas Kasambahay statutory-deduction math from
+  `LINARA_MOBILE`'s `DigitalPayslip`, not just wire the wage in isolation
+  and leave the flat ₱240 deduction as-is.
+- **Root cause:** `spend-and-payday.tsx` hardcoded `baseSalary = 8000` and
+  `governmentDeductions = 240`, neither derived from any real column. This
+  wasn't just a missed wiring: `Helper`
+  (`src/features/people/people.types.ts`) had no `monthlyRate`/
+  `paydayInterval` field at all, even though `helper_profiles.monthly_rate`/
+  `.payday_interval` were already real columns (`.payday_interval` already
+  live before this session, confirmed below) -- so there was nowhere for a
+  component like this to even get the real number without `toHelper()`
+  being extended. The flat ₱240 also disagreed with the real formula's
+  ₱375 for the same wage.
+- **Fixed by:** `use-invites.ts`'s `HelperProfileRow` gained
+  `payday_interval` (typing only -- `listHelperProfilesFn`'s `select("*")`
+  already returned it). `Helper`/`toHelper()`
+  (`people.types.ts`/`people.utils.ts`) gained `monthlyRate`/
+  `paydayInterval`; `UNKNOWN_HELPER` gained matching placeholder values.
+  `people.utils.ts` gained `computeStatutorySplit()` -- extracted from
+  `legal-contribution-split-card.tsx`'s previously-inline copy of the exact
+  same Batas Kasambahay formula (that card now calls the shared function
+  instead of duplicating it, so the invite-preview card and the Pay Dial
+  can no longer drift the way the flat ₱240 hardcode once did against this
+  same formula) -- and `cutoffsPerMonth()` (2 for `semi_monthly`, 1 for
+  `monthly`). `spend-and-payday.tsx` now computes `basePay =
+  monthlyRate / cutoffsPerMonth` and `governmentDeductions =
+  totalEmployee / cutoffsPerMonth`, exactly mirroring
+  `LINARA_MOBILE`'s `digital-payslip.tsx`; the "half-month"/"monthly" label
+  under the dial now reflects the helper's real `paydayInterval` instead of
+  being hardcoded text. `restOwedRate` (₱120/hr) was left as-is -- not
+  flagged as wrong by this gap, out of scope for this pass.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. `helper_profiles.payday_interval` was
+  confirmed **already live** (no migration needed for this gap) via an
+  unauthenticated PostgREST `select id,monthly_rate,payday_interval`
+  against `helper_profiles`: a `200 []` response, not a "column does not
+  exist" 400. Not yet verified against a live signed-in session with a real
+  ACTIVE helper carrying a nonzero `monthly_rate` (needed to see anything
+  other than ₱0 in the dial).
+- **Known residual limitation, not closed by this fix:** Same "first ACTIVE
+  helper stands in for a real per-helper session" caveat as C8 -- a
+  multi-helper household's Pay Dial reflects whichever helper happens to be
+  first, not a manager-chosen one.
+
+### C20. `helper_profiles.monthly_rate` was write-once -- no admin path existed to change a helper's wage after invite
+
+- **Found:** 2026-08-14, while answering a user question about where base
+  salary gets adjusted in the admin, immediately after closing C19. Tracing
+  every write to `helper_profiles.monthly_rate` turned up exactly one:
+  `inviteHelperFn`, at invite creation. `updateHelperScheduleFn` (the only
+  other post-invite mutator on this table, powering the Shifts editor) only
+  ever touches `shift_start`/`shift_end`/`weekly_rest_day`/`break_start`/
+  `break_end` -- wage isn't in its payload. `people-section.tsx`'s helper
+  card shows the wage read-only (`Wage: ₱{inv.wagePHP}`) with a "View
+  contributions split" toggle, but no edit affordance. So a manager giving
+  a raise, or fixing a typo'd wage at invite time, had nowhere in the UI to
+  do it -- not a Phase-3 gap or a mapping problem like #9/#10, just a
+  missing mutator no story had asked for yet.
+- **Fixed by:** `updateHelperWageFn` in `people.actions.ts` -- unlike
+  `updateHelperScheduleFn`, explicitly manager-gated in the function body
+  (same role-check pattern as `updateHouseholdBudgetFn`/`decideValeFn`),
+  since wage is more sensitive than a shift window and shouldn't rely on
+  household-scoped RLS alone. `use-invites.ts` gained `updateWage(id,
+  monthlyRate)` -- write-then-refresh (same pattern as
+  `useGroceryList.setBudget`), since the new wage feeds several other real
+  reads at once (Pay Dial, `LegalContributionSplitCard`, the minimum-wage
+  compliance banner) that all need the fresh value. New
+  `edit-wage-modal.tsx` (modeled on `invite-helper-modal.tsx`'s existing
+  wage field, same compliance-warning and contribution-split preview)
+  wired into `people-section.tsx` via a new "Edit wage" action next to
+  "View contributions split", manager-gated by the same `canInvite` prop
+  that already gates "Invite a helper". `payday_interval` was left
+  immutable post-invite -- out of scope for this pass; only the wage amount
+  itself was asked about and rarely does the interval change independent
+  of a raise.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. No schema change was needed (`monthly_rate`
+  already existed and was already writable by `inviteHelperFn`), so nothing
+  new to confirm live via PostgREST. Not yet verified against a live
+  signed-in manager session end-to-end.
+- **Known residual limitation, not closed by this fix:** No audit trail for
+  wage changes -- unlike `inviteHelperFn`'s below-minimum-wage check (which
+  writes an `invite_flags` row for manager transparency), `updateHelperWageFn`
+  doesn't flag a new wage that drops below `REGIONAL_MINIMUM_WAGE` the same
+  way; the compliance banner on the People tab still catches it on next
+  render (it's derived live from `wagePHP`, not from a stored flag), just
+  without the audit-log entry a first-time low-wage invite gets.
 
 ---
 

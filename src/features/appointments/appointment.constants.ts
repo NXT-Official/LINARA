@@ -1,9 +1,4 @@
-import type { Appointment, EventTemplate } from "./appointment.types";
-
-// No seeded appointment -- a fresh household starts with none (see KNOWN_GAPS.md;
-// the previous seed hardcoded prep tasks against the old "rosa"/"lita"/"manuel"
-// mock helper ids, which don't exist in a real household's helper_profiles).
-export const INITIAL_APPOINTMENTS: Appointment[] = [];
+import type { EventTemplate } from "./appointment.types";
 
 // Reusable appointment recipes — picking one preloads its prep rows. Station-based
 // so they apply to any household regardless of who's actually staffing each role.

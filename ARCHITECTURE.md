@@ -665,6 +665,26 @@ CREATE TABLE public.house_sops (
 );
 
 -- 4. Tickets Table (Operational tasks)
+--
+-- block_reason/emergency/suggested/queued/queued_for_shift/recurrence/
+-- routine_id/appointment_id/appointment_title/lead_minutes/reschedule_notice
+-- (added by supabase/add-ticket-board-columns.sql) denormalize what the Pass
+-- board UI needs per ticket onto the row itself, closing KNOWN_GAPS.md gap #4
+-- (the board was never actually written to). routine_id stays plain TEXT
+-- provenance, not a FK -- there is still no `routines` table (Routine
+-- templates stay client-local, see use-task-board.ts). appointment_id
+-- started the same way (gap #4 landed before `appointments` was written to
+-- at all) but was upgraded to a real FK by
+-- supabase/add-appointment-atomic-writes.sql once gap #7 closed (Closed Gap
+-- C14) -- it's listed here as `public.appointments` (table #5, just below)
+-- purely for reading order; the actual ALTER TABLE ran long after both
+-- tables already existed live, so the forward reference was never an issue
+-- in practice. `station` and `scheduled_date` were deliberately NOT added:
+-- station is always derived live from the assigned helper (a column would
+-- only reintroduce a staleness bug), and scheduled_date is just the date
+-- component of scheduled_start, extracted client-side for appointment-linked
+-- tickets only. See src/features/tasks/task.actions.ts and
+-- src/features/tasks/hooks/use-task-board.ts for the read/write mapping.
 CREATE TABLE public.tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
@@ -675,6 +695,17 @@ CREATE TABLE public.tickets (
     sop_id UUID REFERENCES public.house_sops(id) ON DELETE SET NULL,
     photo_evidence_url TEXT,
     is_after_hours BOOLEAN NOT NULL DEFAULT FALSE,
+    emergency BOOLEAN NOT NULL DEFAULT FALSE,
+    suggested BOOLEAN NOT NULL DEFAULT FALSE,
+    queued BOOLEAN NOT NULL DEFAULT FALSE,
+    queued_for_shift BOOLEAN NOT NULL DEFAULT FALSE,
+    block_reason TEXT,
+    recurrence TEXT[],
+    routine_id TEXT,
+    appointment_id UUID REFERENCES public.appointments(id) ON DELETE CASCADE,
+    appointment_title TEXT,
+    lead_minutes INTEGER,
+    reschedule_notice JSONB,
     scheduled_start TIMESTAMP WITH TIME ZONE NOT NULL,
     actual_start TIMESTAMP WITH TIME ZONE,
     actual_end TIMESTAMP WITH TIME ZONE,
@@ -682,12 +713,23 @@ CREATE TABLE public.tickets (
 );
 
 -- 5. Appointments Table (Schedule Anchors)
+--
+-- Real as of Closed Gap C14 (KNOWN_GAPS.md gap #7) -- previously had columns
+-- but no write path at all. supabase/add-appointment-atomic-writes.sql adds
+-- three SECURITY DEFINER RPCs (create_appointment_with_preps/
+-- reschedule_appointment_with_preps/delete_appointment_with_preps),
+-- manager-only, that write this table and its prep `tickets` rows (via
+-- appointment_id) together in one transaction. recipe_type now gets written
+-- when an appointment is created from one of appointment.constants.ts's
+-- EVENT_TEMPLATES (NULL for a manually-built or AI-parsed one). See
+-- src/features/appointments/appointment.actions.ts and
+-- src/features/appointments/hooks/use-appointments.ts.
 CREATE TABLE public.appointments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
     title TEXT NOT NULL,
     scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    recipe_type TEXT -- Track if event matches a preset template
+    recipe_type TEXT -- Which EVENT_TEMPLATES recipe this was created from, if any
 );
 
 -- 6. After-Hours Ledger
@@ -697,7 +739,8 @@ CREATE TABLE public.appointments (
 -- After-Hours Ledger UI displays per entry onto the row itself, rather than
 -- joining through associated_ticket_id -- a ledger entry is a historical
 -- record and should keep showing the title as it was worked, not drift if a
--- ticket is edited later (and tickets isn't written to at all yet, gap #4).
+-- ticket is edited later (this reasoning held even before gap #4 closed and
+-- tickets became real -- see KNOWN_GAPS.md Closed Gap C12).
 -- duration_minutes holds the auto-computed base duration; adjust_minutes
 -- holds a manager's manual adjustment on top of it, matching the client
 -- model (see src/features/ledger/hooks/use-ledger.ts).
@@ -741,23 +784,17 @@ CREATE TABLE public.pantry_items (
 
 -- 9. Grocery Checklist Items
 --
--- NOTES -- tracked in KNOWN_GAPS.md entry 2 (found while building
--- LINARA_MOBILE Story 8's Palengke checklist, 2026-08-13):
--- 1. No receipt/photo column exists here, though plan.md 3.2 describes
---    attaching "a picture of the paper receipt" to a Palengke Run. A
---    receipt also naturally covers many grocery_items rows at once, not
---    a single one, so a column on this table would be the wrong shape
---    anyway. LINARA_MOBILE routes the captured receipt to the Palengke
---    Run ticket's existing `tickets.photo_evidence_url` instead (see
---    ../LINARA_MOBILE/services/api/tickets.ts's getActivePalengkeTicket).
--- 2. No "allocated petty-cash budget" column exists here or anywhere else
---    in this schema either, though plan.md 3.2 describes displaying one.
---    Both this web app's useGroceryList (src/features/groceries/hooks/use-grocery-list.ts)
---    and LINARA_MOBILE's usePalengkeBudget keep this figure in local
---    component/device state (defaulting to ₱1500), not Postgres. If a
---    manager-set allocation that syncs across devices is ever wanted,
---    it needs a real column (e.g. on a per-run/household basis) and both
---    apps updated together per this repo's schema-owner rule in AGENTS.md.
+-- No receipt/photo column here, deliberately (see KNOWN_GAPS.md Closed Gap
+-- C13 and gap #2's original note): plan.md 3.2 describes attaching "a
+-- picture of the paper receipt" to a Palengke Run, but a receipt naturally
+-- covers many grocery_items rows at once, not a single one, so a column here
+-- would be the wrong shape. LINARA_MOBILE routes the captured receipt to the
+-- Palengke Run ticket's existing `tickets.photo_evidence_url` instead (see
+-- ../LINARA_MOBILE/services/api/tickets.ts's getActivePalengkeTicket) and
+-- LINARA reads it back the same way (src/features/groceries/hooks/use-grocery-list.ts's
+-- `receiptPhoto`, sourced from the board's own tasks, not from this table).
+-- The petty-cash budget lives on `households.petty_cash_budget` instead (see
+-- above), not here -- it's a household-level setting, not one per row.
 CREATE TABLE public.grocery_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
@@ -784,12 +821,19 @@ CREATE TABLE public.quick_utos (
 );
 
 -- 11. Helper Private Notes (Protected by strict RLS)
+--
+-- `voice` is accepted as permanently NULL for voice-originated notes (see
+-- KNOWN_GAPS.md Closed Gap C15) -- LINARA_MOBILE's voice pipeline
+-- (transcribe-notes/promote-voice-task edge functions) only ever needs the
+-- transcript, written to `text` below; the original recording is discarded
+-- client-side right after transcription, by design, not as an unfinished
+-- upload path.
 CREATE TABLE public.helper_notes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
     text TEXT NOT NULL,
     done BOOLEAN NOT NULL DEFAULT FALSE,
-    voice TEXT, -- URL or pointer to recorded voice note snippet
+    voice TEXT, -- Unused by design -- see comment above
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -1061,9 +1105,15 @@ GRANT EXECUTE ON FUNCTION public.claim_helper_invite(TEXT) TO authenticated;
 -- work below needs one. Confirmed additive and safe for LINARA_MOBILE,
 -- which only ever consumes household_id as an opaque UUID via the RPCs
 -- above, never queries a households table directly.
+-- petty_cash_budget (added by supabase/add-household-petty-cash-budget.sql)
+-- closes KNOWN_GAPS.md gap #2's budget half -- one recurring household-level
+-- allocation, manager-writable from LINARA (grocery.actions.ts), read by
+-- both apps (LINARA_MOBILE's use-palengke-budget.ts already anticipated
+-- this in its own doc comment before it existed). See Closed Gap C13.
 CREATE TABLE public.households (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL DEFAULT 'My Household',
+    petty_cash_budget NUMERIC(10,2) NOT NULL DEFAULT 1500,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -1071,8 +1121,18 @@ ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY households_isolation ON public.households
     FOR SELECT USING (id = public.current_household_id());
--- No INSERT/UPDATE/DELETE policy: the only writer is
--- bootstrap_manager_household() below, SECURITY DEFINER, bypasses RLS.
+-- No INSERT policy: household *creation* only ever happens through
+-- bootstrap_manager_household() below, SECURITY DEFINER, bypasses RLS (the
+-- chicken-and-egg deadlock comment just below explains why). Updating an
+-- *existing* household's budget has no such deadlock, so it gets a plain
+-- household-scoped UPDATE policy instead of needing its own RPC:
+CREATE POLICY households_update_budget ON public.households
+    FOR UPDATE USING (id = public.current_household_id())
+    WITH CHECK (id = public.current_household_id());
+-- Manager-only enforcement for that UPDATE happens in application code
+-- (updateHouseholdBudgetFn), matching insertHouseSopFn/decideValeFn's
+-- existing pattern of doing role checks in the server function rather than
+-- encoding roles into RLS.
 
 -- bootstrap_manager_household: the same current_household_id() chicken-
 -- and-egg deadlock that claim_helper_invite() solves for helpers applies

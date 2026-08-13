@@ -1,4 +1,4 @@
-import { HelpCircle, Link2 } from "lucide-react";
+import { Camera, HelpCircle, Link2 } from "lucide-react";
 import { useState } from "react";
 
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
@@ -22,6 +22,7 @@ export function BoardTaskCard({
   helpers: Helper[];
 }) {
   const [showNote, setShowNote] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
   const helper = findHelper(task.helperId, helpers);
   const color = STATION_HEX[task.station];
   const isDone = task.status === "done";
@@ -74,12 +75,25 @@ export function BoardTaskCard({
                 <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
               </button>
             )}
+            {isDone && task.photo && (
+              <button
+                onClick={() => setShowPhoto((s) => !s)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
+              </button>
+            )}
             {isPalengke(task) && <PalengkeChip />}
           </div>
           {showNote && task.note && (
             <p className="mt-2 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
               "{task.note}"
             </p>
+          )}
+          {showPhoto && task.photo && (
+            <div className="mt-2 overflow-hidden rounded-xl">
+              <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
+            </div>
           )}
         </div>
       </div>

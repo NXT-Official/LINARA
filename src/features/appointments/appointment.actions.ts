@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { createAuthedClient } from "@/lib/supabase";
+import { isoToDisplayTime, isoToISODate } from "@/lib/time";
+
 export interface ParsedSchedule {
   appointment: {
     title: string;
@@ -161,4 +164,158 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
 
     const result = await response.json();
     return result as ParsedSchedule;
+  });
+
+// --------------------------------------------------------------------------
+// Real appointments + atomic prep-ticket writes -- closes KNOWN_GAPS.md gap
+// #7 (Closed Gap C14). create/reschedule/delete each call a SECURITY
+// DEFINER RPC (supabase/add-appointment-atomic-writes.sql) so the
+// appointment row and its prep `tickets` rows never end up out of sync --
+// replaces the old two-sequential-calls approach (local appointment state +
+// a separate tickets write) from Closed Gap C12.
+// --------------------------------------------------------------------------
+
+export interface AppointmentRow {
+  id: string;
+  title: string;
+  scheduled_time: string;
+  recipe_type: string | null;
+}
+
+/** Lists every appointment in the caller's household. appointments_isolation
+ * (architecture.md Section 8) is a plain household-scoped FOR ALL policy, so
+ * a direct authed select works -- no RPC needed for reads. */
+export const listAppointmentsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const { token } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("appointments")
+      .select("*")
+      .order("scheduled_time", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (rows ?? []) as AppointmentRow[];
+  });
+
+export interface PrepTicketDraft {
+  title: string;
+  notes?: string;
+  helperId: string;
+  scheduledStartIso: string;
+  leadMinutes: number;
+}
+
+/** Creates an appointment and every prep ticket in one transaction (see
+ * create_appointment_with_preps). Manager-only, enforced inside the RPC. */
+export const createAppointmentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      title: string;
+      scheduledTimeIso: string;
+      recipeType?: string;
+      preps: PrepTicketDraft[];
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, title, scheduledTimeIso, recipeType, preps } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: appointmentId, error } = await authedClient.rpc("create_appointment_with_preps", {
+      p_title: title,
+      p_scheduled_time: scheduledTimeIso,
+      p_recipe_type: recipeType ?? null,
+      p_preps: preps.map((p) => ({
+        title: p.title,
+        notes: p.notes ?? null,
+        helper_id: p.helperId,
+        scheduled_start: p.scheduledStartIso,
+        lead_minutes: p.leadMinutes,
+      })),
+    });
+
+    if (error || !appointmentId) {
+      throw new Error(error?.message || "Failed to create appointment");
+    }
+
+    return { id: appointmentId as string };
+  });
+
+/** Reschedules an appointment and every prep ticket tied to it in one
+ * transaction (see reschedule_appointment_with_preps). Fetches the current
+ * tickets first to compute each one's new scheduled_start (from its stored
+ * lead_minutes) and a reschedule_notice banner, but only for tickets whose
+ * time actually moved -- a title-only edit doesn't get one, and omitting the
+ * key (not passing null) for an unmoved ticket lets the RPC's COALESCE
+ * preserve whatever notice was already there. Manager-only, enforced inside
+ * the RPC. */
+export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; appointmentId: string; title: string; scheduledTimeIso: string }) =>
+      data,
+  )
+  .handler(async ({ data }) => {
+    const { token, appointmentId, title, scheduledTimeIso } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error: fetchError } = await authedClient
+      .from("tickets")
+      .select("id, scheduled_start, lead_minutes")
+      .eq("appointment_id", appointmentId);
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    const newApptTime = new Date(scheduledTimeIso).getTime();
+    const ticketUpdates = (rows ?? []).map((r) => {
+      const leadMs = (r.lead_minutes ?? 0) * 60_000;
+      const newScheduledStartIso = new Date(newApptTime - leadMs).toISOString();
+      const timeMoved = newScheduledStartIso !== r.scheduled_start;
+      const base = { id: r.id, scheduled_start: newScheduledStartIso };
+      return timeMoved
+        ? {
+            ...base,
+            reschedule_notice: {
+              oldTime: isoToDisplayTime(r.scheduled_start),
+              oldDate: isoToISODate(r.scheduled_start),
+              appointmentTitle: title,
+            },
+          }
+        : base;
+    });
+
+    const { error } = await authedClient.rpc("reschedule_appointment_with_preps", {
+      p_appointment_id: appointmentId,
+      p_title: title,
+      p_scheduled_time: scheduledTimeIso,
+      p_ticket_updates: ticketUpdates,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  });
+
+/** Deletes an appointment; ON DELETE CASCADE (see the migration) takes care
+ * of its prep tickets. Manager-only, enforced inside the RPC. */
+export const deleteAppointmentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; appointmentId: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, appointmentId } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient.rpc("delete_appointment_with_preps", {
+      p_appointment_id: appointmentId,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
   });

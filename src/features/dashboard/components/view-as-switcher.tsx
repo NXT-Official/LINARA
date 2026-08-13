@@ -1,7 +1,7 @@
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 
 import { adminTypeShort } from "@/features/people/people.constants";
-import type { Admin } from "@/features/people/people.types";
+import type { Admin, Helper } from "@/features/people/people.types";
 
 /**
  * The prototype's persona switcher. Which persona you are is the route — the
@@ -13,10 +13,14 @@ export function ViewAsSwitcher({
   admins,
   currentAdminId,
   onSelectAdmin,
+  helper,
 }: {
   admins: Admin[];
   currentAdminId: string;
   onSelectAdmin: (id: string) => void;
+  /** The real active helper to view as -- the first ACTIVE helper_profiles row
+   * (see KNOWN_GAPS.md gap C8), or null until one has claimed their account. */
+  helper: Helper | null;
 }) {
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
@@ -33,15 +37,19 @@ export function ViewAsSwitcher({
         if (inHelperView) navigate({ to: "/manager/pass" });
       },
     })),
-    {
-      key: "rosa",
-      label: "Rosa",
-      sub: "Helper",
-      active: inHelperView,
-      onSelect: () => {
-        if (!inHelperView) navigate({ to: "/helper/today" });
-      },
-    },
+    ...(helper
+      ? [
+          {
+            key: helper.id,
+            label: helper.short,
+            sub: "Helper",
+            active: inHelperView,
+            onSelect: () => {
+              if (!inHelperView) navigate({ to: "/helper/today" });
+            },
+          },
+        ]
+      : []),
   ];
 
   return (

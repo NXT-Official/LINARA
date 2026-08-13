@@ -8,7 +8,7 @@ import { ViewAsSwitcher } from "./view-as-switcher";
 
 /** Brand, persona switcher, demo clock, and (for on-site admins) the end-of-day toggle. */
 export function TopBar() {
-  const { session, board, clock, isOfflineSimulated, setOfflineSimulated } = useAppStores();
+  const { session, board, clock, isOfflineSimulated, setOfflineSimulated, helper } = useAppStores();
   const { currentAdminId, setCurrentAdminId, admins, adminType, status, logOut } = session;
   const navigate = useNavigate();
   const { boardClosed, setClosed: onBoardClosedChange } = board;
@@ -42,6 +42,7 @@ export function TopBar() {
             admins={admins}
             currentAdminId={currentAdminId}
             onSelectAdmin={setCurrentAdminId}
+            helper={helper}
           />
         </div>
 

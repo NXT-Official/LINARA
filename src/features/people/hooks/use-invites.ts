@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { cancelInviteFn, inviteHelperFn, listHelperProfilesFn } from "../people.actions";
+import {
+  cancelInviteFn,
+  inviteHelperFn,
+  listHelperProfilesFn,
+  updateHelperWageFn,
+} from "../people.actions";
 import { WEEKLY_REST_DAY_NAMES } from "../people.constants";
 import type { Invite, Station } from "../people.types";
 
@@ -18,6 +23,7 @@ export interface HelperProfileRow {
   break_start: string | null;
   break_end: string | null;
   monthly_rate: number;
+  payday_interval: "semi_monthly" | "monthly";
   phone: string | null;
   invite_code: string | null;
   status: "PENDING_CLAIM" | "ACTIVE" | "INACTIVE";
@@ -134,12 +140,23 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   const patch = (id: string, fn: (invite: Invite) => Invite) =>
     setInvites((prev) => prev.map((i) => (i.id === id ? fn(i) : i)));
 
+  /** A raise, or fixing a typo'd wage -- monthly_rate was previously
+   * write-once (only inviteHelperFn set it). Write-then-refresh, same
+   * pattern as useGroceryList's setBudget, since the new wage feeds several
+   * other real reads (Pay Dial, contribution split, minimum-wage banner). */
+  const updateWage = async (id: string, monthlyRate: number) => {
+    if (!token) return;
+    await updateHelperWageFn({ data: { token, helperId: id, monthlyRate } });
+    await refresh();
+  };
+
   return {
     invites,
     helperProfiles,
     refresh,
     create,
     cancel,
+    updateWage,
     findByCode: (code: string) =>
       invites.find(
         (i) => i.code.toLowerCase() === code.trim().toLowerCase() && i.status === "pending",

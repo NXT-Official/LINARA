@@ -7,6 +7,9 @@ export type Appointment = {
   title: string;
   date: string; // YYYY-MM-DD
   time: string; // "6:00 AM"
+  /** Which EVENT_TEMPLATES recipe this was created from, if any (e.g.
+   * "tmpl-airport") -- undefined for a manually-built or AI-scheduled one. */
+  recipeType?: string;
 };
 
 // Templates describe a station, not a specific helper -- who occupies that station

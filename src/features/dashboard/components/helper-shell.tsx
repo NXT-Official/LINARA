@@ -37,10 +37,10 @@ export function HelperShell({ children }: { children: ReactNode }) {
     <div className="space-y-5 pb-24">
       <section className="rounded-3xl bg-primary p-6 text-primary-foreground shadow-lift sm:p-8">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/70">
-          Ate Rosa's Station
+          {helper.name}&apos;s Station
         </div>
         <h1 className="mt-2 font-display text-[26px] leading-tight sm:text-3xl">
-          Magandang umaga, Ate Rosa.
+          Magandang umaga, {helper.name}.
         </h1>
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-2xl bg-primary-foreground/10 px-3 py-2.5">

@@ -76,13 +76,7 @@ export function GrocerySection() {
           </div>
         )}
         {toBuy.map((g) => (
-          <GroceryRow
-            key={g.id}
-            item={g}
-            onToggle={() => ctx.toggleBought(g)}
-            onRemove={() => ctx.remove(g)}
-            onCost={(c) => ctx.setCost(g, c)}
-          />
+          <GroceryRow key={g.id} item={g} onRemove={() => ctx.remove(g)} />
         ))}
       </div>
 
@@ -93,13 +87,7 @@ export function GrocerySection() {
           </div>
           <div className="space-y-1.5">
             {bought.map((g) => (
-              <GroceryRow
-                key={g.id}
-                item={g}
-                onToggle={() => ctx.toggleBought(g)}
-                onRemove={() => ctx.remove(g)}
-                onCost={(c) => ctx.setCost(g, c)}
-              />
+              <GroceryRow key={g.id} item={g} />
             ))}
           </div>
         </div>

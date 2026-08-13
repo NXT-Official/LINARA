@@ -19,6 +19,7 @@ export function PeoplePage() {
         canInvite={canInvite}
         onInvite={(data) => invites.create(data, authorName)}
         onCancelInvite={invites.cancel}
+        onUpdateWage={invites.updateWage}
       />
     </>
   );

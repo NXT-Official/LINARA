@@ -1,6 +1,6 @@
 import type { HelperProfileRow } from "./hooks/use-invites";
 import { WEEKLY_REST_DAY_NAMES } from "./people.constants";
-import type { Helper, Station } from "./people.types";
+import type { Helper, PaydayInterval, Station } from "./people.types";
 import { fmtHM12 } from "@/lib/time";
 
 // "Ate Marites" -> "AM". Used for invited helpers, who have no seeded initials yet.
@@ -29,6 +29,8 @@ export function toHelper(row: HelperProfileRow): Helper {
     station: row.station as Station,
     shift: `${fmtHM12(row.shift_start)} – ${fmtHM12(row.shift_end)}`,
     restDay: WEEKLY_REST_DAY_NAMES[row.weekly_rest_day] ?? "Sunday",
+    monthlyRate: Number(row.monthly_rate),
+    paydayInterval: row.payday_interval,
   };
 }
 
@@ -42,7 +44,63 @@ export const UNKNOWN_HELPER: Helper = {
   station: "House",
   shift: "",
   restDay: "",
+  monthlyRate: 0,
+  paydayInterval: "semi_monthly",
 };
+
+export interface StatutorySplit {
+  isUnder5k: boolean;
+  sssEmployer: number;
+  sssEmployee: number;
+  philhealthEmployer: number;
+  philhealthEmployee: number;
+  pagibigEmployer: number;
+  pagibigEmployee: number;
+  totalEmployer: number;
+  totalEmployee: number;
+}
+
+/**
+ * Batas Kasambahay's monthly statutory split. Single source of truth for
+ * both `LegalContributionSplitCard` (a not-yet-hired invite's preview,
+ * against `Invite.wagePHP`) and `SpendAndPayday`'s Pay Dial (a real active
+ * helper's accrued cutoff, against `Helper.monthlyRate` -- see
+ * KNOWN_GAPS.md Closed Gap C16), so the two can't drift the way the flat
+ * ₱240 hardcode once did against this exact formula. Ported from
+ * LINARA_MOBILE's `computeStatutorySplit`
+ * (components/features/pay/legal-contribution-split.tsx), which already
+ * proved this out for the mobile Pay tab.
+ */
+export function computeStatutorySplit(wagePHP: number): StatutorySplit {
+  const isUnder5k = wagePHP < 5000;
+
+  const sssEmployer = isUnder5k ? 400 : 350;
+  const sssEmployee = isUnder5k ? 0 : 150;
+
+  const philhealthEmployer = isUnder5k ? 150 : 125;
+  const philhealthEmployee = isUnder5k ? 0 : 125;
+
+  const pagibigEmployer = 100;
+  const pagibigEmployee = isUnder5k ? 0 : 100;
+
+  return {
+    isUnder5k,
+    sssEmployer,
+    sssEmployee,
+    philhealthEmployer,
+    philhealthEmployee,
+    pagibigEmployer,
+    pagibigEmployee,
+    totalEmployer: sssEmployer + philhealthEmployer + pagibigEmployer,
+    totalEmployee: sssEmployee + philhealthEmployee + pagibigEmployee,
+  };
+}
+
+/** Cutoffs per month for a payday interval -- semi_monthly splits base pay
+ * and statutory deductions in half per cutoff, monthly doesn't. */
+export function cutoffsPerMonth(interval: PaydayInterval): 1 | 2 {
+  return interval === "monthly" ? 1 : 2;
+}
 
 export const findHelper = (id: string, helpers: Helper[]): Helper =>
   helpers.find((h) => h.id === id) ?? UNKNOWN_HELPER;

@@ -3,6 +3,7 @@ import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
 import { ledgerEntryMinutes } from "@/features/ledger/ledger.utils";
+import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people.utils";
 
 export function SpendAndPayday() {
   const { spent, budget, remaining } = useGrocery();
@@ -18,10 +19,17 @@ export function SpendAndPayday() {
   const circumference = 2 * Math.PI * radius;
   const spendDashoffset = circumference - (spendPct / 100) * circumference;
 
-  // 2. Pay Dial Calculations
-  // SSS/PhilHealth contribution deduction (as displayed in helper Pay Record)
-  const baseSalary = 8000; // Half-month base pay
-  const governmentDeductions = 240; // Standard SSS/PhilHealth deduction
+  // 2. Pay Dial Calculations -- KNOWN_GAPS.md Closed Gap C16: real
+  // helper_profiles.monthly_rate/.payday_interval and the real Batas
+  // Kasambahay statutory split (computeStatutorySplit), same math as
+  // LINARA_MOBILE's DigitalPayslip, in place of the old hardcoded
+  // baseSalary = 8000 / governmentDeductions = 240.
+  const monthlyRate = helper?.monthlyRate ?? 0;
+  const cutoffs = cutoffsPerMonth(helper?.paydayInterval ?? "semi_monthly");
+  const isPerCutoff = cutoffs > 1;
+  const baseSalary = monthlyRate / cutoffs;
+  const statutorySplit = computeStatutorySplit(monthlyRate);
+  const governmentDeductions = statutorySplit.totalEmployee / cutoffs;
 
   // Sum up approved vales for current helper
   const approvedValesTotal = vales.vales
@@ -49,7 +57,7 @@ export function SpendAndPayday() {
   );
 
   // Pay Dial scale relative to baseline salary
-  const payPct = Math.min(100, Math.round((netPay / baseSalary) * 100));
+  const payPct = baseSalary > 0 ? Math.min(100, Math.round((netPay / baseSalary) * 100)) : 0;
   const payDashoffset = circumference - (payPct / 100) * circumference;
 
   return (
@@ -130,7 +138,7 @@ export function SpendAndPayday() {
             </h3>
             <p className="text-[11px] text-muted-foreground">
               Base: <span className="font-semibold text-foreground">{fmtPeso(baseSalary)}</span>{" "}
-              half-month
+              {isPerCutoff ? "half-month" : "monthly"}
             </p>
           </div>
 

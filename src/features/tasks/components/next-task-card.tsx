@@ -1,9 +1,8 @@
-import { Camera, Check, HelpCircle, Link2, Play } from "lucide-react";
+import { Check, HelpCircle, Link2, Play } from "lucide-react";
 import { useState } from "react";
 
-import { PalengkeInlineList } from "@/features/groceries/components/palengke-inline-list";
+import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 
-import { PHOTO_POOL } from "../task.constants";
 import type { Status, Task } from "../task.types";
 import { isPalengke, recurrenceLabel } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
@@ -18,18 +17,10 @@ export function NextTaskCard({
   onUpdate: (id: string, s: Status, photo?: string) => void;
   onAskBlock: () => void;
 }) {
-  const [addingPhoto, setAddingPhoto] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
 
   const start = () => onUpdate(task.id, "in_progress");
-  const done = () => {
-    setAddingPhoto(true);
-    setTimeout(() => {
-      const photo = PHOTO_POOL[Math.floor(Math.random() * PHOTO_POOL.length)];
-      onUpdate(task.id, "done", photo);
-      setAddingPhoto(false);
-    }, 900);
-  };
+  const done = () => onUpdate(task.id, "done");
 
   // Split task.note into individual steps (slides)
   const slides = task.note
@@ -103,7 +94,7 @@ export function NextTaskCard({
       )}
       {isPalengke(task) && (
         <div className="mt-4">
-          <PalengkeInlineList />
+          <PalengkeChip to="/helper/pantry" />
         </div>
       )}
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -117,18 +108,9 @@ export function NextTaskCard({
         ) : (
           <button
             onClick={done}
-            disabled={addingPhoto}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition hover:opacity-95 disabled:opacity-70"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition hover:opacity-95"
           >
-            {addingPhoto ? (
-              <>
-                <Camera className="h-4 w-4 animate-pulse" /> Attaching photo…
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4" /> Done · add photo
-              </>
-            )}
+            <Check className="h-4 w-4" /> Done
           </button>
         )}
         <button

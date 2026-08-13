@@ -2,6 +2,8 @@
 
 export type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
 
+export type PaydayInterval = "semi_monthly" | "monthly";
+
 export type Helper = {
   id: string;
   name: string;
@@ -10,6 +12,8 @@ export type Helper = {
   station: Station;
   shift: string;
   restDay: string;
+  monthlyRate: number;
+  paydayInterval: PaydayInterval;
 };
 
 export type AdminType = "primary" | "co" | "remote";

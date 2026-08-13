@@ -1,4 +1,4 @@
-import { AlertCircle, Info, Plus, Users } from "lucide-react";
+import { AlertCircle, Info, Pencil, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,6 +7,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { adminPermSummary, adminTypeLabel, REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Admin, Invite } from "../people.types";
 import { initialsOf } from "../people.utils";
+import { EditWageModal } from "./edit-wage-modal";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
@@ -19,6 +20,7 @@ export function PeopleSection({
   canInvite,
   onInvite,
   onCancelInvite,
+  onUpdateWage,
 }: {
   admins: Admin[];
   currentAdmin: Admin | null;
@@ -30,10 +32,12 @@ export function PeopleSection({
     },
   ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
+  onUpdateWage: (id: string, wagePHP: number) => Promise<void>;
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issued, setIssued] = useState<Invite | null>(null);
   const [showContributions, setShowContributions] = useState<Record<string, boolean>>({});
+  const [editingWage, setEditingWage] = useState<Invite | null>(null);
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
@@ -175,7 +179,7 @@ export function PeopleSection({
                     </div>
                   )}
 
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -188,6 +192,15 @@ export function PeopleSection({
                         ? "Hide contributions"
                         : "View contributions split"}
                     </button>
+                    {canInvite && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingWage(inv)}
+                        className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Pencil className="h-3 w-3" /> Edit wage
+                      </button>
+                    )}
                   </div>
 
                   {showContributions[inv.id] && (
@@ -247,6 +260,14 @@ export function PeopleSection({
         />
       )}
       {issued && <InviteCodeScreen invite={issued} onClose={() => setIssued(null)} />}
+      {editingWage && (
+        <EditWageModal
+          name={editingWage.claimedName || editingWage.name}
+          initialWagePHP={editingWage.wagePHP}
+          onClose={() => setEditingWage(null)}
+          onSubmit={(wagePHP) => onUpdateWage(editingWage.id, wagePHP)}
+        />
+      )}
     </div>
   );
 }

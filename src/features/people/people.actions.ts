@@ -649,3 +649,54 @@ export const updateHelperScheduleFn = createServerFn({ method: "POST" })
 
     return { helperId };
   });
+
+/**
+ * 12. Update Helper Wage Endpoint (Server Function)
+ * The only place `helper_profiles.monthly_rate` could be set was
+ * inviteHelperFn, at invite creation -- nothing let a manager adjust it
+ * afterward (a raise, or fixing a typo'd wage). Unlike
+ * updateHelperScheduleFn, this is explicitly manager-gated in the function
+ * body (same role-check pattern as updateHouseholdBudgetFn/decideValeFn):
+ * wage is more sensitive than a shift window, so it shouldn't rely on
+ * household-scoped RLS alone the way the schedule editor does.
+ */
+export const updateHelperWageFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; monthlyRate: number }) => data)
+  .handler(async ({ data }) => {
+    const { token, helperId, monthlyRate } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("user_type")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can change a helper's wage");
+    }
+
+    const { error } = await authedClient
+      .from("helper_profiles")
+      .update({ monthly_rate: monthlyRate })
+      .eq("id", helperId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { helperId, monthlyRate };
+  });

@@ -56,7 +56,7 @@ export function HelperTaskLists({
                           <Link2 className="h-2.5 w-2.5" /> {t.appointmentTitle}
                         </span>
                       )}
-                      {isPalengke(t) && <PalengkeChip compact />}
+                      {isPalengke(t) && <PalengkeChip compact to="/helper/pantry" />}
                     </div>
                   </div>
                   {t.status === "in_progress" && (

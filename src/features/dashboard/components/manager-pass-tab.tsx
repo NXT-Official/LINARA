@@ -186,7 +186,7 @@ export function ManagerPassTab({
             <span className="text-muted-foreground">to-do</span>
           </span>
           <span className="ml-auto">
-            <RosaStatusChip status={rosaStatus} />
+            <RosaStatusChip status={rosaStatus} helperName={helperName} />
           </span>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
