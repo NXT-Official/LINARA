@@ -1,5 +1,18 @@
 import type { Admin, AdminType, Helper, Station } from "./people.types";
 
+// Matches helper_profiles.weekly_rest_day's convention (0-6, Sunday = 0) --
+// see ARCHITECTURE.md Section 8. Shared by the invite form (name -> index)
+// and the roster read path (index -> name).
+export const WEEKLY_REST_DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
 // Seed household. No backend yet — this is the whole roster.
 export const HELPERS: Helper[] = [
   {

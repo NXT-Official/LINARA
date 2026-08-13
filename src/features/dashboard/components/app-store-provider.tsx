@@ -30,7 +30,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const helper = helperById(currentHelperId);
 
   const session = useSession();
-  const invites = useInvites();
+  const invites = useInvites({ token: session.token, ready: session.status === "authed" });
   const pantry = usePantry();
   const schedules = useSchedules();
   const vales = useVales();

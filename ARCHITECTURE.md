@@ -636,10 +636,37 @@ CREATE TABLE public.helper_profiles (
     daily_break_duration INTEGER NOT NULL DEFAULT 60, -- in minutes
     weekly_rest_day INTEGER NOT NULL CHECK (weekly_rest_day BETWEEN 0 AND 6), -- Sunday = 0, etc.
     invite_code VARCHAR(12) UNIQUE,
-    status TEXT NOT NULL CHECK (status IN ('PENDING_CLAIM', 'ACTIVE', 'INACTIVE')) DEFAULT 'PENDING_CLAIM'
+    status TEXT NOT NULL CHECK (status IN ('PENDING_CLAIM', 'ACTIVE', 'INACTIVE')) DEFAULT 'PENDING_CLAIM',
+    employment TEXT CHECK (employment IN ('live-in', 'live-out')),
+    phone TEXT,
+    created_by UUID REFERENCES public.user_profiles(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- 3. House SOP Library
+--
+-- KNOWN GAP -- tracked in KNOWN_GAPS.md entry 1 (found while building
+-- LINARA_MOBILE Story 7's SOP carousel, 2026-08-13): the AI SOP Creator
+-- edge function (generate-sop, Story 10)
+-- returns a structured HouseStandardSOP { title, description, station,
+-- steps: string[], toolsRequired: string[], safetyProtocol } -- see
+-- src/features/tasks/task.actions.ts -- but nothing in this codebase ever
+-- inserts that result into house_sops, and this table has no columns to
+-- hold steps/toolsRequired/safetyProtocol even if it did. Only
+-- title/description/standard_image_url exist below.
+--
+-- Impact: LINARA_MOBILE's Story 7 (Today tab SOP carousel) works around
+-- this by splitting `description` on newlines to fake discrete slides
+-- (see ../LINARA_MOBILE/lib/sop.ts). LINARA_MOBILE's Story 9 (SOP Taglish
+-- Simplifier) explicitly needs real "complex English steps" as input and
+-- will hit the same wall harder.
+--
+-- Closing this needs, on this (schema-owning) side: (1) a migration
+-- adding steps (TEXT[] or JSONB), tools_required (TEXT[]), and
+-- safety_protocol (TEXT) to house_sops; (2) wiring generate-sop's actual
+-- result into an INSERT somewhere in the manager-facing SOP creation flow,
+-- which doesn't exist yet either. Both mobile and web should be updated
+-- together per this repo's schema-owner rule in AGENTS.md.
 CREATE TABLE public.house_sops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
@@ -712,6 +739,24 @@ CREATE TABLE public.pantry_items (
 );
 
 -- 9. Grocery Checklist Items
+--
+-- NOTES -- tracked in KNOWN_GAPS.md entry 2 (found while building
+-- LINARA_MOBILE Story 8's Palengke checklist, 2026-08-13):
+-- 1. No receipt/photo column exists here, though plan.md 3.2 describes
+--    attaching "a picture of the paper receipt" to a Palengke Run. A
+--    receipt also naturally covers many grocery_items rows at once, not
+--    a single one, so a column on this table would be the wrong shape
+--    anyway. LINARA_MOBILE routes the captured receipt to the Palengke
+--    Run ticket's existing `tickets.photo_evidence_url` instead (see
+--    ../LINARA_MOBILE/services/api/tickets.ts's getActivePalengkeTicket).
+-- 2. No "allocated petty-cash budget" column exists here or anywhere else
+--    in this schema either, though plan.md 3.2 describes displaying one.
+--    Both this web app's useGroceryList (src/features/groceries/hooks/use-grocery-list.ts)
+--    and LINARA_MOBILE's usePalengkeBudget keep this figure in local
+--    component/device state (defaulting to ₱1500), not Postgres. If a
+--    manager-set allocation that syncs across devices is ever wanted,
+--    it needs a real column (e.g. on a per-run/household basis) and both
+--    apps updated together per this repo's schema-owner rule in AGENTS.md.
 CREATE TABLE public.grocery_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
@@ -865,22 +910,217 @@ CREATE POLICY ledger_entries_isolation ON public.ledger_entries
         )
     );
 
--- invite_flags also had RLS enabled with no policy, but only gets a SELECT
--- policy here (not FOR ALL). Its documented API — POST /api/helpers/claim/flag,
--- Section 7.1 above — is unauthenticated by design: a helper flags a term
--- mismatch before they've claimed an account, so there's no auth.uid() for
--- a household-scoped INSERT check to run against. That write path still
--- needs an explicit decision (a SECURITY DEFINER RPC the claim flow calls
--- instead of a direct table insert, or confirming the server function
--- already writes through a privileged connection) — not made here.
-CREATE POLICY invite_flags_isolation_select ON public.invite_flags
-    FOR SELECT USING (
+-- invite_flags is scoped the same way as quick_utos/vales/ledger_entries
+-- for authenticated, in-household callers (covers the manager-side wage
+-- compliance warning insert in inviteHelperFn, and lets managers read
+-- flags for their own household's invites). The anonymous flag path
+-- (a claimant flagging a term mismatch before they've claimed an
+-- account, POST /api/helpers/claim/flag — Section 7.1) has no auth.uid()
+-- for this policy to check against; it goes through the flag_invite()
+-- SECURITY DEFINER function below instead, which bypasses this policy
+-- entirely and re-validates the invite_code itself rather than trusting
+-- the caller.
+CREATE POLICY invite_flags_isolation ON public.invite_flags
+    FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.helper_profiles hp
             WHERE hp.id = invite_flags.invite_id
               AND hp.household_id = public.current_household_id()
         )
     );
+
+-- --------------------------------------------------
+-- CLAIM-FLOW SECURITY DEFINER FUNCTIONS
+-- --------------------------------------------------
+-- The invite/claim handshake (Section 7.1) has three steps that run
+-- before the caller has a usable household_id for RLS to check against:
+-- looking up an invite by code (anonymous), flagging a term mismatch
+-- (anonymous), and writing a brand-new helper's own first user_profiles
+-- row (authenticated, but current_household_id() has nothing to look up
+-- yet — see below). All three previously ran as direct table calls from
+-- people.actions.ts and all three always failed under RLS. Fixed by
+-- supabase/fix-claim-flow-rls-gaps.sql, discovered auditing the
+-- household recursion fix above. See that file for the full incident
+-- notes.
+--
+-- lookup_pending_invite / flag_invite: anonymous callers have no
+-- auth.uid(), so no household-scoped policy on helper_profiles or
+-- invite_flags can ever admit them (current_household_id() resolves to
+-- NULL for a NULL auth.uid(), and `household_id = NULL` is never true).
+-- These SECURITY DEFINER functions validate the invite_code internally
+-- instead of relying on a blanket anon-facing table policy.
+CREATE OR REPLACE FUNCTION public.lookup_pending_invite(p_invite_code TEXT)
+RETURNS TABLE (
+    id UUID,
+    household_id UUID,
+    name TEXT,
+    station TEXT,
+    monthly_rate NUMERIC,
+    shift_start TIME,
+    shift_end TIME,
+    weekly_rest_day INTEGER
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+    SELECT id, household_id, name, station, monthly_rate, shift_start, shift_end, weekly_rest_day
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+$$;
+
+GRANT EXECUTE ON FUNCTION public.lookup_pending_invite(TEXT) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.flag_invite(p_invite_code TEXT, p_field TEXT, p_note TEXT)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_invite_id UUID;
+    v_flag_id UUID;
+BEGIN
+    SELECT id INTO v_invite_id
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+
+    IF v_invite_id IS NULL THEN
+        RAISE EXCEPTION 'Invitation code not found';
+    END IF;
+
+    INSERT INTO public.invite_flags (invite_id, field, note)
+    VALUES (v_invite_id, p_field, p_note)
+    RETURNING id INTO v_flag_id;
+
+    RETURN v_flag_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.flag_invite(TEXT, TEXT, TEXT) TO anon, authenticated;
+
+-- claim_helper_invite: a newly authenticated helper inserting their own
+-- first user_profiles row hits a bootstrap problem, not an anonymity
+-- problem. Postgres uses a FOR ALL policy's USING clause as its WITH
+-- CHECK when no separate WITH CHECK is given, so this INSERT is checked
+-- against user_profiles_isolation's `household_id =
+-- current_household_id()` — but current_household_id() looks up the
+-- caller's *existing* user_profiles row, which doesn't exist until this
+-- INSERT completes. The check can never pass. This SECURITY DEFINER
+-- function creates the user_profiles row and activates the matching
+-- helper_profiles row atomically, bypassing that bootstrap deadlock.
+-- auth.uid() still reflects the calling JWT inside a SECURITY DEFINER
+-- function, so this can only ever act on the authenticated caller's own
+-- account.
+CREATE OR REPLACE FUNCTION public.claim_helper_invite(p_invite_code TEXT)
+RETURNS TABLE (helper_id UUID, household_id UUID, full_name TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_helper public.helper_profiles%ROWTYPE;
+    v_uid UUID := auth.uid();
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO v_helper
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+
+    IF v_helper.id IS NULL THEN
+        RAISE EXCEPTION 'Invitation code not found or already claimed';
+    END IF;
+
+    INSERT INTO public.user_profiles (id, household_id, full_name, user_type)
+    VALUES (v_uid, v_helper.household_id, v_helper.name, 'helper');
+
+    UPDATE public.helper_profiles
+    SET user_id = v_uid, status = 'ACTIVE'
+    WHERE id = v_helper.id;
+
+    RETURN QUERY SELECT v_helper.id, v_helper.household_id, v_helper.name;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_helper_invite(TEXT) TO authenticated;
+
+-- --------------------------------------------------
+-- HOUSEHOLDS TABLE + MANAGER BOOTSTRAP
+-- --------------------------------------------------
+-- household_id was, until now, a bare UUID repeated on every table with no
+-- owning row -- fine while nothing needed a household display name or a
+-- home for household-level settings, but the manager-facing invite/auth
+-- work below needs one. Confirmed additive and safe for LINARA_MOBILE,
+-- which only ever consumes household_id as an opaque UUID via the RPCs
+-- above, never queries a households table directly.
+CREATE TABLE public.households (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL DEFAULT 'My Household',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY households_isolation ON public.households
+    FOR SELECT USING (id = public.current_household_id());
+-- No INSERT/UPDATE/DELETE policy: the only writer is
+-- bootstrap_manager_household() below, SECURITY DEFINER, bypasses RLS.
+
+-- bootstrap_manager_household: the same current_household_id() chicken-
+-- and-egg deadlock that claim_helper_invite() solves for helpers applies
+-- identically to a brand-new manager's own first user_profiles row --
+-- inserting it is checked against household_id = current_household_id(),
+-- which needs an existing row to resolve, which doesn't exist yet. Same
+-- fix, same technique.
+CREATE OR REPLACE FUNCTION public.bootstrap_manager_household(
+    p_full_name TEXT,
+    p_household_name TEXT DEFAULT NULL
+)
+RETURNS TABLE (user_id UUID, household_id UUID, full_name TEXT, user_type TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_existing public.user_profiles%ROWTYPE;
+    v_household_id UUID;
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Idempotent: a page refresh mid-flow, or the confirm-email-then-log-in
+    -- flow calling this a second time at first login, returns the
+    -- already-bootstrapped profile instead of erroring on a duplicate insert.
+    SELECT * INTO v_existing FROM public.user_profiles WHERE id = v_uid;
+    IF v_existing.id IS NOT NULL THEN
+        RETURN QUERY SELECT v_existing.id, v_existing.household_id, v_existing.full_name, v_existing.user_type;
+        RETURN;
+    END IF;
+
+    INSERT INTO public.households (name)
+    VALUES (COALESCE(NULLIF(TRIM(p_household_name), ''), 'My Household'))
+    RETURNING id INTO v_household_id;
+
+    INSERT INTO public.user_profiles (id, household_id, full_name, user_type)
+    VALUES (v_uid, v_household_id, p_full_name, 'primary_manager');
+
+    RETURN QUERY SELECT v_uid, v_household_id, p_full_name, 'primary_manager'::TEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.bootstrap_manager_household(TEXT, TEXT) TO authenticated;
+-- Not granted to anon (unlike lookup_pending_invite/flag_invite above):
+-- this must only ever run for a caller who has already completed
+-- auth.signUp/signIn, exactly mirroring claim_helper_invite's pattern.
 ```
 
 ---

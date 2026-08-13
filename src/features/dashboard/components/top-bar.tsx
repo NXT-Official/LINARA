@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
-import { Sparkles, Wifi, WifiOff } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { LogOut, Sparkles, Wifi, WifiOff } from "lucide-react";
 
 import { useAppStores } from "../app-store-context";
 import { EndOfDayToggle } from "./end-of-day-toggle";
@@ -9,7 +9,8 @@ import { ViewAsSwitcher } from "./view-as-switcher";
 /** Brand, persona switcher, demo clock, and (for on-site admins) the end-of-day toggle. */
 export function TopBar() {
   const { session, board, clock, isOfflineSimulated, setOfflineSimulated } = useAppStores();
-  const { currentAdminId, setCurrentAdminId, admins, adminType } = session;
+  const { currentAdminId, setCurrentAdminId, admins, adminType, status, logOut } = session;
+  const navigate = useNavigate();
   const { boardClosed, setClosed: onBoardClosedChange } = board;
   const { nowTs, offsetMs: simOffsetMs, setOffsetMs: onSimOffsetChange } = clock;
   const canEndDay = adminType === "primary" || adminType === "co";
@@ -68,6 +69,20 @@ export function TopBar() {
           </button>
           <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} />
           {canEndDay && <EndOfDayToggle closed={boardClosed} onChange={onBoardClosedChange} />}
+          {status === "authed" && (
+            <button
+              onClick={() => {
+                logOut();
+                navigate({ to: "/login" });
+              }}
+              title="Log out"
+              aria-label="Log out"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-soft transition hover:bg-secondary/40 hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

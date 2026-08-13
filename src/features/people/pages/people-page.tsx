@@ -4,9 +4,8 @@ import { PeopleSection } from "../components/people-section";
 
 /** The household roster: admins, helpers, and pending invites. */
 export function PeoplePage() {
-  const { session, invites, schedules } = useAppStores();
-  const { admins, currentAdmin, adminType, updateAdminType } = session;
-  const canEditAdmins = adminType === "primary";
+  const { session, invites } = useAppStores();
+  const { admins, currentAdmin, adminType } = session;
   const canInvite = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
 
@@ -16,9 +15,6 @@ export function PeoplePage() {
       <PeopleSection
         admins={admins}
         currentAdmin={currentAdmin}
-        canEditAdmins={canEditAdmins}
-        onUpdateAdminType={updateAdminType}
-        schedules={schedules.byHelper}
         invites={invites.invites}
         canInvite={canInvite}
         onInvite={(data) => invites.create(data, authorName)}
