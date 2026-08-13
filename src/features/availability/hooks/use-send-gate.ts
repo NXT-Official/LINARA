@@ -32,12 +32,16 @@ export function useSendGate({
   status,
   authorName,
   isRemote,
+  currentHelperId,
   onSendUtos,
   onAddTask,
 }: {
   status: RosaStatus;
   authorName: string;
   isRemote: boolean;
+  /** Real helper_profiles id of the one helper with a first-class device -- null
+   * until a real helper has claimed their account (see app-store-provider.tsx). */
+  currentHelperId: string | null;
   onSendUtos: (content: string, flags?: SendFlags) => void;
   onAddTask: (task: TaskDraft, flags?: AddTaskFlags) => void;
 }): SendGate {
@@ -52,7 +56,7 @@ export function useSendGate({
       const result = await routeUtosFn({
         data: {
           prompt: content,
-          helperId: "rosa",
+          helperId: currentHelperId ?? "",
           helperStatus: status.status,
           senderType: "manager",
         },
@@ -91,7 +95,7 @@ export function useSendGate({
       onAddTask(stamp(t), { suggested: true });
       return;
     }
-    if (t.helperId === "rosa" && rosaOff) setIntent({ kind: "task", task: stamp(t) });
+    if (t.helperId === currentHelperId && rosaOff) setIntent({ kind: "task", task: stamp(t) });
     else onAddTask(stamp(t), {});
   };
 

@@ -1,5 +1,120 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { createAuthedClient } from "@/lib/supabase";
+
+export interface QuickUtosRow {
+  id: string;
+  sender_name: string;
+  recipient_id: string;
+  content: string;
+  ack_state: "sent" | "seen" | "done";
+  after_hours: boolean;
+  emergency: boolean;
+  waiting: boolean;
+  created_at: string;
+}
+
+/**
+ * Lists the recipient's quick utos. Scoped by `quick_utos_isolation`'s join
+ * through helper_profiles (KNOWN_GAPS.md gap #6) -- explicitly filtered to
+ * one recipient_id too, since a household can have more than one helper and
+ * this app only ever tracks the current device's helper.
+ */
+export const listUtosFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, helperId } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("quick_utos")
+      .select("*")
+      .eq("recipient_id", helperId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (rows ?? []) as QuickUtosRow[];
+  });
+
+/** Sends a quick utos to a helper. */
+export const insertUtoFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      helperId: string;
+      senderName: string;
+      content: string;
+      afterHours?: boolean;
+      emergency?: boolean;
+      waiting?: boolean;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, helperId, senderName, content, afterHours, emergency, waiting } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: row, error } = await authedClient
+      .from("quick_utos")
+      .insert({
+        recipient_id: helperId,
+        sender_name: senderName,
+        content,
+        after_hours: !!afterHours,
+        emergency: !!emergency,
+        waiting: !!waiting,
+      })
+      .select("id")
+      .single();
+
+    if (error || !row) {
+      throw new Error(error?.message || "Failed to send quick utos");
+    }
+
+    return { id: row.id as string };
+  });
+
+/** Acknowledges a quick utos (helper taps "Seen" / "Done"). */
+export const ackUtoFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; utoId: string; state: "seen" | "done" }) => data)
+  .handler(async ({ data }) => {
+    const { token, utoId, state } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("quick_utos")
+      .update({ ack_state: state })
+      .eq("id", utoId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { utoId };
+  });
+
+/**
+ * Wipes a helper's quick utos for a new day. `QuickUtos` is documented as
+ * "deliberately ephemeral" (utos.types.ts) -- this is a real delete, not a
+ * soft-clear, matching that intent.
+ */
+export const clearUtosForHelperFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, helperId } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient.from("quick_utos").delete().eq("recipient_id", helperId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { helperId };
+  });
+
 export interface ParsedUtos {
   classification: "ROUTINE" | "TASK" | "QUICK_UTO" | "PRIVATE_NOTE";
   contentCleaned: string;

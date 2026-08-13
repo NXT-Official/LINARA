@@ -74,42 +74,6 @@ the bottom.
   changes instead of only logging them, and reconcile the field mismatches
   above (routines/recurrence have no table at all yet either).
 
-### 5. Ledger (`ledger_entries`) and Vales (`vales`) are never actually written to
-
-- **Found:** 2026-08-13, auditing `LINARA` Story 15 against the live schema.
-- **What's missing:** `LINARA/src/features/ledger/hooks/use-ledger.ts` and
-  `use-vales.ts` are both pure local `useState`; nothing ever inserts into
-  `ledger_entries` or `vales` despite both tables having RLS policies
-  defined for exactly this purpose (`ledger_entries_isolation`,
-  `vales_isolation` in `LINARA/architecture.md`).
-- **Blocks:** Nothing now — Closed Gap C8 (2026-08-13) resolved the identity
-  problem this entry originally flagged: `useLedger`/`useVales` now receive a
-  real `currentHelperId` (a real `helper_profiles` UUID, the first ACTIVE
-  helper) instead of the hardcoded mock string `"rosa"`. What's left is
-  purely the insert wiring itself, described below.
-- **Current workaround:** None — fully local, resets on page reload.
-- **To close:** Wire `record`/`request`/`decide` to real inserts/updates
-  against `ledger_entries`/`vales`.
-
-### 6. Quick Utos (`quick_utos`) is never actually written to (listener column-name bug fixed 2026-08-13)
-
-- **Found:** 2026-08-13, auditing `LINARA` Stories 11/13 against the live schema.
-- **What's missing:** The AI classifier (`route-utos` edge function /
-  `routeUtosFn`) is real and correctly wired — but its classified result
-  only ever calls `LINARA/src/features/utos/hooks/use-utos.ts`'s local
-  `send()`, never an insert into `quick_utos`.
-- **Blocks:** Nothing now — no writer exists yet, but the `currentHelperId`
-  identity problem this entry flagged is resolved as of Closed Gap C8
-  (2026-08-13): `app-store-provider.tsx`'s `currentHelperId` is now a real
-  `helper_profiles` UUID (the first ACTIVE helper), not the hardcoded mock
-  string `"rosa"`, so the listener's `recipient_id === currentHelperId`
-  comparison can now genuinely match a real `quick_utos` row once something
-  inserts one.
-- **Current workaround:** `quick-utos-channel`'s broadcast (not
-  `postgres_changes`) path handles tab-to-tab sync today.
-- **To close:** Wire `use-send-gate.ts`'s post-classification step to a
-  real `quick_utos` insert.
-
 ### 7. Appointments (`appointments`) is never actually written to, and prep-task creation has no server-side design yet
 
 - **Found:** 2026-08-13, auditing `LINARA` Story 8/13 against the live schema.
@@ -379,6 +343,145 @@ re-investigates something already resolved.
   household with more than one ACTIVE helper will have every helper-scoped
   feature (Ledger, Availability, Quick Utos, the Worker's Station) act on
   whichever helper happens to be first, not a specific signed-in one.
+
+### C9. Vales (`vales`) was never actually written to (Vales half of former gap #5)
+
+- **Found/Fixed:** 2026-08-13, same session as C8. Unlike `ledger_entries`
+  (see C10), `ValeRequest { id, helperId, amount, reason, status }` maps
+  onto the `vales` table almost exactly — no mapping decisions needed, so
+  this half was safe to close immediately.
+- **Fixed by:** New `LINARA/src/features/ledger/ledger.actions.ts` —
+  `listValesFn` (authed select, scoped by `vales_isolation`'s join through
+  `helper_profiles`, same pattern as `listHelperProfilesFn`), `insertValeFn`
+  (authed insert; no extra role check beyond what RLS already enforces,
+  since either a manager or a claimed helper's own token may legitimately
+  request one), and `decideValeFn` (authed update, gated to
+  `primary_manager`/`co_manager` — same guard pattern as `inviteHelperFn`,
+  since approving/declining is a manager-only action). `use-vales.ts` now
+  fetches on mount/token-change and refetches after every write, matching
+  `useSchedules`' "write, then pull the fresh row back" convention. Errors
+  are caught and toasted inside the hook itself rather than left to
+  callers, since both `ValeRequestModal` and the approve/decline buttons in
+  `NeedsYou` call `request`/`decide` as plain fire-and-forget handlers with
+  no `await` — matching the UX they already had as pure local state.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. Not yet verified against a live signed-in
+  session end-to-end.
+- **Known residual limitation, not closed by this fix:** This web app has
+  no functioning helper-auth session — `useSession` (`use-session.ts`) is
+  manager-only, and `claim-account-flow.tsx` writes a `linara_helper_token`
+  to `localStorage` on claim that nothing anywhere reads back (a
+  pre-existing dead code path, not introduced by this fix). So
+  `vales.request()`, even though it's rendered on the vestigial helper-facing
+  `PayRecordPage` (see AGENTS.md — the real Worker's Station lives in
+  `LINARA_MOBILE`), always authenticates with whatever session token
+  `AppStoreProvider` carries — today, always a manager's. RLS permits this
+  (household-scoped, not caller-identity-scoped), but it means a request
+  submitted from this web app is never really "the helper's own" the way a
+  request from `LINARA_MOBILE` (which owns real helper auth) would be.
+
+### C10. Ledger (`ledger_entries`) was never actually written to (Ledger half of former gap #5)
+
+- **Found:** 2026-08-13, while scoping the Ledger half of gap #5 after C8/C9
+  closed the identity problem and Vales respectively. Unlike Vales, the
+  client `LedgerEntry` type and the `ledger_entries` table had three real
+  mismatches, scoped with the user before writing any code:
+  1. `AfterHoursLedger` displays each entry's `title` and a `kind === "utos"`
+     badge, but the table had no columns for either — only
+     `associated_ticket_id`, useless until gap #4 (`tickets`) is real.
+  2. Client `reason` (5 values) vs. table `source_type` (4 values, CHECK
+     constraint) — `available`/`override` had no matching value.
+  3. Client `resolution` (always set) vs. table `resolved: boolean` +
+     nullable `resolution_type` — "resolved" has no defined product meaning
+     anywhere in `plan.md`/`architecture.md`.
+- **Decisions (user-confirmed):** (1) add the missing columns rather than
+  wait on gap #4 or drop the fields — a ledger entry is a historical record,
+  so denormalizing `title`/`kind` onto the row is arguably the *correct*
+  design regardless of tickets, not just a stopgap: a live join to a
+  (someday-editable) ticket title would let history drift, where a snapshot
+  won't. `station`/`appointment_title` were **not** added — nothing in
+  `AfterHoursLedger` actually renders them today, so there was nothing to
+  denormalize yet. (2) `available`/`override` both collapse to
+  `source_type = "overtime"`. (3) "resolved" is treated as a no-op:
+  every insert sets `resolved = true` immediately, matching the UI's total
+  lack of an unresolved state.
+- **Fixed by:** `LINARA/supabase/add-ledger-entry-context-columns.sql` adds
+  `title`, `kind`, and `adjust_minutes` (duration_minutes is read as the
+  auto-computed base; adjust_minutes holds a manager's manual delta on top,
+  matching `LedgerEntry.autoMinutes`/`.adjustMinutes`). `ledger.actions.ts`
+  gained `listLedgerEntriesFn`/`insertLedgerEntryFn`/`updateLedgerEntryFn`
+  plus the reason↔source_type and resolution↔resolution_type mapping
+  tables (the reverse `source_type -> reason` mapping is lossy for
+  `"overtime"` — both `available` and `override` collapse to it, so a
+  reloaded entry can't tell them apart again; `"override"` was picked as
+  the reverse value since both already render the same generic "After
+  shift" badge via `reasonLabel()`). `doneTsIso` is passed explicitly on
+  insert rather than left to the DB's `NOW()` default, since the app clock
+  can run on a simulated offset (`use-sim-clock.ts`) that may not match the
+  server's real time; `startTs` isn't stored at all — it's reconstructed on
+  read as `created_at - duration_minutes` (exact, since duration_minutes is
+  literally that difference at insert time). `use-ledger.ts` now fetches on
+  mount/token-change and refetches after `record()`/`updateEntry()`, same
+  "write then refresh" pattern as C9; errors are caught and toasted inside
+  the hook for the same fire-and-forget-caller reason as C9.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. The migration has been applied to the live
+  Supabase project (confirmed 2026-08-13). Not yet verified against a live
+  signed-in session end-to-end.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9 — `record()` always writes as whatever session token
+  `AppStoreProvider` carries (today, always a manager's), not a genuinely
+  separate helper identity. And per the decision above, a reloaded entry's
+  `reason` can no longer distinguish "available" from "override" — both
+  read back as `override`.
+
+### C11. Quick Utos (`quick_utos`) was never actually written to (former gap #6)
+
+- **Found:** 2026-08-13, auditing `LINARA` Stories 11/13 against the live
+  schema. The AI classifier (`route-utos` edge function / `routeUtosFn`) was
+  real and correctly wired, but its classified result only ever called
+  `use-utos.ts`'s local `send()`, never an insert into `quick_utos`. The
+  `currentHelperId` identity blocker this entry originally flagged was
+  resolved by C8; `QuickUtos { id, content, from, to, timestamp, ackState,
+  afterHours, emergency, waiting }` turned out to map onto the table almost
+  exactly (same as Vales, not like Ledger) — no mapping decisions needed.
+- **Also found while closing this:** `use-send-gate.ts` — the layer between
+  the send UI and `useUtos.send()` — had two more hardcoded `"rosa"`
+  literals (`routeUtosFn`'s `helperId` param, and the off-shift task-gating
+  check) that C8's file-by-file rewire missed, since that earlier pass
+  grepped for `HELPERS`/`helperById` and this file used neither — it just
+  hardcoded the literal string inline. Fixed alongside this gap: `useSendGate`
+  now takes `currentHelperId: string | null` from its callers
+  (`manager-schedule-page.tsx`/`manager-pass-page.tsx`, both already have
+  `helper?.id` from C8's context additions).
+- **Fixed by:** `utos.actions.ts` gained `listUtosFn`/`insertUtoFn`/
+  `ackUtoFn`/`clearUtosForHelperFn`. `clearUtosForHelperFn` is a real
+  `DELETE`, not a soft-clear — `utos.types.ts`'s own doc comment already
+  said quick utos are "deliberately ephemeral... `clearForNewDay` genuinely
+  deletes them," so this matches existing documented intent rather than
+  introducing new behavior. `use-utos.ts` now fetches on mount/token-change
+  and refetches after every write, same pattern as C9/C10 — **but this one
+  also removes** the old broadcast-based `onAction`/`receiveAction`
+  plumbing entirely, rather than layering real writes underneath it. Reason:
+  once `send()` genuinely inserts a row, the sender's own optimistic local
+  copy (a fake `u${Date.now()}` id) and the row Postgres Realtime delivers
+  back (the real id) are not recognizable as the same entry — they'd both
+  render, showing every sent utos twice on the sending device. Removing the
+  broadcast path and relying solely on `write → refetch` (for the sender)
+  plus a broadened Realtime listener (for everyone else) avoids this by
+  construction. The `quick-utos-channel` listener in
+  `app-store-provider.tsx` changed from `event: "INSERT"` (hand-reconstructing
+  a `QuickUtos` from the raw payload, and comparing `recipient_id` client-side)
+  to `event: "*"` with a server-side `recipient_id=eq.${currentHelperId}`
+  filter that just triggers `utos.refresh()` — simpler, and now also catches
+  `ack()`/`clearForNewDay()` changes, which the old INSERT-only listener
+  never covered regardless of broadcast.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean. Not yet verified against a live signed-in
+  session end-to-end.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9/C10 — sends/acks always authenticate as whatever session
+  token `AppStoreProvider` carries (today, always a manager's).
 
 ---
 

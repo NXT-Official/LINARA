@@ -691,12 +691,25 @@ CREATE TABLE public.appointments (
 );
 
 -- 6. After-Hours Ledger
+--
+-- title/kind/adjust_minutes (added by
+-- supabase/add-ledger-entry-context-columns.sql) denormalize what the
+-- After-Hours Ledger UI displays per entry onto the row itself, rather than
+-- joining through associated_ticket_id -- a ledger entry is a historical
+-- record and should keep showing the title as it was worked, not drift if a
+-- ticket is edited later (and tickets isn't written to at all yet, gap #4).
+-- duration_minutes holds the auto-computed base duration; adjust_minutes
+-- holds a manager's manual adjustment on top of it, matching the client
+-- model (see src/features/ledger/hooks/use-ledger.ts).
 CREATE TABLE public.ledger_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
     source_type TEXT NOT NULL CHECK (source_type IN ('overtime', 'rest_break_work', 'rest_day_work', 'emergency')),
     associated_ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    title TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'task' CHECK (kind IN ('task', 'utos')),
     duration_minutes INTEGER NOT NULL,
+    adjust_minutes INTEGER NOT NULL DEFAULT 0,
     resolved BOOLEAN NOT NULL DEFAULT FALSE,
     resolution_type TEXT CHECK (resolution_type IN ('rest_owed', 'premium_pay')),
     resolved_at TIMESTAMP WITH TIME ZONE,

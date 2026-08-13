@@ -39,6 +39,7 @@ export function ManagerSchedulePage() {
     status: rosaStatus,
     authorName,
     isRemote,
+    currentHelperId: helper?.id ?? null,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });

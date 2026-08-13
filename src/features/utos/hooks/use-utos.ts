@@ -1,5 +1,13 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
+import {
+  ackUtoFn,
+  clearUtosForHelperFn,
+  insertUtoFn,
+  listUtosFn,
+  type QuickUtosRow,
+} from "../utos.actions";
 import type { QuickUtos } from "../utos.types";
 
 export type SendFlags = {
@@ -11,94 +19,118 @@ export type SendFlags = {
 
 export type UtosStore = ReturnType<typeof useUtos>;
 
+function toQuickUtos(row: QuickUtosRow, toHelperName: string): QuickUtos {
+  return {
+    id: row.id,
+    content: row.content,
+    from: row.sender_name,
+    to: toHelperName,
+    timestamp: new Date(row.created_at).getTime(),
+    ackState: row.ack_state,
+    afterHours: row.after_hours,
+    emergency: row.emergency,
+    waiting: row.waiting,
+  };
+}
+
 /**
  * The day's quick utos.
  *
  * Deliberately ephemeral: `clearForNewDay` genuinely deletes them — there is no
- * history array and no log, only a note that the list was wiped.
+ * history array and no log, only a note that the list was wiped. Real
+ * Supabase-backed as of KNOWN_GAPS.md gap #6 -- send()/ack()/clearForNewDay()
+ * write through to `quick_utos` and refetch, same "write then refresh"
+ * pattern as useVales/useLedger. Cross-tab/device sync now rides Postgres
+ * Realtime (see app-store-provider.tsx's quick-utos-channel), which is why
+ * the old broadcast-based `onAction`/`receiveAction` plumbing this hook used
+ * to have is gone -- keeping both would risk the same utos appearing twice
+ * (the sender's own optimistic local copy plus the realtime-delivered row,
+ * under two different ids).
  */
 export function useUtos({
   toHelperId,
   toHelperName,
+  token,
+  ready,
   onDone,
-  onAction,
 }: {
   /** Real helper_profiles id of the recipient -- null until a real helper has
    * claimed their account (see app-store-provider.tsx). */
   toHelperId: string | null;
   toHelperName: string;
+  token: string | null;
+  ready: boolean;
   /** Fired when the helper taps Done — the app decides if it is owed back. */
   onDone: (utos: QuickUtos) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAction?: (action: { type: string; payload: any }) => void;
 }) {
   const [list, setList] = useState<QuickUtos[]>([]);
   const [wipedToday, setWipedToday] = useState(false);
 
+  const refresh = useCallback(async () => {
+    if (!token || !toHelperId) return;
+    const rows = await listUtosFn({ data: { token, helperId: toHelperId } });
+    setList(rows.map((row) => toQuickUtos(row, toHelperName)));
+  }, [token, toHelperId, toHelperName]);
+
+  useEffect(() => {
+    if (!ready || !token || !toHelperId) return;
+    refresh().catch((err) => {
+      console.error("[useUtos] Failed to load quick utos:", err);
+    });
+  }, [ready, token, toHelperId, refresh]);
+
   const send = (content: string, flags: SendFlags = {}) => {
-    if (!toHelperId) return;
-    const generatedId = `u${Date.now()}`;
-    const newUto: QuickUtos = {
-      id: generatedId,
-      content,
-      from: flags.from ?? "Manager",
-      to: toHelperName,
-      timestamp: Date.now(),
-      ackState: "sent",
-      afterHours: flags.afterHours,
-      emergency: flags.emergency,
-      waiting: flags.waiting,
-    };
-    setList((prev) => [...prev, newUto]);
-    setWipedToday(false);
-    onAction?.({ type: "SEND_UTO", payload: { uto: newUto } });
+    if (!token || !toHelperId) return;
+    insertUtoFn({
+      data: {
+        token,
+        helperId: toHelperId,
+        senderName: flags.from ?? "Manager",
+        content,
+        afterHours: flags.afterHours,
+        emergency: flags.emergency,
+        waiting: flags.waiting,
+      },
+    })
+      .then(() => {
+        setWipedToday(false);
+        return refresh();
+      })
+      .catch((err) => {
+        console.error("[useUtos] Failed to send quick utos:", err);
+        toast.error("Hindi na-send ang utos.");
+      });
   };
 
   const ack = (id: string, state: "seen" | "done") => {
-    setList((prev) => {
-      const u = prev.find((x) => x.id === id);
-      if (u && state === "done") onDone(u);
-      return prev.map((x) => (x.id === id ? { ...x, ackState: state } : x));
-    });
-    onAction?.({ type: "ACK_UTO", payload: { id, state } });
+    if (!token) return;
+    const current = list.find((u) => u.id === id);
+    ackUtoFn({ data: { token, utoId: id, state } })
+      .then(() => {
+        if (current && state === "done" && current.ackState !== "done") {
+          onDone({ ...current, ackState: state });
+        }
+        return refresh();
+      })
+      .catch((err) => {
+        console.error("[useUtos] Failed to update quick utos:", err);
+        toast.error("Hindi na-save ang pag-update ng utos.");
+      });
   };
 
   const clearForNewDay = () => {
+    if (!token || !toHelperId) return;
     const wasWiped = list.length > 0;
-    setWipedToday(wasWiped);
-    setList([]);
-    onAction?.({ type: "CLEAR_UTOS", payload: { wasWiped } });
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const receiveAction = (action: { type: string; payload: any }) => {
-    switch (action.type) {
-      case "SEND_UTO": {
-        const { uto } = action.payload;
-        setList((prev) => {
-          if (prev.some((u) => u.id === uto.id)) return prev;
-          return [...prev, uto];
-        });
-        setWipedToday(false);
-        break;
-      }
-      case "ACK_UTO": {
-        const { id, state } = action.payload;
-        setList((prev) => {
-          const u = prev.find((x) => x.id === id);
-          if (u && state === "done" && u.ackState !== "done") onDone(u);
-          return prev.map((x) => (x.id === id ? { ...x, ackState: state } : x));
-        });
-        break;
-      }
-      case "CLEAR_UTOS": {
-        const { wasWiped } = action.payload;
+    clearUtosForHelperFn({ data: { token, helperId: toHelperId } })
+      .then(() => {
         setWipedToday(wasWiped);
-        setList([]);
-        break;
-      }
-    }
+        return refresh();
+      })
+      .catch((err) => {
+        console.error("[useUtos] Failed to clear quick utos:", err);
+        toast.error("Hindi na-clear ang mga utos.");
+      });
   };
 
-  return { list, wipedToday, send, ack, clearForNewDay, receiveAction };
+  return { list, wipedToday, send, ack, clearForNewDay, refresh };
 }

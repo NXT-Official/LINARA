@@ -48,10 +48,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     token: session.token,
     refresh: invites.refresh,
   });
-  const vales = useVales();
+  const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const clock = useSimClock();
   const availability = useAvailability({ nowTs: clock.nowTs, schedules, currentHelperId });
-  const ledger = useLedger({ rosaStatus: availability.status, schedules, currentHelperId });
+  const ledger = useLedger({
+    rosaStatus: availability.status,
+    schedules,
+    currentHelperId,
+    token: session.token,
+    ready: session.status === "authed",
+  });
 
   // Physical and simulated online/offline tracking
   const [isPhysicalOnline, setIsPhysicalOnline] = useState(() =>
@@ -61,13 +67,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const isOnline = isPhysicalOnline && !isOfflineSimulated;
 
-  // A ref to keep track of whether we are currently receiving/applying an action
-  // to prevent re-broadcasting it.
+  // A ref to keep track of whether we are currently receiving/applying a board
+  // action to prevent re-broadcasting it. Quick utos has no equivalent ref --
+  // it has no broadcast path to echo-suppress, see useUtos's doc comment.
   const isSyncingBoardRef = useRef(false);
-  const isSyncingUtosRef = useRef(false);
 
   const householdBoardChannelRef = useRef<RealtimeChannel | null>(null);
-  const quickUtosChannelRef = useRef<RealtimeChannel | null>(null);
 
   const [_boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
@@ -92,6 +97,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const utos = useUtos({
     toHelperId: currentHelperId,
     toHelperName: helper?.name ?? "your helper",
+    token: session.token,
+    ready: session.status === "authed",
     // A quick utos finished off-shift is worth a token five minutes.
     onDone: (u) => {
       if (!currentHelperId) return;
@@ -104,14 +111,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         doneTs: clock.nowTs,
         autoMinutes: 5,
         emergency: !!u.emergency,
-      });
-    },
-    onAction: (action) => {
-      if (isSyncingUtosRef.current) return;
-      quickUtosChannelRef.current?.send({
-        type: "broadcast",
-        event: "utos-action",
-        payload: action,
       });
     },
   });
@@ -171,77 +170,49 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         }
       });
 
-    // 2. quick-utos-channel
+    // 2. quick-utos-channel -- unlike the board channel, this listener is the
+    // *only* sync path for quick utos (no broadcast fallback, see useUtos's
+    // doc comment), so it covers every change (INSERT/UPDATE/DELETE) and
+    // just triggers a refetch rather than hand-reconstructing the row --
+    // simpler, and avoids the sender's own optimistic copy and the
+    // realtime-delivered copy ever coexisting under different ids.
     const utosChannel = supabaseClient.channel("quick-utos-channel");
-    quickUtosChannelRef.current = utosChannel;
 
-    utosChannel
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "quick_utos",
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (payload: any) => {
-          console.log("[Realtime] Received quick_utos table postgres change:", payload);
-          // quick_utos has no helper_id column -- the FK to helper_profiles
-          // is recipient_id (see ARCHITECTURE.md's quick_utos definition).
-          if (payload.new && payload.new.recipient_id === currentHelperId) {
-            isSyncingUtosRef.current = true;
-            try {
-              utosRef.current.receiveAction({
-                type: "SEND_UTO",
-                payload: {
-                  uto: {
-                    id: payload.new.id,
-                    content: payload.new.content,
-                    from: payload.new.from_name || "Manager",
-                    to: helper?.name ?? "your helper",
-                    timestamp: new Date(payload.new.created_at).getTime(),
-                    ackState: payload.new.ack_state || "sent",
-                    afterHours: payload.new.after_hours,
-                    emergency: payload.new.emergency,
-                    waiting: payload.new.waiting,
-                  },
-                },
-              });
-            } catch (err) {
-              console.error("[Realtime] Failed to sync postgres quick_utos change:", err);
-            } finally {
-              isSyncingUtosRef.current = false;
-            }
+    if (currentHelperId) {
+      utosChannel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "quick_utos",
+            filter: `recipient_id=eq.${currentHelperId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            console.log("[Realtime] Received quick_utos table postgres change:", payload);
+            utosRef.current.refresh().catch((err) => {
+              console.error("[Realtime] Failed to refresh quick utos:", err);
+            });
+          },
+        )
+        .subscribe((status, err) => {
+          console.log(`[Realtime] quick-utos-channel status: ${status}`, err || "");
+          setUtosChannelStatus(status);
+          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
+            setTimeout(() => {
+              console.log("[Realtime] Attempting to reconnect quick-utos-channel...");
+              utosChannel.subscribe();
+            }, 5000);
           }
-        },
-      )
-      .on("broadcast", { event: "utos-action" }, ({ payload }) => {
-        console.log("[Realtime] Received utos broadcast action:", payload);
-        isSyncingUtosRef.current = true;
-        try {
-          utosRef.current.receiveAction(payload);
-        } catch (err) {
-          console.error("[Realtime] Failed to sync utos action:", err);
-        } finally {
-          isSyncingUtosRef.current = false;
-        }
-      })
-      .subscribe((status, err) => {
-        console.log(`[Realtime] quick-utos-channel status: ${status}`, err || "");
-        setUtosChannelStatus(status);
-        if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-          setTimeout(() => {
-            console.log("[Realtime] Attempting to reconnect quick-utos-channel...");
-            utosChannel.subscribe();
-          }, 5000);
-        }
-      });
+        });
+    }
 
     return () => {
       supabaseClient.removeChannel(boardChannel);
       supabaseClient.removeChannel(utosChannel);
     };
-  }, [currentHelperId, helper?.name, session.householdId]);
+  }, [currentHelperId, session.householdId]);
 
   // Background Sync Daemon
   const syncOfflineQueue = async () => {
