@@ -31,6 +31,7 @@ export function toHelper(row: HelperProfileRow): Helper {
     restDay: WEEKLY_REST_DAY_NAMES[row.weekly_rest_day] ?? "Sunday",
     monthlyRate: Number(row.monthly_rate),
     paydayInterval: row.payday_interval,
+    phone: row.phone ?? "",
   };
 }
 
@@ -46,6 +47,7 @@ export const UNKNOWN_HELPER: Helper = {
   restDay: "",
   monthlyRate: 0,
   paydayInterval: "semi_monthly",
+  phone: "",
 };
 
 export interface StatutorySplit {

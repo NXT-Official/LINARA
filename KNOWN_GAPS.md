@@ -16,38 +16,7 @@ the bottom.
 
 ## Open Gaps
 
-### 9. No real archive backs "wage histories" or "HitPay transfers" for the mobile Pay tab's digital payslip
-
-- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 11 (Pay Ledger
-  Statutory Breakdowns & EAS Builds).
-- **What's missing:** `LINARA_MOBILE/roadmap/Story_11_...md` step 1 asks for
-  a payslip "mapping wage histories, HitPay transfers, and statutory split
-  columns," but no table backs the first two: `ledger_entries` and `vales`
-  are the only wage-adjacent tables, and neither stores a per-cutoff
-  payslip snapshot or a payment-confirmation record. This tracks with
-  `architecture.md` Section 5.3 itself, titled "Fintech Outbound Payment
-  Pipeline (**Future Phase 3 Setup**)" -- the story's own reference docs
-  already mark this as not-yet-buildable, so this isn't a schema bug, just
-  the roadmap step text describing more than the current phase supports.
-- **Blocks:** Nothing today. Would block a future "payment history" or
-  "HitPay confirmation" feature on either app until a real ingestion table
-  exists.
-- **Current workaround:** `LINARA_MOBILE`'s `DigitalPayslip`
-  (`components/features/pay/digital-payslip.tsx`) shows only the current
-  cutoff, computed live from `helper_profiles.monthly_rate` +
-  `.payday_interval` (real columns) plus the real Batas Kasambahay
-  statutory split and any real approved `vales` total -- no fake HitPay
-  confirmation UI, no multi-cutoff history list. `LINARA`'s
-  `SpendAndPayday` used to disagree with this (a hardcoded demo
-  `baseSalary = 8000` and a flat ₱240 gov't deduction vs. the real
-  formula's ₱375 for that same wage) but now reads the same real
-  `monthly_rate`/`payday_interval` and the same statutory-split formula --
-  see Closed Gap C19. `PayRecordPage` (the other, vestigial helper-facing
-  web surface) still isn't in scope here.
-- **To close:** Needs a real payout-ingestion table (e.g. `payslips` or
-  `payment_confirmations`) written by an actual HitPay/Xendit webhook
-  handler -- Phase 3 scope per architecture.md, `LINARA`-owned since it's a
-  new schema addition.
+None currently open.
 
 ---
 
@@ -924,6 +893,152 @@ re-investigates something already resolved.
   way; the compliance banner on the People tab still catches it on next
   render (it's derived live from `wagePHP`, not from a stored flag), just
   without the audit-log entry a first-time low-wage invite gets.
+
+### C21. No real archive backed "wage histories" or payment transfers for the digital payslip (former gap #9)
+
+- **Found:** 2026-08-13, while building `LINARA_MOBILE` Story 11 (Pay Ledger
+  Statutory Breakdowns & EAS Builds) -- `roadmap/Story_11_...md` step 1
+  asked for a payslip "mapping wage histories, HitPay transfers, and
+  statutory split columns," but no table backed the first two, and
+  `architecture.md` Section 5.3 marked the whole feature "Future Phase 3."
+  **Closed:** 2026-08-14.
+- **Vendor decision, made before any schema was written:** this gap's own
+  text, `architecture.md`'s Section 5.3 sketch, and its sample JSON payload
+  disagreed with each other on the vendor (HitPay per this gap, GCash/Maya
+  per the section header, Brankas/PayMongo per the sample payload) -- none
+  of which had been checked against a real API. HitPay was tried first:
+  its Payout/Transfers API (`POST /v1/beneficiaries`, `POST /v1/transfers`)
+  is real and documented for Philippines InstaPay/PESONet rails, but a live
+  sandbox call (`POST /v1/beneficiaries/schema`) returned
+  `{"message": "Feature access denied"}` with no self-serve dashboard
+  toggle or documented enablement path -- dropped rather than built around.
+  **Xendit was verified live instead**: `POST https://api.xendit.co/v2/payouts`
+  (Basic Auth, secret key as username) with `channel_code: "PH_GCASH"` and
+  separately `"PH_PAYMAYA"` both returned real `status: "ACCEPTED"`
+  responses against the sandbox key, with no special account approval
+  needed (unlike HitPay). Two wrong turns worth recording so a future
+  session doesn't re-try them: `POST /payouts` (no `/v2`) rejects both
+  `channel_code` and `bank_code` outright for this account -- a different,
+  incompatible product from the same vendor; `POST /v3/payouts` demands an
+  `api-version` header and a heavier `recipient.type`/`purpose_code`/
+  `source_of_fund` compliance schema built for cross-border remittance, the
+  wrong fit for a domestic PHP payroll payout.
+- **Decisions (user-confirmed before writing code):**
+  1. One table (`payslips`), not a `payslips` + `payment_confirmations`
+     split -- a payslip here always implies an intended payout, so there's
+     no state a second table would capture that `payslips.payout_*`
+     doesn't already.
+  2. Real per-cutoff vale settlement (`vales.settled_in_payslip_id`), not
+     the simpler "snapshot the running approved-vale total" alternative --
+     without it, a vale approved between two "Pay Now" clicks would be
+     double-counted, since nothing previously marked a vale as "already
+     paid out."
+  3. Both a manager "Pay Now" action (calls Xendit directly) and a webhook
+     confirm flow (Xendit calling back), not just one -- the "Pay Now"
+     click gets an immediate `ACCEPTED`/error from Xendit's synchronous
+     response, but only the webhook (`payout.succeeded`/`.failed`/
+     `.reversed`) tells us the payout's true terminal outcome.
+  4. The fake `WebhookPreviewModal` + "Transfer via GCash/Maya" buttons
+     already sitting on the vestigial helper-facing `PayRecord`
+     (`src/features/ledger/components/pay-record.tsx`) were removed
+     outright, not left alongside the real feature -- same precedent as
+     Closed Gaps C13/C18 (delete vestigial helper-surface mockups rather
+     than build them out on a page `AGENTS.md` scopes out of this repo).
+     They rendered a JSON payload preview with zero real API call, and fed
+     off the exact stale `baseSalary = 8000` hardcode Closed Gap C19 had
+     already fixed on the manager-facing `SpendAndPayday`.
+- **Fixed by:**
+  - `supabase/add-payslips-table.sql`: the `payslips` table (snapshotted
+    `base_pay`/`statutory_employee_share`/`vale_deductions`/`net_pay` plus
+    `payout_status`/`payout_external_id`/`payout_reference_id` tracking,
+    same "denormalize a historical snapshot" reasoning as Closed Gap C10's
+    `ledger_entries.title`/`.kind`), `vales.settled_in_payslip_id`,
+    `payslips_isolation` RLS (join through `helper_profiles`, same pattern
+    as `vales_isolation`), and `initiate_payslip` -- a `SECURITY DEFINER`
+    RPC (same pattern as `create_appointment_with_preps`) that atomically
+    inserts the payslip row and marks the helper's unsettled approved
+    vales as settled in one transaction, since doing those two writes
+    non-atomically risks double-counted or silently-dropped vales. Also
+    guards against paying the same cutoff twice (a prior `failed` attempt
+    doesn't block a retry; anything else does).
+  - New `src/features/pay/`: `pay.actions.ts`'s `initiatePayoutFn`
+    (manager-gated inside the RPC) computes the cutoff snapshot, calls the
+    RPC, then calls Xendit directly and writes the result back with a
+    second, non-atomic update (Postgres can't make outbound HTTPS calls,
+    so this two-phase split is unavoidable -- see the file's own doc
+    comment for the failure-mode tradeoff this accepts) -- on an
+    immediate Xendit failure, the payslip is marked `failed` and its
+    claimed vales are unsettled so the next "Pay Now" click can reclaim
+    them. `pay.utils.ts`'s `currentCutoffRange` derives PH semi-monthly
+    (1st-15th / 16th-end) or monthly cutoff boundaries from today's date --
+    no cutoff-calendar table, same "pure function of today + interval"
+    posture `cutoffsPerMonth` already had. `hooks/use-payslips.ts` and
+    `components/payslip-history.tsx` (write-then-refresh, same pattern as
+    C9-C20) wire "Pay Now" into `ManagerMoneyPage`, alongside the existing
+    `SpendAndPayday`.
+  - New `supabase/functions/xendit-payout-webhook/`: verifies Xendit's
+    `X-CALLBACK-TOKEN` header (a static per-account token, not HMAC --
+    Xendit's own mechanism, checked against
+    `XENDIT_WEBHOOK_VERIFICATION_TOKEN`) against the value set via
+    `supabase secrets set` (separate store from this repo's `.env`, same
+    posture as `OPENAI_API_KEY`), writes with the service-role key
+    (bypassing `payslips_isolation` -- no user session on an inbound
+    webhook to check RLS against), and is idempotent: a payslip already
+    `succeeded`/`failed` is a no-op, since Xendit retries an
+    unacknowledged webhook for 24h.
+  - `Helper` (`people.types.ts`/`people.utils.ts`) gained `phone` --
+    `helper_profiles.phone` was already a real column but never threaded
+    through `toHelper()` (only `Invite.phone` was), needed as the
+    `account_number` sent to Xendit.
+  - Fixed a live double-counting bug this change would otherwise have
+    introduced: `SpendAndPayday`'s and mobile `pay.tsx`'s "approved vale
+    total" summed every approved vale ever, with nothing marking one as
+    already paid out. Both now filter on `!settledInPayslipId`, so a vale
+    a past payslip already deducted stops shrinking the *next* cutoff's
+    live estimate forever.
+  - `LINARA_MOBILE`: new `services/api/payslips.ts` (`getMyPayslips`, same
+    read-only join-through-`helper_profiles` RLS pattern as `getMyVales`)
+    and `components/features/pay/payslip-history.tsx`, wired into
+    `app/(app)/pay.tsx` below `DigitalPayslip`. Read-only by design --
+    "Pay Now" is manager-only and lives on `LINARA`'s web dashboard, per
+    `AGENTS.md`'s helper-work-belongs-on-mobile /
+    manager-work-belongs-on-web split applied to money-moving actions
+    specifically. `digital-payslip.tsx`'s doc comment (which anticipated
+    "HitPay payment confirmations and a multi-cutoff payslip history" with
+    "no table backs either yet") is updated to point at the new
+    `PayslipHistory` component instead of describing a gap.
+- **Verification:** `tsc --noEmit`, `eslint`, the Vitest suite, and a full
+  `vite build` all pass clean on `LINARA`; `tsc --noEmit` and `eslint` pass
+  clean on `LINARA_MOBILE` (no test suite exists there to run). This
+  session had no service-role key (same posture as every prior migration),
+  so `supabase/add-payslips-table.sql` needs to be applied by hand --
+  confirmed **not yet live** 2026-08-14 via an unauthenticated PostgREST
+  `select id,cutoff_start,payout_status` against `payslips`: a `PGRST205`
+  "Could not find the table" response, and a separate
+  `select id,settled_in_payslip_id` against `vales`: a `42703` "column
+  does not exist" 400 -- neither the `200 []` a landed migration would
+  return. Flagging here so the next session doesn't assume either is
+  already applied, same posture as Closed Gap C17. The new
+  `xendit-payout-webhook` Edge Function also still needs `supabase
+  functions deploy xendit-payout-webhook`, a `supabase secrets set
+  XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
+  Xendit's dashboard webhook settings (pointed at the deployed function's
+  URL, subscribed to `payout.succeeded`/`payout.failed`/`payout.reversed`)
+  before a real payout's confirmation can ever land -- none of that is
+  something this session could do without dashboard access.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9-C20 is moot here specifically, since `initiate_payslip`'s
+  own manager-only check would reject a genuine helper session regardless.
+  `initiatePayoutFn`'s two-phase, not-fully-atomic shape (DB write, then a
+  separate Xendit call, then a second DB write) means a process crash
+  between the RPC and the Xendit call could leave a payslip stuck at
+  `pending_send` forever, indistinguishable from "still in flight" until a
+  manager notices no webhook ever arrived -- no auto-retry or staleness
+  detection exists for that state, accepted as low-stakes/out of scope for
+  this pass (see `pay.actions.ts`'s own doc comment). PESONet (Xendit's
+  second PH rail, for amounts routed differently than InstaPay) was never
+  tested -- only the two e-wallet `channel_code`s (`PH_GCASH`/
+  `PH_PAYMAYA`) this feature actually needs.
 
 ---
 

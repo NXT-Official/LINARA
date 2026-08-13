@@ -24,4 +24,8 @@ export type ValeRequest = {
   amount: number;
   reason: string;
   status: ValeStatus;
+  /** The payslip that already deducted this vale, if any -- see
+   * supabase/add-payslips-table.sql. Approved vales with settledInPayslipId
+   * still null haven't been paid out yet and are still outstanding. */
+  settledInPayslipId: string | null;
 };

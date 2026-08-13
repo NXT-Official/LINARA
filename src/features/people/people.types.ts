@@ -14,6 +14,7 @@ export type Helper = {
   restDay: string;
   monthlyRate: number;
   paydayInterval: PaydayInterval;
+  phone: string;
 };
 
 export type AdminType = "primary" | "co" | "remote";

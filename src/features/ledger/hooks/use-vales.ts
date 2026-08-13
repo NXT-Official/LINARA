@@ -13,6 +13,7 @@ function toValeRequest(row: ValeRow): ValeRequest {
     amount: Number(row.amount),
     reason: row.reason,
     status: row.status,
+    settledInPayslipId: row.settled_in_payslip_id,
   };
 }
 

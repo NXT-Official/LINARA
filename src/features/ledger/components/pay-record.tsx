@@ -1,15 +1,12 @@
-import { Check, Coins, Sparkles, Wallet, Smartphone } from "lucide-react";
+import { Check, Coins, Sparkles, Wallet } from "lucide-react";
 import { useState } from "react";
 
-import { Row } from "@/components/shared/detail-row";
 import type { Helper, Invite } from "@/features/people/people.types";
 
 import type { LedgerEntry, LedgerResolution, ValeRequest } from "../ledger.types";
 import { AfterHoursLedger } from "./after-hours-ledger";
 import { MyTerms } from "./my-terms";
 import { ValeRequestModal } from "./vale-request-modal";
-import { ledgerEntryMinutes } from "../ledger.utils";
-import { WebhookPreviewModal } from "./webhook-preview-modal";
 
 export function PayRecord({
   vales,
@@ -32,8 +29,6 @@ export function PayRecord({
   myInvite: Invite | null;
 }) {
   const [asking, setAsking] = useState(false);
-  const [webhookOpen, setWebhookOpen] = useState(false);
-  const [webhookProvider, setWebhookProvider] = useState<"gcash" | "maya">("gcash");
   const approvedTotal = vales
     .filter((v) => v.status === "approved")
     .reduce((s, v) => s + v.amount, 0);
@@ -69,91 +64,6 @@ export function PayRecord({
         onUpdateEntry={onUpdateLedgerEntry}
         audience="helper"
       />
-      <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Current cutoff · Jun 1 – Jun 15
-        </div>
-
-        {/* Dynamic Pay Record Calculations */}
-        {(() => {
-          const baseSalary = 8000;
-          const govDeductions = 240;
-          const mealAllowance = 1000;
-
-          // Ledger calculations for rest-owed hours
-          const tMin = ledger.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-          const pMin = ledger
-            .filter((e) => e.resolution === "premium")
-            .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-          const rMin = tMin - pMin;
-          const rHours = rMin / 60;
-          const overtimePay = rHours * 120; // ₱120 per hour rate
-
-          const dynamicNetPay = Math.max(
-            0,
-            baseSalary + overtimePay + mealAllowance - govDeductions - approvedTotal,
-          );
-
-          return (
-            <>
-              <div className="mt-2 flex items-baseline justify-between">
-                <div className="font-display text-3xl text-foreground">
-                  ₱{dynamicNetPay.toLocaleString()}
-                </div>
-                <span className="text-xs font-semibold text-primary">Expected payout</span>
-              </div>
-              <div className="mt-4 space-y-2 text-sm border-b border-border/40 pb-4">
-                <Row label="Base salary (half-month)" value={`₱${baseSalary.toLocaleString()}`} />
-                {overtimePay > 0 && (
-                  <Row
-                    label={`Overtime · ${rHours.toFixed(1)} hrs`}
-                    value={`₱${overtimePay.toLocaleString()}`}
-                  />
-                )}
-                <Row
-                  label="SSS / PhilHealth share"
-                  value={`− ₱${govDeductions.toLocaleString()}`}
-                  muted
-                />
-                <Row
-                  label="Meal + transport allowance"
-                  value={`₱${mealAllowance.toLocaleString()}`}
-                />
-                {approvedTotal > 0 && (
-                  <Row
-                    label="Vale deduction"
-                    value={`− ₱${approvedTotal.toLocaleString()}`}
-                    muted
-                  />
-                )}
-              </div>
-
-              {/* Webhook Preview Buttons */}
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <button
-                  onClick={() => {
-                    setWebhookProvider("gcash");
-                    setWebhookOpen(true);
-                  }}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition"
-                >
-                  <Smartphone className="h-3.5 w-3.5 text-primary" /> Transfer via GCash
-                </button>
-                <button
-                  onClick={() => {
-                    setWebhookProvider("maya");
-                    setWebhookOpen(true);
-                  }}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition"
-                >
-                  <Smartphone className="h-3.5 w-3.5 text-accent" /> Transfer via Maya
-                </button>
-              </div>
-            </>
-          );
-        })()}
-      </section>
-
       {approvedTotal > 0 && (
         <section className="rounded-3xl border border-primary/30 bg-primary/5 p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
@@ -253,36 +163,6 @@ export function PayRecord({
           }}
         />
       )}
-
-      {webhookOpen &&
-        (() => {
-          const baseSalary = 8000;
-          const govDeductions = 240;
-          const mealAllowance = 1000;
-
-          const tMin = ledger.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-          const pMin = ledger
-            .filter((e) => e.resolution === "premium")
-            .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
-          const rMin = tMin - pMin;
-          const rHours = rMin / 60;
-          const overtimePay = rHours * 120;
-
-          const gross = baseSalary + overtimePay + mealAllowance;
-          const deductions = govDeductions + approvedTotal;
-          const net = Math.max(0, gross - deductions);
-
-          return (
-            <WebhookPreviewModal
-              onClose={() => setWebhookOpen(false)}
-              provider={webhookProvider}
-              recipientMobile={myInvite?.phone ?? "+639175551234"}
-              grossPayAmount={gross}
-              valeDeductions={deductions}
-              netDisbursement={net}
-            />
-          );
-        })()}
     </div>
   );
 }

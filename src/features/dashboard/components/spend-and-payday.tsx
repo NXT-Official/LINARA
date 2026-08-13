@@ -31,9 +31,13 @@ export function SpendAndPayday() {
   const statutorySplit = computeStatutorySplit(monthlyRate);
   const governmentDeductions = statutorySplit.totalEmployee / cutoffs;
 
-  // Sum up approved vales for current helper
+  // Sum up approved-but-not-yet-paid-out vales for current helper. Excludes
+  // vales already settled against a past payslip (Payslip payout_status !=
+  // 'failed') -- otherwise a vale deducted from a prior cutoff's payout
+  // would keep shrinking this live "next payday" estimate forever. See
+  // supabase/add-payslips-table.sql.
   const approvedValesTotal = vales.vales
-    .filter((v) => v.helperId === helper?.id && v.status === "approved")
+    .filter((v) => v.helperId === helper?.id && v.status === "approved" && !v.settledInPayslipId)
     .reduce((s, v) => s + v.amount, 0);
 
   // Sum up rest-owed minutes

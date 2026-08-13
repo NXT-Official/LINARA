@@ -157,6 +157,7 @@ export interface ValeRow {
   reason: string;
   status: "pending" | "approved" | "declined";
   approved_by: string | null;
+  settled_in_payslip_id: string | null;
   created_at: string;
 }
 

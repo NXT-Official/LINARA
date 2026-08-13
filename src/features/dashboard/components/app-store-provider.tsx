@@ -6,6 +6,7 @@ import { GroceryProvider } from "@/features/groceries/components/grocery-provide
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
 import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
+import { usePayslips } from "@/features/pay/hooks/use-payslips";
 import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
 import { toHelper } from "@/features/people/people.utils";
@@ -50,6 +51,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     refresh: invites.refresh,
   });
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
+  const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
   const clock = useSimClock();
   const availability = useAvailability({ nowTs: clock.nowTs, schedules, currentHelperId });
   const ledger = useLedger({
@@ -287,6 +289,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     pantry,
     schedules,
     vales,
+    payslips,
     clock,
     availability,
     ledger,

@@ -5,6 +5,7 @@ import type { Availability } from "@/features/availability/hooks/use-availabilit
 import type { LedgerStore } from "@/features/ledger/hooks/use-ledger";
 import type { ValeStore } from "@/features/ledger/hooks/use-vales";
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import type { PayslipStore } from "@/features/pay/hooks/use-payslips";
 import type { InviteStore } from "@/features/people/hooks/use-invites";
 import type { Session } from "@/features/people/hooks/use-session";
 import type { Helper } from "@/features/people/people.types";
@@ -36,6 +37,7 @@ export type AppStores = {
   pantry: PantryStore;
   schedules: ScheduleStore;
   vales: ValeStore;
+  payslips: PayslipStore;
   clock: SimClock;
   availability: Availability;
   ledger: LedgerStore;

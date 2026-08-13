@@ -310,21 +310,57 @@ The backend implements labor guidelines based on Republic Act No. 10361 (Batas K
   - _If base wage >= ₱5,000:_ The cost is split according to national government contribution tables.
 - **Rest Premium Compensation:** Automatically calculates after-hours work and rest day overrides, logging the overtime minutes to the ledger. Out-of-hours tasks accrue time-off in lieu ("Rest Owed") or premium pay calculated at a standard 1.3x multiplier of the helper's hourly rate equivalent.
 
-### 5.3 Fintech Outbound Payment Pipeline (Future Phase 3 Setup)
+### 5.3 Fintech Outbound Payment Pipeline
 
-Establishes the data structures and ledger webhook points required to supportGCash and Maya mobile wallet integration:
+Real as of KNOWN_GAPS.md Closed Gap C21 (was "Future Phase 3 Setup" with an
+internally-inconsistent sketch -- the header said GCash/Maya, the sample
+payload said Brankas/PayMongo, and gap #9 said HitPay/Xendit -- none of
+which had been checked against a real vendor API). The vendor is
+**Xendit**, confirmed by direct sandbox calls before any schema was
+written: HitPay's Payout/Transfers API returned `"Feature access denied"`
+with no self-serve enablement path, so it was dropped; Xendit's
+`POST https://api.xendit.co/v2/payouts` returned real `ACCEPTED` responses
+for both `channel_code: "PH_GCASH"` and `channel_code: "PH_PAYMAYA"`
+against the sandbox.
 
-- Finalized payroll details and approved vale requests compile in the `PayRecordView` component.
-- A webhook payload model is prepared to transmit transaction records to partner payout aggregators (e.g., Brankas or PayMongo), mapping payouts directly to the ledger:
+- A manager's "Pay Now" action (`src/features/pay/pay.actions.ts`'s
+  `initiatePayoutFn`) computes the current cutoff's base pay (from
+  `helper_profiles.monthly_rate`/`.payday_interval`) and Batas Kasambahay
+  statutory deduction, atomically inserts a `payslips` row and settles the
+  helper's outstanding approved `vales` against it (`initiate_payslip`
+  SECURITY DEFINER RPC, `supabase/add-payslips-table.sql`), then calls
+  Xendit directly.
+- Xendit's payload shape (real, not illustrative):
   ```json
   {
-    "payout_id": "po_99182",
-    "recipient_wallet": "+639171234567",
-    "payout_amount": 4250.0,
-    "payout_currency": "PHP",
-    "reference_ledger_entry_id": "le_0182-ab"
+    "reference_id": "b3f1...-uuid",
+    "channel_code": "PH_GCASH",
+    "channel_properties": {
+      "account_holder_name": "Maria Rosa",
+      "account_number": "639171234567"
+    },
+    "amount": 425000,
+    "currency": "PHP",
+    "description": "LINARA payout 2026-08-01 to 2026-08-15"
   }
   ```
+  (`amount` is minor units -- centavos -- confirmed live: a sandbox call
+  with `amount: 10000` was accepted as ₱100.00, and amounts below that
+  floor were rejected.)
+- `supabase/functions/xendit-payout-webhook/` (Section 4.2's public
+  webhook-handler pattern) receives Xendit's `payout.succeeded`/
+  `payout.failed`/`payout.reversed` callbacks, verified via the
+  `X-CALLBACK-TOKEN` header against `XENDIT_WEBHOOK_VERIFICATION_TOKEN`
+  (Xendit's own mechanism -- a static per-account token, not HMAC), and
+  writes the terminal `payslips.payout_status` with the service-role key.
+  Idempotent: a payslip already in a terminal state is a no-op, since
+  Xendit retries an unacknowledged webhook for 24h.
+- Surfaced on both apps: `LINARA`'s Money tab (`PayslipHistory`,
+  `src/features/pay/components/payslip-history.tsx`) is where "Pay Now"
+  actually lives (manager-only); `LINARA_MOBILE`'s Pay tab
+  (`components/features/pay/payslip-history.tsx`) shows the same rows
+  read-only, replacing `digital-payslip.tsx`'s old "no table backs this
+  yet" doc comment.
 
 ---
 
@@ -846,6 +882,44 @@ CREATE TABLE public.invite_flags (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 13. Payslips (Real Payout Records)
+--
+-- Real as of KNOWN_GAPS.md Closed Gap C21 (was architecture.md Section
+-- 5.3's "Future Phase 3" placeholder). One table, not a separate
+-- payslips/payment_confirmations split -- a payslip here always implies an
+-- intended payout, so base_pay/statutory_employee_share/vale_deductions/
+-- net_pay (snapshotted at payout time, not recomputed live later) live
+-- alongside payout_status/payout_external_id tracking on the same row,
+-- same "denormalize a historical snapshot" reasoning as ledger_entries'
+-- title/kind (Closed Gap C10). vales.settled_in_payslip_id (added by the
+-- same migration) marks which payslip already deducted an approved vale,
+-- so SpendAndPayday's/DigitalPayslip's live "next payday" estimates don't
+-- double-count a vale forever after it's actually been paid out. See
+-- supabase/add-payslips-table.sql for the full column-by-column rationale
+-- and the initiate_payslip SECURITY DEFINER RPC (atomic payslip-insert +
+-- vale-settlement, same pattern as create_appointment_with_preps).
+CREATE TABLE public.payslips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    cutoff_start DATE NOT NULL,
+    cutoff_end DATE NOT NULL,
+    base_pay NUMERIC(10,2) NOT NULL,
+    statutory_employee_share NUMERIC(10,2) NOT NULL,
+    vale_deductions NUMERIC(10,2) NOT NULL DEFAULT 0,
+    net_pay NUMERIC(10,2) NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'PHP',
+    payout_provider TEXT NOT NULL DEFAULT 'xendit',
+    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA')),
+    payout_reference_id TEXT NOT NULL UNIQUE,
+    payout_external_id TEXT,
+    payout_status TEXT NOT NULL CHECK (payout_status IN ('pending_send', 'processing', 'succeeded', 'failed')) DEFAULT 'pending_send',
+    failure_reason TEXT,
+    requested_by UUID REFERENCES public.user_profiles(id),
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    confirmed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- --------------------------------------------------
 -- INDEXES FOR ENHANCED QUERY PERFORMANCE
 -- --------------------------------------------------
@@ -869,6 +943,7 @@ ALTER TABLE public.grocery_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quick_utos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.helper_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invite_flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payslips ENABLE ROW LEVEL SECURITY;
 
 -- Recursion-safe household lookup, used by every isolation policy below.
 -- A naive `(SELECT household_id FROM public.user_profiles WHERE id = auth.uid())`
@@ -951,6 +1026,20 @@ CREATE POLICY ledger_entries_isolation ON public.ledger_entries
         EXISTS (
             SELECT 1 FROM public.helper_profiles hp
             WHERE hp.id = ledger_entries.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+-- payslips is scoped the same way (no household_id column of its own).
+-- The xendit-payout-webhook Edge Function writes to this table with the
+-- service-role key, bypassing this policy entirely -- there is no
+-- household-scoped user session on an inbound webhook call to check it
+-- against.
+CREATE POLICY payslips_isolation ON public.payslips
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = payslips.helper_id
               AND hp.household_id = public.current_household_id()
         )
     );
