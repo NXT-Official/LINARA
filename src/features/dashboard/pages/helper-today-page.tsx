@@ -10,7 +10,7 @@ import { useAppStores } from "../app-store-context";
 import { EndOfDay } from "../components/end-of-day";
 import { HelperTaskLists } from "../components/helper-task-lists";
 
-/** Ate Rosa's day: her week, the quick asks, her notes, and her task lists. */
+/** The helper's day: their week, the quick asks, their notes, and their task lists. */
 export function HelperTodayPage() {
   const { helper, board, schedules, utos } = useAppStores();
   const { tasks, boardClosed, simDate, updateStatus, blockTask, addTask } = board;
@@ -42,11 +42,12 @@ export function HelperTodayPage() {
           onAck={utos.ack}
           available={!boardClosed}
           wiped={utos.wipedToday}
+          helperName={helper.name}
         />
       )}
       <MyNotes helperId={helper.id} onMakeTask={(txt) => setNoteToTask(txt)} />
       {allDone ? (
-        <EndOfDay doneCount={doneCount} />
+        <EndOfDay doneCount={doneCount} helperName={helper.name} />
       ) : (
         <HelperTaskLists
           next={next}
@@ -75,6 +76,7 @@ export function HelperTodayPage() {
         <NoteToTaskModal
           initialTitle={noteToTask}
           helperId={helper.id}
+          createdBy={helper.name}
           onClose={() => setNoteToTask(null)}
           onSubmit={(t) => {
             addTask(t);
