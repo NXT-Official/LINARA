@@ -1,16 +1,19 @@
 import { HelpCircle, X } from "lucide-react";
 
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 
 /** A remote admin's own pending suggestions, with the option to withdraw one. */
 export function MySuggestions({
   suggestions,
+  helpers,
   onWithdraw,
   adminName,
 }: {
   suggestions: Task[];
+  helpers: Helper[];
   onWithdraw: (id: string) => void;
   adminName: string;
 }) {
@@ -39,7 +42,7 @@ export function MySuggestions({
       )}
       <div className="space-y-2">
         {mine.map((t) => {
-          const helper = helperById(t.helperId);
+          const helper = findHelper(t.helperId, helpers);
           return (
             <div key={t.id} className="rounded-2xl border border-border/70 bg-background/60 p-3">
               <div className="flex items-start justify-between gap-2">

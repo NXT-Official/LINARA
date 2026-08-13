@@ -119,7 +119,8 @@ export function useSession(): Session {
         setAdmin(buildAdmin(result.fullName, result.userType));
         setStatus("authed");
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[useSession] Failed to rehydrate manager session:", err);
         clear();
         setToken(null);
         setStatus("anon");

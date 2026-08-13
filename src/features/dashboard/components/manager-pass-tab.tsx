@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { RosaStatus } from "@/features/availability/availability.types";
 import { RosaStatusChip } from "@/features/availability/components/rosa-status-chip";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
-import { HELPERS } from "@/features/people/people.constants";
-import type { Invite } from "@/features/people/people.types";
+import type { Helper, Invite } from "@/features/people/people.types";
 import { HelperLane } from "@/features/tasks/components/helper-lane";
 import { MySuggestions } from "@/features/tasks/components/my-suggestions";
 import { SuggestionsInbox } from "@/features/tasks/components/suggestions-inbox";
@@ -26,6 +25,8 @@ export type ManagerPassTabProps = {
   blocked: Task[];
   pendingVales: ValeRequest[];
   flaggedInvites: Invite[];
+  helpers: Helper[];
+  activeHelpers: Helper[];
   simDate: Date;
   boardClosed: boolean;
   rosaStatus: RosaStatus;
@@ -56,6 +57,8 @@ export function ManagerPassTab({
   blocked,
   pendingVales,
   flaggedInvites,
+  helpers,
+  activeHelpers,
   simDate,
   boardClosed,
   rosaStatus,
@@ -197,6 +200,7 @@ export function ManagerPassTab({
       <NeedsYou
         blocked={blocked}
         pendingVales={pendingVales}
+        helpers={helpers}
         onReschedule={onReschedule}
         onDecideVale={onDecideVale}
         flaggedInvites={flaggedInvites}
@@ -210,6 +214,7 @@ export function ManagerPassTab({
       {!isRemote && suggestions.length > 0 && (
         <SuggestionsInbox
           suggestions={suggestions}
+          helpers={helpers}
           onApprove={onApproveSuggestion}
           onDismiss={onDismissSuggestion}
         />
@@ -217,6 +222,7 @@ export function ManagerPassTab({
       {isRemote && suggestions.length > 0 && (
         <MySuggestions
           suggestions={suggestions}
+          helpers={helpers}
           onWithdraw={onDismissSuggestion}
           adminName={authorName}
         />
@@ -244,12 +250,22 @@ export function ManagerPassTab({
         </div>
         {passMode === "line" ? (
           <div className="space-y-3">
-            {HELPERS.map((h) => (
-              <HelperLane key={h.id} helper={h} tasks={active.filter((t) => t.helperId === h.id)} />
-            ))}
+            {activeHelpers.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                No active helpers yet — invite one from People to see their lane here.
+              </div>
+            ) : (
+              activeHelpers.map((h) => (
+                <HelperLane
+                  key={h.id}
+                  helper={h}
+                  tasks={active.filter((t) => t.helperId === h.id)}
+                />
+              ))
+            )}
           </div>
         ) : (
-          <TheBoardStatusLists tasks={active} />
+          <TheBoardStatusLists tasks={active} helpers={helpers} />
         )}
       </section>
 

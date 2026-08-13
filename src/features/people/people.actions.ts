@@ -50,6 +50,8 @@ interface HelperProfileRow {
   shift_end: string;
   daily_break_duration: number;
   weekly_rest_day: number;
+  break_start: string | null;
+  break_end: string | null;
   invite_code: string | null;
   status: "PENDING_CLAIM" | "ACTIVE" | "INACTIVE";
   employment: "live-in" | "live-out" | null;
@@ -599,6 +601,47 @@ export const cancelInviteFn = createServerFn({ method: "POST" })
       .delete()
       .eq("id", helperId)
       .eq("status", "PENDING_CLAIM");
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { helperId };
+  });
+
+/**
+ * 11. Update Helper Schedule Endpoint (Server Function)
+ * Powers the Shifts editor. helper_profiles_isolation is household-scoped
+ * with no per-row ownership check, so an authenticated manager can already
+ * update any helper's row in their own household -- no new RLS policy
+ * needed, see supabase/add-shift-break-columns.sql.
+ */
+export const updateHelperScheduleFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      helperId: string;
+      shiftStart: string;
+      shiftEnd: string;
+      weeklyRestDay: number;
+      breakStart?: string | null;
+      breakEnd?: string | null;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, helperId, shiftStart, shiftEnd, weeklyRestDay, breakStart, breakEnd } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("helper_profiles")
+      .update({
+        shift_start: shiftStart,
+        shift_end: shiftEnd,
+        weekly_rest_day: weeklyRestDay,
+        break_start: breakStart ?? null,
+        break_end: breakEnd ?? null,
+      })
+      .eq("id", helperId);
 
     if (error) {
       throw new Error(error.message);

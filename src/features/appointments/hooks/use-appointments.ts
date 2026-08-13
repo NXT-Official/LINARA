@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { computePrepSchedule } from "@/lib/time";
 
@@ -16,7 +17,10 @@ export type AppointmentStore = ReturnType<typeof useAppointments>;
  * `setTasks`: adding an appointment creates them, removing it deletes them, and
  * moving it shifts each one by its own lead offset (leaving a reschedule notice).
  */
-export function useAppointments(setTasks: (update: (prev: Task[]) => Task[]) => void) {
+export function useAppointments(
+  setTasks: (update: (prev: Task[]) => Task[]) => void,
+  helpers: Helper[],
+) {
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
 
   const add = (a: Omit<Appointment, "id">, preps: PrepDraft[]) => {
@@ -24,7 +28,7 @@ export function useAppointments(setTasks: (update: (prev: Task[]) => Task[]) => 
     setAppointments((prev) => [...prev, { ...a, id }]);
     const newTasks: Task[] = preps.map((p, i) => {
       const { date, time } = computePrepSchedule(a.date, a.time, p.leadMinutes);
-      const helper = helperById(p.helperId);
+      const helper = findHelper(p.helperId, helpers);
       return {
         id: `${id}-p${i}-${Date.now()}`,
         title: p.title,

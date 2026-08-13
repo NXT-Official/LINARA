@@ -635,6 +635,8 @@ CREATE TABLE public.helper_profiles (
     shift_end TIME NOT NULL,
     daily_break_duration INTEGER NOT NULL DEFAULT 60, -- in minutes
     weekly_rest_day INTEGER NOT NULL CHECK (weekly_rest_day BETWEEN 0 AND 6), -- Sunday = 0, etc.
+    break_start TIME, -- one break window per helper, for After-Hours Friction Gating's "on a break" trigger (plan.md)
+    break_end TIME,
     invite_code VARCHAR(12) UNIQUE,
     status TEXT NOT NULL CHECK (status IN ('PENDING_CLAIM', 'ACTIVE', 'INACTIVE')) DEFAULT 'PENDING_CLAIM',
     employment TEXT CHECK (employment IN ('live-in', 'live-out')),
@@ -645,34 +647,20 @@ CREATE TABLE public.helper_profiles (
 
 -- 3. House SOP Library
 --
--- KNOWN GAP -- tracked in KNOWN_GAPS.md entry 1 (found while building
--- LINARA_MOBILE Story 7's SOP carousel, 2026-08-13): the AI SOP Creator
--- edge function (generate-sop, Story 10)
--- returns a structured HouseStandardSOP { title, description, station,
--- steps: string[], toolsRequired: string[], safetyProtocol } -- see
--- src/features/tasks/task.actions.ts -- but nothing in this codebase ever
--- inserts that result into house_sops, and this table has no columns to
--- hold steps/toolsRequired/safetyProtocol even if it did. Only
--- title/description/standard_image_url exist below.
---
--- Impact: LINARA_MOBILE's Story 7 (Today tab SOP carousel) works around
--- this by splitting `description` on newlines to fake discrete slides
--- (see ../LINARA_MOBILE/lib/sop.ts). LINARA_MOBILE's Story 9 (SOP Taglish
--- Simplifier) explicitly needs real "complex English steps" as input and
--- will hit the same wall harder.
---
--- Closing this needs, on this (schema-owning) side: (1) a migration
--- adding steps (TEXT[] or JSONB), tools_required (TEXT[]), and
--- safety_protocol (TEXT) to house_sops; (2) wiring generate-sop's actual
--- result into an INSERT somewhere in the manager-facing SOP creation flow,
--- which doesn't exist yet either. Both mobile and web should be updated
--- together per this repo's schema-owner rule in AGENTS.md.
+-- steps/tools_required/safety_protocol (added by
+-- supabase/add-house-sops-columns.sql) hold the structured HouseStandardSOP
+-- the generate-sop edge function returns (see KNOWN_GAPS.md Closed Gap C7);
+-- src/features/tasks/task.actions.ts's insertHouseSopFn writes them from
+-- NewRoutineModal's "Save to Library" action.
 CREATE TABLE public.house_sops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     standard_image_url TEXT,
+    steps TEXT[] NOT NULL DEFAULT '{}',
+    tools_required TEXT[] NOT NULL DEFAULT '{}',
+    safety_protocol TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

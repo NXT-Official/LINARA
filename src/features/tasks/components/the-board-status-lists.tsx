@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
@@ -7,7 +8,7 @@ import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
 /** The Board layout: today's tasks by status, in time order, with a 'now' marker. */
-export function TheBoardStatusLists({ tasks }: { tasks: Task[] }) {
+export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers: Helper[] }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
   const sorted = useMemo(
     () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
@@ -74,6 +75,7 @@ export function TheBoardStatusLists({ tasks }: { tasks: Task[] }) {
                 task={t}
                 late={tab !== "done" && overdueId(t)}
                 isDoing={t.status === "in_progress"}
+                helpers={helpers}
               />
             </div>
           ))

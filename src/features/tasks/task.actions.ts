@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { createAuthedClient } from "@/lib/supabase";
+
 export interface HouseStandardSOP {
   title: string;
   description: string;
@@ -137,4 +139,71 @@ export const generateSopFn = createServerFn({ method: "POST" })
 
     const result = await response.json();
     return result as HouseStandardSOP;
+  });
+
+/**
+ * Server function to persist a generated SOP into the House Standards
+ * Library (`house_sops`). Closes KNOWN_GAPS.md gap #1's manager-facing
+ * half -- generateSopFn already returns a structured HouseStandardSOP, but
+ * nothing previously wrote it into the table (steps/tools_required/
+ * safety_protocol added by supabase/add-house-sops-columns.sql). Follows
+ * the same authed-insert pattern as inviteHelperFn in
+ * src/features/people/people.actions.ts.
+ */
+export const insertHouseSopFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      title: string;
+      description: string;
+      steps: string[];
+      toolsRequired: string[];
+      safetyProtocol: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, title, description, steps, toolsRequired, safetyProtocol } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id, user_type")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can save House Standards");
+    }
+
+    const { data: sop, error: insertError } = await authedClient
+      .from("house_sops")
+      .insert({
+        household_id: profile.household_id,
+        title,
+        description,
+        steps,
+        tools_required: toolsRequired,
+        safety_protocol: safetyProtocol,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !sop) {
+      throw new Error(insertError?.message || "Failed to save House Standard");
+    }
+
+    return { id: sop.id as string };
   });

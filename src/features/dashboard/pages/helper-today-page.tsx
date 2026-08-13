@@ -18,6 +18,14 @@ export function HelperTodayPage() {
   const [noteToTask, setNoteToTask] = useState<string | null>(null);
   const [blockingId, setBlockingId] = useState<string | null>(null);
 
+  if (!helper) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center text-sm text-muted-foreground">
+        No active helper account yet — claim an invite to see your day.
+      </div>
+    );
+  }
+
   const mine = tasks.filter((t) => t.helperId === helper.id && !t.queued);
   const doneCount = mine.filter((t) => t.status === "done").length;
   const activeCount = mine.filter((t) => t.status !== "done" && t.status !== "blocked").length;
@@ -27,7 +35,7 @@ export function HelperTodayPage() {
 
   return (
     <>
-      <MyWeekCard weekSchedule={schedules.weekFor(helper.id)} simDate={simDate} />
+      <MyWeekCard schedule={schedules.scheduleFor(helper.id)} simDate={simDate} />
       {(utos.list.length > 0 || utos.wipedToday) && (
         <QuickUtosFeed
           utosList={utos.list}

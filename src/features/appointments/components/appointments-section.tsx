@@ -2,8 +2,9 @@ import { CalendarClock, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { HELPERS, stationTone } from "@/features/people/people.constants";
-import { helperById } from "@/features/people/people.utils";
+import { stationTone } from "@/features/people/people.constants";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 import {
   formatAppointmentDate,
@@ -24,10 +25,14 @@ export function AppointmentsSection({
   appointments,
   tasks,
   simDate,
+  helpers,
+  activeHelpers,
 }: {
   appointments: AppointmentStore;
   tasks: Task[];
   simDate: Date;
+  helpers: Helper[];
+  activeHelpers: Helper[];
 }) {
   const { appointments: all, add: onAdd, remove: onRemove, update: onUpdate } = appointments;
   const [open, setOpen] = useState(false);
@@ -54,12 +59,13 @@ export function AppointmentsSection({
         const timeDisplay = formatDisplayTime(dt.getHours() * 60 + dt.getMinutes());
 
         const preps: PrepDraft[] = result.prepTasks.map((p) => {
-          const helper =
-            HELPERS.find((h) => h.station.toLowerCase() === p.station.toLowerCase()) || HELPERS[0];
+          const helper = activeHelpers.find(
+            (h) => h.station.toLowerCase() === p.station.toLowerCase(),
+          );
           return {
             title: p.title,
             leadMinutes: -p.offsetMinutes, // mathematically maps offset to leadMinutes (e.g. -720 -> 720, 60 -> -60)
-            helperId: helper.id,
+            helperId: helper?.id ?? activeHelpers[0]?.id ?? "",
           };
         });
 
@@ -190,7 +196,7 @@ export function AppointmentsSection({
                 {preps.length > 0 && (
                   <ul className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
                     {preps.map((p) => {
-                      const helper = helperById(p.helperId);
+                      const helper = findHelper(p.helperId, helpers);
                       return (
                         <li key={p.id} className="flex items-start justify-between gap-2 text-xs">
                           <div className="min-w-0">
@@ -220,6 +226,7 @@ export function AppointmentsSection({
 
       {open && (
         <NewAppointmentModal
+          activeHelpers={activeHelpers}
           onClose={() => setOpen(false)}
           onAdd={(a, preps) => {
             onAdd(a, preps);

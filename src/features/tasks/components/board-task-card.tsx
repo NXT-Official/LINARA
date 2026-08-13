@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 import { STATION_HEX } from "@/features/people/people.constants";
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 import { isPalengke } from "../task.utils";
@@ -13,13 +14,15 @@ export function BoardTaskCard({
   task,
   late,
   isDoing,
+  helpers,
 }: {
   task: Task;
   late: boolean;
   isDoing: boolean;
+  helpers: Helper[];
 }) {
   const [showNote, setShowNote] = useState(false);
-  const helper = helperById(task.helperId);
+  const helper = findHelper(task.helperId, helpers);
   const color = STATION_HEX[task.station];
   const isDone = task.status === "done";
   return (

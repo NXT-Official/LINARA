@@ -1,36 +1,40 @@
 import { Calendar, Moon, Sparkles } from "lucide-react";
 
-import { fmtHM12, WEEKDAY_LONG, WEEKDAYS, weekdayOf, type Weekday } from "@/lib/time";
+import { WEEKLY_REST_DAY_NAMES } from "@/features/people/people.constants";
+import { fmtHM12, WEEKDAY_LONG, WEEKDAYS, weekdayOf } from "@/lib/time";
 
-import type { WeekSchedule } from "../shift.types";
+import type { HelperSchedule } from "../shift.types";
+import { daysUntilRestDay, isRestDay } from "../shift.utils";
 
-/** The helper's own read-only week: today's hours, next rest day, week ahead. */
+/** The helper's own read-only week: today's hours and next rest day. */
 export function MyWeekCard({
-  weekSchedule,
+  schedule,
   simDate,
 }: {
-  weekSchedule: WeekSchedule;
+  schedule: HelperSchedule | undefined;
   simDate: Date;
 }) {
   const todayWd = weekdayOf(simDate);
-  const today = weekSchedule[todayWd];
-  // Find the next rest day starting from today (0 = today, 1 = tomorrow…).
-  const todayIdx = WEEKDAYS.indexOf(todayWd);
-  let nextRest: { day: Weekday; inDays: number } | null = null;
-  for (let i = 0; i < 7; i++) {
-    const d = WEEKDAYS[(todayIdx + i) % 7];
-    if (weekSchedule[d].rest) {
-      nextRest = { day: d, inDays: i };
-      break;
-    }
+
+  if (!schedule) {
+    return (
+      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+        <h2 className="font-display text-lg text-foreground">My Week</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your shift hasn't been set up yet — check with your manager.
+        </p>
+      </section>
+    );
   }
-  const restLabel = nextRest
-    ? nextRest.inDays === 0
+
+  const restToday = isRestDay(todayWd, schedule);
+  const inDays = daysUntilRestDay(todayWd, schedule.weeklyRestDay);
+  const restLabel =
+    inDays === 0
       ? "Today — enjoy your rest"
-      : nextRest.inDays === 1
-        ? `${WEEKDAY_LONG[nextRest.day]} — tomorrow`
-        : `${WEEKDAY_LONG[nextRest.day]} — ${nextRest.inDays} days away`
-    : "No rest day set";
+      : inDays === 1
+        ? "Tomorrow"
+        : `${WEEKLY_REST_DAY_NAMES[schedule.weeklyRestDay]} — ${inDays} days away`;
 
   return (
     <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
@@ -46,17 +50,17 @@ export function MyWeekCard({
         <div className="text-[10px] font-semibold uppercase tracking-wider text-pine-deep/80">
           Today
         </div>
-        {today.rest ? (
+        {restToday ? (
           <div className="mt-1 font-display text-lg text-pine-deep">Rest day — salamat, Ate.</div>
         ) : (
           <>
             <div className="mt-1 font-display text-lg text-pine-deep">
-              {today.segments.map((s) => `${fmtHM12(s.start)} – ${fmtHM12(s.end)}`).join(" & ")}
+              {fmtHM12(schedule.shiftStart)} – {fmtHM12(schedule.shiftEnd)}
             </div>
-            {today.breakStart && today.breakEnd && (
+            {schedule.breakStart && schedule.breakEnd && (
               <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-card px-2 py-0.5 text-[11px] font-medium text-pine-deep">
-                <Moon className="h-3 w-3" /> Break {fmtHM12(today.breakStart)}–
-                {fmtHM12(today.breakEnd)}
+                <Moon className="h-3 w-3" /> Break {fmtHM12(schedule.breakStart)}–
+                {fmtHM12(schedule.breakEnd)}
               </div>
             )}
           </>
@@ -80,10 +84,9 @@ export function MyWeekCard({
           Week ahead
         </div>
         <div className="grid grid-cols-7 gap-1.5">
-          {WEEKDAYS.map((d, i) => {
-            const day = weekSchedule[d];
+          {WEEKDAYS.map((d) => {
             const isToday = d === todayWd;
-            const rest = day.rest;
+            const rest = isRestDay(d, schedule);
             return (
               <div
                 key={d}
@@ -97,21 +100,7 @@ export function MyWeekCard({
               >
                 <span className="font-semibold uppercase tracking-wider">{d}</span>
                 <span className="mt-0.5 leading-tight">
-                  {rest
-                    ? "Rest"
-                    : day.segments[0]
-                      ? fmtHM12(day.segments[0].start).replace(" ", "")
-                      : "—"}
-                </span>
-                {!rest && day.segments.length > 1 && (
-                  <span
-                    className={`text-[9px] ${isToday ? "text-primary-foreground/80" : "text-muted-foreground"}`}
-                  >
-                    +split
-                  </span>
-                )}
-                <span aria-hidden className="sr-only">
-                  {i}
+                  {rest ? "Rest" : fmtHM12(schedule.shiftStart).replace(" ", "")}
                 </span>
               </div>
             );

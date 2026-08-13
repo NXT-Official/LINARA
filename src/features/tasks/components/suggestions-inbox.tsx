@@ -2,17 +2,20 @@ import { Check, HelpCircle, X } from "lucide-react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { stationTone } from "@/features/people/people.constants";
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 
 /** Remote-admin suggestions awaiting an on-site manager's approval onto the board. */
 export function SuggestionsInbox({
   suggestions,
+  helpers,
   onApprove,
   onDismiss,
 }: {
   suggestions: Task[];
+  helpers: Helper[];
   onApprove: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
@@ -46,7 +49,7 @@ export function SuggestionsInbox({
             </div>
             <div className="space-y-2">
               {items.map((t) => {
-                const helper = helperById(t.helperId);
+                const helper = findHelper(t.helperId, helpers);
                 return (
                   <div
                     key={t.id}

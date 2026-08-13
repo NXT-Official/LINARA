@@ -18,7 +18,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "bun run dev", // Changed from "npm run dev" to "bun run dev"
+    // npx resolves to whatever's in node_modules regardless of which
+    // package manager installed it -- CI installs via npm (see ci.yml),
+    // so a bun-specific command here would fail there.
+    command: "npx vite dev",
     url: "http://localhost:8080",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,

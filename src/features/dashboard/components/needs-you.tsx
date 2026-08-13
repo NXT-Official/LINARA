@@ -4,13 +4,14 @@ import { useState } from "react";
 import { Avatar } from "@/components/shared/avatar";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import { stationTone } from "@/features/people/people.constants";
-import type { Invite } from "@/features/people/people.types";
-import { helperById, initialsOf } from "@/features/people/people.utils";
+import type { Helper, Invite } from "@/features/people/people.types";
+import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 
 export function NeedsYou({
   blocked,
   pendingVales,
+  helpers,
   onReschedule,
   onDecideVale,
   flaggedInvites,
@@ -18,6 +19,7 @@ export function NeedsYou({
 }: {
   blocked: Task[];
   pendingVales: ValeRequest[];
+  helpers: Helper[];
   onReschedule: (id: string) => void;
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   flaggedInvites: Invite[];
@@ -59,7 +61,7 @@ export function NeedsYou({
       </div>
       <div className="space-y-2.5">
         {blocked.map((t) => {
-          const helper = helperById(t.helperId);
+          const helper = findHelper(t.helperId, helpers);
           const isReplying = replyId === t.id;
           return (
             <div
@@ -125,7 +127,7 @@ export function NeedsYou({
           );
         })}
         {pendingVales.map((v) => {
-          const helper = helperById(v.helperId);
+          const helper = findHelper(v.helperId, helpers);
           return (
             <div
               key={v.id}

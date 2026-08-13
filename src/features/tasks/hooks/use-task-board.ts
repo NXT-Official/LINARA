@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { INITIAL_PREP_TASKS } from "@/features/appointments/appointment.constants";
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 import { parseTimeToMinutes, weekdayOf } from "@/lib/time";
 import { addToQueue } from "@/lib/offline-queue";
 
-import { INITIAL_ROUTINES, INITIAL_TASKS } from "../task.constants";
 import type { Routine, Status, Task } from "../task.types";
 import { routineMatches } from "../task.utils";
 
@@ -41,24 +40,28 @@ export type TaskBoard = ReturnType<typeof useTaskBoard>;
  */
 export function useTaskBoard({
   nowTs,
+  helpers,
   onComplete,
   onAction,
   isOnline = true,
 }: {
   nowTs: number;
+  /** Real helper_profiles rows (any status), for resolving a task/routine's station
+   * from its assigned helperId. */
+  helpers: Helper[];
   onComplete: (record: CompletionRecord) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onAction?: (action: { type: string; payload: any }) => void;
   isOnline?: boolean;
 }) {
-  const [tasks, setTasks] = useState<Task[]>(() => [...INITIAL_TASKS, ...INITIAL_PREP_TASKS]);
-  const [routines, setRoutines] = useState<Routine[]>(() => INITIAL_ROUTINES);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
   const [boardClosed, setBoardClosed] = useState(false);
-  // Simulated "today" — starts on Tuesday, July 7, 2026 to match the seed board.
-  const [simDate, setSimDate] = useState<Date>(new Date(2026, 6, 7));
+  // Simulated "today" -- starts as real today; can be pushed forward via startNewDay.
+  const [simDate, setSimDate] = useState<Date>(() => new Date());
 
   const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
-    const helper = helperById(t.helperId);
+    const helper = findHelper(t.helperId, helpers);
     const shouldQueue = boardClosed || flags.queuedForShift;
     const generatedId = `t${Date.now()}`;
     const newTask: Task = {
@@ -194,7 +197,7 @@ export function useTaskBoard({
   };
 
   const addRoutine = (r: Omit<Routine, "id" | "station">) => {
-    const helper = helperById(r.helperId);
+    const helper = findHelper(r.helperId, helpers);
     const generatedId = `r${Date.now()}`;
     const newRoutine: Routine = { ...r, id: generatedId, station: helper.station };
     setRoutines((prev) => [...prev, newRoutine]);

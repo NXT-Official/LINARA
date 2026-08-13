@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { useAppointments } from "@/features/appointments/hooks/use-appointments";
@@ -9,7 +9,7 @@ import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
 import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
-import { helperById } from "@/features/people/people.utils";
+import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
 import { useUtos } from "@/features/utos/hooks/use-utos";
@@ -26,17 +26,32 @@ import { useSimClock } from "../hooks/use-sim-clock";
  * remounts the day's state.
  */
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const currentHelperId = "rosa";
-  const helper = helperById(currentHelperId);
-
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
+
+  // All real helper_profiles rows, any status, for id -> Helper lookups; and the
+  // ACTIVE subset for assignment dropdowns / lane rendering. "helper" stands in for
+  // "the one with a first-class device" -- the first ACTIVE helper -- since there is
+  // no real per-helper auth session yet (see KNOWN_GAPS.md); null until someone has
+  // claimed their account.
+  const helpers = useMemo(() => invites.helperProfiles.map(toHelper), [invites.helperProfiles]);
+  const activeHelpers = useMemo(
+    () => invites.helperProfiles.filter((p) => p.status === "ACTIVE").map(toHelper),
+    [invites.helperProfiles],
+  );
+  const helper = activeHelpers[0] ?? null;
+  const currentHelperId = helper?.id ?? null;
+
   const pantry = usePantry();
-  const schedules = useSchedules();
+  const schedules = useSchedules({
+    helperProfiles: invites.helperProfiles,
+    token: session.token,
+    refresh: invites.refresh,
+  });
   const vales = useVales();
   const clock = useSimClock();
-  const availability = useAvailability({ nowTs: clock.nowTs, schedules });
-  const ledger = useLedger({ rosaStatus: availability.status, schedules });
+  const availability = useAvailability({ nowTs: clock.nowTs, schedules, currentHelperId });
+  const ledger = useLedger({ rosaStatus: availability.status, schedules, currentHelperId });
 
   // Physical and simulated online/offline tracking
   const [isPhysicalOnline, setIsPhysicalOnline] = useState(() =>
@@ -59,6 +74,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const board = useTaskBoard({
     nowTs: clock.nowTs,
+    helpers,
     onComplete: ledger.record,
     onAction: (action) => {
       if (isSyncingBoardRef.current) return;
@@ -71,12 +87,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
   });
 
-  const appointments = useAppointments(board.setTasks);
+  const appointments = useAppointments(board.setTasks, helpers);
 
   const utos = useUtos({
     toHelperId: currentHelperId,
+    toHelperName: helper?.name ?? "your helper",
     // A quick utos finished off-shift is worth a token five minutes.
-    onDone: (u) =>
+    onDone: (u) => {
+      if (!currentHelperId) return;
       ledger.record({
         sourceId: u.id,
         kind: "utos",
@@ -86,7 +104,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         doneTs: clock.nowTs,
         autoMinutes: 5,
         emergency: !!u.emergency,
-      }),
+      });
+    },
     onAction: (action) => {
       if (isSyncingUtosRef.current) return;
       quickUtosChannelRef.current?.send({
@@ -104,26 +123,32 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   utosRef.current = utos;
 
   useEffect(() => {
-    const householdId = "demo-household-id";
-
     // 1. household-board-channel
     const boardChannel = supabaseClient.channel("household-board-channel");
     householdBoardChannelRef.current = boardChannel;
 
-    boardChannel
-      .on(
+    // Only the signed-in manager's session carries a real household_id
+    // (see use-session.ts -- a helper's own session isn't tracked here).
+    // Without one there's no real household to filter Postgres changes by,
+    // so skip that listener -- the broadcast listener below still handles
+    // tab-to-tab sync regardless of auth state.
+    if (session.householdId) {
+      boardChannel.on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "tickets",
-          filter: `household_id=eq.${householdId}`,
+          filter: `household_id=eq.${session.householdId}`,
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
           console.log("[Realtime] Received tickets table postgres change:", payload);
         },
-      )
+      );
+    }
+
+    boardChannel
       .on("broadcast", { event: "board-action" }, ({ payload }) => {
         console.log("[Realtime] Received board broadcast action:", payload);
         isSyncingBoardRef.current = true;
@@ -161,7 +186,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
           console.log("[Realtime] Received quick_utos table postgres change:", payload);
-          if (payload.new && payload.new.helper_id === currentHelperId) {
+          // quick_utos has no helper_id column -- the FK to helper_profiles
+          // is recipient_id (see ARCHITECTURE.md's quick_utos definition).
+          if (payload.new && payload.new.recipient_id === currentHelperId) {
             isSyncingUtosRef.current = true;
             try {
               utosRef.current.receiveAction({
@@ -171,7 +198,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
                     id: payload.new.id,
                     content: payload.new.content,
                     from: payload.new.from_name || "Manager",
-                    to: helper.name,
+                    to: helper?.name ?? "your helper",
                     timestamp: new Date(payload.new.created_at).getTime(),
                     ackState: payload.new.ack_state || "sent",
                     afterHours: payload.new.after_hours,
@@ -214,7 +241,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       supabaseClient.removeChannel(boardChannel);
       supabaseClient.removeChannel(utosChannel);
     };
-  }, [currentHelperId, helper.name]);
+  }, [currentHelperId, helper?.name, session.householdId]);
 
   // Background Sync Daemon
   const syncOfflineQueue = async () => {
@@ -286,6 +313,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const value: AppStores = {
     helper,
+    helpers,
+    activeHelpers,
     session,
     invites,
     pantry,

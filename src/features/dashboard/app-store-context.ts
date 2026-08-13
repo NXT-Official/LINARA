@@ -23,8 +23,14 @@ import type { SimClock } from "./hooks/use-sim-clock";
  * be built in one place anyway. Split it the day a store becomes independent.
  */
 export type AppStores = {
-  /** The one helper with a first-class device in this prototype. */
-  helper: Helper;
+  /** The one helper with a first-class device in this prototype -- the first real
+   * ACTIVE helper_profiles row, since there is no real per-helper auth session yet
+   * (see KNOWN_GAPS.md). Null until at least one helper has claimed their account. */
+  helper: Helper | null;
+  /** Every helper_profiles row for the household, any status -- for id -> Helper lookups. */
+  helpers: Helper[];
+  /** ACTIVE helpers only -- for assignment dropdowns and per-helper lane rendering. */
+  activeHelpers: Helper[];
   session: Session;
   invites: InviteStore;
   pantry: PantryStore;

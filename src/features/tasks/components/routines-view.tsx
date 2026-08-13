@@ -2,7 +2,8 @@ import { Plus, Repeat } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
-import { HELPERS, stationTone } from "@/features/people/people.constants";
+import { stationTone } from "@/features/people/people.constants";
+import type { Helper } from "@/features/people/people.types";
 
 import type { Routine } from "../task.types";
 import { NewRoutineModal } from "./new-routine-modal";
@@ -10,15 +11,19 @@ import { RoutineRow } from "./routine-row";
 
 export function RoutinesView({
   routines,
+  token,
+  activeHelpers,
   onAdd,
   onRemove,
 }: {
   routines: Routine[];
+  token: string | null;
+  activeHelpers: Helper[];
   onAdd: (r: Omit<Routine, "id" | "station">) => void;
   onRemove: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const byHelper = HELPERS.map((h) => ({
+  const byHelper = activeHelpers.map((h) => ({
     helper: h,
     items: routines.filter((r) => r.helperId === h.id),
   }));
@@ -95,6 +100,8 @@ export function RoutinesView({
 
       {open && (
         <NewRoutineModal
+          token={token}
+          activeHelpers={activeHelpers}
           onClose={() => setOpen(false)}
           onAdd={(r) => {
             onAdd(r);

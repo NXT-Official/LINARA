@@ -16,7 +16,7 @@ export function ManagerMoneyPage() {
         onSetDefault={ledger.setResolutionDefault}
         onUpdateEntry={ledger.updateEntry}
         audience="manager"
-        helperName={helper.name}
+        helperName={helper?.name ?? "your helper"}
       />
     </div>
   );

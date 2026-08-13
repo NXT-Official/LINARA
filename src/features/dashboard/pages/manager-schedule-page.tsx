@@ -12,7 +12,19 @@ import { useAppStores } from "../app-store-context";
 
 /** The week: shifts, routines, appointments, and what is queued for tomorrow. */
 export function ManagerSchedulePage() {
-  const { session, board, schedules, appointments, availability, helper, utos } = useAppStores();
+  const {
+    session,
+    board,
+    schedules,
+    invites,
+    appointments,
+    availability,
+    helper,
+    helpers,
+    activeHelpers,
+    utos,
+  } = useAppStores();
+  const activeInvites = invites.invites.filter((i) => i.status === "active");
   const { adminType, currentAdmin } = session;
   const { tasks, routines, simDate, addTask, addRoutine, removeRoutine } = board;
 
@@ -43,10 +55,22 @@ export function ManagerSchedulePage() {
           still look at the week and add appointments.
         </div>
       )}
-      <ShiftsSection schedules={schedules} readOnly={!canEditShifts} />
-      <QuickUtosLauncher onSend={gate.sendUtos} helperName={helper.name} />
-      <RoutinesView routines={routines} onAdd={addRoutine} onRemove={removeRoutine} />
-      <AppointmentsSection appointments={appointments} tasks={tasks} simDate={simDate} />
+      <ShiftsSection schedules={schedules} helpers={activeInvites} readOnly={!canEditShifts} />
+      <QuickUtosLauncher onSend={gate.sendUtos} helperName={helper?.name ?? "your helper"} />
+      <RoutinesView
+        routines={routines}
+        token={session.token}
+        activeHelpers={activeHelpers}
+        onAdd={addRoutine}
+        onRemove={removeRoutine}
+      />
+      <AppointmentsSection
+        appointments={appointments}
+        tasks={tasks}
+        simDate={simDate}
+        helpers={helpers}
+        activeHelpers={activeHelpers}
+      />
       {queued.length > 0 && (
         <section className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
@@ -66,7 +90,7 @@ export function ManagerSchedulePage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             {queued.map((t) => (
-              <TaskCard key={t.id} task={t} />
+              <TaskCard key={t.id} task={t} helpers={helpers} />
             ))}
           </div>
         </section>
@@ -76,7 +100,7 @@ export function ManagerSchedulePage() {
         <AvailabilityGate
           intent={gate.intent}
           status={rosaStatus}
-          helperName={helper.name}
+          helperName={helper?.name ?? "your helper"}
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}

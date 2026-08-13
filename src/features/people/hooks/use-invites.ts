@@ -6,7 +6,7 @@ import type { Invite, Station } from "../people.types";
 
 export type InviteStore = ReturnType<typeof useInvites>;
 
-interface HelperProfileRow {
+export interface HelperProfileRow {
   id: string;
   name: string;
   station: string;
@@ -14,6 +14,9 @@ interface HelperProfileRow {
   shift_start: string;
   shift_end: string;
   weekly_rest_day: number;
+  daily_break_duration: number;
+  break_start: string | null;
+  break_end: string | null;
   monthly_rate: number;
   phone: string | null;
   invite_code: string | null;
@@ -50,11 +53,16 @@ function toInvite(row: HelperProfileRow): Invite {
  */
 export function useInvites({ token, ready }: { token: string | null; ready: boolean }) {
   const [invites, setInvites] = useState<Invite[]>([]);
+  // Raw rows alongside the display-mapped `invites` above, so other stores
+  // (Shifts) can derive from this same fetch instead of re-querying
+  // helper_profiles themselves.
+  const [helperProfiles, setHelperProfiles] = useState<HelperProfileRow[]>([]);
 
   const refresh = useCallback(async () => {
     if (!token) return;
-    const rows = await listHelperProfilesFn({ data: { token } });
-    setInvites(rows.map((row) => toInvite(row as HelperProfileRow)));
+    const rows = (await listHelperProfilesFn({ data: { token } })) as HelperProfileRow[];
+    setHelperProfiles(rows);
+    setInvites(rows.map(toInvite));
   }, [token]);
 
   useEffect(() => {
@@ -128,6 +136,8 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
 
   return {
     invites,
+    helperProfiles,
+    refresh,
     create,
     cancel,
     findByCode: (code: string) =>

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
+import { isRestDay } from "@/features/shifts/shift.utils";
 import type { CompletionRecord } from "@/features/tasks/hooks/use-task-board";
 import { parseHM, weekdayOf } from "@/lib/time";
 
@@ -19,9 +20,13 @@ export type LedgerStore = ReturnType<typeof useLedger>;
 export function useLedger({
   rosaStatus,
   schedules,
+  currentHelperId,
 }: {
   rosaStatus: RosaStatus;
   schedules: ScheduleStore;
+  /** Real helper_profiles id of the one helper with a first-class device -- null
+   * until a real helper has claimed their account (see app-store-provider.tsx). */
+  currentHelperId: string | null;
 }) {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [resolutionDefault, setResolutionDefault] = useState<LedgerResolution>("rest");
@@ -29,24 +34,21 @@ export function useLedger({
   const classify = (ts: number, emergency: boolean): LedgerReason => {
     if (emergency) return "emergency";
     const d = new Date(ts);
-    const day = schedules.weekFor("rosa")[weekdayOf(d)];
-    if (day.rest) return "rest_day";
-    const minutes = d.getHours() * 60 + d.getMinutes();
-    if (
-      day.breakStart &&
-      day.breakEnd &&
-      minutes >= parseHM(day.breakStart) &&
-      minutes < parseHM(day.breakEnd)
-    ) {
-      return "rest_break";
+    const schedule = currentHelperId ? schedules.scheduleFor(currentHelperId) : undefined;
+    if (schedule && isRestDay(weekdayOf(d), schedule)) return "rest_day";
+    if (schedule?.breakStart && schedule?.breakEnd) {
+      const minutes = d.getHours() * 60 + d.getMinutes();
+      if (minutes >= parseHM(schedule.breakStart) && minutes < parseHM(schedule.breakEnd)) {
+        return "rest_break";
+      }
     }
     if (rosaStatus.status === "available") return "available";
     return "override";
   };
 
-  /** Called for every completion; only off-shift work by Rosa is recorded. */
+  /** Called for every completion; only off-shift work by the current helper is recorded. */
   const record = (completion: CompletionRecord) => {
-    if (completion.helperId !== "rosa") return;
+    if (!currentHelperId || completion.helperId !== currentHelperId) return;
     const isOffShift = rosaStatus.status !== "on_shift";
     const isExplicitAfterHours = completion.afterHours || completion.emergency;
 

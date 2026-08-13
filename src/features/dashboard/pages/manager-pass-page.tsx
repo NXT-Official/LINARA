@@ -22,6 +22,8 @@ export function ManagerPassPage({
     invites: inviteStore,
     availability,
     helper,
+    helpers,
+    activeHelpers,
     utos,
     startNewDay,
   } = useAppStores();
@@ -61,10 +63,12 @@ export function ManagerPassPage({
         blocked={active.filter((t) => t.status === "blocked")}
         pendingVales={vales.vales.filter((v) => v.status === "pending")}
         flaggedInvites={inviteStore.invites.filter((i) => i.flags.length > 0)}
+        helpers={helpers}
+        activeHelpers={activeHelpers}
         simDate={simDate}
         boardClosed={boardClosed}
         rosaStatus={rosaStatus}
-        helperName={helper.name}
+        helperName={helper?.name ?? "your helper"}
         authorName={authorName}
         isRemote={isRemote}
         canStartNewDay={canStartNewDay}
@@ -81,6 +85,7 @@ export function ManagerPassPage({
 
       {open && (
         <NewTaskModal
+          activeHelpers={activeHelpers}
           isRemote={isRemote}
           onClose={() => setOpen(false)}
           onAdd={(t, opts) => {
@@ -93,7 +98,7 @@ export function ManagerPassPage({
         <AvailabilityGate
           intent={gate.intent}
           status={rosaStatus}
-          helperName={helper.name}
+          helperName={helper?.name ?? "your helper"}
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}

@@ -48,6 +48,23 @@ jobs:
           SYSTEM_CRON_SECRET: "mock-cron-secret"
           REGIONAL_MINIMUM_WAGE: "6000.00"
 
+      - name: 8. Run Unit/Integration Tests (Vitest)
+        run: npm run test
+
+      - name: 9. Install Playwright Browser (Chromium only, matches playwright.config.ts)
+        run: npx playwright install --with-deps chromium
+
+      - name: 10. Run End-to-End Smoke Tests (Playwright)
+        run: npm run test:e2e
+        env:
+          # playwright.config.ts boots the dev server itself; it needs the
+          # same mock coordinates as the build step above to start cleanly.
+          SUPABASE_URL: "https://mock-supabase-url.supabase.co"
+          SUPABASE_ANON_KEY: "mock-anon-key"
+          JWT_SECRET: "mock-jwt-secret-string-at-least-32-chars-long"
+          SYSTEM_CRON_SECRET: "mock-cron-secret"
+          REGIONAL_MINIMUM_WAGE: "6000.00"
+
   # optional deployment check
   deploy-preview:
     name: Stage Preview Check

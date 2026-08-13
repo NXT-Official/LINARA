@@ -21,6 +21,18 @@ export function HelperShell({ children }: { children: ReactNode }) {
   const [claimedInfo, setClaimedInfo] = useState<Invite | null>(null);
   const myClaimed = invites.invites.find((i) => i.status === "active");
 
+  if (!helper) {
+    return (
+      <div className="space-y-5 pb-24">
+        <div className="rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center text-sm text-muted-foreground">
+          No active helper account yet — claim an invite to see your station.
+        </div>
+        {children}
+        <BottomNav items={HELPER_NAV} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 pb-24">
       <section className="rounded-3xl bg-primary p-6 text-primary-foreground shadow-lift sm:p-8">

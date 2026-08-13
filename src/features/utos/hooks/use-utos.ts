@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-import { helperById } from "@/features/people/people.utils";
-
 import type { QuickUtos } from "../utos.types";
 
 export type SendFlags = {
@@ -21,10 +19,14 @@ export type UtosStore = ReturnType<typeof useUtos>;
  */
 export function useUtos({
   toHelperId,
+  toHelperName,
   onDone,
   onAction,
 }: {
-  toHelperId: string;
+  /** Real helper_profiles id of the recipient -- null until a real helper has
+   * claimed their account (see app-store-provider.tsx). */
+  toHelperId: string | null;
+  toHelperName: string;
   /** Fired when the helper taps Done — the app decides if it is owed back. */
   onDone: (utos: QuickUtos) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,12 +36,13 @@ export function useUtos({
   const [wipedToday, setWipedToday] = useState(false);
 
   const send = (content: string, flags: SendFlags = {}) => {
+    if (!toHelperId) return;
     const generatedId = `u${Date.now()}`;
     const newUto: QuickUtos = {
       id: generatedId,
       content,
       from: flags.from ?? "Manager",
-      to: helperById(toHelperId).name,
+      to: toHelperName,
       timestamp: Date.now(),
       ackState: "sent",
       afterHours: flags.afterHours,
