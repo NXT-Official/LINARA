@@ -109,17 +109,39 @@ permanent source of truth for anyone but the browser's own tracked helper.
 `currentHelperId` (there's no data source for it) — this is documented
 behavior, not a silent gap.
 
-### Pay Dial / payslips — not touched by this pass
+### Pay Dial / payslips — fixed
 
-`SpendAndPayday` and the payslip history still only ever read
-`currentHelperId`'s numbers. A household with 3 active helpers only ever
-sees one person's wage/payslip data on the web Money tab; the other two are
-invisible there (though each still sees their own real data correctly in
-`LINARA_MOBILE`, since that side has genuine per-helper auth).
+Previously: `SpendAndPayday` and `PayslipHistory` both only ever read
+`currentHelperId`'s numbers, pulled straight from `useAppStores()`. A
+household with 3 active helpers only ever saw one person's wage/payslip data
+on the web Money tab.
 
-**To fix:** add a helper switcher to `ManagerMoneyPage`, same shape as Quick
-Utos's picker — `activeHelpers`, a selected id, `statusFor`/`toHelper`
-lookups already exist and are reusable. Scoped as future work, not started.
+**A second, sharper bug found while fixing this:** `LedgerEntry` (the
+client-side type in `ledger.types.ts`) had no `helperId` field at all, even
+though the underlying `ledger_entries` table's `helper_id` column was
+already being fetched (`LedgerEntryRow.helper_id`, `ledger.actions.ts`) —
+`use-ledger.ts`'s `toLedgerEntry()` just never mapped it through. This meant
+`SpendAndPayday`'s Pay Dial (`totalMin`/`premiumMin`, the rest-owed-minutes
+math) summed **every active helper's ledger entries into one dial**,
+regardless of whose numbers it claimed to show — not a display gap, a wrong
+number, and one that would have stayed wrong even after adding a helper
+switcher, since there was nothing to filter *by*.
+
+Fixed by:
+- Adding `helperId: string` to `LedgerEntry` and setting it from
+  `row.helper_id` in `toLedgerEntry()`.
+- `ManagerMoneyPage` gained a local helper switcher (shown when
+  `activeHelpers.length > 1`, same `<select>` pattern as Quick Utos) —
+  local to that page, not `AppStores`, since nothing else depends on "whose
+  pay is being viewed."
+- `SpendAndPayday` gained an *optional* `helper` override prop — omitted
+  (the Pass board's glance card, `manager-pass-tab.tsx`, which was never
+  meant to be helper-switchable), it still reads `useAppStores().helper`
+  exactly as before. The Money page passes its switcher's selection.
+  Its ledger math now filters `ledger.entries` by the resolved helper's id.
+- `PayslipHistory` needed no changes — it already took `helper` as a prop
+  and already filtered/targeted correctly by whichever one it was given;
+  the gap was entirely in what `ManagerMoneyPage` chose to hand it.
 
 ---
 

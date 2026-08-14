@@ -67,7 +67,7 @@ the bottom.
   changes as new helpers claim their accounts. Quick Utos, the after-hours
   Ledger, the Availability friction wall, and the Pay Dial all keyed off
   this one value.
-- **Partially closed, same day:** Quick Utos and the Ledger write it drives
+- **Partially closed, 2026-08-14:** Quick Utos and the Ledger write it drives
   are fixed -- a real recipient picker, AI `suggestedStation` surfaced
   (never auto-applied) via a toast, `ledger.record` follows the utos's own
   `toHelperId`. The friction wall (`use-send-gate.ts`) is generalized via a
@@ -76,19 +76,25 @@ the bottom.
   helper other than `currentHelperId` silently skipped the off-shift warning
   entirely, live, before this fix -- not new scope, a bug this same
   generalization happened to close).
-- **Still open:** the Pay Dial/payslip history (Money tab) still only shows
-  `currentHelperId`'s numbers -- no per-helper switcher exists there yet.
-  Also surfaced, unresolved: `useAvailability`'s manual "Available for N
-  hours" opt-in is `localStorage`-only (never real, cross-app data), and its
-  only UI control was deleted along with the vestigial `/helper` surface in
-  C26 -- it's now permanently unreachable. Whether `LINARA_MOBILE` has a
-  real equivalent is unverified. See `MULTI_HELPER_HANDLING.md` §2 for both.
-- **To close:** a Pay Dial helper switcher (same shape as the Quick Utos
-  picker -- `activeHelpers`, a selected id); and a `LINARA_MOBILE`-side
-  investigation into whether a real per-helper availability toggle already
-  exists there before deciding whether to rebuild, remove, or leave the
-  web app's `statusFor` schedule-only answer as the permanent source of
-  truth for anyone but the browser's own tracked helper.
+- **Also closed, same day:** the Pay Dial/payslip history (Money tab) --
+  `ManagerMoneyPage` gained a helper switcher (same picker pattern). Found
+  while fixing it: `LedgerEntry` (the client type) had no `helperId` field
+  at all, even though `ledger_entries.helper_id` was already being fetched
+  -- `toLedgerEntry()` just never mapped it through. This meant the Pay
+  Dial's rest-owed-minutes math summed *every* active helper's ledger
+  entries into one dial regardless of whose numbers it claimed to show; a
+  switcher alone would not have fixed it, since there was nothing to filter
+  by. Added `LedgerEntry.helperId`, set from `row.helper_id`.
+- **Still open:** `useAvailability`'s manual "Available for N hours" opt-in
+  is `localStorage`-only (never real, cross-app data), and its only UI
+  control was deleted along with the vestigial `/helper` surface in C26 --
+  it's now permanently unreachable. Whether `LINARA_MOBILE` has a real
+  equivalent is unverified. See `MULTI_HELPER_HANDLING.md` §2.
+- **To close:** a `LINARA_MOBILE`-side investigation into whether a real
+  per-helper availability toggle already exists there before deciding
+  whether to rebuild, remove, or leave the web app's `statusFor`
+  schedule-only answer as the permanent source of truth for anyone but the
+  browser's own tracked helper.
 
 ---
 

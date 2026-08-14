@@ -4,10 +4,18 @@ import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
 import { ledgerEntryMinutes } from "@/features/ledger/ledger.utils";
 import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
 
-export function SpendAndPayday() {
+/**
+ * `helper` is optional -- omitted, this reads `useAppStores().helper` (the
+ * Pass board's glance card, which was never meant to be helper-switchable).
+ * The Money tab passes its own switcher's selection explicitly instead --
+ * see MULTI_HELPER_HANDLING.md.
+ */
+export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
   const { spent, budget, remaining } = useGrocery();
-  const { vales, ledger, helper } = useAppStores();
+  const { vales, ledger, helper: currentHelper } = useAppStores();
+  const helper = helperOverride !== undefined ? helperOverride : currentHelper;
 
   // 1. Spend Dial Calculations
   const spendPct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
@@ -40,10 +48,14 @@ export function SpendAndPayday() {
     .filter((v) => v.helperId === helper?.id && v.status === "approved" && !v.settledInPayslipId)
     .reduce((s, v) => s + v.amount, 0);
 
-  // Sum up rest-owed minutes
-  const totalMin = ledger.entries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
+  // Sum up rest-owed minutes -- filtered to this helper. listLedgerEntriesFn
+  // fetches every entry in the household (see ledger.actions.ts), so an
+  // unfiltered sum here would mix every active helper's rest-owed minutes
+  // into whichever one dial happens to be showing.
+  const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === helper?.id);
+  const totalMin = helperLedgerEntries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
 
-  const premiumMin = ledger.entries
+  const premiumMin = helperLedgerEntries
     .filter((e) => e.resolution === "premium")
     .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
 
