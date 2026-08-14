@@ -28,11 +28,16 @@ function simplifyMockSop(steps: string[], title?: string) {
     simplifiedGoal: title
       ? `Para sa maayos at ligtas na pagsasagawa ng "${title}".`
       : "Para sa maayos at ligtas na pagsasagawa ng gawaing bahay.",
-    visualCards: visualCards.length > 0 ? visualCards : [{
-      stepNumber: 1,
-      instruction: title || "Sundin ang mga hakbang nang mahinahon.",
-      focusPoint: "Kumuha muna ng buong detalye bago simulan.",
-    }],
+    visualCards:
+      visualCards.length > 0
+        ? visualCards
+        : [
+            {
+              stepNumber: 1,
+              instruction: title || "Sundin ang mga hakbang nang mahinahon.",
+              focusPoint: "Kumuha muna ng buong detalye bago simulan.",
+            },
+          ],
   };
 }
 

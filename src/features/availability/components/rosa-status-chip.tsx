@@ -4,13 +4,7 @@ import { formatTimeOfDay } from "@/lib/time";
 import type { RosaStatus } from "../availability.types";
 import { statusMeta } from "../availability.utils";
 
-export function RosaStatusChip({
-  status,
-  helperName,
-}: {
-  status: RosaStatus;
-  helperName: string;
-}) {
+export function RosaStatusChip({ status, helperName }: { status: RosaStatus; helperName: string }) {
   const mounted = useMounted();
   const meta = statusMeta(mounted ? status.status : "off");
   return (

@@ -33,7 +33,13 @@ export function QuickUtosFeed({
       ) : (
         <ul className="space-y-2">
           {ordered.map((u) => (
-            <UtosChip key={u.id} utos={u} onAck={onAck} available={available} helperName={helperName} />
+            <UtosChip
+              key={u.id}
+              utos={u}
+              onAck={onAck}
+              available={available}
+              helperName={helperName}
+            />
           ))}
         </ul>
       )}

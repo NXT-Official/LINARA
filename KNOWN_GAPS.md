@@ -200,7 +200,7 @@ re-investigates something already resolved.
   mock — the two data sources coexisted, with most of the UI still on the
   fake one.
 - **Fixed by:** `people.utils.ts` gained `toHelper(row: HelperProfileRow):
-  Helper` (mapping a real row to the display-shaped `Helper` type) and
+Helper` (mapping a real row to the display-shaped `Helper` type) and
   `findHelper(id, helpers)` (an id → `Helper` lookup with an "Unknown
   helper" fallback instead of the old lookup's non-null assertion, since a
   miss is now a real possibility — e.g. a deleted profile — not just a
@@ -208,7 +208,7 @@ re-investigates something already resolved.
   `helpers: Helper[]` (every real row, any status, for lookups) and
   `activeHelpers: Helper[]` (`status === "ACTIVE"` only, for assignment
   dropdowns and lane rendering); `helper: Helper` became `helper: Helper |
-  null` — the first ACTIVE helper stands in for "the one with a first-class
+null` — the first ACTIVE helper stands in for "the one with a first-class
   device" (still no real per-helper auth session — that's separate, larger
   scope, same as this file's older "gap #3" note). `currentHelperId`
   (`app-store-provider.tsx`) is now that helper's real UUID, or `null`.
@@ -237,8 +237,8 @@ re-investigates something already resolved.
   pre-existing warnings unrelated to this change remain), the Vitest suite,
   and a full `vite build` (SSR + client) all pass clean.
 - **Known residual limitation, not closed by this fix:** This closes the
-  *identity* half of gaps #5 and #6 (a real helper id now exists to write),
-  not the *insert* half — `ledger_entries`/`vales`/`quick_utos` still have no
+  _identity_ half of gaps #5 and #6 (a real helper id now exists to write),
+  not the _insert_ half — `ledger_entries`/`vales`/`quick_utos` still have no
   writer; see those entries. There is still no real per-helper auth session
   (the "first ACTIVE helper" stand-in is a simplification, same posture as
   the residual limitation already noted on C6) — until that exists, a
@@ -298,7 +298,7 @@ re-investigates something already resolved.
      anywhere in `plan.md`/`architecture.md`.
 - **Decisions (user-confirmed):** (1) add the missing columns rather than
   wait on gap #4 or drop the fields — a ledger entry is a historical record,
-  so denormalizing `title`/`kind` onto the row is arguably the *correct*
+  so denormalizing `title`/`kind` onto the row is arguably the _correct_
   design regardless of tickets, not just a stopgap: a live join to a
   (someday-editable) ticket title would let history drift, where a snapshot
   won't. `station`/`appointment_title` were **not** added — nothing in
@@ -345,7 +345,7 @@ re-investigates something already resolved.
   `use-utos.ts`'s local `send()`, never an insert into `quick_utos`. The
   `currentHelperId` identity blocker this entry originally flagged was
   resolved by C8; `QuickUtos { id, content, from, to, timestamp, ackState,
-  afterHours, emergency, waiting }` turned out to map onto the table almost
+afterHours, emergency, waiting }` turned out to map onto the table almost
   exactly (same as Vales, not like Ledger) — no mapping decisions needed.
 - **Also found while closing this:** `use-send-gate.ts` — the layer between
   the send UI and `useUtos.send()` — had two more hardcoded `"rosa"`
@@ -400,7 +400,7 @@ re-investigates something already resolved.
      `appointment_id`, `appointment_title`, `lead_minutes`,
      `reschedule_notice` — see `supabase/add-ticket-board-columns.sql`),
      same reasoning as C10's `title`/`kind` on `ledger_entries`. `station`
-     and `scheduled_date` were deliberately *not* added: `station` was
+     and `scheduled_date` were deliberately _not_ added: `station` was
      already always derived live from the assigned helper at every call
      site (never independently set, confirmed by tracing every mutator), so
      a column would only reintroduce a staleness bug that behavior never
@@ -416,7 +416,7 @@ re-investigates something already resolved.
      an optimistic local copy and a Realtime-delivered copy risks the same
      edit being applied twice.
   3. **Routines** — `Routine` templates stay local-only `useState` (no real
-     `routines` table this pass); only the *spawned* `Task` instances become
+     `routines` table this pass); only the _spawned_ `Task` instances become
      real `tickets` rows, carrying `routine_id` as plain TEXT provenance
      (not a FK, since there's nothing to reference yet).
   4. **Appointments overlap** — also partially resolved gap #7's prep-task
@@ -453,7 +453,7 @@ re-investigates something already resolved.
   `startNewDay` silently dropped any unfinished one-off task (no
   `routineId`/`appointmentId`) the moment the simulated day rolled, even if
   it was still `todo` or `blocked`. `listTicketsFn`'s filter no longer does
-  this — any not-done ticket stays visible regardless of age; only *done*
+  this — any not-done ticket stays visible regardless of age; only _done_
   tickets roll off the board once their day passes. Silently losing track of
   unfinished work seemed like the wrong default once the data is real and
   persistent rather than a discardable in-memory array.
@@ -492,7 +492,7 @@ re-investigates something already resolved.
   this repo's vestigial helper-facing surface (`next-task-card.tsx`), fully
   duplicating shopping-execution actions `LINARA_MOBILE` already performs
   for real — against `AGENTS.md`'s explicit division (helper work lives
-  exclusively in `LINARA_MOBILE`). Worse: the *manager*-facing Pantry page
+  exclusively in `LINARA_MOBILE`). Worse: the _manager_-facing Pantry page
   (`GrocerySection`) had the exact same interactive toggle/cost/receipt UI,
   and the manager Money tab's Spend Dial (`use-grocery-list.ts`) was pure
   local `useState` — meaning a manager's "₱1,120 of ₱1,500 spent" reading
@@ -591,7 +591,7 @@ re-investigates something already resolved.
      (updates the appointment + every prep ticket's `scheduled_start`/
      `appointment_title`/`reschedule_notice` in one transaction), and
      `delete_appointment_with_preps` (deletes the appointment; `ON DELETE
-     CASCADE` handles its prep tickets, no separate ticket-delete needed).
+CASCADE` handles its prep tickets, no separate ticket-delete needed).
   3. `reschedule_appointment_with_preps` takes pre-computed per-ticket
      updates from its caller rather than formatting dates in SQL — the old
      `oldTime`/`oldDate` `reschedule_notice` fields still go through
@@ -631,11 +631,11 @@ re-investigates something already resolved.
   directly (same no-service-role-key posture as C12/C13) — confirmed live
   2026-08-13: an unauthenticated PostgREST embed
   (`tickets?select=id,appointment_id,appointments(title)`) returned `200
-  []` rather than a "could not find a relationship" error, confirming
+[]` rather than a "could not find a relationship" error, confirming
   `tickets.appointment_id` is a real FK to `appointments`; all three RPCs
   (`create_appointment_with_preps`/`reschedule_appointment_with_preps`/
   `delete_appointment_with_preps`) responded with the expected `"Not
-  authenticated"` exception (not a 404), confirming they exist live. Not
+authenticated"` exception (not a 404), confirming they exist live. Not
   yet verified against a live signed-in session end-to-end.
 - **Known residual limitation, not closed by this fix:** Same helper-auth
   caveat as C9–C13 (writes always authenticate as whatever session token
@@ -778,7 +778,7 @@ re-investigates something already resolved.
   helper-facing surface regardless -- same reasoning as C13's removal of
   the vestigial grocery checklist.
 - **Original finding, kept for context:** `LINARA_MOBILE/services/api/
-  tickets.ts`'s `completeTicket(ticketId, photoEvidenceUrl?)` is already
+tickets.ts`'s `completeTicket(ticketId, photoEvidenceUrl?)` is already
   generic (Palengke is just its documented example, not the whole scope),
   and the upload plumbing (`uploadEvidenceImage`/`household-evidence`
   bucket) already exists. But the general "Today" focus-task completion
@@ -831,8 +831,8 @@ re-investigates something already resolved.
   can no longer drift the way the flat ₱240 hardcode once did against this
   same formula) -- and `cutoffsPerMonth()` (2 for `semi_monthly`, 1 for
   `monthly`). `spend-and-payday.tsx` now computes `basePay =
-  monthlyRate / cutoffsPerMonth` and `governmentDeductions =
-  totalEmployee / cutoffsPerMonth`, exactly mirroring
+monthlyRate / cutoffsPerMonth` and `governmentDeductions =
+totalEmployee / cutoffsPerMonth`, exactly mirroring
   `LINARA_MOBILE`'s `digital-payslip.tsx`; the "half-month"/"monthly" label
   under the dial now reflects the helper's real `paydayInterval` instead of
   being hardcoded text. `restOwedRate` (₱120/hr) was left as-is -- not
@@ -869,7 +869,7 @@ re-investigates something already resolved.
   (same role-check pattern as `updateHouseholdBudgetFn`/`decideValeFn`),
   since wage is more sensitive than a shift window and shouldn't rely on
   household-scoped RLS alone. `use-invites.ts` gained `updateWage(id,
-  monthlyRate)` -- write-then-refresh (same pattern as
+monthlyRate)` -- write-then-refresh (same pattern as
   `useGroceryList.setBudget`), since the new wage feeds several other real
   reads at once (Pay Dial, `LegalContributionSplitCard`, the minimum-wage
   compliance banner) that all need the fresh value. New
@@ -994,7 +994,7 @@ re-investigates something already resolved.
     introduced: `SpendAndPayday`'s and mobile `pay.tsx`'s "approved vale
     total" summed every approved vale ever, with nothing marking one as
     already paid out. Both now filter on `!settledInPayslipId`, so a vale
-    a past payslip already deducted stops shrinking the *next* cutoff's
+    a past payslip already deducted stops shrinking the _next_ cutoff's
     live estimate forever.
   - `LINARA_MOBILE`: new `services/api/payslips.ts` (`getMyPayslips`, same
     read-only join-through-`helper_profiles` RLS pattern as `getMyVales`)
@@ -1020,8 +1020,8 @@ re-investigates something already resolved.
   return. Flagging here so the next session doesn't assume either is
   already applied, same posture as Closed Gap C17. The new
   `xendit-payout-webhook` Edge Function also still needs `supabase
-  functions deploy xendit-payout-webhook`, a `supabase secrets set
-  XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
+functions deploy xendit-payout-webhook`, a `supabase secrets set
+XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
   Xendit's dashboard webhook settings (pointed at the deployed function's
   URL, subscribed to `payout.succeeded`/`payout.failed`/`payout.reversed`)
   before a real payout's confirmation can ever land -- none of that is

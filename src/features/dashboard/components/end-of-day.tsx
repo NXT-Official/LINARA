@@ -1,12 +1,6 @@
 import { Check, Moon } from "lucide-react";
 
-export function EndOfDay({
-  doneCount,
-  helperName,
-}: {
-  doneCount: number;
-  helperName: string;
-}) {
+export function EndOfDay({ doneCount, helperName }: { doneCount: number; helperName: string }) {
   return (
     <section className="rounded-3xl border border-border/70 bg-card p-8 text-center shadow-lift">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
