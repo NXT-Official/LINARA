@@ -160,12 +160,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       }
     }
 
-    const inviteUrl = `/claim?code=${inviteCode}`;
-
     return {
       helperId: helperProfile.id,
       inviteCode,
-      inviteUrl,
       status: "PENDING_CLAIM",
     };
   });

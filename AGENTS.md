@@ -10,6 +10,7 @@ implementing, reviewing, or modifying anything here, read:
 3. [`aiagent.md`](aiagent.md) — system prompts and JSON schemas for the three server-side AI agents (SOP Creator, Temporal Scheduler, Quick Utos Router).
 4. [`execution_plan.md`](execution_plan.md) — the authoritative 17-story roadmap and per-story files under [`roadmap/`](roadmap/).
 5. [`KNOWN_GAPS.md`](KNOWN_GAPS.md) — shared, cross-repo log of mismatches between the docs/roadmap and what the schema/code actually support. Covers gaps found from either `LINARA` or `LINARA_MOBILE`. Check it before starting a story that might touch a listed gap, and add to it the moment you find a new one — don't silently work around it and let the next session rediscover it.
+6. [`MULTI_HELPER_HANDLING.md`](MULTI_HELPER_HANDLING.md) — how this app decides *which helper* a manager-facing action is about, where that still breaks down for households with more than one active helper, and what's fixed vs. still open (Quick Utos, Ledger, Availability/friction wall, Pay Dial). Read before touching any of those four.
 
 **Cross-repo context — do not treat this app in isolation:**
 

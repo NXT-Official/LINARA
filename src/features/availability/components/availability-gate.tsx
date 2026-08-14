@@ -1,7 +1,6 @@
 import { AlertCircle, Moon, Send } from "lucide-react";
 
-import type { Task } from "@/features/tasks/task.types";
-
+import type { GateIntent } from "../hooks/use-send-gate";
 import type { RosaStatus } from "../availability.types";
 
 /** Friction wall before reaching a helper who is Off: wait, override, or emergency. */
@@ -13,9 +12,7 @@ export function AvailabilityGate({
   onCancel,
   onChoose,
 }: {
-  intent:
-    | { kind: "utos"; content: string }
-    | { kind: "task"; task: Omit<Task, "id" | "status" | "station"> };
+  intent: GateIntent;
   status: RosaStatus;
   helperName: string;
   canOverride?: boolean;

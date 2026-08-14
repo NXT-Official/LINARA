@@ -88,19 +88,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     refreshTasks: board.refresh,
   });
 
+  // Who the next Quick Utos goes to -- defaults to currentHelperId until a
+  // manager explicitly picks someone else via the launcher (see
+  // MULTI_HELPER_HANDLING.md). Kept as "explicit pick, or null" rather than
+  // resolved eagerly, so a not-yet-loaded currentHelperId doesn't get baked
+  // in as a stale default.
+  const [pickedUtosHelperId, setPickedUtosHelperId] = useState<string | null>(null);
+  const utosRecipientId = pickedUtosHelperId ?? currentHelperId;
+  const utosRecipientName =
+    activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper";
+
   const utos = useUtos({
-    toHelperId: currentHelperId,
-    toHelperName: helper?.name ?? "your helper",
+    toHelperId: utosRecipientId,
+    toHelperName: utosRecipientName,
     token: session.token,
     ready: session.status === "authed",
-    // A quick utos finished off-shift is worth a token five minutes.
+    // A quick utos finished off-shift is worth a token five minutes. Credited
+    // to the utos's own real recipient, not whichever helper is "current" --
+    // those can differ once a recipient has been explicitly picked.
     onDone: (u) => {
-      if (!currentHelperId) return;
       ledger.record({
         sourceId: u.id,
         kind: "utos",
         title: u.content,
-        helperId: currentHelperId,
+        helperId: u.toHelperId,
         startTs: u.timestamp,
         doneTs: clock.nowTs,
         autoMinutes: 5,
@@ -189,7 +200,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     // realtime-delivered copy ever coexisting under different ids.
     const utosChannel = supabaseClient.channel("quick-utos-channel");
 
-    if (currentHelperId) {
+    if (utosRecipientId) {
       utosChannel
         .on(
           "postgres_changes",
@@ -197,7 +208,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             event: "*",
             schema: "public",
             table: "quick_utos",
-            filter: `recipient_id=eq.${currentHelperId}`,
+            filter: `recipient_id=eq.${utosRecipientId}`,
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (payload: any) => {
@@ -223,7 +234,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       supabaseClient.removeChannel(boardChannel);
       supabaseClient.removeChannel(utosChannel);
     };
-  }, [currentHelperId, session.householdId]);
+  }, [utosRecipientId, session.householdId]);
 
   // Background Sync Daemon
   const syncOfflineQueue = async () => {
@@ -296,6 +307,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     board,
     appointments,
     utos,
+    utosRecipientId,
+    setUtosRecipientId: setPickedUtosHelperId,
     isOnline,
     isOfflineSimulated,
     setOfflineSimulated,

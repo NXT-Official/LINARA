@@ -18,6 +18,7 @@ export function ManagerPassPage({
   const {
     session,
     board,
+    schedules,
     vales,
     invites: inviteStore,
     availability,
@@ -25,6 +26,8 @@ export function ManagerPassPage({
     helpers,
     activeHelpers,
     utos,
+    utosRecipientId,
+    clock,
     startNewDay,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
@@ -47,10 +50,15 @@ export function ManagerPassPage({
   const [open, setOpen] = useState(false);
   const active = tasks.filter((t) => !t.queued && !t.suggested);
   const gate = useSendGate({
-    status: rosaStatus,
     authorName,
     isRemote,
+    schedules,
+    nowTs: clock.nowTs,
     currentHelperId: helper?.id ?? null,
+    currentHelperStatus: rosaStatus,
+    resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
+    utosTargetHelperId: utosRecipientId,
+    activeHelpers,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });
@@ -98,8 +106,8 @@ export function ManagerPassPage({
       {gate.intent && (
         <AvailabilityGate
           intent={gate.intent}
-          status={rosaStatus}
-          helperName={helper?.name ?? "your helper"}
+          status={gate.intent.status}
+          helperName={gate.intent.helperName}
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}

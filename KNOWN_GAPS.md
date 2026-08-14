@@ -53,6 +53,43 @@ the bottom.
   Claude API) and the constraint that `transcribe-notes` (Whisper) has no
   Claude equivalent and would stay on a separate provider regardless.
 
+### O2. `currentHelperId` (`activeHelpers[0]`) is a single, unstable stand-in for "the helper" across most helper-scoped features -- breaks down for 2+ active helpers
+
+- **Found:** 2026-08-14, user asked what could go wrong with a large number
+  of helpers, prompted by that day's `/helper` surface removal (Closed Gap
+  C26). Full design writeup, per-area status, and the reusable fix pattern
+  now live in [`MULTI_HELPER_HANDLING.md`](MULTI_HELPER_HANDLING.md) --
+  this entry is a pointer, not a duplicate, matching how `aiagent.md` holds
+  full prompt detail while this file only points at it.
+- **Gap:** `currentHelperId` (`app-store-provider.tsx`) is `activeHelpers[0]`,
+  ordered `created_at DESC` by `listHelperProfilesFn` -- the most recently
+  invited active helper, not a manager's actual choice, and it silently
+  changes as new helpers claim their accounts. Quick Utos, the after-hours
+  Ledger, the Availability friction wall, and the Pay Dial all keyed off
+  this one value.
+- **Partially closed, same day:** Quick Utos and the Ledger write it drives
+  are fixed -- a real recipient picker, AI `suggestedStation` surfaced
+  (never auto-applied) via a toast, `ledger.record` follows the utos's own
+  `toHelperId`. The friction wall (`use-send-gate.ts`) is generalized via a
+  new `statusFor(helperId, schedules, nowTs)` (`availability.utils.ts`),
+  which also fixed a pre-existing bug in `addTask` (assigning a task to any
+  helper other than `currentHelperId` silently skipped the off-shift warning
+  entirely, live, before this fix -- not new scope, a bug this same
+  generalization happened to close).
+- **Still open:** the Pay Dial/payslip history (Money tab) still only shows
+  `currentHelperId`'s numbers -- no per-helper switcher exists there yet.
+  Also surfaced, unresolved: `useAvailability`'s manual "Available for N
+  hours" opt-in is `localStorage`-only (never real, cross-app data), and its
+  only UI control was deleted along with the vestigial `/helper` surface in
+  C26 -- it's now permanently unreachable. Whether `LINARA_MOBILE` has a
+  real equivalent is unverified. See `MULTI_HELPER_HANDLING.md` §2 for both.
+- **To close:** a Pay Dial helper switcher (same shape as the Quick Utos
+  picker -- `activeHelpers`, a selected id); and a `LINARA_MOBILE`-side
+  investigation into whether a real per-helper availability toggle already
+  exists there before deciding whether to rebuild, remove, or leave the
+  web app's `statusFor` schedule-only answer as the permanent source of
+  truth for anyone but the browser's own tracked helper.
+
 ---
 
 ## Closed Gaps
@@ -1326,12 +1363,14 @@ claims-smoke.spec.ts` exclusively exercised the now-deleted `/helper/today`
 mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   that (it already stubs `auth/v1/user`/`user_profiles`/`helper_profiles`;
   it would need `tickets`/`households` stubs added too), but was deleted
-  here rather than built out, to keep this pass scoped to deletion. Also
-  unrelated but not addressed here: `inviteHelperFn`'s returned `inviteUrl`
-  (`/claim?code=...`) has no corresponding `/claim` route anywhere in this
-  app and is never read by any manager-facing component -- pre-existing dead
-  data, noticed while removing the functions above but out of scope to fix
-  in this pass.
+  here rather than built out, to keep this pass scoped to deletion.
+- **Follow-up, same day:** `inviteHelperFn`'s returned `inviteUrl`
+  (`/claim?code=...`) pointed at a `/claim` route that never existed in this
+  app and was confirmed to have zero readers (`grep -rn "inviteUrl" src`) --
+  `use-invites.ts`'s `create()` only ever consumed `result.helperId`/
+  `.inviteCode`. Removed the dead field and its string entirely; `status`
+  stays on the return shape (a real, if currently unconsumed, part of the
+  contract -- not a dangling reference like `inviteUrl` was).
 
 ---
 

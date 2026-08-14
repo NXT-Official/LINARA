@@ -1,14 +1,24 @@
 import { Mic, Send, Zap } from "lucide-react";
 import { useState } from "react";
 
+import type { Helper } from "@/features/people/people.types";
+
 import { QUICK_UTOS_PRESETS } from "../utos.constants";
 
 export function QuickUtosLauncher({
   onSend,
   helperName,
+  activeHelpers,
+  selectedHelperId,
+  onSelectHelper,
 }: {
   onSend: (content: string) => void;
   helperName: string;
+  /** More than one active helper -> show a recipient picker instead of the
+   * plain "Send a small ask to {name}" heading (see MULTI_HELPER_HANDLING.md). */
+  activeHelpers: Helper[];
+  selectedHelperId: string | null;
+  onSelectHelper: (helperId: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [holding, setHolding] = useState(false);
@@ -26,9 +36,26 @@ export function QuickUtosLauncher({
         <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <Zap className="h-3.5 w-3.5 text-accent" /> Quick utos
         </div>
-        <div className="mt-1 font-display text-lg text-foreground">
-          Send a small ask to {helperName}
-        </div>
+        {activeHelpers.length > 1 ? (
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="font-display text-lg text-foreground">Send a small ask to</span>
+            <select
+              value={selectedHelperId ?? ""}
+              onChange={(e) => onSelectHelper(e.target.value)}
+              className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
+            >
+              {activeHelpers.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} · {h.station}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="mt-1 font-display text-lg text-foreground">
+            Send a small ask to {helperName}
+          </div>
+        )}
       </div>
 
       {/* Preset chips */}
