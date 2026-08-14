@@ -30,7 +30,12 @@ export function statusFor(
   if (isQuiet) return { status: "off", until: null, quiet: true, restDay: restDayToday };
   if (onShift) return { status: "on_shift", until: null, quiet: false, restDay: false };
   if (manual && manual.availableUntil > nowTs) {
-    return { status: "available", until: manual.availableUntil, quiet: false, restDay: restDayToday };
+    return {
+      status: "available",
+      until: manual.availableUntil,
+      quiet: false,
+      restDay: restDayToday,
+    };
   }
   return { status: "off", until: null, quiet: false, restDay: restDayToday };
 }
