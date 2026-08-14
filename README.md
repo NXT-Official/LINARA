@@ -323,6 +323,53 @@ node .output/server/index.mjs   # PORT=3000 by default
 
 For specific platform targets (e.g. Cloudflare Workers, Vercel, Netlify), set the matching Nitro preset via the `nitro()` plugin options inside [`vite.config.ts`](vite.config.ts) or set the `NITRO_PRESET` environment variable prior to rebuilding.
 
+### 12.1 Two deployment targets, two independent secret stores
+
+In production this app is split across **two platforms that never see each other's environment variables**:
+
+1. **Vercel** — hosts the TanStack Start app: the client bundle plus the Nitro server functions (`createServerFn` handlers in `*.actions.ts`).
+2. **Supabase Edge Functions** — hosts the six Deno AI functions and the Xendit payout webhook, under `supabase/functions/`. These are deployed and configured **separately** via the Supabase CLI/Dashboard, not via Vercel.
+
+Filling in Vercel's environment variables does nothing for the Supabase side, and vice versa. Missing this split is the most common way a deploy "works" but the AI features or the Xendit webhook silently fail.
+
+### 12.2 Vercel environment variables
+
+Set these in the Vercel project's **Settings → Environment Variables**.
+
+| Variable | Read by | When it's needed |
+| --- | --- | --- |
+| `SUPABASE_URL` | [vite.config.ts](vite.config.ts) `define` block — baked into the client bundle at **build time** | Always |
+| `SUPABASE_ANON_KEY` | same `define` block, build time | Always |
+| `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see [KNOWN_GAPS.md](KNOWN_GAPS.md) O1) |
+| `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled |
+| `XENDIT_API_URL` | same file | Optional — defaults to `https://api.xendit.co` |
+| `REGIONAL_MINIMUM_WAGE` | [people.actions.ts](src/features/people/people.actions.ts) — server-only, runtime | Required (defaults to `6000.00` if unset) |
+
+Because `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`USE_MOCK_AI` are compiled in via Vite's `define`, they must be present in Vercel's **build-time** environment (Vercel exposes project env vars to the build step by default, so no extra config is needed there — just don't scope them to "Production only" if preview deploys also need them). The Xendit and wage vars are read by server functions at request time and don't need to exist at build time.
+
+`JWT_SECRET` and `SYSTEM_CRON_SECRET` appear in [`.env.example`](.env.example) but nothing in the codebase reads them yet — they're placeholders for the not-yet-built midnight Quick-Utos purge cron (`plan.md` §3.3). Not required for the app to run.
+
+### 12.3 Supabase Edge Function secrets
+
+Set these via `supabase secrets set KEY=value` (or Dashboard → Edge Functions → Secrets) — **not** in Vercel. They're consumed via `Deno.env.get()` inside `supabase/functions/*`.
+
+| Variable | Read by | When it's needed |
+| --- | --- | --- |
+| `USE_MOCK_AI` | all six AI functions (`generate-sop`, `parse-scheduler`, `route-utos`, `simplify-sop`, `promote-voice-task`, `transcribe-notes`) | A **second, independent** copy of the Vercel flag — set it explicitly; it does not inherit Vercel's value |
+| `OPENAI_API_KEY` | same six functions | Required for live AI once `USE_MOCK_AI` is `false` — currently unset, see [KNOWN_GAPS.md](KNOWN_GAPS.md) O1 for the provider decision still open (OpenAI vs. Claude API) |
+| `SOP_CREATOR_MODEL` | `generate-sop` | Optional, defaults to `gpt-4o` |
+| `UTOS_ROUTER_MODEL` | `parse-scheduler`, `route-utos` | Optional, defaults to `gpt-4o-mini` |
+| `SOP_SIMPLIFIER_MODEL` | `simplify-sop` | Optional, defaults to `gpt-4o-mini` |
+| `VOICE_PROMOTER_MODEL` | `promote-voice-task` | Optional, defaults to `gpt-4o-mini` |
+| `TRANSCRIBE_MODEL` | `transcribe-notes` | Optional, defaults to `whisper-1` |
+| `XENDIT_WEBHOOK_VERIFICATION_TOKEN` | `xendit-payout-webhook` | Required for the webhook to verify Xendit's callbacks |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (also used by `xendit-payout-webhook`) do **not** need to be set manually — Supabase auto-injects both as default secrets into every Edge Function.
+
+### 12.4 Current production status
+
+As of the last deploy, Supabase Edge Functions run with `USE_MOCK_AI=true` and no `OPENAI_API_KEY` — there is no live LLM provider wired up yet. See [KNOWN_GAPS.md](KNOWN_GAPS.md) O1 for the open decision on which provider to migrate to (the edge functions call OpenAI's chat-completions shape directly, so switching providers is a code change, not just a secret swap).
+
 ---
 
 ## 13. Testing Guide & Quality Gates

@@ -16,7 +16,42 @@ the bottom.
 
 ## Open Gaps
 
-None currently open.
+### O1. No documented split between Vercel env vars and Supabase Edge Function secrets
+
+- **Found:** 2026-08-14, while helping deploy `LINARA` to Vercel.
+- **Gap:** README.md §10.2/§12 and ARCHITECTURE.md §11 only document a single
+  local `.env` file. In production there are actually two independent
+  secret stores that never see each other's values: (1) **Vercel**, which
+  builds the client bundle (`SUPABASE_URL`/`SUPABASE_ANON_KEY`/`USE_MOCK_AI`
+  are compiled in via the `define` block in `vite.config.ts`) and runs the
+  Nitro server functions (`XENDIT_SECRET_WRITE_KEY`, `XENDIT_API_URL`,
+  `REGIONAL_MINIMUM_WAGE` read at runtime via `process.env` in
+  `pay.actions.ts`/`people.actions.ts`); and (2) **Supabase Edge
+  Functions**, which read their own env via `Deno.env.get()` and need
+  secrets set separately with `supabase secrets set` or the Dashboard
+  (`OPENAI_API_KEY`, a second independent `USE_MOCK_AI`, optional
+  `*_MODEL` overrides, `XENDIT_WEBHOOK_VERIFICATION_TOKEN`). Nothing in the
+  docs says this, so it's easy to fill in Vercel's env vars, see the AI
+  features silently fail (edge functions 500 with no `OPENAI_API_KEY`), and
+  not know where to look.
+- **Also noted:** `JWT_SECRET`/`SYSTEM_CRON_SECRET` are listed in
+  `.env.example`/README as required but no code currently reads either one
+  (`Deno.env.get`/`process.env` grep across `src/` and
+  `supabase/functions/` turns up nothing) — likely placeholders for the
+  not-yet-built midnight Quick-Utos purge cron from `plan.md` §3.3.
+- **Workaround:** none needed to function — just know Vercel and Supabase
+  secrets are configured independently. Not yet fixed by writing this down
+  in README/ARCHITECTURE.md itself.
+- **Current production decision (2026-08-14):** deploying with
+  `USE_MOCK_AI=true` on the Supabase Edge Functions — no live LLM provider
+  wired up yet, so `OPENAI_API_KEY` is intentionally unset. The
+  `Deno.env.get("OPENAI_API_KEY")` calls in `generate-sop`, `parse-scheduler`,
+  `route-utos`, `simplify-sop`, and `promote-voice-task` are provider-specific
+  (OpenAI chat-completions shape) and will need rewriting, not just a secret
+  swap, if/when a real provider is picked — see `linara_ai_provider_decision`
+  memory for the live-migration options under consideration (OpenAI vs.
+  Claude API) and the constraint that `transcribe-notes` (Whisper) has no
+  Claude equivalent and would stay on a separate provider regardless.
 
 ---
 
