@@ -1,36 +1,80 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
-import { isPalengke } from "@/features/tasks/task.utils";
 
-import { RECEIPT_PLACEHOLDER } from "../grocery.constants";
+import {
+  deleteGroceryItemFn,
+  getHouseholdBudgetFn,
+  insertGroceryItemFn,
+  listGroceryItemsFn,
+  updateHouseholdBudgetFn,
+  type GroceryItemRow,
+} from "../grocery.actions";
 import type { GroceryContextValue, GroceryItem } from "../grocery.types";
 
 const isSuggestion = (item: GroceryItem) => item.id.startsWith("sug-");
 
+function toGroceryItem(row: GroceryItemRow): GroceryItem {
+  return {
+    id: row.id,
+    name: row.name,
+    qty: Number(row.qty),
+    unit: row.unit,
+    pantryItemId: row.pantry_item_id ?? undefined,
+    bought: row.bought,
+    costPHP: row.actual_cost ?? undefined,
+  };
+}
+
 /**
- * The grocery list, its petty-cash budget, and the receipt slot.
+ * The grocery list and its petty-cash budget -- real Supabase-backed as of
+ * KNOWN_GAPS.md Closed Gap C13. `items`/`budget` are fetched on mount/token
+ * change and refetched after every write, same "write then refresh" pattern
+ * as useVales/useLedger/useUtos/useTaskBoard. `receiptPhoto` isn't fetched
+ * here at all -- it's threaded in from the board's own already-real `tasks`
+ * (see app-store-provider.tsx), since a Palengke receipt lives on
+ * `tickets.photo_evidence_url`, not on any grocery_items row.
  *
- * The displayed list is the manual items plus auto-suggestions derived from low
- * pantry stock, so buying a suggested item both records the spend and restocks
- * the pantry. Returns the context value plus the modal's own open state, which
- * the provider owns because the modal is mounted once at the app root.
+ * The displayed list is the real items plus auto-suggestions derived from
+ * low pantry stock (suggestions stay purely local/informational -- adding
+ * one for real is just addManual).
  */
-export function useGroceryList(pantry: PantryStore): {
-  value: GroceryContextValue;
-  modalOpen: boolean;
-  closeModal: () => void;
-} {
+export function useGroceryList({
+  pantry,
+  token,
+  ready,
+  receiptPhoto,
+}: {
+  pantry: PantryStore;
+  token: string | null;
+  ready: boolean;
+  receiptPhoto: string | null;
+}): GroceryContextValue {
   const [items, setItems] = useState<GroceryItem[]>([]);
+  const [budget, setBudgetState] = useState(1500);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
-  const [modalOpen, setModalOpen] = useState(false);
-  const [budget, setBudget] = useState(1500);
-  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
 
   const pantryItems = pantry.items;
-  const adjustPantry = pantry.adjust;
 
-  // Auto-derived suggestions: low pantry items not already in grocery and not dismissed.
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    const [rows, householdBudget] = await Promise.all([
+      listGroceryItemsFn({ data: { token } }),
+      getHouseholdBudgetFn({ data: { token } }),
+    ]);
+    setItems(rows.map(toGroceryItem));
+    setBudgetState(householdBudget.budget);
+  }, [token]);
+
+  useEffect(() => {
+    if (!ready || !token) return;
+    refresh().catch((err) => {
+      console.error("[useGroceryList] Failed to load groceries:", err);
+    });
+  }, [ready, token, refresh]);
+
+  // Auto-derived suggestions: low pantry items not already in the real list and not dismissed.
   const display = useMemo<GroceryItem[]>(() => {
     const covered = new Set(items.map((g) => g.pantryItemId).filter(Boolean) as string[]);
     const suggestions: GroceryItem[] = pantryItems
@@ -68,34 +112,13 @@ export function useGroceryList(pantry: PantryStore): {
   }, [pantryItems]);
 
   const addManual = (name: string, qty: number, unit: string) => {
-    if (!name.trim()) return;
-    setItems((prev) => [
-      ...prev,
-      { id: `g${Date.now()}`, name: name.trim(), qty, unit: unit.trim() || "pcs", bought: false },
-    ]);
-  };
-
-  const toggleBought = (item: GroceryItem) => {
-    if (isSuggestion(item)) {
-      // Promote suggestion into state as bought AND bump pantry.
-      setItems((prev) => [...prev, { ...item, id: `g${Date.now()}`, bought: true }]);
-      if (item.pantryItemId) adjustPantry(item.pantryItemId, item.qty);
-      return;
-    }
-    // Existing state item — flip bought and adjust pantry accordingly.
-    setItems((prev) =>
-      prev.map((g) =>
-        g.id === item.id
-          ? { ...g, bought: !g.bought, costPHP: g.bought ? undefined : g.costPHP }
-          : g,
-      ),
-    );
-    if (item.pantryItemId) adjustPantry(item.pantryItemId, item.bought ? -item.qty : item.qty);
-  };
-
-  const setCost = (item: GroceryItem, cost: number | undefined) => {
-    if (isSuggestion(item)) return;
-    setItems((prev) => prev.map((g) => (g.id === item.id ? { ...g, costPHP: cost } : g)));
+    if (!name.trim() || !token) return;
+    insertGroceryItemFn({ data: { token, name: name.trim(), qty, unit: unit.trim() || "pcs" } })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to add grocery item:", err);
+        toast.error("Hindi na-add ang grocery item.");
+      });
   };
 
   const remove = (item: GroceryItem) => {
@@ -107,12 +130,26 @@ export function useGroceryList(pantry: PantryStore): {
       }
       return;
     }
-    // If already marked bought, roll back the pantry bump so counts stay honest.
-    if (item.bought && item.pantryItemId) adjustPantry(item.pantryItemId, -item.qty);
-    setItems((prev) => prev.filter((g) => g.id !== item.id));
+    if (!token) return;
+    deleteGroceryItemFn({ data: { token, itemId: item.id } })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to remove grocery item:", err);
+        toast.error("Hindi na-remove ang grocery item.");
+      });
   };
 
-  const value: GroceryContextValue = {
+  const setBudget = (n: number) => {
+    if (!token) return;
+    updateHouseholdBudgetFn({ data: { token, budget: Math.max(0, n) } })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to update budget:", err);
+        toast.error("Hindi na-save ang budget.");
+      });
+  };
+
+  return {
     display,
     toBuyCount: display.filter((g) => !g.bought).length,
     budget,
@@ -120,15 +157,7 @@ export function useGroceryList(pantry: PantryStore): {
     remaining: budget - spent,
     receiptPhoto,
     addManual,
-    toggleBought,
-    setCost,
-    setBudget: (n) => setBudget(Math.max(0, n)),
-    attachReceipt: () => setReceiptPhoto(RECEIPT_PLACEHOLDER),
-    clearReceipt: () => setReceiptPhoto(null),
+    setBudget,
     remove,
-    isPalengkeTask: isPalengke,
-    openModal: () => setModalOpen(true),
   };
-
-  return { value, modalOpen, closeModal: () => setModalOpen(false) };
 }

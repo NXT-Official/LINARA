@@ -5,6 +5,7 @@ import type { Availability } from "@/features/availability/hooks/use-availabilit
 import type { LedgerStore } from "@/features/ledger/hooks/use-ledger";
 import type { ValeStore } from "@/features/ledger/hooks/use-vales";
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import type { PayslipStore } from "@/features/pay/hooks/use-payslips";
 import type { InviteStore } from "@/features/people/hooks/use-invites";
 import type { Session } from "@/features/people/hooks/use-session";
 import type { Helper } from "@/features/people/people.types";
@@ -23,19 +24,29 @@ import type { SimClock } from "./hooks/use-sim-clock";
  * be built in one place anyway. Split it the day a store becomes independent.
  */
 export type AppStores = {
-  /** The one helper with a first-class device in this prototype. */
-  helper: Helper;
+  /** The one helper with a first-class device in this prototype -- the first real
+   * ACTIVE helper_profiles row, since there is no real per-helper auth session yet
+   * (see KNOWN_GAPS.md). Null until at least one helper has claimed their account. */
+  helper: Helper | null;
+  /** Every helper_profiles row for the household, any status -- for id -> Helper lookups. */
+  helpers: Helper[];
+  /** ACTIVE helpers only -- for assignment dropdowns and per-helper lane rendering. */
+  activeHelpers: Helper[];
   session: Session;
   invites: InviteStore;
   pantry: PantryStore;
   schedules: ScheduleStore;
   vales: ValeStore;
+  payslips: PayslipStore;
   clock: SimClock;
   availability: Availability;
   ledger: LedgerStore;
   board: TaskBoard;
   appointments: AppointmentStore;
   utos: UtosStore;
+  isOnline: boolean;
+  isOfflineSimulated: boolean;
+  setOfflineSimulated: (b: boolean) => void;
   startNewDay: () => void;
 };
 

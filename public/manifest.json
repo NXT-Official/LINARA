@@ -1,0 +1,29 @@
+{
+  "short_name": "Linara",
+  "name": "Linara — Home, made clear.",
+  "description": "A calm, shared home management app for families and helpers.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F7F3EC",
+  "theme_color": "#1F5A54",
+  "display": "standalone",
+  "orientation": "portrait"
+}

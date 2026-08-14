@@ -7,11 +7,13 @@ import type { Task } from "@/features/tasks/task.types";
 export function NoteToTaskModal({
   initialTitle,
   helperId,
+  createdBy,
   onClose,
   onSubmit,
 }: {
   initialTitle: string;
   helperId: string;
+  createdBy: string;
   onClose: () => void;
   onSubmit: (t: Omit<Task, "id" | "status" | "station">) => void;
 }) {
@@ -31,7 +33,7 @@ export function NoteToTaskModal({
       time: `${hr}:${String(m).padStart(2, "0")} ${suffix}`,
       note: note.trim() || undefined,
       recurrence: "none",
-      createdBy: "Ate Rosa",
+      createdBy,
     });
   };
 

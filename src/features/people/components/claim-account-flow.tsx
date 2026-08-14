@@ -31,6 +31,7 @@ export function ClaimAccountFlow({
   const [flagNote, setFlagNote] = useState("");
   const [flagged, setFlagged] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
 
   const submitCode = async () => {
     if (!codeInput.trim()) return;
@@ -122,11 +123,22 @@ export function ClaimAccountFlow({
         },
       });
 
+      if (result.status === "confirmation_pending") {
+        setConfirmationPending(true);
+        toast.info(
+          "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos i-tap ulit ang Claim.",
+        );
+        return;
+      }
+
       // Persist credentials locally
       window.localStorage.setItem("linara_helper_token", result.accessToken);
       window.localStorage.setItem("linara_helper_refresh_token", result.refreshToken);
       window.localStorage.setItem("linara_helper_id", result.helperId);
       window.localStorage.setItem("linara_user_id", result.userId);
+      // Marks *this device* as having completed its own claim -- see the
+      // myClaimed comment in helper-shell.tsx.
+      window.localStorage.setItem("linara_helper_claimed_name", displayName.trim());
 
       // Trigger client callbacks to sync state
       onClaim(invite.id, displayName.trim());
@@ -345,6 +357,16 @@ export function ClaimAccountFlow({
               This account is <span className="font-semibold text-primary">yours</span>. Your record
               stays with you, even if you change households.
             </div>
+            {confirmationPending && (
+              <div className="flex items-start gap-2 rounded-2xl border border-primary/40 bg-primary/5 px-3 py-2.5 text-xs text-foreground">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                <span>
+                  Nagpadala kami ng confirmation link sa{" "}
+                  <span className="font-semibold">{email}</span>. Buksan mo iyon, tapos i-tap ulit
+                  ang "Lock &amp; claim account" dito.
+                </span>
+              </div>
+            )}
             <div>
               <label
                 className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"

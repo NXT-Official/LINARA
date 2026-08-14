@@ -1,46 +1,95 @@
 # Story 16: Compliance Audit, Wages, and Fintech Previews
 
-## Objective
+## 📌 Metadata
 
-Implement regional Batas Kasambahay contribution calculators, visual progress dials for budgets/paydays, and webhook payload previews for future GCash / Maya e-wallet disbursements.
+- **Objective:** Implement regional Batas Kasambahay wage compliance checks, visual budget/payday progress dials, and GCash/Maya webhook payload previews.
+- **PRD Reference:** [`plan.md`](../plan.md) (Sections 3.1 & 14)
+- **Architecture Reference:** [`architecture.md`](../architecture.md) (Sections 4.1 & 5.3)
+- **Dependencies:** [`Story_15_AfterHoursFrictionGatingAndLedger.md`](Story_15_AfterHoursFrictionGatingAndLedger.md)
 
-## Context References
+---
 
-- PRD Spec: [`plan.md`](../plan.md) Section 3.1 & 14
-- Architecture Spec: [`architecture.md`](../architecture.md) Section 4.1 (Spend/Pay Dials) & 5.3
+## 📥 Inputs & Configuration
 
-## Dependencies
+- **Target Components:** `<MoneySection />`, `<PeopleList />`, `<HelperProfile />`, `<PayRecordView />`
+- **Configuration Variables:** `REGIONAL_MINIMUM_WAGE` (numeric threshold value)
 
-- [`Story_15_AfterHoursFrictionGatingAndLedger.md`](Story_15_AfterHoursFrictionGatingAndLedger.md)
+---
 
-## Explicit Inputs
+## 🛠️ Step-by-Step Implementation Plan
 
-- Component: `<MoneySection />`
-- Config Var: `REGIONAL_MINIMUM_WAGE`
+### 1. Batas Kasambahay Compliance Validator
 
-## Step-by-Step Implementation Instructions
+Add a real-time compliance validation layer inside `<PeopleList />` or `<HelperProfile />`.
 
-1.  **Compliance Warning:** Build a Batas Kasambahay compliance validator inside `<PeopleList />` or `<HelperProfile />`:
-    - Compares the helper's wage detail rate to `REGIONAL_MINIMUM_WAGE`.
-    - Flashes a friendly, supportive compliance flag if wages fall below regional mandates.
-2.  **Integrate Contribution Cards:** Build a visual details card showing legal contribution allocations (SSS, PhilHealth, Pag-IBIG) split proportionally based on Batas Kasambahay parameters (100% employer-funded if wage < ₱5,000).
-3.  **Refine Dashboard Dials:** Build clean, responsive visual dials (SVG progress circles or Tailwind bar meters) inside the Pass:
-    - **Spend Dial:** Petty-cash spent in Pesos against weekly palengke targets.
-    - **Pay Dial:** Upcoming payday base wages, pending approved vale deductions, and accrued rest-owed hours.
-4.  **Fintech Preview Webhook:** Implement a "Transfer via GCash / Maya" button on `<PayRecordView />`. Tapping it displays a mockup webhook payload schema containing the exact target mobile wallet coordinates and final calculated net payroll amount.
+```
+[Helper Wage Rate] ──( Compare )──> [REGIONAL_MINIMUM_WAGE]
+                             │
+                             ├─ Below Min ──> Trigger Compliance Warning Card
+                             └─ OK ─────────> Show normal status
+```
 
-## Expected Output
+- **Validation Logic:** Compare the helper's set wage against the `REGIONAL_MINIMUM_WAGE` configuration.
+- **UI/UX:** If the wage is below the mandate, display a supportive, highly visible compliance warning card (e.g., using a warm yellow/amber Tailwind banner).
 
-- Batas Kasambahay Regional Compliance Checker.
-- Visual dashboard progress dials (Spend and Pay).
-- GCash/Maya e-wallet disbursement schema previews.
+---
 
-## Testable Acceptance Criteria
+### 2. Legal Contribution Split Cards
 
-1.  Setting a helper's wage details below the regional minimum triggers an inline warning card citing Batas Kasambahay parameters.
-2.  Wage rates under ₱5,000 auto-apportion SSS contribution calculators entirely to the employer column.
-3.  Tapping "GCash Transfer" renders a clean JSON payload showing the correct payee number and total wage deduction details.
+Create a visual breakdown card calculating and displaying legal contributions (SSS, PhilHealth, Pag-IBIG) based on Batas Kasambahay parameters:
 
-## Done Definition
+| Helper Monthly Wage  | Employer Share     | Employee Share                    |
+| :------------------- | :----------------- | :-------------------------------- |
+| **Under ₱5,000**     | **100%**           | **0%** (Fully funded by Employer) |
+| **₱5,000 and Above** | Proportional split | Proportional split                |
 
-The regional compliance checker is active, the visual dials render correctly, and the fintech integration webhook schemas preview successfully.
+---
+
+### 3. Interactive Dashboard Dials
+
+Build clean, responsive progress indicators (using custom SVG progress circles or styled Tailwind bar meters) inside the primary view:
+
+- **📈 Spend Dial (Target vs. Actual):**
+  - Tracks petty-cash spent in Pesos against the set weekly target (e.g., _Palengke_ budget).
+- **📉 Pay Dial (Accrued vs. Deducted):**
+  - Displays upcoming payday base wages.
+  - Subtracts pending approved cash advances (_vale_ deductions).
+  - Adds accrued rest-owed hours.
+
+---
+
+### 4. Fintech Webhook Preview
+
+Add a **"Transfer via GCash / Maya"** button to `<PayRecordView />`. When tapped, render a clean, code-highlighted modal displaying the exact JSON payload that would be sent to the disbursement partner.
+
+```json
+{
+  "event": "disbursement.requested",
+  "provider": "gcash",
+  "timestamp": "2026-08-04T10:06:00Z",
+  "data": {
+    "recipient_mobile": "+63917XXXXXXX",
+    "gross_pay_amount": 5000.0,
+    "vale_deductions": 500.0,
+    "net_disbursement": 4500.0,
+    "currency": "PHP"
+  }
+}
+```
+
+---
+
+## ✅ Testable Acceptance Criteria
+
+- [x] **Wage Verification:** Setting a helper's wage details below `REGIONAL_MINIMUM_WAGE` immediately triggers an inline warning card citing Batas Kasambahay.
+- [x] **Contribution Rule:** If the monthly wage is set below ₱5,000, SSS/PhilHealth/Pag-IBIG allocation displays 100% in the Employer column and 0% in the Employee column.
+- [x] **Visual Metrics:** Spend and Pay progress dials scale correctly and update on change of transaction ledgers.
+- [x] **Webhook Preview:** Clicking "GCash Transfer" opens a preview modal with a valid JSON payload showing correct target mobile numbers and final net payouts.
+
+---
+
+## 🏁 Definition of Done
+
+- [x] **Batas Kasambahay Compliance:** Wage validator operates reactively on wage changes.
+- [x] **Visual Polish:** Dashboard dials render cleanly across both desktop and mobile layouts.
+- [x] **Fintech Mocking:** Webhook schema preview correctly handles dynamic calculations for net payroll.

@@ -56,7 +56,7 @@ export function HelperTaskLists({
                           <Link2 className="h-2.5 w-2.5" /> {t.appointmentTitle}
                         </span>
                       )}
-                      {isPalengke(t) && <PalengkeChip compact />}
+                      {isPalengke(t) && <PalengkeChip compact to="/helper/pantry" />}
                     </div>
                   </div>
                   {t.status === "in_progress" && (
@@ -115,10 +115,15 @@ export function HelperTaskLists({
             {completed.map((t) => (
               <div
                 key={t.id}
-                className="rounded-2xl border border-border/70 bg-card p-2 shadow-soft"
+                className="relative rounded-2xl border border-border/70 bg-card p-2 shadow-soft"
               >
                 {t.photo && (
                   <img src={t.photo} alt="" className="mb-2 h-16 w-full rounded-lg object-cover" />
+                )}
+                {t.pendingSync && (
+                  <span className="absolute left-2.5 top-2.5 rounded-full bg-[oklch(0.96_0.08_80)] px-1.5 py-0.5 text-[8px] font-semibold text-[oklch(0.38_0.09_60)] shadow border border-[oklch(0.85_0.12_80)] animate-pulse">
+                    Pending Sync
+                  </span>
                 )}
                 <div className="line-clamp-1 px-1 text-xs font-semibold text-foreground">
                   {t.title}

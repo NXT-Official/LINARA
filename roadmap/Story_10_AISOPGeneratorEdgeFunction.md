@@ -12,7 +12,7 @@ Develop, deploy, and integrate the House Standard SOP Generator onto Vercel / Su
 
 ## Dependencies
 
-- [`Story_9_PantryAndPalengkeSharedContext.md`](Story_9_PantryAndPalengkeSharedContext.md)
+- [`Story_9_5_TestingFrameworkAndE2ESmokeSetup.md`](Story_9_5_TestingFrameworkAndE2ESmokeSetup.md)
 
 ## Explicit Inputs
 

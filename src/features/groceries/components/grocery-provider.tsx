@@ -4,25 +4,26 @@ import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
 
 import { GroceryContext } from "../grocery-context";
 import { useGroceryList } from "../hooks/use-grocery-list";
-import { GroceryModal } from "./grocery-modal";
 
 /**
- * Shares the grocery list between the manager's Pantry tab, the helper's Pantry
- * tab, and the Palengke task cards on both sides. Owns the "Palengke run" modal
- * so any card can open it without threading state back up.
+ * Shares the grocery list between the manager's Pantry tab and the Money
+ * tab's spend dial. No modal to own anymore -- as of Closed Gap C13, shopping
+ * execution (check off, cost, receipt) is LINARA_MOBILE-only; this app just
+ * reads real state plus curates the planned list and budget.
  */
 export function GroceryProvider({
   pantry,
+  token,
+  ready,
+  receiptPhoto,
   children,
 }: {
   pantry: PantryStore;
+  token: string | null;
+  ready: boolean;
+  receiptPhoto: string | null;
   children: ReactNode;
 }) {
-  const { value, modalOpen, closeModal } = useGroceryList(pantry);
-  return (
-    <GroceryContext.Provider value={value}>
-      {children}
-      {modalOpen && <GroceryModal onClose={closeModal} />}
-    </GroceryContext.Provider>
-  );
+  const value = useGroceryList({ pantry, token, ready, receiptPhoto });
+  return <GroceryContext.Provider value={value}>{children}</GroceryContext.Provider>;
 }

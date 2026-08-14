@@ -3,15 +3,16 @@ import { Link2 } from "lucide-react";
 import { Avatar } from "@/components/shared/avatar";
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 import { stationTone } from "@/features/people/people.constants";
-import { helperById } from "@/features/people/people.utils";
+import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 import { formatAppointmentDate } from "@/lib/time";
 
 import type { Task } from "../task.types";
 import { isPalengke, recurrenceLabel } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
 
-export function TaskCard({ task }: { task: Task }) {
-  const helper = helperById(task.helperId);
+export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
+  const helper = findHelper(task.helperId, helpers);
   return (
     <article className="group rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft transition hover:shadow-lift">
       <div className="flex items-start justify-between gap-2">

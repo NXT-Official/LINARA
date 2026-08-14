@@ -1,35 +1,17 @@
-import type { Admin, AdminType, Helper, Station } from "./people.types";
+import type { Admin, AdminType, Station } from "./people.types";
 
-// Seed household. No backend yet — this is the whole roster.
-export const HELPERS: Helper[] = [
-  {
-    id: "rosa",
-    name: "Ate Rosa",
-    short: "Rosa",
-    initials: "AR",
-    station: "Yaya",
-    shift: "6:00 AM – 7:00 PM",
-    restDay: "Sunday",
-  },
-  {
-    id: "manuel",
-    name: "Kuya Manuel",
-    short: "Manuel",
-    initials: "KM",
-    station: "Driver",
-    shift: "6:00–9:00 AM & 2:30–6:00 PM",
-    restDay: "Sunday",
-  },
-  {
-    id: "lita",
-    name: "Ate Lita",
-    short: "Lita",
-    initials: "AL",
-    station: "Cook",
-    shift: "5:30 AM – 7:30 PM",
-    restDay: "Saturday",
-  },
-];
+// Matches helper_profiles.weekly_rest_day's convention (0-6, Sunday = 0) --
+// see ARCHITECTURE.md Section 8. Shared by the invite form (name -> index)
+// and the roster read path (index -> name).
+export const WEEKLY_REST_DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
 
 export const INITIAL_ADMINS: Admin[] = [
   {
@@ -50,6 +32,9 @@ export const INITIAL_ADMINS: Admin[] = [
   },
   { id: "lolafe", name: "Lola Fe", short: "Fe", initials: "LF", type: "remote", location: "Dubai" },
 ];
+// Regional minimum wage for Metro Manila (Batas Kasambahay)
+export const REGIONAL_MINIMUM_WAGE = 6000;
+
 export const adminTypeLabel: Record<AdminType, string> = {
   primary: "Primary manager",
   co: "Co-manager",

@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
+import { routeUtosFn } from "@/features/utos/utos.actions";
 import type { SendFlags } from "@/features/utos/hooks/use-utos";
 
 import type { RosaStatus } from "../availability.types";
@@ -30,12 +32,16 @@ export function useSendGate({
   status,
   authorName,
   isRemote,
+  currentHelperId,
   onSendUtos,
   onAddTask,
 }: {
   status: RosaStatus;
   authorName: string;
   isRemote: boolean;
+  /** Real helper_profiles id of the one helper with a first-class device -- null
+   * until a real helper has claimed their account (see app-store-provider.tsx). */
+  currentHelperId: string | null;
   onSendUtos: (content: string, flags?: SendFlags) => void;
   onAddTask: (task: TaskDraft, flags?: AddTaskFlags) => void;
 }): SendGate {
@@ -45,9 +51,42 @@ export function useSendGate({
   // Attribute the task to whoever is looking, unless it already carries an author.
   const stamp = (t: TaskDraft): TaskDraft => ({ ...t, createdBy: t.createdBy ?? authorName });
 
-  const sendUtos = (content: string) => {
-    if (rosaOff) setIntent({ kind: "utos", content });
-    else onSendUtos(content, { from: authorName });
+  const sendUtos = async (content: string) => {
+    try {
+      const result = await routeUtosFn({
+        data: {
+          prompt: content,
+          helperId: currentHelperId ?? "",
+          helperStatus: status.status,
+          senderType: "manager",
+        },
+      });
+
+      if (result) {
+        if (result.classification === "ROUTINE") {
+          toast.info(
+            `Classified as ROUTINE! Automatically structured as: "${result.contentCleaned}"`,
+          );
+        } else if (result.classification === "TASK") {
+          toast.info(
+            `Classified as heavy TASK! Automatically structured as: "${result.contentCleaned}"`,
+          );
+        }
+
+        if (result.boundaryWarn) {
+          setIntent({ kind: "utos", content: result.contentCleaned });
+        } else {
+          onSendUtos(result.contentCleaned, { from: authorName });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      if (rosaOff) {
+        setIntent({ kind: "utos", content });
+      } else {
+        onSendUtos(content, { from: authorName });
+      }
+    }
   };
 
   const addTask = (t: TaskDraft, opts: { sendLive?: boolean } = {}) => {
@@ -56,7 +95,7 @@ export function useSendGate({
       onAddTask(stamp(t), { suggested: true });
       return;
     }
-    if (t.helperId === "rosa" && rosaOff) setIntent({ kind: "task", task: stamp(t) });
+    if (t.helperId === currentHelperId && rosaOff) setIntent({ kind: "task", task: stamp(t) });
     else onAddTask(stamp(t), {});
   };
 

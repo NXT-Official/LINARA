@@ -6,11 +6,13 @@ export function QuickUtosFeed({
   onAck,
   available,
   wiped,
+  helperName,
 }: {
   utosList: QuickUtos[];
   onAck: (id: string, ack: "seen" | "done") => void;
   available: boolean;
   wiped: boolean;
+  helperName: string;
 }) {
   const ordered = [...utosList].sort((a, b) => b.timestamp - a.timestamp);
   const isEmptyAfterWipe = utosList.length === 0 && wiped;
@@ -31,7 +33,13 @@ export function QuickUtosFeed({
       ) : (
         <ul className="space-y-2">
           {ordered.map((u) => (
-            <UtosChip key={u.id} utos={u} onAck={onAck} available={available} />
+            <UtosChip
+              key={u.id}
+              utos={u}
+              onAck={onAck}
+              available={available}
+              helperName={helperName}
+            />
           ))}
         </ul>
       )}

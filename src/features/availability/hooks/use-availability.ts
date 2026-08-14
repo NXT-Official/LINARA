@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
-import { isMinuteInDay } from "@/features/shifts/shift.utils";
+import { isMinuteInShift, isRestDay } from "@/features/shifts/shift.utils";
 import { weekdayOf } from "@/lib/time";
 
 import { QUIET_END_HOUR, QUIET_START_HOUR } from "../availability.constants";
@@ -29,9 +29,13 @@ export type Availability = {
 export function useAvailability({
   nowTs,
   schedules,
+  currentHelperId,
 }: {
   nowTs: number;
   schedules: ScheduleStore;
+  /** Real helper_profiles id of the one helper with a first-class device -- null
+   * until a real helper has claimed their account (see app-store-provider.tsx). */
+  currentHelperId: string | null;
 }): Availability {
   const [manual, setManual] = useState<ManualAvailability>(OFF);
 
@@ -62,23 +66,24 @@ export function useAvailability({
   const status: RosaStatus = useMemo(() => {
     const d = new Date(nowTs);
     const h = d.getHours();
-    const daySched = schedules.weekFor("rosa")[weekdayOf(d)];
-    const isRestDay = daySched.rest;
+    const weekday = weekdayOf(d);
+    const schedule = currentHelperId ? schedules.scheduleFor(currentHelperId) : undefined;
+    const restDayToday = schedule ? isRestDay(weekday, schedule) : false;
     const isQuiet = h >= QUIET_START_HOUR || h < QUIET_END_HOUR;
     const minutes = h * 60 + d.getMinutes();
-    const onShift = !isQuiet && isMinuteInDay(minutes, daySched);
-    if (isQuiet) return { status: "off", until: null, quiet: true, restDay: isRestDay };
+    const onShift = !isQuiet && !!schedule && isMinuteInShift(minutes, weekday, schedule);
+    if (isQuiet) return { status: "off", until: null, quiet: true, restDay: restDayToday };
     if (onShift) return { status: "on_shift", until: null, quiet: false, restDay: false };
     if (manual.manual === "available" && manual.availableUntil && manual.availableUntil > nowTs) {
       return {
         status: "available",
         until: manual.availableUntil,
         quiet: false,
-        restDay: isRestDay,
+        restDay: restDayToday,
       };
     }
-    return { status: "off", until: null, quiet: false, restDay: isRestDay };
-  }, [nowTs, manual, schedules]);
+    return { status: "off", until: null, quiet: false, restDay: restDayToday };
+  }, [nowTs, manual, schedules, currentHelperId]);
 
   return {
     status,

@@ -2,7 +2,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { Field } from "@/components/shared/field";
-import { HELPERS } from "@/features/people/people.constants";
+import type { Helper } from "@/features/people/people.types";
 
 import { EVENT_TEMPLATES } from "../appointment.constants";
 import type { Appointment, EventTemplate, PrepDraft } from "../appointment.types";
@@ -16,10 +16,12 @@ export type PrepRow = {
 };
 
 export function NewAppointmentModal({
+  activeHelpers,
   onClose,
   onAdd,
   defaultDate,
 }: {
+  activeHelpers: Helper[];
   onClose: () => void;
   onAdd: (a: Omit<Appointment, "id">, preps: PrepDraft[]) => void;
   defaultDate: string;
@@ -29,8 +31,14 @@ export function NewAppointmentModal({
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("06:00");
   const [preps, setPreps] = useState<PrepRow[]>([
-    { title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" },
+    { title: "", leadValue: 1, leadUnit: "h", helperId: activeHelpers[0]?.id ?? "", note: "" },
   ]);
+
+  // Templates describe a station; resolve it to whichever real active helper
+  // occupies that station in this household (falling back to the first active
+  // helper if none matches, e.g. a solo helper covering every station).
+  const helperForStation = (station: Helper["station"]) =>
+    activeHelpers.find((h) => h.station === station)?.id ?? activeHelpers[0]?.id ?? "";
 
   const applyTemplate = (tmpl: EventTemplate) => {
     setTemplateId(tmpl.id);
@@ -42,7 +50,7 @@ export function NewAppointmentModal({
           title: p.title,
           leadValue: useHours ? p.leadMinutes / 60 : p.leadMinutes,
           leadUnit: useHours ? "h" : "m",
-          helperId: p.helperId,
+          helperId: helperForStation(p.station),
           note: p.note,
         };
       }),
@@ -51,13 +59,15 @@ export function NewAppointmentModal({
 
   const clearTemplate = () => {
     setTemplateId(null);
-    setPreps([{ title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" }]);
+    setPreps([
+      { title: "", leadValue: 1, leadUnit: "h", helperId: activeHelpers[0]?.id ?? "", note: "" },
+    ]);
   };
 
   const addRow = () =>
     setPreps((p) => [
       ...p,
-      { title: "", leadValue: 1, leadUnit: "h", helperId: HELPERS[0].id, note: "" },
+      { title: "", leadValue: 1, leadUnit: "h", helperId: activeHelpers[0]?.id ?? "", note: "" },
     ]);
   const removeRow = (i: number) => setPreps((p) => p.filter((_, idx) => idx !== i));
   const updateRow = (i: number, patch: Partial<PrepRow>) =>
@@ -77,7 +87,10 @@ export function NewAppointmentModal({
         helperId: r.helperId,
         note: r.note.trim() || undefined,
       }));
-    onAdd({ title: title.trim(), date, time: appTime }, validPreps);
+    onAdd(
+      { title: title.trim(), date, time: appTime, recipeType: templateId ?? undefined },
+      validPreps,
+    );
   };
 
   return (
@@ -228,7 +241,10 @@ export function NewAppointmentModal({
                         onChange={(e) => updateRow(i, { helperId: e.target.value })}
                         className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
                       >
-                        {HELPERS.map((h) => (
+                        {activeHelpers.length === 0 && (
+                          <option value="">No active helpers yet</option>
+                        )}
+                        {activeHelpers.map((h) => (
                           <option key={h.id} value={h.id}>
                             {h.short} · {h.station}
                           </option>

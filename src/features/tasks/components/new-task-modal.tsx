@@ -2,22 +2,24 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { Field } from "@/components/shared/field";
-import { HELPERS } from "@/features/people/people.constants";
+import type { Helper } from "@/features/people/people.types";
 import { WEEKDAYS, type Weekday } from "@/lib/time";
 
 import type { Recurrence, Task } from "../task.types";
 
 export function NewTaskModal({
+  activeHelpers,
   onClose,
   onAdd,
   isRemote = false,
 }: {
+  activeHelpers: Helper[];
   onClose: () => void;
   onAdd: (t: Omit<Task, "id" | "status" | "station">, opts?: { sendLive?: boolean }) => void;
   isRemote?: boolean;
 }) {
   const [title, setTitle] = useState("");
-  const [helperId, setHelperId] = useState(HELPERS[0].id);
+  const [helperId, setHelperId] = useState(activeHelpers[0]?.id ?? "");
   const [time, setTime] = useState("08:00");
   const [note, setNote] = useState("");
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
@@ -29,7 +31,7 @@ export function NewTaskModal({
   };
 
   const submit = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !helperId) return;
     const [h, m] = time.split(":").map(Number);
     const suffix = h >= 12 ? "PM" : "AM";
     const hr = ((h + 11) % 12) + 1;
@@ -86,7 +88,8 @@ export function NewTaskModal({
                 onChange={(e) => setHelperId(e.target.value)}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
               >
-                {HELPERS.map((h) => (
+                {activeHelpers.length === 0 && <option value="">No active helpers yet</option>}
+                {activeHelpers.map((h) => (
                   <option key={h.id} value={h.id}>
                     {h.name} · {h.station}
                   </option>

@@ -31,10 +31,10 @@ export function AvailabilityGate({
       ? `It's ${helperName}'s rest day.`
       : `This is outside ${helperName}'s hours.`;
   const body = status.quiet
-    ? `Overnight is protected rest. Sending anyway will be logged as after-hours and counted toward OT / rest — an override on quiet hours. Only use Emergency if it truly can't wait.`
+    ? `Overnight is protected rest. Proceeding will log 30 minutes of Rest Owed to her ledger. Only use Emergency if it truly can't wait.`
     : status.restDay
-      ? `Her rest day is protected. It'll be logged as after-hours and counted toward OT / rest.`
-      : `It'll be logged as after-hours and counted toward OT / rest.`;
+      ? `It is currently her Rest Day. Proceeding will log 30 minutes of Rest Owed to her ledger.`
+      : `${helperName} is currently off-shift. Proceeding will log 30 minutes of Rest Owed to her ledger.`;
 
   return (
     <div

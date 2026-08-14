@@ -1,75 +1,120 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
-import { helperById } from "@/features/people/people.utils";
-import type { Task } from "@/features/tasks/task.types";
-import { computePrepSchedule } from "@/lib/time";
-
-import { INITIAL_APPOINTMENTS } from "../appointment.constants";
+import {
+  createAppointmentFn,
+  deleteAppointmentFn,
+  listAppointmentsFn,
+  rescheduleAppointmentFn,
+  type AppointmentRow,
+} from "../appointment.actions";
 import type { Appointment, PrepDraft } from "../appointment.types";
+import {
+  combineDateAndTime,
+  computePrepSchedule,
+  isoToDisplayTime,
+  isoToISODate,
+} from "@/lib/time";
 
 export type AppointmentStore = ReturnType<typeof useAppointments>;
+
+function toAppointment(row: AppointmentRow): Appointment {
+  return {
+    id: row.id,
+    title: row.title,
+    date: isoToISODate(row.scheduled_time),
+    time: isoToDisplayTime(row.scheduled_time),
+    recipeType: row.recipe_type ?? undefined,
+  };
+}
 
 /**
  * Fixed calendar events and the prep tasks scheduled backwards from them.
  *
- * Prep tasks live on the board, so this hook drives them through the board's
- * `setTasks`: adding an appointment creates them, removing it deletes them, and
- * moving it shifts each one by its own lead offset (leaving a reschedule notice).
+ * Real Supabase-backed as of KNOWN_GAPS.md Closed Gap C14 -- fetched on
+ * mount/token-change and refetched after every write, same "write then
+ * refresh" pattern as the rest of this app. add()/remove()/update() each
+ * call one SECURITY DEFINER RPC (see appointment.actions.ts) that writes the
+ * appointment row and its prep `tickets` rows in a single transaction,
+ * rather than two sequential calls that could leave them out of sync.
  */
-export function useAppointments(setTasks: (update: (prev: Task[]) => Task[]) => void) {
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+export function useAppointments({
+  token,
+  ready,
+  refreshTasks,
+}: {
+  token: string | null;
+  ready: boolean;
+  refreshTasks: () => void | Promise<void>;
+}) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    const rows = await listAppointmentsFn({ data: { token } });
+    setAppointments(rows.map(toAppointment));
+  }, [token]);
+
+  useEffect(() => {
+    if (!ready || !token) return;
+    refresh().catch((err) => {
+      console.error("[useAppointments] Failed to load appointments:", err);
+    });
+  }, [ready, token, refresh]);
 
   const add = (a: Omit<Appointment, "id">, preps: PrepDraft[]) => {
-    const id = `a${Date.now()}`;
-    setAppointments((prev) => [...prev, { ...a, id }]);
-    const newTasks: Task[] = preps.map((p, i) => {
-      const { date, time } = computePrepSchedule(a.date, a.time, p.leadMinutes);
-      const helper = helperById(p.helperId);
-      return {
-        id: `${id}-p${i}-${Date.now()}`,
-        title: p.title,
-        note: p.note,
-        time,
-        helperId: p.helperId,
-        station: helper.station,
-        status: "todo",
-        appointmentId: id,
-        appointmentTitle: a.title,
-        scheduledDate: date,
-        leadMinutes: p.leadMinutes,
-      };
-    });
-    if (newTasks.length > 0) setTasks((prev) => [...prev, ...newTasks]);
+    if (!token) return;
+    createAppointmentFn({
+      data: {
+        token,
+        title: a.title,
+        scheduledTimeIso: combineDateAndTime(a.date, a.time),
+        recipeType: a.recipeType,
+        preps: preps.map((p) => {
+          const { date, time } = computePrepSchedule(a.date, a.time, p.leadMinutes);
+          return {
+            title: p.title,
+            notes: p.note,
+            helperId: p.helperId,
+            scheduledStartIso: combineDateAndTime(date, time),
+            leadMinutes: p.leadMinutes,
+          };
+        }),
+      },
+    })
+      .then(() => Promise.all([refresh(), refreshTasks()]))
+      .catch((err) => {
+        console.error("[useAppointments] Failed to create appointment:", err);
+        toast.error("Hindi na-save ang appointment.");
+      });
   };
 
   const remove = (id: string) => {
-    setAppointments((prev) => prev.filter((a) => a.id !== id));
-    setTasks((prev) => prev.filter((t) => t.appointmentId !== id));
+    if (!token) return;
+    deleteAppointmentFn({ data: { token, appointmentId: id } })
+      .then(() => Promise.all([refresh(), refreshTasks()]))
+      .catch((err) => {
+        console.error("[useAppointments] Failed to remove appointment:", err);
+        toast.error("Hindi na-delete ang appointment.");
+      });
   };
 
   const update = (id: string, patch: { title: string; date: string; time: string }) => {
-    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.appointmentId !== id) return t;
-        const lead = t.leadMinutes ?? 0;
-        const { date: newDate, time: newTime } = computePrepSchedule(patch.date, patch.time, lead);
-        const changed =
-          newDate !== t.scheduledDate || newTime !== t.time || patch.title !== t.appointmentTitle;
-        if (!changed) return { ...t, appointmentTitle: patch.title };
-        const timeMoved = newDate !== t.scheduledDate || newTime !== t.time;
-        return {
-          ...t,
-          time: newTime,
-          scheduledDate: newDate,
-          appointmentTitle: patch.title,
-          rescheduleNotice: timeMoved
-            ? { oldTime: t.time, oldDate: t.scheduledDate, appointmentTitle: patch.title }
-            : t.rescheduleNotice,
-        };
-      }),
-    );
+    if (!token) return;
+    rescheduleAppointmentFn({
+      data: {
+        token,
+        appointmentId: id,
+        title: patch.title,
+        scheduledTimeIso: combineDateAndTime(patch.date, patch.time),
+      },
+    })
+      .then(() => Promise.all([refresh(), refreshTasks()]))
+      .catch((err) => {
+        console.error("[useAppointments] Failed to reschedule appointment:", err);
+        toast.error("Hindi na-reschedule ang appointment.");
+      });
   };
 
-  return { appointments, add, remove, update };
+  return { appointments, add, remove, update, refresh };
 }

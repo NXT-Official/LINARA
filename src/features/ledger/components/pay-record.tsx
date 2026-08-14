@@ -1,7 +1,6 @@
 import { Check, Coins, Sparkles, Wallet } from "lucide-react";
 import { useState } from "react";
 
-import { Row } from "@/components/shared/detail-row";
 import type { Helper, Invite } from "@/features/people/people.types";
 
 import type { LedgerEntry, LedgerResolution, ValeRequest } from "../ledger.types";
@@ -65,22 +64,6 @@ export function PayRecord({
         onUpdateEntry={onUpdateLedgerEntry}
         audience="helper"
       />
-      <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Current cutoff · Jun 1 – Jun 15
-        </div>
-        <div className="mt-2 flex items-baseline justify-between">
-          <div className="font-display text-3xl text-foreground">₱9,240</div>
-          <span className="text-xs font-semibold text-primary">Expected payout</span>
-        </div>
-        <div className="mt-4 space-y-2 text-sm">
-          <Row label="Base salary (half-month)" value="₱8,000" />
-          <Row label="Overtime · 4 hrs" value="₱480" />
-          <Row label="SSS / PhilHealth share" value="− ₱240" muted />
-          <Row label="Meal + transport allowance" value="₱1,000" />
-        </div>
-      </section>
-
       {approvedTotal > 0 && (
         <section className="rounded-3xl border border-primary/30 bg-primary/5 p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">

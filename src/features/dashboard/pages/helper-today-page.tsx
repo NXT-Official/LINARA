@@ -10,13 +10,21 @@ import { useAppStores } from "../app-store-context";
 import { EndOfDay } from "../components/end-of-day";
 import { HelperTaskLists } from "../components/helper-task-lists";
 
-/** Ate Rosa's day: her week, the quick asks, her notes, and her task lists. */
+/** The helper's day: their week, the quick asks, their notes, and their task lists. */
 export function HelperTodayPage() {
   const { helper, board, schedules, utos } = useAppStores();
   const { tasks, boardClosed, simDate, updateStatus, blockTask, addTask } = board;
 
   const [noteToTask, setNoteToTask] = useState<string | null>(null);
   const [blockingId, setBlockingId] = useState<string | null>(null);
+
+  if (!helper) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center text-sm text-muted-foreground">
+        No active helper account yet — claim an invite to see your day.
+      </div>
+    );
+  }
 
   const mine = tasks.filter((t) => t.helperId === helper.id && !t.queued);
   const doneCount = mine.filter((t) => t.status === "done").length;
@@ -27,18 +35,19 @@ export function HelperTodayPage() {
 
   return (
     <>
-      <MyWeekCard weekSchedule={schedules.weekFor(helper.id)} simDate={simDate} />
+      <MyWeekCard schedule={schedules.scheduleFor(helper.id)} simDate={simDate} />
       {(utos.list.length > 0 || utos.wipedToday) && (
         <QuickUtosFeed
           utosList={utos.list}
           onAck={utos.ack}
           available={!boardClosed}
           wiped={utos.wipedToday}
+          helperName={helper.name}
         />
       )}
       <MyNotes helperId={helper.id} onMakeTask={(txt) => setNoteToTask(txt)} />
       {allDone ? (
-        <EndOfDay doneCount={doneCount} />
+        <EndOfDay doneCount={doneCount} helperName={helper.name} />
       ) : (
         <HelperTaskLists
           next={next}
@@ -67,6 +76,7 @@ export function HelperTodayPage() {
         <NoteToTaskModal
           initialTitle={noteToTask}
           helperId={helper.id}
+          createdBy={helper.name}
           onClose={() => setNoteToTask(null)}
           onSubmit={(t) => {
             addTask(t);

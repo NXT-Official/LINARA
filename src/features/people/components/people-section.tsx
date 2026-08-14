@@ -1,54 +1,50 @@
-import { AlertCircle, Plus, Users } from "lucide-react";
+import { AlertCircle, Info, Pencil, Plus, Users } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
-import type { WeekSchedule } from "@/features/shifts/shift.types";
-import { WEEKDAY_LONG, WEEKDAYS } from "@/lib/time";
 
-import { adminPermSummary, adminTypeLabel, HELPERS } from "../people.constants";
-import type { Admin, AdminType, Invite } from "../people.types";
+import { adminPermSummary, adminTypeLabel, REGIONAL_MINIMUM_WAGE } from "../people.constants";
+import type { Admin, Invite } from "../people.types";
 import { initialsOf } from "../people.utils";
+import { EditWageModal } from "./edit-wage-modal";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
+import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 
-/** The household roster: admins with editable roles, helpers, and pending invites. */
+/** The household roster: admins, and real helpers/pending invites from the database. */
 export function PeopleSection({
   admins,
   currentAdmin,
-  canEditAdmins,
-  onUpdateAdminType,
-  schedules,
   invites,
   canInvite,
   onInvite,
   onCancelInvite,
+  onUpdateWage,
 }: {
   admins: Admin[];
   currentAdmin: Admin | null;
-  canEditAdmins: boolean;
-  onUpdateAdminType: (id: string, type: AdminType) => void;
-  schedules: Record<string, WeekSchedule>;
   invites: Invite[];
   canInvite: boolean;
   onInvite: (
-    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags">,
-  ) => Invite;
+    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags"> & {
+      paydayInterval: "semi_monthly" | "monthly";
+    },
+  ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
+  onUpdateWage: (id: string, wagePHP: number) => Promise<void>;
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issued, setIssued] = useState<Invite | null>(null);
+  const [showContributions, setShowContributions] = useState<Record<string, boolean>>({});
+  const [editingWage, setEditingWage] = useState<Invite | null>(null);
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-foreground">Admins</h2>
-            <p className="text-xs text-muted-foreground">
-              The grown-ups who run the house.{" "}
-              {canEditAdmins
-                ? "As Primary, you can change roles."
-                : "Only the Primary can change roles."}
-            </p>
+            <p className="text-xs text-muted-foreground">The grown-ups who run the house.</p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
             <Users className="h-3 w-3" /> {admins.length}
@@ -88,30 +84,10 @@ export function PeopleSection({
                     {adminPermSummary[a.type]}
                   </div>
                 </div>
-                {canEditAdmins && (
-                  <div className="shrink-0">
-                    <label className="sr-only" htmlFor={`role-${a.id}`}>
-                      Role for {a.name}
-                    </label>
-                    <select
-                      id={`role-${a.id}`}
-                      value={a.type}
-                      onChange={(e) => onUpdateAdminType(a.id, e.target.value as AdminType)}
-                      className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground outline-none focus:border-primary"
-                    >
-                      <option value="primary">Primary manager</option>
-                      <option value="co">Co-manager</option>
-                      <option value="remote">Remote admin</option>
-                    </select>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
-        <p className="mt-4 text-[11px] italic text-muted-foreground">
-          Roles are mock data — changes stay on this device.
-        </p>
       </section>
 
       <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
@@ -121,7 +97,7 @@ export function PeopleSection({
             <p className="text-xs text-muted-foreground">Your household team, by station.</p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
-            <Users className="h-3 w-3" /> {HELPERS.length + invites.length}
+            <Users className="h-3 w-3" /> {invites.length}
           </span>
         </div>
 
@@ -135,33 +111,6 @@ export function PeopleSection({
         )}
 
         <div className="space-y-3">
-          {HELPERS.map((h) => {
-            const wk = schedules[h.id];
-            const restLabel = wk
-              ? WEEKDAYS.filter((d) => wk[d].rest)
-                  .map((d) => WEEKDAY_LONG[d])
-                  .join(", ") || "None"
-              : h.restDay;
-            return (
-              <div
-                key={h.id}
-                className="flex items-start gap-3 rounded-2xl border border-border/70 bg-background/40 p-3.5"
-              >
-                <Avatar initials={h.initials} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">{h.name}</span>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-pine-deep">
-                      {h.station}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">Shift: {h.shift}</div>
-                  <div className="text-[11px] text-muted-foreground">Rest: {restLabel}</div>
-                </div>
-              </div>
-            );
-          })}
-
           {invites.map((inv) => {
             const displayName = inv.claimedName || inv.name;
             const initials = initialsOf(displayName);
@@ -200,7 +149,7 @@ export function PeopleSection({
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
                     {inv.employment === "live-in" ? "Live-in" : "Live-out"} · {inv.shift} · Rest:{" "}
-                    {inv.restDay}
+                    {inv.restDay} · Wage: ₱{(inv.wagePHP || 0).toLocaleString()}
                   </div>
                   {!isActive ? (
                     <div className="text-[11px] text-muted-foreground">
@@ -211,6 +160,52 @@ export function PeopleSection({
                   ) : (
                     <div className="text-[11px] text-muted-foreground">
                       Claimed her own account · joined via {inv.createdBy}
+                    </div>
+                  )}
+
+                  {inv.wagePHP < REGIONAL_MINIMUM_WAGE && (
+                    <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200">
+                          Batas Kasambahay Compliance Warning:
+                        </span>{" "}
+                        Wage is below the regional minimum of{" "}
+                        <span className="font-semibold">
+                          ₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}
+                        </span>
+                        .
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowContributions((prev) => ({ ...prev, [inv.id]: !prev[inv.id] }))
+                      }
+                      className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Info className="h-3 w-3" />{" "}
+                      {showContributions[inv.id]
+                        ? "Hide contributions"
+                        : "View contributions split"}
+                    </button>
+                    {canInvite && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingWage(inv)}
+                        className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Pencil className="h-3 w-3" /> Edit wage
+                      </button>
+                    )}
+                  </div>
+
+                  {showContributions[inv.id] && (
+                    <div className="mt-2.5">
+                      <LegalContributionSplitCard wagePHP={inv.wagePHP} />
                     </div>
                   )}
                   {inv.flags.length > 0 && (
@@ -256,14 +251,23 @@ export function PeopleSection({
       {inviteOpen && (
         <InviteHelperModal
           onClose={() => setInviteOpen(false)}
-          onSubmit={(data) => {
-            const inv = onInvite(data);
+          onSubmit={async (data) => {
+            const inv = await onInvite(data);
             setInviteOpen(false);
             setIssued(inv);
+            toast.success("Nagawa na ang invite code!");
           }}
         />
       )}
       {issued && <InviteCodeScreen invite={issued} onClose={() => setIssued(null)} />}
+      {editingWage && (
+        <EditWageModal
+          name={editingWage.claimedName || editingWage.name}
+          initialWagePHP={editingWage.wagePHP}
+          onClose={() => setEditingWage(null)}
+          onSubmit={(wagePHP) => onUpdateWage(editingWage.id, wagePHP)}
+        />
+      )}
     </div>
   );
 }

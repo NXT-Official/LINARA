@@ -8,10 +8,12 @@ export function UtosChip({
   utos,
   onAck,
   available,
+  helperName,
 }: {
   utos: QuickUtos;
   onAck: (id: string, ack: "seen" | "done") => void;
   available: boolean;
+  helperName: string;
 }) {
   const acked = utos.ackState === "seen" || utos.ackState === "done";
   const waiting = (!available || utos.waiting) && !acked;
@@ -58,7 +60,7 @@ export function UtosChip({
 
       {waiting ? (
         <p className="text-[11px] italic text-muted-foreground">
-          Waiting — Rosa is off. She'll see it when she's back.
+          Waiting — {helperName} is off. She&apos;ll see it when she&apos;s back.
         </p>
       ) : !acked ? (
         <div className="flex gap-2">

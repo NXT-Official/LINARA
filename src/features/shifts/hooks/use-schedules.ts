@@ -1,28 +1,74 @@
-import { useState } from "react";
+import { useMemo } from "react";
 
-import type { Weekday } from "@/lib/time";
+import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
+import { updateHelperScheduleFn } from "@/features/people/people.actions";
 
-import { INITIAL_SCHEDULES } from "../shift.constants";
-import type { DaySchedule, WeekSchedule } from "../shift.types";
+import type { HelperSchedule } from "../shift.types";
 
 export type ScheduleStore = {
-  byHelper: Record<string, WeekSchedule>;
-  weekFor: (helperId: string) => WeekSchedule;
-  updateDay: (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => void;
+  byHelper: Record<string, HelperSchedule>;
+  scheduleFor: (helperId: string) => HelperSchedule | undefined;
+  update: (
+    helperId: string,
+    patch: Partial<
+      Pick<HelperSchedule, "shiftStart" | "shiftEnd" | "weeklyRestDay" | "breakStart" | "breakEnd">
+    >,
+  ) => Promise<void>;
 };
 
-/** The weekly shift pattern per helper: working segments, rest days, and breaks. */
-export function useSchedules(): ScheduleStore {
-  const [byHelper, setByHelper] = useState<Record<string, WeekSchedule>>(INITIAL_SCHEDULES);
+function toSchedule(row: HelperProfileRow): HelperSchedule {
+  return {
+    shiftStart: row.shift_start,
+    shiftEnd: row.shift_end,
+    weeklyRestDay: row.weekly_rest_day,
+    breakStart: row.break_start ?? undefined,
+    breakEnd: row.break_end ?? undefined,
+  };
+}
 
-  const weekFor = (helperId: string) => byHelper[helperId] ?? INITIAL_SCHEDULES[helperId];
+/**
+ * Derived from the same helper_profiles fetch useInvites already does for
+ * the People roster -- no second Supabase round-trip. This store doesn't
+ * own the underlying data, so a write goes straight to the DB and then
+ * pulls the fresh row back via `refresh` rather than patching local state.
+ */
+export function useSchedules({
+  helperProfiles,
+  token,
+  refresh,
+}: {
+  helperProfiles: HelperProfileRow[];
+  token: string | null;
+  refresh: () => Promise<void>;
+}): ScheduleStore {
+  const byHelper = useMemo(() => {
+    const map: Record<string, HelperSchedule> = {};
+    for (const row of helperProfiles) map[row.id] = toSchedule(row);
+    return map;
+  }, [helperProfiles]);
 
-  const updateDay = (helperId: string, day: Weekday, patch: Partial<DaySchedule>) => {
-    setByHelper((prev) => {
-      const wk = prev[helperId] ?? INITIAL_SCHEDULES[helperId];
-      return { ...prev, [helperId]: { ...wk, [day]: { ...wk[day], ...patch } } };
+  const update: ScheduleStore["update"] = async (helperId, patch) => {
+    if (!token) throw new Error("Not authenticated");
+    const current = byHelper[helperId];
+    if (!current) throw new Error("Unknown helper");
+    const next = { ...current, ...patch };
+    await updateHelperScheduleFn({
+      data: {
+        token,
+        helperId,
+        shiftStart: next.shiftStart,
+        shiftEnd: next.shiftEnd,
+        weeklyRestDay: next.weeklyRestDay,
+        breakStart: next.breakStart ?? null,
+        breakEnd: next.breakEnd ?? null,
+      },
     });
+    await refresh();
   };
 
-  return { byHelper, weekFor, updateDay };
+  return {
+    byHelper,
+    scheduleFor: (helperId) => byHelper[helperId],
+    update,
+  };
 }

@@ -1,9 +1,13 @@
-import { X } from "lucide-react";
+import { AlertCircle, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { Field } from "@/components/shared/field";
 
 import type { Employment, Invite, Station } from "../people.types";
+import { REGIONAL_MINIMUM_WAGE, WEEKLY_REST_DAY_NAMES } from "../people.constants";
+import { LegalContributionSplitCard } from "./legal-contribution-split-card";
+
+type PaydayInterval = "semi_monthly" | "monthly";
 
 export function InviteHelperModal({
   onClose,
@@ -11,28 +15,43 @@ export function InviteHelperModal({
 }: {
   onClose: () => void;
   onSubmit: (
-    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags">,
-  ) => void;
+    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags"> & {
+      paydayInterval: PaydayInterval;
+    },
+  ) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [station, setStation] = useState<Station>("Yaya");
   const [employment, setEmployment] = useState<Employment>("live-in");
-  const [shift, setShift] = useState("6:00 AM – 7:00 PM");
-  const [restDay, setRestDay] = useState("Sunday");
+  const [shiftStart, setShiftStart] = useState("06:00");
+  const [shiftEnd, setShiftEnd] = useState("19:00");
+  const [restDay, setRestDay] = useState<(typeof WEEKLY_REST_DAY_NAMES)[number]>("Sunday");
+  const [paydayInterval, setPaydayInterval] = useState<PaydayInterval>("semi_monthly");
   const [wage, setWage] = useState("8000");
   const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) return;
-    onSubmit({
-      name: name.trim(),
-      station,
-      employment,
-      shift: shift.trim() || "—",
-      restDay: restDay.trim() || "—",
-      wagePHP: parseInt(wage, 10) || 0,
-      phone: phone.trim(),
-    });
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        station,
+        employment,
+        shift: `${shiftStart} - ${shiftEnd}`,
+        restDay,
+        paydayInterval,
+        wagePHP: parseInt(wage, 10) || 0,
+        phone: phone.trim(),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create the invite.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -86,22 +105,39 @@ export function InviteHelperModal({
               </select>
             </Field>
           </div>
-          <Field label="Shift hours">
-            <input
-              value={shift}
-              onChange={(e) => setShift(e.target.value)}
-              placeholder="e.g. 6:00 AM – 7:00 PM"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Rest day">
+            <Field label="Shift start">
               <input
-                value={restDay}
-                onChange={(e) => setRestDay(e.target.value)}
-                placeholder="e.g. Sunday"
+                type="time"
+                value={shiftStart}
+                onChange={(e) => setShiftStart(e.target.value)}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
               />
+            </Field>
+            <Field label="Shift end">
+              <input
+                type="time"
+                value={shiftEnd}
+                onChange={(e) => setShiftEnd(e.target.value)}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Rest day">
+              <select
+                value={restDay}
+                onChange={(e) =>
+                  setRestDay(e.target.value as (typeof WEEKLY_REST_DAY_NAMES)[number])
+                }
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              >
+                {WEEKLY_REST_DAY_NAMES.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Monthly wage (₱)">
               <input
@@ -112,6 +148,33 @@ export function InviteHelperModal({
               />
             </Field>
           </div>
+          <Field label="Payday interval">
+            <select
+              value={paydayInterval}
+              onChange={(e) => setPaydayInterval(e.target.value as PaydayInterval)}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            >
+              <option value="semi_monthly">Semi-monthly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </Field>
+
+          {parseInt(wage, 10) < REGIONAL_MINIMUM_WAGE && (
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-semibold block mb-0.5">
+                  Batas Kasambahay Compliance Warning
+                </span>
+                Ang sweldong ₱{(parseInt(wage, 10) || 0).toLocaleString()} ay mababa sa regional
+                minimum wage na{" "}
+                <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>{" "}
+                para sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
+              </div>
+            </div>
+          )}
+
+          <LegalContributionSplitCard wagePHP={parseInt(wage, 10) || 0} />
           <Field label="Contact number">
             <input
               value={phone}
@@ -120,20 +183,34 @@ export function InviteHelperModal({
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
           </Field>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-full px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            disabled={submitting}
+            className="rounded-full px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             onClick={submit}
-            disabled={!name.trim()}
-            className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+            disabled={!name.trim() || submitting}
+            className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
           >
-            Generate invite code
+            {submitting ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...
+              </>
+            ) : (
+              "Generate invite code"
+            )}
           </button>
         </div>
       </div>
