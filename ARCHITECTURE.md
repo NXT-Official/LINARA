@@ -1271,6 +1271,21 @@ GRANT EXECUTE ON FUNCTION public.bootstrap_manager_household(TEXT, TEXT) TO auth
 -- Not granted to anon (unlike lookup_pending_invite/flag_invite above):
 -- this must only ever run for a caller who has already completed
 -- auth.signUp/signIn, exactly mirroring claim_helper_invite's pattern.
+
+-- --------------------------------------------------
+-- REALTIME PUBLICATION
+-- --------------------------------------------------
+-- `LINARA_MOBILE`'s use-realtime-subscription.ts and this app's
+-- app-store-provider.tsx both subscribe via
+-- supabase.channel(...).on('postgres_changes', ...) against these tables.
+-- `.subscribe()` succeeds with no error even when a table isn't in this
+-- publication -- it just never delivers events, which read as "works after
+-- an app restart, never live" (see KNOWN_GAPS.md C23). Any new table that
+-- needs a live client-side listener needs to be added here too; creating
+-- the table or writing the listener alone does not imply it.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.quick_utos, public.tickets;
+ALTER TABLE public.quick_utos REPLICA IDENTITY FULL;
+ALTER TABLE public.tickets REPLICA IDENTITY FULL;
 ```
 
 ---

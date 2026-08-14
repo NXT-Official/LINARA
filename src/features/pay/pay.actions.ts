@@ -134,7 +134,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
             account_holder_name: helperRow.name,
             account_number: helperRow.phone,
           },
-          amount: Math.round(netPay * 100),
+          amount: Math.round(netPay * 100) / 100,
           currency: "PHP",
           description: `LINARA payout ${cutoffStart} to ${cutoffEnd}`,
         }),

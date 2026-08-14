@@ -1145,6 +1145,61 @@ test` all pass locally, including a from-scratch `rm -rf node_modules
   Linux where this doesn't occur); flagging so a future session doesn't
   mistake that noise for real lint debt.
 
+### C23. `quick_utos`/`tickets` realtime subscriptions silently never fired -- required an app restart to see changes
+
+- **Found:** 2026-08-14, while manually testing Quick Utos in `LINARA_MOBILE` and
+  seeing changes only appear after killing and reopening the app.
+- **Root cause:** Both `LINARA_MOBILE/hooks/use-realtime-subscription.ts` and
+  `LINARA/app-store-provider.tsx` correctly call
+  `supabase.channel(...).on('postgres_changes', ...).subscribe()` against
+  `public.quick_utos` and `public.tickets`, matching what `LINARA_MOBILE`'s
+  `Story_3_DatabaseRealtimeAndStoragePipes.md` (step 4, AC "Modifying a row
+  in the database table triggers an immediate realtime callback on the
+  client") and `architecture.md` Section 9.1 describe. But neither table
+  had ever been added to the `supabase_realtime` publication -- no
+  migration or dashboard step ever did it, in any environment. `.subscribe()`
+  succeeds with no error in this state; the channel connects but never
+  receives events. A restart masked it because a fresh mount re-fetches via
+  TanStack Query (`getPendingQuickUtos`), which made it look like the
+  client-side subscription code was the problem when it was actually a
+  missing schema-side prerequisite. (Initially suspected as a free-tier
+  compute limitation -- it isn't; Postgres Changes works on Supabase's free
+  tier, the publication was just empty.)
+- **Fixed by:** `supabase/enable-realtime-quick-utos-tickets.sql` (`ALTER
+  PUBLICATION supabase_realtime ADD TABLE public.quick_utos, public.tickets`
+  + `REPLICA IDENTITY FULL` on both, so UPDATE/DELETE payloads carry full
+  old-row data for the `recipient_id`/`helper_id` filters to match against).
+  Also documented in `architecture.md` Section 8 (Realtime Publication) so
+  it isn't only a standalone `.sql` file a future environment could miss.
+- **Also noted:** Any new table that needs live client updates (mirroring
+  this pattern) needs the same two-line addition -- it's not implied by
+  creating the table or writing a `postgres_changes` listener alone.
+
+### C24. `initiatePayoutFn` sent Xendit payouts 100x the intended amount (centavos-style multiplier against an API that already expects the major unit)
+
+- **Found:** 2026-08-14, user tried a "Pay Now" GCash payout for ₱3,563 and
+  Xendit's dashboard showed ₱356,250 for `reference_id
+  3b1da7c1-c212-4a29-97f2-f72df887283e` -- a ~100x inflation.
+- **Root cause:** `pay.actions.ts`'s `initiatePayoutFn` sent `amount:
+  Math.round(netPay * 100)` to `POST /v2/payouts`, following the
+  Stripe-style convention of expressing amounts in the smallest currency
+  unit (cents/centavos). Xendit's Payouts API doesn't work that way for
+  PHP -- `amount` is the literal peso amount (decimals allowed for
+  centavos), not centavos-as-an-integer. A `netPay` of `3562.50` became
+  `356250`, which Xendit read as ₱356,250.00.
+- **Confirmed low-stakes this time:** `.env`'s `XENDIT_SECRET_WRITE_KEY` is
+  `xnd_development_...` (sandbox), so no real funds moved on this
+  transaction. Would not have been low-stakes against a `xnd_production_...`
+  key.
+- **Fixed by:** changed to `amount: Math.round(netPay * 100) / 100` (rounds
+  to the nearest centavo without the 100x multiplier) in
+  `pay.actions.ts`'s `initiatePayoutFn`.
+- **Also noted:** No test coverage exercises the actual Xendit request body
+  (a real API call, correctly excluded from CI) -- this class of bug can
+  only be caught by unit-testing the payload construction in isolation or
+  by manual sandbox verification like this one. Worth adding a narrow unit
+  test around the request body if this path is touched again.
+
 ---
 
 ## Template for New Entries
