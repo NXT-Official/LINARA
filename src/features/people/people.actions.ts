@@ -39,6 +39,8 @@ interface HelperProfileRow {
   status: "PENDING_CLAIM" | "ACTIVE" | "INACTIVE";
   employment: "live-in" | "live-out" | null;
   phone: string | null;
+  manual_status: "available" | "off" | null;
+  manual_available_until: string | null;
   created_at: string;
 }
 

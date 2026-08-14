@@ -53,7 +53,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
   const clock = useSimClock();
-  const availability = useAvailability({ nowTs: clock.nowTs, schedules, currentHelperId });
+  const availability = useAvailability({
+    nowTs: clock.nowTs,
+    schedules,
+    currentHelperId,
+    helperProfiles: invites.helperProfiles,
+  });
   const ledger = useLedger({
     rosaStatus: availability.status,
     schedules,

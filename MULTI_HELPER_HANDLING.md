@@ -74,7 +74,7 @@ that instead of the ambient `currentHelperId`.
 computes task-completion after-hours time, if anything does yet) — worth a
 separate check before assuming the whole Ledger feature is multi-helper-safe.
 
-### Availability / friction wall — schedule-derived half fixed; manual opt-in is a separate, unresolved problem
+### Availability / friction wall — fully fixed, including the manual opt-in
 
 **The friction wall bug wasn't Quick-Utos-specific — it already existed for
 Tasks, live, before this pass.** `use-send-gate.ts`'s `addTask` compared
@@ -82,32 +82,50 @@ Tasks, live, before this pass.** `use-send-gate.ts`'s `addTask` compared
 off-shift warning. Assigning a task to *any other* helper — even one
 genuinely on her rest day — skipped the friction wall entirely, silently.
 
-Fixed by extracting the schedule-derived half of `useAvailability`'s status
-computation into a pure function, `statusFor(helperId, schedules, nowTs)`
-(`availability.utils.ts`). `useSendGate` now calls this for whichever helper
-an action actually targets — the Quick Utos recipient, or a task's own
-`helperId` — instead of comparing against one fixed id. This fixes both the
-newly-exposed Quick Utos case and the pre-existing Task one, by construction
-(same code path).
+Fixed (2026-08-14) by extracting the schedule-derived half of
+`useAvailability`'s status computation into a pure function,
+`statusFor(helperId, schedules, nowTs, manual?)` (`availability.utils.ts`).
+`useSendGate` calls this for whichever helper an action actually targets —
+the Quick Utos recipient, or a task's own `helperId` — instead of comparing
+against one fixed id. This fixed both the newly-exposed Quick Utos case and
+the pre-existing Task one, by construction (same code path).
 
-**Left open:** `useAvailability`'s manual "Available for N hours" opt-in
-(`use-availability.ts`'s `manual` state) is `localStorage`-only, scoped to
-the whole browser session, not to any specific helper. It was never real,
-synced, cross-app data — nothing in this web app ever wrote it anywhere
-`LINARA_MOBILE` could see, and vice versa. Its only control,
-`RosaAvailControl`, lived on the vestigial `/helper/today` page and was
-deleted in KNOWN_GAPS.md's Closed Gap C26. **The manual opt-in is now
-permanently stuck at "off"** — not broken by this pass, but unreachable.
-`plan.md` §5.1 ("Dignity Header... active status toggles 'On Shift',
-'Available', 'Off'") describes this as a real feature meant to live on the
-helper's own screen. **Whether `LINARA_MOBILE` has a real, Supabase-backed
-equivalent is unverified** — check there before deciding whether to rebuild
-this, remove it, or leave `statusFor`'s schedule-only answer as the
-permanent source of truth for anyone but the browser's own tracked helper.
+**The manual opt-in itself was fixed next (2026-08-15), not left open.**
+Investigation found it was real and *actively used* on `LINARA_MOBILE`'s
+Today tab (`DignityHeader`/`RosaAvailControl`, not dead code) but only ever
+written to that device's own local storage — `AsyncStorage` on mobile,
+`localStorage` on web — never Supabase, so neither app could see the
+other's copy. The web app's copy was additionally already unreachable
+(`RosaAvailControl`, its only control, was deleted with the vestigial
+`/helper` surface in Closed Gap C26).
 
-`statusFor` itself never claims "available" for any helper other than
-`currentHelperId` (there's no data source for it) — this is documented
-behavior, not a silent gap.
+Closed by making it real, synced data instead of rebuilding a local mock or
+removing a working mobile feature:
+- `supabase/add-helper-manual-availability.sql` adds
+  `helper_profiles.manual_status`/`.manual_available_until` — no RLS change
+  needed, `helper_profiles_isolation` is already a plain household-scoped
+  policy a claimed helper's own session already satisfies directly.
+- `statusFor()` gained a 4th param, `manual: ManualAvailability | null`, and
+  a `manualFromRow()` helper to build it from a fetched `helper_profiles`
+  row — usable for *any* helper now, not just `currentHelperId`.
+- `useAvailability` simplified to read-only (dropped its `localStorage`
+  state and the already-unreachable `setAvailable`/`setOff`); `useSendGate`
+  dropped its `currentHelperId`/`currentHelperStatus` special-case in favor
+  of a uniform `helperProfiles`-driven lookup for every helper.
+- `LINARA_MOBILE`: `getMyHelperProfile` fetches the two new columns; new
+  `services/api/availability.ts` writes them (helper's own session, her own
+  row); `use-rosa-availability.ts` became a pure derivation hook (shift +
+  manual status in, `RosaAvailabilityStatus` out) instead of owning
+  `AsyncStorage` state itself — the mutation + profile-refetch now live in
+  `app/(app)/today.tsx`, matching this app's existing pattern of mutations
+  living in screens, not hooks. `DignityHeader`/`RosaAvailControl` needed no
+  changes — same UI, real data underneath now.
+
+**Status as of this write-up: code complete on both repos, migration not
+yet applied live** (confirmed via the same unauthenticated-PostgREST
+`42703` "column does not exist" check used throughout this project) — the
+usual "session has no service-role key" posture. Apply
+`supabase/add-helper-manual-availability.sql` before relying on this.
 
 ### Pay Dial / payslips — fixed
 
@@ -160,12 +178,9 @@ Fixed by:
 
 ## 4. If you're extending this
 
-`statusFor(helperId, schedules, nowTs)` (`src/features/availability/availability.utils.ts`)
+`statusFor(helperId, schedules, nowTs, manual?)` (`src/features/availability/availability.utils.ts`)
 is the reusable building block for "is this specific helper reachable right
 now" — use it instead of reaching for `currentHelperId` or `availability.status`
-whenever the helper in question might not be the ambient "current" one. It
-deliberately does not know about the manual opt-in (see §2's Availability
-section) — if that ever becomes real, per-helper, synced data, layer it on
-top the same way `useAvailability` already does for `currentHelperId`, don't
-bake it into `statusFor` itself (which other callers rely on staying pure
-and schedule-only).
+whenever the helper in question might not be the ambient "current" one.
+`manualFromRow()` (same file) builds its `manual` argument from a fetched
+`helper_profiles` row; pass `undefined`/`null` when you don't have one.

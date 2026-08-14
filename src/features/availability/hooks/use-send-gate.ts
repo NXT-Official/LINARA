@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
 import type { Helper } from "@/features/people/people.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
@@ -8,7 +9,7 @@ import type { Task } from "@/features/tasks/task.types";
 import { routeUtosFn } from "@/features/utos/utos.actions";
 import type { SendFlags } from "@/features/utos/hooks/use-utos";
 
-import { statusFor } from "../availability.utils";
+import { manualFromRow, statusFor } from "../availability.utils";
 import type { RosaStatus } from "../availability.types";
 
 export type TaskDraft = Omit<Task, "id" | "status" | "station">;
@@ -42,21 +43,19 @@ export type SendGate = {
  * on-site manager instead.
  *
  * Status is resolved per-action, not fixed at instantiation: `addTask`
- * always checked the assigned task's own `helperId` against a single global
+ * used to check the assigned task's own `helperId` against a single global
  * `currentHelperId`, silently skipping the friction wall for every other
- * helper (see KNOWN_GAPS.md / MULTI_HELPER_HANDLING.md). `statusFor` (a pure
- * schedule-derived lookup, no manual opt-in data available for anyone but
- * the current device's own helper) fixes that for every helper, not just
- * one; `currentHelperStatus` (already includes the manual opt-in layer) is
- * used only when the action's target happens to be `currentHelperId`.
+ * helper (see KNOWN_GAPS.md / MULTI_HELPER_HANDLING.md). `statusFor`, given
+ * the target helper's own fetched `helper_profiles` row, now resolves real
+ * schedule *and* manual-opt-in status for whichever helper an action
+ * actually targets -- not just one "current" one.
  */
 export function useSendGate({
   authorName,
   isRemote,
   schedules,
   nowTs,
-  currentHelperId,
-  currentHelperStatus,
+  helperProfiles,
   resolveHelperName,
   utosTargetHelperId,
   activeHelpers,
@@ -67,11 +66,10 @@ export function useSendGate({
   isRemote: boolean;
   schedules: ScheduleStore;
   nowTs: number;
-  /** Real helper_profiles id of the one helper with a first-class device -- the
-   * only one whose manual availability opt-in this app can see. */
-  currentHelperId: string | null;
-  /** availability.status for currentHelperId, manual opt-in layer included. */
-  currentHelperStatus: RosaStatus;
+  /** Every fetched helper_profiles row -- for real per-helper manual
+   * availability lookups, any active helper, not just the "current" one
+   * (see MULTI_HELPER_HANDLING.md). */
+  helperProfiles: HelperProfileRow[];
   resolveHelperName: (helperId: string | null) => string;
   /** Who sendUtos() targets -- the picked (or default) Quick Utos recipient. */
   utosTargetHelperId: string | null;
@@ -83,9 +81,12 @@ export function useSendGate({
   const [intent, setIntent] = useState<GateIntent | null>(null);
 
   const statusOf = (helperId: string | null): RosaStatus =>
-    helperId && helperId === currentHelperId
-      ? currentHelperStatus
-      : statusFor(helperId, schedules, nowTs);
+    statusFor(
+      helperId,
+      schedules,
+      nowTs,
+      manualFromRow(helperProfiles.find((p) => p.id === helperId)),
+    );
 
   // Attribute the task to whoever is looking, unless it already carries an author.
   const stamp = (t: TaskDraft): TaskDraft => ({ ...t, createdBy: t.createdBy ?? authorName });

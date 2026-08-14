@@ -53,49 +53,6 @@ the bottom.
   Claude API) and the constraint that `transcribe-notes` (Whisper) has no
   Claude equivalent and would stay on a separate provider regardless.
 
-### O2. `currentHelperId` (`activeHelpers[0]`) is a single, unstable stand-in for "the helper" across most helper-scoped features -- breaks down for 2+ active helpers
-
-- **Found:** 2026-08-14, user asked what could go wrong with a large number
-  of helpers, prompted by that day's `/helper` surface removal (Closed Gap
-  C26). Full design writeup, per-area status, and the reusable fix pattern
-  now live in [`MULTI_HELPER_HANDLING.md`](MULTI_HELPER_HANDLING.md) --
-  this entry is a pointer, not a duplicate, matching how `aiagent.md` holds
-  full prompt detail while this file only points at it.
-- **Gap:** `currentHelperId` (`app-store-provider.tsx`) is `activeHelpers[0]`,
-  ordered `created_at DESC` by `listHelperProfilesFn` -- the most recently
-  invited active helper, not a manager's actual choice, and it silently
-  changes as new helpers claim their accounts. Quick Utos, the after-hours
-  Ledger, the Availability friction wall, and the Pay Dial all keyed off
-  this one value.
-- **Partially closed, 2026-08-14:** Quick Utos and the Ledger write it drives
-  are fixed -- a real recipient picker, AI `suggestedStation` surfaced
-  (never auto-applied) via a toast, `ledger.record` follows the utos's own
-  `toHelperId`. The friction wall (`use-send-gate.ts`) is generalized via a
-  new `statusFor(helperId, schedules, nowTs)` (`availability.utils.ts`),
-  which also fixed a pre-existing bug in `addTask` (assigning a task to any
-  helper other than `currentHelperId` silently skipped the off-shift warning
-  entirely, live, before this fix -- not new scope, a bug this same
-  generalization happened to close).
-- **Also closed, same day:** the Pay Dial/payslip history (Money tab) --
-  `ManagerMoneyPage` gained a helper switcher (same picker pattern). Found
-  while fixing it: `LedgerEntry` (the client type) had no `helperId` field
-  at all, even though `ledger_entries.helper_id` was already being fetched
-  -- `toLedgerEntry()` just never mapped it through. This meant the Pay
-  Dial's rest-owed-minutes math summed *every* active helper's ledger
-  entries into one dial regardless of whose numbers it claimed to show; a
-  switcher alone would not have fixed it, since there was nothing to filter
-  by. Added `LedgerEntry.helperId`, set from `row.helper_id`.
-- **Still open:** `useAvailability`'s manual "Available for N hours" opt-in
-  is `localStorage`-only (never real, cross-app data), and its only UI
-  control was deleted along with the vestigial `/helper` surface in C26 --
-  it's now permanently unreachable. Whether `LINARA_MOBILE` has a real
-  equivalent is unverified. See `MULTI_HELPER_HANDLING.md` §2.
-- **To close:** a `LINARA_MOBILE`-side investigation into whether a real
-  per-helper availability toggle already exists there before deciding
-  whether to rebuild, remove, or leave the web app's `statusFor`
-  schedule-only answer as the permanent source of truth for anyone but the
-  browser's own tracked helper.
-
 ---
 
 ## Closed Gaps
@@ -1377,6 +1334,71 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   `.inviteCode`. Removed the dead field and its string entirely; `status`
   stays on the return shape (a real, if currently unconsumed, part of the
   contract -- not a dangling reference like `inviteUrl` was).
+
+### C27. `currentHelperId` (`activeHelpers[0]`) was a single, unstable stand-in for "the helper" across most helper-scoped features -- broke down for 2+ active helpers
+
+- **Found:** 2026-08-14, user asked what could go wrong with a large number
+  of helpers, prompted by that day's `/helper` surface removal (C26). Full
+  design writeup and per-area detail live in
+  [`MULTI_HELPER_HANDLING.md`](MULTI_HELPER_HANDLING.md) -- this entry is a
+  pointer, not a duplicate, matching how `aiagent.md` holds full prompt
+  detail while this file only points at it.
+- **Root cause:** `currentHelperId` (`app-store-provider.tsx`) was
+  `activeHelpers[0]`, ordered `created_at DESC` by `listHelperProfilesFn` --
+  the most recently invited active helper, not a manager's actual choice,
+  silently changing as new helpers claimed their accounts. Quick Utos, the
+  after-hours Ledger, the Availability friction wall, and the Pay Dial all
+  keyed off this one value.
+- **Fixed in three passes, 2026-08-14 to 2026-08-15** (see
+  `MULTI_HELPER_HANDLING.md` for full detail on each):
+  1. **Quick Utos + Ledger:** a real recipient picker; AI `suggestedStation`
+     surfaced (never auto-applied) via a toast; `ledger.record` follows the
+     utos's own `toHelperId`. The friction wall (`use-send-gate.ts`) was
+     generalized via a new `statusFor(helperId, schedules, nowTs, manual?)`
+     (`availability.utils.ts`), which also fixed a pre-existing live bug in
+     `addTask` (assigning a task to any helper other than `currentHelperId`
+     silently skipped the off-shift warning entirely) -- not new scope, a
+     bug this same generalization happened to close.
+  2. **Pay Dial / payslip history:** `ManagerMoneyPage` gained a helper
+     switcher (same picker pattern). Found while fixing it: `LedgerEntry`
+     (the client type) had no `helperId` field at all, even though
+     `ledger_entries.helper_id` was already being fetched --
+     `toLedgerEntry()` just never mapped it through, so the Pay Dial's
+     rest-owed-minutes math was summing *every* active helper's ledger
+     entries into one dial regardless of whose numbers it claimed to show. A
+     switcher alone would not have fixed that; added `LedgerEntry.helperId`,
+     set from `row.helper_id`.
+  3. **The manual "Available for N hours" opt-in:** confirmed real and
+     actively used on `LINARA_MOBILE`'s Today tab (`DignityHeader`/
+     `RosaAvailControl`, not dead code) but written only to that device's
+     own local storage (`AsyncStorage` on mobile, `localStorage` on web,
+     the latter already unreachable post-C26) -- never Supabase, so neither
+     app could see the other's copy. Closed via
+     `supabase/add-helper-manual-availability.sql`
+     (`helper_profiles.manual_status`/`.manual_available_until` -- no RLS
+     change needed, `helper_profiles_isolation` already lets a claimed
+     helper's own session write her own row directly), `statusFor()`
+     gaining a `manual` param usable for any helper, `useAvailability`
+     simplified to read-only, and `LINARA_MOBILE`'s
+     `use-rosa-availability.ts` switching from `AsyncStorage` state to a
+     pure derivation fed by a real Supabase-backed profile fetch +
+     mutation (new `services/api/availability.ts`).
+- **Verification:** `tsc --noEmit`, scoped `eslint`, `vitest`, and `vite
+  build` all pass clean on `LINARA`; `tsc --noEmit` and `eslint` pass clean
+  on `LINARA_MOBILE` (no test suite there). `supabase/
+  add-helper-manual-availability.sql` needs to be applied by hand -- same
+  no-service-role-key posture as every prior migration in this file --
+  confirmed **not yet live** as of this writing via an unauthenticated
+  PostgREST `select id,manual_status,manual_available_until` against
+  `helper_profiles`: a `42703` "column does not exist" 400, not the `200
+[]` a landed migration would return. Not yet verified against a live
+  signed-in multi-helper household end-to-end.
+- **Known residual limitation, not closed by this fix:** None of the three
+  passes touch `LINARA_MOBILE` beyond what's described above, and no
+  realtime channel was added for the manual opt-in -- a helper's mobile-side
+  change is picked up by the web app on its next `helper_profiles` refetch
+  (mount/token-change), not instantly, which was judged sufficient (see
+  `MULTI_HELPER_HANDLING.md`'s verification notes).
 
 ---
 

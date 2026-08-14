@@ -27,6 +27,11 @@ export interface HelperProfileRow {
   phone: string | null;
   invite_code: string | null;
   status: "PENDING_CLAIM" | "ACTIVE" | "INACTIVE";
+  /** Real, per-helper "Available for N hours" opt-in, set from her own
+   * device (LINARA_MOBILE) -- see MULTI_HELPER_HANDLING.md. NULL means no
+   * active override. */
+  manual_status: "available" | "off" | null;
+  manual_available_until: string | null;
   created_at: string;
 }
 
