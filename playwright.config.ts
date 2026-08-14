@@ -1,5 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { startMockSupabaseServer } from "./tests/support/mock-supabase-server";
+
+// Started once when this config is loaded, before webServer spawns --
+// SUPABASE_URL below points the app's server functions at it instead of
+// the real, shared Supabase project. See tests/support/mock-supabase-server.ts.
+const MOCK_SUPABASE_PORT = 4319;
+startMockSupabaseServer(MOCK_SUPABASE_PORT).catch((err) => {
+  console.error("[mock-supabase-server] failed to start:", err);
+});
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
@@ -25,5 +35,9 @@ export default defineConfig({
     url: "http://localhost:8080",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    env: {
+      SUPABASE_URL: `http://127.0.0.1:${MOCK_SUPABASE_PORT}`,
+      SUPABASE_ANON_KEY: "mock-anon-key-for-e2e",
+    },
   },
 });

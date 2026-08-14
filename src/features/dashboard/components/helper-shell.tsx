@@ -19,7 +19,16 @@ export function HelperShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [claimOpen, setClaimOpen] = useState(false);
   const [claimedInfo, setClaimedInfo] = useState<Invite | null>(null);
-  const myClaimed = invites.invites.find((i) => i.status === "active");
+  // Whether *this device* completed its own claim -- not "does any
+  // helper_profiles row in the household happen to be ACTIVE", which is a
+  // different question and was previously conflated with this one (see
+  // KNOWN_GAPS.md). Persisted by claim-account-flow.tsx on a successful claim.
+  const [claimedName, setClaimedName] = useState<string | null>(() =>
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("linara_helper_claimed_name")
+      : null,
+  );
+  const myClaimed = claimedName;
 
   if (!helper) {
     return (
@@ -67,7 +76,7 @@ export function HelperShell({ children }: { children: ReactNode }) {
         <div className="min-w-0">
           <div className="text-xs font-semibold text-foreground">
             {myClaimed
-              ? `Account claimed — welcome, ${myClaimed.claimedName}`
+              ? `Account claimed — welcome, ${myClaimed}`
               : "New here? Claim your account."}
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
@@ -97,6 +106,7 @@ export function HelperShell({ children }: { children: ReactNode }) {
           onFinished={(inv) => {
             setClaimOpen(false);
             setClaimedInfo(inv);
+            setClaimedName(inv.claimedName ?? null);
             navigate({ to: "/helper/today" });
           }}
         />

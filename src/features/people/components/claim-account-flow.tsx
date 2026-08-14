@@ -136,6 +136,9 @@ export function ClaimAccountFlow({
       window.localStorage.setItem("linara_helper_refresh_token", result.refreshToken);
       window.localStorage.setItem("linara_helper_id", result.helperId);
       window.localStorage.setItem("linara_user_id", result.userId);
+      // Marks *this device* as having completed its own claim -- see the
+      // myClaimed comment in helper-shell.tsx.
+      window.localStorage.setItem("linara_helper_claimed_name", displayName.trim());
 
       // Trigger client callbacks to sync state
       onClaim(invite.id, displayName.trim());

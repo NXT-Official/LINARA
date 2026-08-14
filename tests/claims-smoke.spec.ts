@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
 
+import { FIXTURES } from "./support/mock-supabase-server";
+
 test.describe("Helper Claimant Onboarding Smoke Test", () => {
-  // Catch and pipe browser errors directly to the terminal
-  test.beforeEach(({ page }) => {
+  test.beforeEach(async ({ page }) => {
+    // Catch and pipe browser errors directly to the terminal
     page.on("console", (msg) => {
       if (msg.type() === "error") {
         console.error(`[BROWSER CONSOLE ERROR] ${msg.text()}`);
@@ -11,6 +13,14 @@ test.describe("Helper Claimant Onboarding Smoke Test", () => {
     page.on("pageerror", (err) => {
       console.error(`[BROWSER PAGE EXCEPTION] ${err.stack || err.message}`);
     });
+
+    // Seed a manager session so useInvites has a token to fetch
+    // helper_profiles with -- see use-session.ts. The fetch itself is
+    // served by the mock Supabase server (mock-supabase-server.ts), not the
+    // real backend.
+    await page.addInitScript((token) => {
+      window.localStorage.setItem("linara_manager_token", token);
+    }, FIXTURES.token);
   });
 
   test("should load the helper today page and render claim-your-account onboarding elements", async ({
@@ -19,8 +29,8 @@ test.describe("Helper Claimant Onboarding Smoke Test", () => {
     // 1. Visit the helper landing/today page
     await page.goto("/helper/today");
 
-    // 2. Verify that page title / header loads (Ate Rosa's Station greeting)
-    await expect(page.locator("text=Magandang umaga, Ate Rosa.")).toBeVisible();
+    // 2. Verify that page title / header loads (the active helper's station greeting)
+    await expect(page.locator(`text=Magandang umaga, ${FIXTURES.helperName}.`)).toBeVisible();
 
     // 3. Verify that the claimant onboarding banner is present
     await expect(page.locator("text=New here? Claim your account.")).toBeVisible();

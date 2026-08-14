@@ -1040,6 +1040,76 @@ XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
   tested -- only the two e-wallet `channel_code`s (`PH_GCASH`/
   `PH_PAYMAYA`) this feature actually needs.
 
+### C22. `HelperShell`'s "claim your account" banner was unreachable dead code with real data, and CI's e2e smoke test had never been re-verified against the real `helper_profiles`-backed app C8 shipped
+
+- **Found:** 2026-08-14, chasing a `test:e2e` CI failure on `jamesDev`
+  (`tests/claims-smoke.spec.ts` timing out waiting for
+  `text=Magandang umaga, Ate Rosa.`).
+- **Root cause (two separate bugs, one in the test, one in the app):**
+  (1) `helper-shell.tsx`'s `myClaimed` was derived as
+  `invites.invites.find(i => i.status === "active")` -- literally "does
+  _any_ `helper_profiles` row in the household happen to be `ACTIVE`",
+  the exact same field that also determines `helper` (`activeHelpers[0]`
+  in `app-store-provider.tsx`). Since both booleans read the same
+  underlying rows, `helper` being truthy (needed to render the greeting
+  at all) _always_ implied `myClaimed` was also truthy, and when `helper`
+  was null the component's early return (`!helper`) skipped the claim
+  banner section entirely. Net effect: `text=New here? Claim your
+account.` could never render in production, only in the pre-C8 mock
+  roster this smoke test was originally written against. A related,
+  _not_ fixed here: `ClaimAccountFlow`'s `onClaim(invite.id, ...)` passes
+  the invite **code** (`terms.inviteCode` from `verifyClaimFn`) as the id,
+  but `useInvites`'s `patch()` matches against `helper_profiles.id`
+  (a UUID) -- these never match, so the local optimistic patch after a
+  real claim is a silent no-op today. (2) Separately, the smoke test
+  itself navigated straight to `/helper/today` with no session at all;
+  `useInvites` only fetches `helper_profiles` once a manager `token`
+  exists (see its own doc comment), so even with bug (1) fixed the test
+  had no path to real data. CI's `SUPABASE_URL` mock literal
+  (`https://mock-supabase-url.supabase.co`, `ci.yml`) was never reachable
+  either way, so this had silently never worked since C4 wired
+  `test:e2e` into CI.
+- **Fixed by:** `helper-shell.tsx`'s `myClaimed` now tracks "did _this
+  device_ complete its own claim" via a new `linara_helper_claimed_name`
+  localStorage key, set by `claim-account-flow.tsx` alongside the
+  existing `linara_helper_*` keys right after a successful
+  `claimInviteFn` call -- independent of any `helper_profiles.status`
+  read, matching the same "no real per-helper session, track locally"
+  posture already used for `linara_manager_token` (`use-session.ts`).
+  The claim banner is reachable again. For the test: added
+  `tests/support/mock-supabase-server.ts`, a small local HTTP stub
+  answering the exact endpoints `people.actions.ts`'s server functions
+  call (`auth/v1/user`, `rest/v1/user_profiles`, `rest/v1/helper_profiles`)
+  with fixture data; `playwright.config.ts` starts it and points
+  `webServer.env.SUPABASE_URL` at it (overriding `ci.yml`'s dead literal
+  for the e2e run only -- `ci.yml` itself untouched). Mocking at the
+  browser network layer (`page.route()`) was tried first and abandoned:
+  these are TanStack Start server functions, called via a `_serverFn/
+<base64 id>` RPC using `seroval` wire-format serialization, and the
+  actual Supabase calls happen server-side inside the spawned `vite dev`
+  process -- neither layer is interceptable from the browser context
+  Playwright controls, only the real network boundary (Supabase's own
+  HTTP endpoints) is. `tests/claims-smoke.spec.ts` seeds
+  `linara_manager_token` via `page.addInitScript` and asserts against the
+  fixture helper's real name instead of a hardcoded literal.
+- **Verification:** `tsc --noEmit`, `eslint` (scoped to touched files --
+  the repo-wide run is swamped by pre-existing Windows-checkout CRLF
+  noise, see below), the Vitest suite, `vite build`, and `npx playwright
+test` all pass locally, including a from-scratch `rm -rf node_modules
+&& npm ci` against both npm 10.9.2 (CI's actual bundled version, Node 22) and npm 11.
+- **Known residual limitation, not closed by this fix:** The
+  `onClaim`/`patch()` id-mismatch bug noted above (code vs. UUID) is
+  real but separate -- the claimed helper's row still gets a correct
+  status via the next `refresh()` (manager re-opens People, or reloads),
+  just not optimistically. Not fixed here to keep this pass scoped to
+  what was actually breaking CI. Separately, a full-repo `npx eslint .`
+  or `npx prettier --check .` run on this Windows checkout reports
+  thousands of false-positive CRLF findings unrelated to any real
+  formatting issue -- `core.autocrlf=true` with no `.gitattributes` to
+  pin line endings. Not fixed here (out of scope, and CI itself runs on
+  Linux where this doesn't occur); flagging so a future session doesn't
+  mistake that noise for real lint debt.
+
 ---
 
 ## Template for New Entries
