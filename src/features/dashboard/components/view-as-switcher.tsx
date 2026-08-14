@@ -1,56 +1,23 @@
-import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-
 import { adminTypeShort } from "@/features/people/people.constants";
-import type { Admin, Helper } from "@/features/people/people.types";
+import type { Admin } from "@/features/people/people.types";
 
-/**
- * The prototype's persona switcher. Which persona you are is the route — the
- * helper lives under /helper, the admins under /manager — so switching personas
- * is a navigation, not a piece of state. Swapping admins inside the manager
- * branch leaves you on the page you were already reading.
- */
+/** Switches between co-managers on the same household. */
 export function ViewAsSwitcher({
   admins,
   currentAdminId,
   onSelectAdmin,
-  helper,
 }: {
   admins: Admin[];
   currentAdminId: string;
   onSelectAdmin: (id: string) => void;
-  /** The real active helper to view as -- the first ACTIVE helper_profiles row
-   * (see KNOWN_GAPS.md gap C8), or null until one has claimed their account. */
-  helper: Helper | null;
 }) {
-  const navigate = useNavigate();
-  const matchRoute = useMatchRoute();
-  const inHelperView = !!matchRoute({ to: "/helper", fuzzy: true });
-
-  const options = [
-    ...admins.map((a) => ({
-      key: a.id,
-      label: a.short,
-      sub: adminTypeShort[a.type],
-      active: !inHelperView && currentAdminId === a.id,
-      onSelect: () => {
-        onSelectAdmin(a.id);
-        if (inHelperView) navigate({ to: "/manager/pass" });
-      },
-    })),
-    ...(helper
-      ? [
-          {
-            key: helper.id,
-            label: helper.short,
-            sub: "Helper",
-            active: inHelperView,
-            onSelect: () => {
-              if (!inHelperView) navigate({ to: "/helper/today" });
-            },
-          },
-        ]
-      : []),
-  ];
+  const options = admins.map((a) => ({
+    key: a.id,
+    label: a.short,
+    sub: adminTypeShort[a.type],
+    active: currentAdminId === a.id,
+    onSelect: () => onSelectAdmin(a.id),
+  }));
 
   return (
     <div className="flex items-center gap-2">

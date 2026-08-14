@@ -44,7 +44,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const helper = activeHelpers[0] ?? null;
   const currentHelperId = helper?.id ?? null;
 
-  const pantry = usePantry();
+  const pantry = usePantry({ token: session.token, ready: session.status === "authed" });
   const schedules = useSchedules({
     helperProfiles: invites.helperProfiles,
     token: session.token,

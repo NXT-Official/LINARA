@@ -157,21 +157,6 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     create,
     cancel,
     updateWage,
-    findByCode: (code: string) =>
-      invites.find(
-        (i) => i.code.toLowerCase() === code.trim().toLowerCase() && i.status === "pending",
-      ) ?? null,
-    // Local-only display patches used by the helper-side claim flow, which
-    // talks to the real backend itself (people.actions.ts) and calls these
-    // afterward just to keep this list's display in sync -- see
-    // claim-account-flow.tsx.
-    claim: (id: string, claimedName: string) =>
-      patch(id, (i) => ({ ...i, status: "active", claimedName, claimedAt: Date.now() })),
-    flag: (id: string, field: string, note?: string) =>
-      patch(id, (i) => ({
-        ...i,
-        flags: [...i.flags, { id: `f${Date.now()}`, field, note, at: Date.now() }],
-      })),
     resolveFlag: (inviteId: string, flagId: string) =>
       patch(inviteId, (i) => ({ ...i, flags: i.flags.filter((f) => f.id !== flagId) })),
   };

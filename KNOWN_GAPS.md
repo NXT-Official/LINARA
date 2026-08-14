@@ -1200,6 +1200,139 @@ test` all pass locally, including a from-scratch `rm -rf node_modules
   by manual sandbox verification like this one. Worth adding a narrow unit
   test around the request body if this path is touched again.
 
+### C25. Pantry stock levels (`usePantry`) were pure local `useState` seeded from an 11-item hardcoded mock, never connected to the real `pantry_items` table
+
+- **Found:** 2026-08-14, user noticed the manager-facing Pantry page always
+  shows the same fake items ("Rice", "Sofia's cereal", "Garlic"...)
+  regardless of household.
+- **Root cause:** `pantry.constants.ts`'s `INITIAL_PANTRY` seeded
+  `usePantry()`'s `useState` directly -- no Supabase read/write anywhere in
+  the hook, unlike every other feature store in this app (Vales/Ledger/
+  Groceries/Tasks/Appointments/Payslips), all of which were migrated off
+  local mocks by earlier gaps (C8-C21). `pantry_items` (`architecture.md`
+  §8) already existed live with the exact columns the client `PantryItem`
+  type needs (`name`/`qty`/`unit`/`par`/`category`) and a plain
+  household-scoped `pantry_items_isolation` RLS policy, matching
+  `grocery_items`'s -- confirmed live via an unauthenticated PostgREST
+  `select id,name,qty,unit,par,category`: a `200 []` response, not a "does
+  not exist" 400. So unlike most prior gaps, no migration was needed at
+  all -- the schema had simply never been wired up to any UI.
+  `plan.md` §2.5 clarifies stock levels are meant to be manually maintained
+  by the Cook (a helper), not AI-generated -- `USE_MOCK_AI` is unrelated,
+  it only governs the three edge-function agents in `aiagent.md`.
+- **Also found while closing this:** `useGroceryList`'s low-stock ->
+  auto-suggested-grocery-item logic (`grocery.actions.ts`/
+  `use-grocery-list.ts` lines ~78-91, matching `plan.md` §2.5's
+  "Auto-Generated Shopping List" step) was already fully built against
+  `pantry.items` -- it was just running on fake data. No changes were
+  needed there; it started working for real the moment `usePantry` did.
+- **Fixed by:** New `src/features/pantry/pantry.actions.ts`
+  (`listPantryItemsFn`/`insertPantryItemFn`/`updatePantryItemQtyFn`/
+  `deletePantryItemFn`), following the exact same auth/household-scoping
+  pattern as `grocery.actions.ts` -- no manager-only gating, since
+  `pantry_items_isolation` is a plain household-scoped policy and plan.md
+  has a helper (the Cook) writing to this data too. `use-pantry.ts`
+  rewritten to fetch on mount/token-change and refetch after every write,
+  same "write then refresh" pattern as C9-C21; `adjust()` now reads the
+  current item from already-fetched state and calls the same `setQty`
+  writer used by manual edits, rather than a separate delta-mutation
+  endpoint. `app-store-provider.tsx`'s `usePantry()` call now threads
+  `session.token`/`ready` through, same as `useVales`/`usePayslips`.
+  `pantry.constants.ts` (`INITIAL_PANTRY`, zero other importers) deleted
+  outright, same "delete confirmed-dead mock" precedent as C8/C13.
+- **Verification:** `tsc --noEmit`, `eslint` (touched files clean; the
+  pre-existing repo-wide CRLF noise from C22 is unrelated and untouched),
+  the Vitest suite, and a full `vite build` all pass clean.
+- **Known residual limitation, not closed by this fix:** At the time this was
+  written, `PantryPage` was still mounted at both `/manager/pantry` and the
+  vestigial `/helper/pantry` (see the `ViewAsSwitcher`/`HelperShell`
+  discussion this gap was found during), so a write from either route
+  authenticated as whatever session token `AppStoreProvider` carried (always
+  a manager's), not a genuinely separate helper identity -- same posture as
+  C9-C14. **Superseded by C26**, which removed `/helper/pantry` and the rest
+  of the vestigial helper-facing web surface entirely -- `PantryPage` is now
+  manager-only.
+
+### C26. Removed the vestigial helper-facing web surface (`/helper` route tree, `ViewAsSwitcher`'s persona toggle, and everything only reachable from either)
+
+- **Found:** 2026-08-14, user asked whether the `ViewAsSwitcher`'s "Helper"
+  pill (`TopBar`) really did let a manager preview a helper's mobile-equivalent
+  view from inside this web app. It did -- a full parallel `/helper` route
+  tree (`today`/`pantry`/`pay`), rendered inside a separate `HelperShell`,
+  live on the deployed Vercel app for any signed-in manager. `AGENTS.md`
+  already states the helper-facing Worker's Station lives exclusively in
+  `LINARA_MOBILE`; C13/C18/C21 had each already stripped *pieces* of this
+  surface (the grocery checklist, a fake photo button, fake payout buttons)
+  for duplicating real `LINARA_MOBILE` execution work, but the shell around
+  it was never removed, just hollowed out piece by piece.
+- **Root cause:** Predates the mobile split -- this was originally a
+  single app serving both roles. Nothing since the split ever did a full
+  sweep to remove the leftover half; each gap closure only touched the one
+  feature it was scoped to.
+- **Confirmed before deleting anything:** `LINARA_MOBILE` already has its own
+  real claim flow (`app/(auth)/claim-account.tsx`, `flag-terms.tsx`,
+  `review-terms.tsx`, `welcome.tsx`) and real per-helper Supabase auth
+  (`helper_notes` RLS keys off `auth.uid()` -- the Privacy Wall `AGENTS.md`
+  describes), so nothing deleted here was the *only* copy of any real
+  functionality. `src/features/notes/` (the helper's "My Notes" widget) was
+  additionally confirmed to be a pure `localStorage` mock -- never wired to
+  the real `helper_notes` table at all, not even partially.
+- **Fixed by:**
+  - Deleted the whole `/helper` route tree (`src/routes/_app/helper*`) and
+    every component/page reachable only from it: `helper-shell.tsx`,
+    `helper-today-page.tsx`, `helper-task-lists.tsx`, `end-of-day.tsx`,
+    `pay-record-page.tsx`/`pay-record.tsx`, `claim-account-flow.tsx`/
+    `claimed-welcome.tsx`, `block-reason-modal.tsx`, `next-task-card.tsx`,
+    `quick-utos-feed.tsx`/`utos-chip.tsx`, `my-week-card.tsx`,
+    `rosa-avail-control.tsx`, and the entire `src/features/notes/` folder.
+    Each was verified to have zero importers outside this surface via
+    repo-wide grep before deletion.
+  - `view-as-switcher.tsx` rewritten to only switch between co-manager
+    `admins` (the real, non-vestigial half of what it did) -- the `helper`
+    prop and persona-toggle branch are gone; `top-bar.tsx` stopped
+    threading `helper` into it. `nav.constants.ts`'s `HELPER_NAV` removed.
+  - `use-invites.ts`'s `findByCode`/`claim`/`flag` removed (local-only
+    display patches whose only caller was `helper-shell.tsx`); `resolveFlag`
+    kept (real caller: `manager-pass-page.tsx`).
+  - `people.actions.ts`'s `verifyClaimFn`/`flagInviteFn`/`claimInviteFn` and
+    their dedicated `PendingInviteRow`/`ClaimHelperInviteRow` types removed
+    -- `LINARA_MOBILE` calls the underlying `lookup_pending_invite`/
+    `flag_invite`/`claim_helper_invite` RPCs directly against Supabase, not
+    through these TanStack server functions, so mobile is unaffected.
+    `inviteHelperFn`/`cancelInviteFn`/`listHelperProfilesFn`/
+    `updateHelperWageFn` untouched.
+  - `palengke-chip.tsx`'s `to` prop (`"/manager/pantry" | "/helper/pantry"`)
+    removed entirely -- its one remaining caller always used the default.
+  - `routes/index.tsx`'s public landing page CTA "May Invite Code ako
+    (Helper)" (linking to `/helper/today`) removed -- user-confirmed no
+    replacement; no public web-based helper onboarding exists anymore.
+  - **Also removed, per user decision:** the e2e test layer. `tests/
+claims-smoke.spec.ts` exclusively exercised the now-deleted `/helper/today`
+    claim banner; there was no other e2e test in the repo. Deleted alongside
+    it: `tests/support/mock-supabase-server.ts`, `playwright.config.ts`, the
+    `@playwright/test` devDependency and `test:e2e` script, and the "Install
+    Playwright Browser"/"Run e2e" steps in `.github/workflows/ci.yml`
+    (originally added by C4, fixed further by C22).
+- **Verification:** `tsc --noEmit`, `eslint` (touched files clean; repo-wide
+  CRLF noise is the same pre-existing/unrelated issue as C22), the Vitest
+  suite, and a full `vite build` all pass clean -- the build's own chunk list
+  confirms no `helper-*` SSR chunk is emitted anymore, and `routeTree.gen.ts`
+  regenerates with zero `/helper` entries. `npm install` re-run to sync
+  `package-lock.json` after the Playwright removal.
+- **Known residual limitation, not closed by this fix:** This repo now has
+  **zero end-to-end test coverage** -- the only e2e test existed to test the
+  surface just deleted. A real manager-facing smoke test (e.g. "manager logs
+  in, Pass board loads") is separate future work; `tests/support/
+mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
+  that (it already stubs `auth/v1/user`/`user_profiles`/`helper_profiles`;
+  it would need `tickets`/`households` stubs added too), but was deleted
+  here rather than built out, to keep this pass scoped to deletion. Also
+  unrelated but not addressed here: `inviteHelperFn`'s returned `inviteUrl`
+  (`/claim?code=...`) has no corresponding `/claim` route anywhere in this
+  app and is never read by any manager-facing component -- pre-existing dead
+  data, noticed while removing the functions above but out of scope to fix
+  in this pass.
+
 ---
 
 ## Template for New Entries
