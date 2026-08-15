@@ -1110,6 +1110,102 @@ test` all pass locally, including a from-scratch `rm -rf node_modules
   Linux where this doesn't occur); flagging so a future session doesn't
   mistake that noise for real lint debt.
 
+### C23. Pantry stock levels (`use-pantry.ts`) were pure local mock state, never persisted -- so the low-stock-to-Palengke-suggestion pipeline ran entirely on fake data
+
+- **Found:** 2026-08-15, doing a general pain-point/QoL scan of `LINARA`'s
+  docs and code (not tied to a specific story). Distinct from Closed Gap
+  C13, which made `grocery_items` (the Palengke shopping list) real --
+  pantry par-level stock, the *other* half of Story 9's "Pantry and
+  Palengke shared context," was never migrated off its original mock.
+  **Closed:** 2026-08-15, same session.
+- **Root cause:** `src/features/pantry/hooks/use-pantry.ts` was
+  `useState(INITIAL_PANTRY)` with no Supabase read or write anywhere --
+  `adjust`/`setQty`/`add`/`remove` all mutated local React state only, so
+  every pantry stock edit was lost on reload. This was worse than a display
+  gap: `use-grocery-list.ts`'s auto-suggestion logic (`pantryItems.filter(p
+  => p.qty <= p.par && ...)`) -- the actual mechanism Story 9 was about,
+  surfacing low-stock items as suggested Palengke Run additions -- ran
+  entirely against this fake, never-persisted data.
+- **Turned out simpler than expected:** `pantry_items` was already a real,
+  live table -- part of the original Story_3 core schema (architecture.md
+  Section 8, item 8), with household-scoped RLS (`pantry_items_isolation`)
+  already enabled, and its columns (`name`, `qty`, `unit`, `par`, `category`
+  with a matching CHECK constraint) map onto client `PantryItem` exactly, no
+  mapping decisions needed (same posture as Vales/Quick Utos in C9/C11, not
+  Ledger's C10). Confirmed live via an unauthenticated PostgREST
+  `select id,name,qty,unit,par,category,household_id,updated_at` against
+  `pantry_items`: a `200 []` response, not a "column/table does not exist"
+  error. So this gap was purely a missing application layer, no migration
+  needed at all.
+- **Fixed by:** New `src/features/pantry/pantry.actions.ts` --
+  `listPantryItemsFn`/`insertPantryItemFn`/`updatePantryItemQtyFn`/
+  `deletePantryItemFn`, same shape as `grocery.actions.ts` (no manager-only
+  role check beyond RLS, since stock-taking is "shared with the Cook" per
+  the page's own copy, not manager-sensitive like wage/budget).
+  `use-pantry.ts` rewritten: `items` is server-fetched state, fetched on
+  mount/token-change; `add`/`remove` write-then-refresh (same pattern as
+  C9-C21); `setQty`/`adjust` are optimistic-with-rollback (update local
+  state immediately, persist async, and on failure `refresh()` to pull the
+  real value back) rather than the plain "write then refresh" every other
+  hook uses -- the +/- buttons need snappy repeated-click feedback the way
+  the old synchronous mock had, and `adjust`'s delta math reads the
+  already-optimistic local `items` state, so rapid clicks compose correctly
+  instead of racing a round trip. `app-store-provider.tsx` now calls
+  `usePantry({ token: session.token, ready: session.status === "authed" })`
+  instead of `usePantry()`, and gained a third `postgres_changes` listener
+  (on the existing `household-board-channel`, same household_id filter) for
+  `pantry_items`, refetching on any change -- same "refetch on any change"
+  treatment as `tickets`/`appointments` on that channel. `PantryStore` grew
+  a `refresh()` method to support that listener; no other consumer
+  (`pantry-section.tsx`/`pantry-row.tsx`/`add-pantry-item-modal.tsx`/
+  `use-grocery-list.ts`) needed changes, since the `PantryStore` shape
+  (`items`/`adjust`/`setQty`/`add`/`remove`) was preserved exactly.
+  `pantry.constants.ts` (whose only export, `INITIAL_PANTRY`, had no other
+  importers) is deleted outright, same "delete confirmed-zero-importer
+  files" precedent as C13/C18.
+- **Verification:** `tsc --noEmit`, `eslint` (scoped to touched files --
+  same pre-existing repo-wide CRLF noise as every prior session, see C22),
+  the Vitest suite, and a full `vite build` all pass clean. Also verified
+  live end-to-end against a real signed-in manager session (not just
+  `tsc`/build, unlike most prior closed gaps in this log): a Playwright
+  script drove a real browser through login -> Pantry page -> confirmed the
+  page renders genuinely empty (not the old `INITIAL_PANTRY` mock's
+  Rice/cereal/etc -- household's real `pantry_items` had zero rows) ->
+  added a real item -> confirmed it rendered -> **hard-reloaded the page**
+  and confirmed the item survived (proving persistence, not local state) ->
+  adjusted its qty with the `+` button -> reloaded again and confirmed that
+  persisted too -> removed the item via the UI as cleanup and confirmed it
+  was gone after one more reload, leaving the test household exactly as
+  found.
+- **Known residual limitation, not closed by this fix:** During the live
+  browser verification, two transient issues surfaced that are **not**
+  attributed to this fix -- flagging them here so a future session doesn't
+  waste time re-diagnosing from scratch, not because either is confirmed to
+  need a fix:
+  1. A hard page reload occasionally (not reliably reproducible -- seen
+     once across several full test runs, and not reproducible at all in an
+     isolated reload-only test with no other activity) bounced the browser
+     back to `/login` instead of staying signed in, then recovered once
+     logged back in. `use-session.ts`'s rehydration effect only clears the
+     stored token and falls back to `"anon"` if `getManagerProfileFn`
+     throws -- consistent with an occasional transient failure of that
+     one call under a fast reload, not a hard bug reproduced on demand.
+  2. A `"tried to join multiple times. 'join' can only be called a single
+     time per channel instance"` Supabase Realtime console error appeared
+     in two of several full test runs (never in isolated reload-only runs
+     with no reads/writes in between). This is the same
+     `household-board-channel` re-subscribe-on-dependency-change pattern
+     already used for `tickets`/`appointments` since C12/C14 -- adding
+     `pantry_items` as a third listener on the same channel didn't change
+     that pattern's shape, and an isolated test on the pre-C23 code with
+     the same reload count never reproduced it either, so this reads as a
+     pre-existing timing race in that shared effect (most likely
+     `currentHelperId`/`session.householdId` changing mid-flight, which
+     re-runs the effect's cleanup+recreate) that a busier test session has
+     more chances to hit, not something this fix's `pantry_items` addition
+     newly introduced. Neither issue affected the actual read/write
+     correctness verified above.
+
 ---
 
 ## Template for New Entries

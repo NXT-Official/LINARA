@@ -44,7 +44,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const helper = activeHelpers[0] ?? null;
   const currentHelperId = helper?.id ?? null;
 
-  const pantry = usePantry();
+  const pantry = usePantry({ token: session.token, ready: session.status === "authed" });
   const schedules = useSchedules({
     helperProfiles: invites.helperProfiles,
     token: session.token,
@@ -118,6 +118,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const utosRef = useRef(utos);
   utosRef.current = utos;
 
+  const pantryRef = useRef(pantry);
+  pantryRef.current = pantry;
+
   useEffect(() => {
     // 1. household-board-channel -- as of Closed Gap C12, tickets is real, so
     // any change (INSERT/UPDATE/DELETE, from this device or another) just
@@ -166,6 +169,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             console.log("[Realtime] Received appointments table postgres change:", payload);
             appointmentsRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh appointments:", err);
+            });
+          },
+        )
+        // Pantry stock (Closed Gap C23) -- same "any change -> refetch"
+        // treatment, on the same channel/filter as tickets/appointments.
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "pantry_items",
+            filter: `household_id=eq.${session.householdId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            console.log("[Realtime] Received pantry_items table postgres change:", payload);
+            pantryRef.current.refresh().catch((err) => {
+              console.error("[Realtime] Failed to refresh pantry:", err);
             });
           },
         )
