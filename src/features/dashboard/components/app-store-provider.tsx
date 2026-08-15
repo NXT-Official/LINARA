@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useAppointments } from "@/features/appointments/hooks/use-appointments";
+import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
 import { useAvailability } from "@/features/availability/hooks/use-availability";
 import { GroceryProvider } from "@/features/groceries/components/grocery-provider";
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
@@ -15,6 +16,7 @@ import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
 import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
+import { clearAllUtosForHelpersFn, listUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
 import { toast } from "sonner";
@@ -93,13 +95,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     refreshTasks: board.refresh,
   });
 
-  // Who the next Quick Utos goes to -- defaults to currentHelperId until a
+  // Who the next Quick Utos goes to -- defaults to whichever active helper is
+  // actually reachable right now (statusFor() != "off"), falling back to
+  // currentHelperId (most-recently-invited) only when nobody is, until a
   // manager explicitly picks someone else via the launcher (see
   // MULTI_HELPER_HANDLING.md). Kept as "explicit pick, or null" rather than
   // resolved eagerly, so a not-yet-loaded currentHelperId doesn't get baked
   // in as a stale default.
   const [pickedUtosHelperId, setPickedUtosHelperId] = useState<string | null>(null);
-  const utosRecipientId = pickedUtosHelperId ?? currentHelperId;
+  const defaultUtosRecipientId = useMemo(() => {
+    const reachable = activeHelpers.find((h) => {
+      const row = invites.helperProfiles.find((p) => p.id === h.id);
+      return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
+    });
+    return reachable?.id ?? currentHelperId;
+  }, [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, currentHelperId]);
+  const utosRecipientId = pickedUtosHelperId ?? defaultUtosRecipientId;
   const utosRecipientName =
     activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper";
 
@@ -317,6 +328,60 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // "Start new day," manual or automatic: clears every active helper's
+  // pending Quick Utos household-wide -- not just utosRecipientId's, which
+  // is all clearUtosForHelperFn used to cover (KNOWN_GAPS.md C30) -- and
+  // rolls the board to targetDate, then refreshes utos so the current
+  // recipient's list reflects the clear. Shared by the manual `startNewDay`
+  // composite below and the auto-rollover effect further down.
+  const runDayRollover = async (
+    targetDate: Date,
+  ): Promise<{ routinesRespawned: number; utosCleared: boolean }> => {
+    const helperIds = activeHelpers.map((h) => h.id);
+    const [utosResult, boardResult] = await Promise.all([
+      helperIds.length > 0 && session.token
+        ? clearAllUtosForHelpersFn({ data: { token: session.token, helperIds } })
+        : Promise.resolve(null),
+      board.startNewDay(targetDate),
+    ]);
+    utos.refresh();
+    return { routinesRespawned: boardResult.routinesRespawned, utosCleared: !!utosResult };
+  };
+
+  // Auto-rollover (KNOWN_GAPS.md C31): a board nobody manually advanced past
+  // a real day boundary self-corrects on load/tick via
+  // board.rolloverNeededFor, silently, with a passive notice -- not the same
+  // blocking confirmation as the manual button, since the day has already
+  // moved on by the time anyone's looking. Gated the same way
+  // canStartNewDay is on the Pass page (only primary/co managers can
+  // actually persist the rollover; a remote-only session leaves the flag set
+  // for a real manager session to pick up instead of a guaranteed-403 call).
+  const rollingOverRef = useRef(false);
+  useEffect(() => {
+    if (!board.rolloverNeededFor || rollingOverRef.current) return;
+    const canAutoRollover =
+      session.status === "authed" &&
+      (session.adminType === "primary" || session.adminType === "co") &&
+      !!session.token;
+    if (!canAutoRollover) return;
+
+    rollingOverRef.current = true;
+    runDayRollover(board.rolloverNeededFor)
+      .then(({ routinesRespawned, utosCleared }) => {
+        toast.info(
+          `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
+            (utosCleared ? ", mga Quick Utos na-clear." : "."),
+        );
+      })
+      .catch((err) => {
+        console.error("[AppStoreProvider] Auto rollover failed:", err);
+      })
+      .finally(() => {
+        rollingOverRef.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.rolloverNeededFor, session.status, session.adminType, session.token]);
+
   const value: AppStores = {
     helper,
     helpers,
@@ -338,9 +403,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
     isOfflineSimulated,
     setOfflineSimulated,
-    startNewDay: () => {
-      utos.clearForNewDay();
-      board.startNewDay();
+    startNewDay: async () => {
+      const target = new Date(board.simDate);
+      target.setDate(target.getDate() + 1);
+      const { routinesRespawned, utosCleared } = await runDayRollover(target);
+      toast.success(
+        `Bagong araw! ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} na-respawn` +
+          (utosCleared ? ", Quick Utos na-clear." : "."),
+      );
+    },
+    previewNewDay: async () => {
+      const target = new Date(board.simDate);
+      target.setDate(target.getDate() + 1);
+      const helperIds = activeHelpers.map((h) => h.id);
+      const pendingUtos =
+        helperIds.length > 0 && session.token
+          ? (await listUtosForHelpersFn({ data: { token: session.token, helperIds } })).length
+          : 0;
+      return { pendingUtos, routinesRespawning: board.previewRespawnCount(target) };
     },
   };
 

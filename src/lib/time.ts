@@ -24,6 +24,11 @@ export const formatSimDate = (d: Date): string =>
   d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 export const toISODate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// The reverse of toISODate -- a "YYYY-MM-DD" string back to a local Date at midnight.
+export const parseISODate = (iso: string): Date => {
+  const [y, mo, d] = iso.split("-").map(Number);
+  return new Date(y, mo - 1, d, 0, 0, 0, 0);
+};
 export const formatAppointmentDate = (iso: string): string => {
   const [y, mo, d] = iso.split("-").map(Number);
   return new Date(y, mo - 1, d).toLocaleDateString("en-US", {

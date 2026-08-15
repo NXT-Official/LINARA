@@ -490,9 +490,13 @@ export const openQueuedTicketsFn = createServerFn({ method: "POST" })
 // --------------------------------------------------------------------------
 // Board open/closed-for-the-night flag (`households.board_closed`) --
 // closes KNOWN_GAPS.md gap #11. See supabase/add-household-board-closed.sql.
+// Also reads `households.board_date` (KNOWN_GAPS.md C31, see
+// supabase/add-household-board-date.sql) -- the calendar day the board was
+// last rolled to, used to detect a board nobody advanced past a real day
+// boundary.
 // --------------------------------------------------------------------------
 
-/** Reads the caller's household's current board-closed state. */
+/** Reads the caller's household's current board-closed state and board date. */
 export const getBoardClosedFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
@@ -520,7 +524,7 @@ export const getBoardClosedFn = createServerFn({ method: "POST" })
 
     const { data: household, error } = await authedClient
       .from("households")
-      .select("board_closed")
+      .select("board_closed, board_date")
       .eq("id", profile.household_id)
       .single();
 
@@ -528,7 +532,10 @@ export const getBoardClosedFn = createServerFn({ method: "POST" })
       throw new Error(error?.message || "Failed to load board status");
     }
 
-    return { boardClosed: household.board_closed as boolean };
+    return {
+      boardClosed: household.board_closed as boolean,
+      boardDate: household.board_date as string,
+    };
   });
 
 /** Sets the household's board-closed state. Manager-only -- same role check
@@ -573,4 +580,50 @@ export const setBoardClosedFn = createServerFn({ method: "POST" })
     }
 
     return { closed };
+  });
+
+/** Persists the household's "board date" -- the calendar day startNewDay()
+ * last rolled the board to (KNOWN_GAPS.md C31). Compared against the real
+ * device date on load to auto-recover a board nobody rolled over for real.
+ * Same manager-only gating as setBoardClosedFn, since only primary/co
+ * managers can normally trigger a day rollover by hand. */
+export const setBoardDateFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; date: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, date } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id, user_type")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can advance the board's day");
+    }
+
+    const { error } = await authedClient
+      .from("households")
+      .update({ board_date: date })
+      .eq("id", profile.household_id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { date };
   });

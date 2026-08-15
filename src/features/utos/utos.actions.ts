@@ -96,23 +96,51 @@ export const ackUtoFn = createServerFn({ method: "POST" })
   });
 
 /**
- * Wipes a helper's quick utos for a new day. `QuickUtos` is documented as
- * "deliberately ephemeral" (utos.types.ts) -- this is a real delete, not a
- * soft-clear, matching that intent.
+ * Wipes every one of the given helpers' quick utos for a new day --
+ * household-wide (all active helpers), not just whoever the current Quick
+ * Utos recipient happens to be (KNOWN_GAPS.md C30). `QuickUtos` is
+ * documented as "deliberately ephemeral" (utos.types.ts) -- this is a real
+ * delete, not a soft-clear, matching that intent.
  */
-export const clearUtosForHelperFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; helperId: string }) => data)
+export const clearAllUtosForHelpersFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperIds: string[] }) => data)
   .handler(async ({ data }) => {
-    const { token, helperId } = data;
+    const { token, helperIds } = data;
+    if (helperIds.length === 0) return { helperIds };
 
     const authedClient = createAuthedClient(token);
-    const { error } = await authedClient.from("quick_utos").delete().eq("recipient_id", helperId);
+    const { error } = await authedClient.from("quick_utos").delete().in("recipient_id", helperIds);
 
     if (error) {
       throw new Error(error.message);
     }
 
-    return { helperId };
+    return { helperIds };
+  });
+
+/**
+ * Counts every one of the given helpers' pending quick utos, household-wide
+ * -- used only for the "Start new day" confirmation preview
+ * (KNOWN_GAPS.md C30). The per-recipient realtime-synced list still comes
+ * from listUtosFn/useUtos.
+ */
+export const listUtosForHelpersFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperIds: string[] }) => data)
+  .handler(async ({ data }) => {
+    const { token, helperIds } = data;
+    if (helperIds.length === 0) return [];
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("quick_utos")
+      .select("id")
+      .in("recipient_id", helperIds);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (rows ?? []) as { id: string }[];
   });
 
 export interface ParsedUtos {

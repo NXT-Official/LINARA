@@ -1,5 +1,5 @@
 import { Mic, Send, Zap } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { Helper } from "@/features/people/people.types";
 
@@ -23,6 +23,15 @@ export function QuickUtosLauncher({
   const [draft, setDraft] = useState("");
   const [holding, setHolding] = useState(false);
 
+  // Sorted by name for the picker only -- not reordering the shared
+  // activeHelpers array, so lane order elsewhere (Pass board, task/routine/
+  // appointment dropdowns) is unaffected. Alphabetical, not live-availability,
+  // so options don't reshuffle under the manager while the dropdown is open.
+  const sortedHelpers = useMemo(
+    () => [...activeHelpers].sort((a, b) => a.name.localeCompare(b.name)),
+    [activeHelpers],
+  );
+
   const sendCustom = () => {
     const v = draft.trim();
     if (!v) return;
@@ -44,7 +53,7 @@ export function QuickUtosLauncher({
               onChange={(e) => onSelectHelper(e.target.value)}
               className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
             >
-              {activeHelpers.map((h) => (
+              {sortedHelpers.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name} · {h.station}
                 </option>

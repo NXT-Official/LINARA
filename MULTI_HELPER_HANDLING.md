@@ -44,11 +44,21 @@ toast message, never a recipient decision.
 
 Now:
 - `app-store-provider.tsx` holds an explicit `pickedUtosHelperId` (defaults
-  to `null`, meaning "follow `currentHelperId`"), exposed via
+  to `null`, meaning "follow the availability-aware default"), exposed via
   `AppStores.utosRecipientId` / `.setUtosRecipientId`.
+- **The default itself is availability-aware** (2026-08-15, KNOWN_GAPS.md
+  C29): `defaultUtosRecipientId` walks `activeHelpers` and picks the first
+  one whose `statusFor(...)` status isn't `"off"`, falling back to
+  `currentHelperId` (most-recently-invited) only when nobody is reachable.
+  Previously it was always `currentHelperId`, regardless of whether that
+  helper was actually on-shift.
 - `QuickUtosLauncher` renders a real `<select>` recipient picker whenever
   `activeHelpers.length > 1` (a single-helper household keeps the old plain
-  "Send a small ask to {name}" text — no picker needed).
+  "Send a small ask to {name}" text — no picker needed). The picker's option
+  order is a **local, alphabetical-by-name copy** of `activeHelpers`, not the
+  shared array's newest-invited-first order (also C29) — chosen over
+  live-availability ordering so options don't reshuffle under the manager
+  while the dropdown is open.
 - `insertUtoFn` writes to the picked recipient's real id, not
   `currentHelperId`.
 - The AI's `suggestedStation` is **surfaced, not auto-applied**: if exactly
@@ -57,6 +67,13 @@ Now:
   switch the picker next time. It never silently reroutes an in-flight send
   — an AI guess about who a message is "usually" for isn't grounds to
   redirect a manager's actual choice. See `use-send-gate.ts`'s `sendUtos`.
+- **"Start new day" now clears every active helper's Quick Utos,
+  household-wide** (2026-08-15, KNOWN_GAPS.md C30). Previously
+  `clearForNewDay()` only ever deleted the *current recipient's* rows
+  (`toHelperId`), silently leaving a second helper's pending utos untouched.
+  `app-store-provider.tsx`'s composite `startNewDay`/auto-rollover path now
+  calls `clearAllUtosForHelpersFn` directly with every active helper's id,
+  not `useUtos`'s (now-removed) single-recipient `clearForNewDay`.
 
 ### Ledger — fixed (for Quick Utos completions)
 

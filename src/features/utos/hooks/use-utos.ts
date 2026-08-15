@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  ackUtoFn,
-  clearUtosForHelperFn,
-  insertUtoFn,
-  listUtosFn,
-  type QuickUtosRow,
-} from "../utos.actions";
+import { ackUtoFn, insertUtoFn, listUtosFn, type QuickUtosRow } from "../utos.actions";
 import type { QuickUtos } from "../utos.types";
 
 export type SendFlags = {
@@ -35,18 +29,23 @@ function toQuickUtos(row: QuickUtosRow, toHelperName: string): QuickUtos {
 }
 
 /**
- * The day's quick utos.
+ * The day's quick utos for one recipient.
  *
- * Deliberately ephemeral: `clearForNewDay` genuinely deletes them — there is no
- * history array and no log, only a note that the list was wiped. Real
- * Supabase-backed as of KNOWN_GAPS.md gap #6 -- send()/ack()/clearForNewDay()
- * write through to `quick_utos` and refetch, same "write then refresh"
- * pattern as useVales/useLedger. Cross-tab/device sync now rides Postgres
- * Realtime (see app-store-provider.tsx's quick-utos-channel), which is why
- * the old broadcast-based `onAction`/`receiveAction` plumbing this hook used
- * to have is gone -- keeping both would risk the same utos appearing twice
- * (the sender's own optimistic local copy plus the realtime-delivered row,
- * under two different ids).
+ * Deliberately ephemeral -- there is no history array and no log. Real
+ * Supabase-backed as of KNOWN_GAPS.md gap #6 -- send()/ack() write through to
+ * `quick_utos` and refetch, same "write then refresh" pattern as
+ * useVales/useLedger. Cross-tab/device sync now rides Postgres Realtime (see
+ * app-store-provider.tsx's quick-utos-channel), which is why the old
+ * broadcast-based `onAction`/`receiveAction` plumbing this hook used to have
+ * is gone -- keeping both would risk the same utos appearing twice (the
+ * sender's own optimistic local copy plus the realtime-delivered row, under
+ * two different ids).
+ *
+ * The "new day" wipe is no longer this hook's job -- it only ever cleared
+ * *this* recipient's utos, not every active helper's (KNOWN_GAPS.md C30);
+ * `app-store-provider.tsx`'s composite `startNewDay` now clears household-wide
+ * via `clearAllUtosForHelpersFn` directly and calls this hook's `refresh()`
+ * afterward.
  */
 export function useUtos({
   toHelperId,
@@ -65,7 +64,6 @@ export function useUtos({
   onDone: (utos: QuickUtos) => void;
 }) {
   const [list, setList] = useState<QuickUtos[]>([]);
-  const [wipedToday, setWipedToday] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token || !toHelperId) return;
@@ -93,10 +91,7 @@ export function useUtos({
         waiting: flags.waiting,
       },
     })
-      .then(() => {
-        setWipedToday(false);
-        return refresh();
-      })
+      .then(() => refresh())
       .catch((err) => {
         console.error("[useUtos] Failed to send quick utos:", err);
         toast.error("Hindi na-send ang utos.");
@@ -119,19 +114,5 @@ export function useUtos({
       });
   };
 
-  const clearForNewDay = () => {
-    if (!token || !toHelperId) return;
-    const wasWiped = list.length > 0;
-    clearUtosForHelperFn({ data: { token, helperId: toHelperId } })
-      .then(() => {
-        setWipedToday(wasWiped);
-        return refresh();
-      })
-      .catch((err) => {
-        console.error("[useUtos] Failed to clear quick utos:", err);
-        toast.error("Hindi na-clear ang mga utos.");
-      });
-  };
-
-  return { list, wipedToday, send, ack, clearForNewDay, refresh };
+  return { list, send, ack, refresh };
 }

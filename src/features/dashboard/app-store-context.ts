@@ -51,7 +51,12 @@ export type AppStores = {
   isOnline: boolean;
   isOfflineSimulated: boolean;
   setOfflineSimulated: (b: boolean) => void;
-  startNewDay: () => void;
+  /** Clears every active helper's pending Quick Utos household-wide and rolls
+   * the board to tomorrow -- see MULTI_HELPER_HANDLING.md / KNOWN_GAPS.md C30. */
+  startNewDay: () => Promise<void>;
+  /** Live counts for the "Start new day" confirmation modal, without
+   * mutating anything -- see manager-pass-page.tsx's StartNewDayModal. */
+  previewNewDay: () => Promise<{ pendingUtos: number; routinesRespawning: number }>;
 };
 
 export const AppStoreContext = createContext<AppStores | undefined>(undefined);
