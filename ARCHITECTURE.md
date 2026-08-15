@@ -1,5 +1,5 @@
 # Linara Home — System Architecture & Technical Blueprint
-
+ 
 This document defines the complete technical architecture, API design, database schema, and data flow patterns for **Linara** (app) / **Linara Home** (product & entity). It transitions the single-file front-end prototype in [`src/routes/index.tsx`](src/routes/index.tsx) into a multi-user, real-time, production-ready system backed by Supabase and TanStack Start.
 
 The specifications in this file are strictly derived from [`plan.md`](plan.md), which serves as the single source of truth for features and behaviors.

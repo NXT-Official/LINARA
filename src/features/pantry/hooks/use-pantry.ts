@@ -27,6 +27,7 @@ export type PantryStore = {
   setQty: (id: string, qty: number) => void;
   add: (item: Omit<PantryItem, "id">) => void;
   remove: (id: string) => void;
+  refresh: () => Promise<void>;
 };
 
 /**
@@ -88,5 +89,5 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       });
   };
 
-  return { items, adjust, setQty, add, remove };
+  return { items, adjust, setQty, add, remove, refresh };
 }
