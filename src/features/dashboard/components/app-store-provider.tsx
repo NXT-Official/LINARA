@@ -13,16 +13,24 @@ import { useSession } from "@/features/people/hooks/use-session";
 import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
 import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
 import { clearAllUtosForHelpersFn, listUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
+import { toISODate } from "@/lib/time";
 import { toast } from "sonner";
 
 import { AppStoreContext, type AppStores } from "../app-store-context";
 import { useSimClock } from "../hooks/use-sim-clock";
+
+// A device clock that's wildly wrong (stuck, epoch-adjacent, set years off)
+// shouldn't be treated the same as a normal one-day catch-up --
+// KNOWN_GAPS.md O2's sanity bound on auto-rollover. Anything larger falls
+// back to the manual "Start new day" button (C30), which has no such cap.
+const MAX_PLAUSIBLE_ROLLOVER_DAYS = 14;
 
 /**
  * The composition root: every feature store is created here and shared with the
@@ -356,7 +364,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // canStartNewDay is on the Pass page (only primary/co managers can
   // actually persist the rollover; a remote-only session leaves the flag set
   // for a real manager session to pick up instead of a guaranteed-403 call).
+  //
+  // KNOWN_GAPS.md O2: board.rolloverNeededFor is set purely off the device's
+  // own Date.now() (see use-task-board.ts), which a manager can't be trusted
+  // not to have wrong (bad clock, misconfigured timezone). Rather than poll
+  // a server clock continuously (touching use-sim-clock.ts's nowTs, which
+  // several other non-destructive features also read), this does one fresh
+  // round trip to getServerNowFn right before actually firing the one action
+  // that's destructive -- if the server's own day disagrees, the flag is
+  // cleared without rolling over, same as a manual dismiss.
   const rollingOverRef = useRef(false);
+  // Throttles retries to once per distinct device-perceived day, so a device
+  // stuck on a permanently wrong clock doesn't hammer getServerNowFn on
+  // every 30s nowTs tick -- cleared once the device's perceived day changes.
+  const rejectedRolloverDayRef = useRef<string | null>(null);
   useEffect(() => {
     if (!board.rolloverNeededFor || rollingOverRef.current) return;
     const canAutoRollover =
@@ -365,13 +386,46 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       !!session.token;
     if (!canAutoRollover) return;
 
+    const targetDay = toISODate(board.rolloverNeededFor);
+    if (rejectedRolloverDayRef.current === targetDay) return;
+
     rollingOverRef.current = true;
-    runDayRollover(board.rolloverNeededFor)
-      .then(({ routinesRespawned, utosCleared }) => {
-        toast.info(
-          `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
-            (utosCleared ? ", mga Quick Utos na-clear." : "."),
+    getServerNowFn({ data: { token: session.token! } })
+      .then((res) => {
+        const serverToday = new Date(res.serverNowIso);
+
+        if (toISODate(serverToday) <= toISODate(board.simDate)) {
+          // Server disagrees the day has moved -- the device's clock was
+          // wrong. Expected false-positive path, not an error.
+          console.warn(
+            `[AppStoreProvider] Auto rollover skipped: device thinks it's ${targetDay}, server says ${toISODate(serverToday)}.`,
+          );
+          rejectedRolloverDayRef.current = targetDay;
+          board.dismissRollover();
+          return;
+        }
+
+        const daysDiff = Math.round(
+          (serverToday.getTime() - board.simDate.getTime()) / 86_400_000,
         );
+        if (daysDiff > MAX_PLAUSIBLE_ROLLOVER_DAYS) {
+          // Server-confirmed, but an implausibly large jump -- leave
+          // rolloverNeededFor set (not cleared) so this doesn't retry every
+          // tick; a manager can still catch up manually via "Start new day,"
+          // which has no such bound.
+          console.warn(
+            `[AppStoreProvider] Auto rollover skipped: ${daysDiff}-day jump exceeds the plausible bound -- use "Start new day" manually.`,
+          );
+          return;
+        }
+
+        rejectedRolloverDayRef.current = null;
+        return runDayRollover(serverToday).then(({ routinesRespawned, utosCleared }) => {
+          toast.info(
+            `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
+              (utosCleared ? ", mga Quick Utos na-clear." : "."),
+          );
+        });
       })
       .catch((err) => {
         console.error("[AppStoreProvider] Auto rollover failed:", err);
@@ -380,7 +434,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         rollingOverRef.current = false;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.rolloverNeededFor, session.status, session.adminType, session.token]);
+  }, [board.rolloverNeededFor, board.simDate, session.status, session.adminType, session.token]);
 
   const value: AppStores = {
     helper,

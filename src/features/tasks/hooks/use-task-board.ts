@@ -188,6 +188,12 @@ export function useTaskBoard({
     }
   }, [nowTs, simDate, rolloverNeededFor]);
 
+  /** Clears rolloverNeededFor without actually rolling the board over --
+   * used by app-store-provider.tsx's server cross-check (KNOWN_GAPS.md O2)
+   * when the server's own clock disagrees the day has moved on, meaning the
+   * device clock that set the flag was wrong. */
+  const dismissRollover = () => setRolloverNeededFor(null);
+
   const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
     if (!token) {
       toast.error("Hindi ka naka-sign in — hindi ma-add ang task.");
@@ -453,6 +459,7 @@ export function useTaskBoard({
     boardClosed,
     simDate,
     rolloverNeededFor,
+    dismissRollover,
     addTask,
     updateStatus,
     blockTask,

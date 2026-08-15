@@ -627,3 +627,36 @@ export const setBoardDateFn = createServerFn({ method: "POST" })
 
     return { date };
   });
+
+/**
+ * Closes KNOWN_GAPS.md Open Gap O2: reads Postgres's own clock
+ * (infra-managed, NTP-synced, not user-controllable) via the
+ * `public.server_now()` RPC added by supabase/add-server-now-function.sql.
+ * Not polled continuously -- app-store-provider.tsx calls this once, right
+ * before its auto-rollover effect actually fires a destructive rollover, to
+ * confirm a wrong device clock (or misconfigured timezone) isn't the only
+ * thing that thinks the day has moved on.
+ */
+export const getServerNowFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const { token } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: serverNow, error } = await authedClient.rpc("server_now");
+
+    if (error || !serverNow) {
+      throw new Error(error?.message || "Failed to read the server clock");
+    }
+
+    return { serverNowIso: serverNow as string };
+  });

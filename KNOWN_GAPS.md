@@ -53,59 +53,6 @@ the bottom.
   Claude API) and the constraint that `transcribe-notes` (Whisper) has no
   Claude equivalent and would stay on a separate provider regardless.
 
-### O2. Auto-rollover (Closed Gap C31) trusts the device's own clock with no server-side cross-check
-
-- **Found:** 2026-08-16, discussing hardening options for C31's
-  just-shipped auto-rollover with the user, before any code was written for
-  this one.
-- **Gap:** `use-task-board.ts`'s `rolloverNeededFor` effect fires a real,
-  irreversible household-wide Quick Utos `DELETE` (plus routine-ticket
-  inserts) purely off `toISODate(new Date(nowTs)) > toISODate(simDate)` --
-  `nowTs` is `clock.nowTs`, which is just the device's own `Date.now()`
-  (ticking every 30s, see `use-sim-clock.ts` — now-disabled sim offset
-  aside, it has always been plain client time, same as every other
-  `nowTs`/`toISODate(new Date())` call site in this app). Nothing about that
-  comparison is validated against anything outside the browser.
-- **Risk scenarios:** a device's clock set wrong (accidentally or
-  deliberately) forward — trips the comparison immediately and fires a real
-  delete on a false premise, with no undo; a device with a misconfigured
-  timezone shifts what "today" means locally, tripping the comparison a day
-  early/late relative to the household's actual PH day; multiple managers'
-  devices skewed against each other could disagree on whether a rollover is
-  due; nothing bounds *how far* a jump is, so a wildly wrong clock (stuck,
-  epoch-adjacent, accidentally set years off) isn't treated any differently
-  from a normal one-day catch-up.
-- **Blocks:** nothing yet — C31 shipped and works correctly under normal
-  conditions (a real device with a correct, unmodified clock). This is a
-  hardening gap, not a functional one.
-- **Workaround:** none yet; the feature is live as shipped in C31, accepted
-  as-is until this is closed.
-- **To close (decided, not yet built):** cross-check against a server-owned
-  clock the client can't move, rather than reaching for NTP/GPS/carrier time
-  (NITZ is OS-only and not queryable by any app; NTP is UDP-based and
-  unreachable from a browser; neither is worth the complexity here since the
-  actual need is calendar-day precision, not sub-second accuracy). Plan: add
-  a small `stable` Postgres SQL function (e.g. `public.server_now()`
-  returning `timestamptz`) and have `getBoardClosedFn`
-  (`src/features/tasks/task.actions.ts`) call it via `.rpc()` alongside its
-  existing `board_date`/`board_closed` read, then gate the actual rollover
-  trigger (not necessarily the cheap client-side pre-check) on the server's
-  day agreeing, not just the device's. Open design question for whoever
-  picks this up: the server round trip only happens once per mount today
-  (inside `getBoardClosedFn`), while `rolloverNeededFor`'s comparison runs
-  on every 30s `nowTs` tick — decide whether to derive a client/server
-  clock-offset once (like the old sim-clock `offsetMs`, but sourced from
-  truth instead of a demo control) and keep ticking locally against it, or
-  do one fresh server round trip to confirm right before the destructive
-  rollover actually fires (cheaper on the server, adds one round trip of
-  latency right before a rare action) — the second is the safer default
-  since it means the server is checked at the moment that matters most, not
-  just at mount. Also worth adding a sanity bound (e.g. only auto-rollover
-  if the gap is a small, plausible number of days) regardless of which clock
-  source is used. `LINARA` owns this (schema + server function changes),
-  self-contained to the web dashboard — `LINARA_MOBILE` is unaffected, it
-  has no rollover logic of its own.
-
 ---
 
 ## Closed Gaps
@@ -1692,11 +1639,108 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   boundary (or whose fresh load first fetches a stale `boardDate`) performs
   the rollover; the other picks up the result on its own next
   `household-board-channel` refetch, same "not instant" posture already
-  accepted for `board_closed` in Closed Gap C17. **Also see Open Gap O2:**
-  the `nowTs > simDate` trigger above is pure client `Date.now()`, with no
-  server-side cross-check -- a device clock set wrong (or a timezone
-  misconfiguration) can fire a real, irreversible Quick Utos delete on a
-  false premise. Scoped, not yet built.
+  accepted for `board_closed` in Closed Gap C17. **Also see Closed Gap
+  C32:** the `nowTs > simDate` trigger above is pure client `Date.now()`;
+  C32 gates the actual rollover fire on a server clock cross-check rather
+  than leaving the client comparison unverified.
+
+### C32. Auto-rollover (Closed Gap C31) trusted the device's own clock with no server-side cross-check (former Open Gap O2)
+
+- **Found:** 2026-08-16, discussing hardening options for C31's
+  just-shipped auto-rollover with the user, before any code was written for
+  this one.
+- **Root cause:** `use-task-board.ts`'s `rolloverNeededFor` effect fires a
+  real, irreversible household-wide Quick Utos `DELETE` (plus
+  routine-ticket inserts) purely off
+  `toISODate(new Date(nowTs)) > toISODate(simDate)` -- `nowTs` is
+  `clock.nowTs`, which is just the device's own `Date.now()` (ticking every
+  30s, see `use-sim-clock.ts` -- now-disabled sim offset aside, it has
+  always been plain client time, same as every other `nowTs`/
+  `toISODate(new Date())` call site in this app). Nothing about that
+  comparison was validated against anything outside the browser: a device
+  clock set wrong (accidentally or deliberately) forward would trip the
+  comparison immediately and fire a real delete on a false premise, with no
+  undo; a misconfigured timezone would shift what "today" means locally,
+  tripping the comparison a day early/late relative to the household's
+  actual PH day; and nothing bounded *how far* a jump was, so a wildly
+  wrong clock (stuck, epoch-adjacent, accidentally set years off) wasn't
+  treated any differently from a normal one-day catch-up.
+- **Decisions (user-confirmed before writing code):** reaching for
+  NTP/GPS/carrier time was rejected -- NITZ is OS-only and not queryable by
+  any app; NTP is UDP-based and unreachable from a browser; neither is
+  worth the complexity for what's only ever a calendar-day comparison, not
+  sub-second accuracy. Postgres's own clock is used instead, since it's
+  infrastructure-managed (NTP-synced, not user-controllable) and it's the
+  same system `board_date` is already stored in. Of the two options
+  discussed for reconciling the server round trip (once per mount, inside
+  `getBoardClosedFn`) against `rolloverNeededFor`'s comparison (every 30s
+  `nowTs` tick) -- deriving a persistent client/server offset (like the old
+  sim-clock `offsetMs`, but truth-sourced) vs. one fresh server round trip
+  right before the destructive action actually fires -- the second was
+  picked and scoped narrowly to the rollover trigger only: cheaper on the
+  server (no continuous polling), doesn't touch `use-sim-clock.ts`'s
+  `nowTs` or its other non-destructive consumers (availability status,
+  Quick Utos default recipient, the friction wall), and checks the server
+  at the one moment that actually matters. A sanity bound was added
+  regardless of clock source, per the user's ask.
+- **Fixed by:**
+  - `supabase/add-server-now-function.sql` adds a `stable` SQL function
+    `public.server_now() returns timestamptz` (`select now()`), granted to
+    `authenticated, anon` -- same grant shape as `current_household_id()`
+    in `fix-household-rls-recursion.sql`, though every real caller today is
+    authenticated. No `SECURITY DEFINER` needed (no table access, unlike
+    `current_household_id()`).
+  - `task.actions.ts` gained `getServerNowFn({ token })`: authenticates the
+    caller, then calls `.rpc("server_now")` and returns
+    `{ serverNowIso: string }`. Deliberately separate from `getBoardClosedFn`
+    (which still only round-trips once per mount) rather than folding the
+    server day into it, since this needs a *fresh* call right before the
+    rollover fires, not a stale mount-time snapshot.
+  - `use-task-board.ts` gained `dismissRollover()`, a thin
+    `setRolloverNeededFor(null)` wrapper -- clears the flag without running
+    the rollover, for the false-positive path below.
+  - `app-store-provider.tsx`'s auto-rollover effect now calls
+    `getServerNowFn` before calling `runDayRollover`, still gated the same
+    `primary`/`co` manager check as before:
+    - If the server's own day (`toISODate(new Date(serverNowIso))`) does
+      **not** exceed `simDate`, the device's clock was wrong -- this is
+      treated as an expected false-positive, not an error:
+      `board.dismissRollover()` clears the flag with no delete/respawn, and
+      a `rejectedRolloverDayRef` throttles re-verification to once per
+      distinct device-perceived day (so a device stuck on a wrong clock
+      doesn't hammer `getServerNowFn` on every 30s tick -- it naturally
+      resets once the device's perceived "today" changes).
+    - If the server agrees, the rollover fires against the **server's**
+      confirmed day (not the client's guessed one), so the two clock
+      sources can never disagree about what day was actually rolled to.
+    - Sanity bound: if the server-confirmed gap between `simDate` and today
+      exceeds `MAX_PLAUSIBLE_ROLLOVER_DAYS` (14), auto-rollover is skipped
+      entirely -- `rolloverNeededFor` is deliberately left **set** (not
+      cleared) in this branch, unlike the false-positive path, so the
+      per-tick effect doesn't immediately re-derive and retry it; a manager
+      can still catch up manually via "Start new day" (C30), which has no
+      such cap.
+- **Verification:** `tsc --noEmit`, scoped `eslint` (only the same
+  pre-existing CRLF/prettier noise documented in C22/C25 on unrelated
+  lines, filtered out), the Vitest suite, and a full `vite build` (SSR +
+  client) all pass clean. This session had no service-role key (same
+  posture as every prior migration in this file), so
+  `supabase/add-server-now-function.sql` was applied by the user directly
+  -- confirmed live 2026-08-16 with an anonymous PostgREST
+  `POST .../rest/v1/rpc/server_now`: a `200` response with a real
+  `timestamptz` value, not a "function does not exist" 404. Not yet
+  verified against a live signed-in session with a real clock-mismatch
+  scenario (the false-positive dismiss / sanity-bound-skip paths).
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9-C21/C30/C31. Multiple managers' devices can still disagree
+  about *when* to check (each ticks its own `nowTs` independently), but
+  once any of them does check, the server's own day is what actually gets
+  applied -- so a skewed-forward device can no longer force a false
+  rollover, it can only trigger an earlier (correctly-verified) real one.
+  The 14-day sanity bound is a fixed constant, not household-configurable;
+  a household genuinely unmanaged for more than two weeks needs a manual
+  "Start new day" click to catch up, same as before this fix for any
+  jump that size.
 
 ---
 
