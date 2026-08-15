@@ -44,6 +44,10 @@ export type AppStores = {
   board: TaskBoard;
   appointments: AppointmentStore;
   utos: UtosStore;
+  /** Who the next Quick Utos goes to -- see MULTI_HELPER_HANDLING.md. Defaults
+   * to `helper.id` until a manager explicitly picks someone else. */
+  utosRecipientId: string | null;
+  setUtosRecipientId: (helperId: string | null) => void;
   isOnline: boolean;
   isOfflineSimulated: boolean;
   setOfflineSimulated: (b: boolean) => void;

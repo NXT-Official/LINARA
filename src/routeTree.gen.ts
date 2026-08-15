@@ -12,12 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppHelperRouteImport } from './routes/_app/helper'
 import { Route as AppManagerRouteImport } from './routes/_app/manager'
-import { Route as AppHelperIndexRouteImport } from './routes/_app/helper/index'
-import { Route as AppHelperPantryRouteImport } from './routes/_app/helper/pantry'
-import { Route as AppHelperPayRouteImport } from './routes/_app/helper/pay'
-import { Route as AppHelperTodayRouteImport } from './routes/_app/helper/today'
 import { Route as AppManagerIndexRouteImport } from './routes/_app/manager/index'
 import { Route as AppManagerMoneyRouteImport } from './routes/_app/manager/money'
 import { Route as AppManagerPantryRouteImport } from './routes/_app/manager/pantry'
@@ -39,35 +34,10 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppHelperRoute = AppHelperRouteImport.update({
-  id: '/helper',
-  path: '/helper',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppManagerRoute = AppManagerRouteImport.update({
   id: '/manager',
   path: '/manager',
   getParentRoute: () => AppRoute,
-} as any)
-const AppHelperIndexRoute = AppHelperIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppHelperRoute,
-} as any)
-const AppHelperPantryRoute = AppHelperPantryRouteImport.update({
-  id: '/pantry',
-  path: '/pantry',
-  getParentRoute: () => AppHelperRoute,
-} as any)
-const AppHelperPayRoute = AppHelperPayRouteImport.update({
-  id: '/pay',
-  path: '/pay',
-  getParentRoute: () => AppHelperRoute,
-} as any)
-const AppHelperTodayRoute = AppHelperTodayRouteImport.update({
-  id: '/today',
-  path: '/today',
-  getParentRoute: () => AppHelperRoute,
 } as any)
 const AppManagerIndexRoute = AppManagerIndexRouteImport.update({
   id: '/',
@@ -103,31 +73,22 @@ const AppManagerScheduleRoute = AppManagerScheduleRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/helper': typeof AppHelperRouteWithChildren
   '/manager': typeof AppManagerRouteWithChildren
-  '/helper/pantry': typeof AppHelperPantryRoute
-  '/helper/pay': typeof AppHelperPayRoute
-  '/helper/today': typeof AppHelperTodayRoute
   '/manager/money': typeof AppManagerMoneyRoute
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
-  '/helper/': typeof AppHelperIndexRoute
   '/manager/': typeof AppManagerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/helper/pantry': typeof AppHelperPantryRoute
-  '/helper/pay': typeof AppHelperPayRoute
-  '/helper/today': typeof AppHelperTodayRoute
   '/manager/money': typeof AppManagerMoneyRoute
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
-  '/helper': typeof AppHelperIndexRoute
   '/manager': typeof AppManagerIndexRoute
 }
 export interface FileRoutesById {
@@ -135,17 +96,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/helper': typeof AppHelperRouteWithChildren
   '/_app/manager': typeof AppManagerRouteWithChildren
-  '/_app/helper/pantry': typeof AppHelperPantryRoute
-  '/_app/helper/pay': typeof AppHelperPayRoute
-  '/_app/helper/today': typeof AppHelperTodayRoute
   '/_app/manager/money': typeof AppManagerMoneyRoute
   '/_app/manager/pantry': typeof AppManagerPantryRoute
   '/_app/manager/pass': typeof AppManagerPassRoute
   '/_app/manager/people': typeof AppManagerPeopleRoute
   '/_app/manager/schedule': typeof AppManagerScheduleRoute
-  '/_app/helper/': typeof AppHelperIndexRoute
   '/_app/manager/': typeof AppManagerIndexRoute
 }
 export interface FileRouteTypes {
@@ -153,48 +109,34 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/helper'
     | '/manager'
-    | '/helper/pantry'
-    | '/helper/pay'
-    | '/helper/today'
     | '/manager/money'
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
     | '/manager/schedule'
-    | '/helper/'
     | '/manager/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/helper/pantry'
-    | '/helper/pay'
-    | '/helper/today'
     | '/manager/money'
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
     | '/manager/schedule'
-    | '/helper'
     | '/manager'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/login'
-    | '/_app/helper'
     | '/_app/manager'
-    | '/_app/helper/pantry'
-    | '/_app/helper/pay'
-    | '/_app/helper/today'
     | '/_app/manager/money'
     | '/_app/manager/pantry'
     | '/_app/manager/pass'
     | '/_app/manager/people'
     | '/_app/manager/schedule'
-    | '/_app/helper/'
     | '/_app/manager/'
   fileRoutesById: FileRoutesById
 }
@@ -227,47 +169,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/helper': {
-      id: '/_app/helper'
-      path: '/helper'
-      fullPath: '/helper'
-      preLoaderRoute: typeof AppHelperRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/manager': {
       id: '/_app/manager'
       path: '/manager'
       fullPath: '/manager'
       preLoaderRoute: typeof AppManagerRouteImport
       parentRoute: typeof AppRoute
-    }
-    '/_app/helper/': {
-      id: '/_app/helper/'
-      path: '/'
-      fullPath: '/helper/'
-      preLoaderRoute: typeof AppHelperIndexRouteImport
-      parentRoute: typeof AppHelperRoute
-    }
-    '/_app/helper/pantry': {
-      id: '/_app/helper/pantry'
-      path: '/pantry'
-      fullPath: '/helper/pantry'
-      preLoaderRoute: typeof AppHelperPantryRouteImport
-      parentRoute: typeof AppHelperRoute
-    }
-    '/_app/helper/pay': {
-      id: '/_app/helper/pay'
-      path: '/pay'
-      fullPath: '/helper/pay'
-      preLoaderRoute: typeof AppHelperPayRouteImport
-      parentRoute: typeof AppHelperRoute
-    }
-    '/_app/helper/today': {
-      id: '/_app/helper/today'
-      path: '/today'
-      fullPath: '/helper/today'
-      preLoaderRoute: typeof AppHelperTodayRouteImport
-      parentRoute: typeof AppHelperRoute
     }
     '/_app/manager/': {
       id: '/_app/manager/'
@@ -314,24 +221,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppHelperRouteChildren {
-  AppHelperPantryRoute: typeof AppHelperPantryRoute
-  AppHelperPayRoute: typeof AppHelperPayRoute
-  AppHelperTodayRoute: typeof AppHelperTodayRoute
-  AppHelperIndexRoute: typeof AppHelperIndexRoute
-}
-
-const AppHelperRouteChildren: AppHelperRouteChildren = {
-  AppHelperPantryRoute: AppHelperPantryRoute,
-  AppHelperPayRoute: AppHelperPayRoute,
-  AppHelperTodayRoute: AppHelperTodayRoute,
-  AppHelperIndexRoute: AppHelperIndexRoute,
-}
-
-const AppHelperRouteWithChildren = AppHelperRoute._addFileChildren(
-  AppHelperRouteChildren,
-)
-
 interface AppManagerRouteChildren {
   AppManagerMoneyRoute: typeof AppManagerMoneyRoute
   AppManagerPantryRoute: typeof AppManagerPantryRoute
@@ -355,12 +244,10 @@ const AppManagerRouteWithChildren = AppManagerRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppHelperRoute: typeof AppHelperRouteWithChildren
   AppManagerRoute: typeof AppManagerRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppHelperRoute: AppHelperRouteWithChildren,
   AppManagerRoute: AppManagerRouteWithChildren,
 }
 

@@ -16,7 +16,42 @@ the bottom.
 
 ## Open Gaps
 
-None currently open.
+### O1. No documented split between Vercel env vars and Supabase Edge Function secrets
+
+- **Found:** 2026-08-14, while helping deploy `LINARA` to Vercel.
+- **Gap:** README.md §10.2/§12 and ARCHITECTURE.md §11 only document a single
+  local `.env` file. In production there are actually two independent
+  secret stores that never see each other's values: (1) **Vercel**, which
+  builds the client bundle (`SUPABASE_URL`/`SUPABASE_ANON_KEY`/`USE_MOCK_AI`
+  are compiled in via the `define` block in `vite.config.ts`) and runs the
+  Nitro server functions (`XENDIT_SECRET_WRITE_KEY`, `XENDIT_API_URL`,
+  `REGIONAL_MINIMUM_WAGE` read at runtime via `process.env` in
+  `pay.actions.ts`/`people.actions.ts`); and (2) **Supabase Edge
+  Functions**, which read their own env via `Deno.env.get()` and need
+  secrets set separately with `supabase secrets set` or the Dashboard
+  (`OPENAI_API_KEY`, a second independent `USE_MOCK_AI`, optional
+  `*_MODEL` overrides, `XENDIT_WEBHOOK_VERIFICATION_TOKEN`). Nothing in the
+  docs says this, so it's easy to fill in Vercel's env vars, see the AI
+  features silently fail (edge functions 500 with no `OPENAI_API_KEY`), and
+  not know where to look.
+- **Also noted:** `JWT_SECRET`/`SYSTEM_CRON_SECRET` are listed in
+  `.env.example`/README as required but no code currently reads either one
+  (`Deno.env.get`/`process.env` grep across `src/` and
+  `supabase/functions/` turns up nothing) — likely placeholders for the
+  not-yet-built midnight Quick-Utos purge cron from `plan.md` §3.3.
+- **Workaround:** none needed to function — just know Vercel and Supabase
+  secrets are configured independently. Not yet fixed by writing this down
+  in README/ARCHITECTURE.md itself.
+- **Current production decision (2026-08-14):** deploying with
+  `USE_MOCK_AI=true` on the Supabase Edge Functions — no live LLM provider
+  wired up yet, so `OPENAI_API_KEY` is intentionally unset. The
+  `Deno.env.get("OPENAI_API_KEY")` calls in `generate-sop`, `parse-scheduler`,
+  `route-utos`, `simplify-sop`, and `promote-voice-task` are provider-specific
+  (OpenAI chat-completions shape) and will need rewriting, not just a secret
+  swap, if/when a real provider is picked — see `linara_ai_provider_decision`
+  memory for the live-migration options under consideration (OpenAI vs.
+  Claude API) and the constraint that `transcribe-notes` (Whisper) has no
+  Claude equivalent and would stay on a separate provider regardless.
 
 ---
 
@@ -1110,101 +1145,260 @@ test` all pass locally, including a from-scratch `rm -rf node_modules
   Linux where this doesn't occur); flagging so a future session doesn't
   mistake that noise for real lint debt.
 
-### C23. Pantry stock levels (`use-pantry.ts`) were pure local mock state, never persisted -- so the low-stock-to-Palengke-suggestion pipeline ran entirely on fake data
+### C23. `quick_utos`/`tickets` realtime subscriptions silently never fired -- required an app restart to see changes
 
-- **Found:** 2026-08-15, doing a general pain-point/QoL scan of `LINARA`'s
-  docs and code (not tied to a specific story). Distinct from Closed Gap
-  C13, which made `grocery_items` (the Palengke shopping list) real --
-  pantry par-level stock, the *other* half of Story 9's "Pantry and
-  Palengke shared context," was never migrated off its original mock.
-  **Closed:** 2026-08-15, same session.
-- **Root cause:** `src/features/pantry/hooks/use-pantry.ts` was
-  `useState(INITIAL_PANTRY)` with no Supabase read or write anywhere --
-  `adjust`/`setQty`/`add`/`remove` all mutated local React state only, so
-  every pantry stock edit was lost on reload. This was worse than a display
-  gap: `use-grocery-list.ts`'s auto-suggestion logic (`pantryItems.filter(p
-  => p.qty <= p.par && ...)`) -- the actual mechanism Story 9 was about,
-  surfacing low-stock items as suggested Palengke Run additions -- ran
-  entirely against this fake, never-persisted data.
-- **Turned out simpler than expected:** `pantry_items` was already a real,
-  live table -- part of the original Story_3 core schema (architecture.md
-  Section 8, item 8), with household-scoped RLS (`pantry_items_isolation`)
-  already enabled, and its columns (`name`, `qty`, `unit`, `par`, `category`
-  with a matching CHECK constraint) map onto client `PantryItem` exactly, no
-  mapping decisions needed (same posture as Vales/Quick Utos in C9/C11, not
-  Ledger's C10). Confirmed live via an unauthenticated PostgREST
-  `select id,name,qty,unit,par,category,household_id,updated_at` against
-  `pantry_items`: a `200 []` response, not a "column/table does not exist"
-  error. So this gap was purely a missing application layer, no migration
-  needed at all.
-- **Fixed by:** New `src/features/pantry/pantry.actions.ts` --
-  `listPantryItemsFn`/`insertPantryItemFn`/`updatePantryItemQtyFn`/
-  `deletePantryItemFn`, same shape as `grocery.actions.ts` (no manager-only
-  role check beyond RLS, since stock-taking is "shared with the Cook" per
-  the page's own copy, not manager-sensitive like wage/budget).
-  `use-pantry.ts` rewritten: `items` is server-fetched state, fetched on
-  mount/token-change; `add`/`remove` write-then-refresh (same pattern as
-  C9-C21); `setQty`/`adjust` are optimistic-with-rollback (update local
-  state immediately, persist async, and on failure `refresh()` to pull the
-  real value back) rather than the plain "write then refresh" every other
-  hook uses -- the +/- buttons need snappy repeated-click feedback the way
-  the old synchronous mock had, and `adjust`'s delta math reads the
-  already-optimistic local `items` state, so rapid clicks compose correctly
-  instead of racing a round trip. `app-store-provider.tsx` now calls
-  `usePantry({ token: session.token, ready: session.status === "authed" })`
-  instead of `usePantry()`, and gained a third `postgres_changes` listener
-  (on the existing `household-board-channel`, same household_id filter) for
-  `pantry_items`, refetching on any change -- same "refetch on any change"
-  treatment as `tickets`/`appointments` on that channel. `PantryStore` grew
-  a `refresh()` method to support that listener; no other consumer
-  (`pantry-section.tsx`/`pantry-row.tsx`/`add-pantry-item-modal.tsx`/
-  `use-grocery-list.ts`) needed changes, since the `PantryStore` shape
-  (`items`/`adjust`/`setQty`/`add`/`remove`) was preserved exactly.
-  `pantry.constants.ts` (whose only export, `INITIAL_PANTRY`, had no other
-  importers) is deleted outright, same "delete confirmed-zero-importer
-  files" precedent as C13/C18.
-- **Verification:** `tsc --noEmit`, `eslint` (scoped to touched files --
-  same pre-existing repo-wide CRLF noise as every prior session, see C22),
-  the Vitest suite, and a full `vite build` all pass clean. Also verified
-  live end-to-end against a real signed-in manager session (not just
-  `tsc`/build, unlike most prior closed gaps in this log): a Playwright
-  script drove a real browser through login -> Pantry page -> confirmed the
-  page renders genuinely empty (not the old `INITIAL_PANTRY` mock's
-  Rice/cereal/etc -- household's real `pantry_items` had zero rows) ->
-  added a real item -> confirmed it rendered -> **hard-reloaded the page**
-  and confirmed the item survived (proving persistence, not local state) ->
-  adjusted its qty with the `+` button -> reloaded again and confirmed that
-  persisted too -> removed the item via the UI as cleanup and confirmed it
-  was gone after one more reload, leaving the test household exactly as
-  found.
-- **Known residual limitation, not closed by this fix:** During the live
-  browser verification, two transient issues surfaced that are **not**
-  attributed to this fix -- flagging them here so a future session doesn't
-  waste time re-diagnosing from scratch, not because either is confirmed to
-  need a fix:
-  1. A hard page reload occasionally (not reliably reproducible -- seen
-     once across several full test runs, and not reproducible at all in an
-     isolated reload-only test with no other activity) bounced the browser
-     back to `/login` instead of staying signed in, then recovered once
-     logged back in. `use-session.ts`'s rehydration effect only clears the
-     stored token and falls back to `"anon"` if `getManagerProfileFn`
-     throws -- consistent with an occasional transient failure of that
-     one call under a fast reload, not a hard bug reproduced on demand.
-  2. A `"tried to join multiple times. 'join' can only be called a single
-     time per channel instance"` Supabase Realtime console error appeared
-     in two of several full test runs (never in isolated reload-only runs
-     with no reads/writes in between). This is the same
-     `household-board-channel` re-subscribe-on-dependency-change pattern
-     already used for `tickets`/`appointments` since C12/C14 -- adding
-     `pantry_items` as a third listener on the same channel didn't change
-     that pattern's shape, and an isolated test on the pre-C23 code with
-     the same reload count never reproduced it either, so this reads as a
-     pre-existing timing race in that shared effect (most likely
-     `currentHelperId`/`session.householdId` changing mid-flight, which
-     re-runs the effect's cleanup+recreate) that a busier test session has
-     more chances to hit, not something this fix's `pantry_items` addition
-     newly introduced. Neither issue affected the actual read/write
-     correctness verified above.
+- **Found:** 2026-08-14, while manually testing Quick Utos in `LINARA_MOBILE` and
+  seeing changes only appear after killing and reopening the app.
+- **Root cause:** Both `LINARA_MOBILE/hooks/use-realtime-subscription.ts` and
+  `LINARA/app-store-provider.tsx` correctly call
+  `supabase.channel(...).on('postgres_changes', ...).subscribe()` against
+  `public.quick_utos` and `public.tickets`, matching what `LINARA_MOBILE`'s
+  `Story_3_DatabaseRealtimeAndStoragePipes.md` (step 4, AC "Modifying a row
+  in the database table triggers an immediate realtime callback on the
+  client") and `architecture.md` Section 9.1 describe. But neither table
+  had ever been added to the `supabase_realtime` publication -- no
+  migration or dashboard step ever did it, in any environment. `.subscribe()`
+  succeeds with no error in this state; the channel connects but never
+  receives events. A restart masked it because a fresh mount re-fetches via
+  TanStack Query (`getPendingQuickUtos`), which made it look like the
+  client-side subscription code was the problem when it was actually a
+  missing schema-side prerequisite. (Initially suspected as a free-tier
+  compute limitation -- it isn't; Postgres Changes works on Supabase's free
+  tier, the publication was just empty.)
+- **Fixed by:** `supabase/enable-realtime-quick-utos-tickets.sql` (`ALTER
+  PUBLICATION supabase_realtime ADD TABLE public.quick_utos, public.tickets`
+  + `REPLICA IDENTITY FULL` on both, so UPDATE/DELETE payloads carry full
+  old-row data for the `recipient_id`/`helper_id` filters to match against).
+  Also documented in `architecture.md` Section 8 (Realtime Publication) so
+  it isn't only a standalone `.sql` file a future environment could miss.
+- **Also noted:** Any new table that needs live client updates (mirroring
+  this pattern) needs the same two-line addition -- it's not implied by
+  creating the table or writing a `postgres_changes` listener alone.
+
+### C24. `initiatePayoutFn` sent Xendit payouts 100x the intended amount (centavos-style multiplier against an API that already expects the major unit)
+
+- **Found:** 2026-08-14, user tried a "Pay Now" GCash payout for ₱3,563 and
+  Xendit's dashboard showed ₱356,250 for `reference_id
+  3b1da7c1-c212-4a29-97f2-f72df887283e` -- a ~100x inflation.
+- **Root cause:** `pay.actions.ts`'s `initiatePayoutFn` sent `amount:
+  Math.round(netPay * 100)` to `POST /v2/payouts`, following the
+  Stripe-style convention of expressing amounts in the smallest currency
+  unit (cents/centavos). Xendit's Payouts API doesn't work that way for
+  PHP -- `amount` is the literal peso amount (decimals allowed for
+  centavos), not centavos-as-an-integer. A `netPay` of `3562.50` became
+  `356250`, which Xendit read as ₱356,250.00.
+- **Confirmed low-stakes this time:** `.env`'s `XENDIT_SECRET_WRITE_KEY` is
+  `xnd_development_...` (sandbox), so no real funds moved on this
+  transaction. Would not have been low-stakes against a `xnd_production_...`
+  key.
+- **Fixed by:** changed to `amount: Math.round(netPay * 100) / 100` (rounds
+  to the nearest centavo without the 100x multiplier) in
+  `pay.actions.ts`'s `initiatePayoutFn`.
+- **Also noted:** No test coverage exercises the actual Xendit request body
+  (a real API call, correctly excluded from CI) -- this class of bug can
+  only be caught by unit-testing the payload construction in isolation or
+  by manual sandbox verification like this one. Worth adding a narrow unit
+  test around the request body if this path is touched again.
+
+### C25. Pantry stock levels (`usePantry`) were pure local `useState` seeded from an 11-item hardcoded mock, never connected to the real `pantry_items` table
+
+- **Found:** 2026-08-14, user noticed the manager-facing Pantry page always
+  shows the same fake items ("Rice", "Sofia's cereal", "Garlic"...)
+  regardless of household.
+- **Root cause:** `pantry.constants.ts`'s `INITIAL_PANTRY` seeded
+  `usePantry()`'s `useState` directly -- no Supabase read/write anywhere in
+  the hook, unlike every other feature store in this app (Vales/Ledger/
+  Groceries/Tasks/Appointments/Payslips), all of which were migrated off
+  local mocks by earlier gaps (C8-C21). `pantry_items` (`architecture.md`
+  §8) already existed live with the exact columns the client `PantryItem`
+  type needs (`name`/`qty`/`unit`/`par`/`category`) and a plain
+  household-scoped `pantry_items_isolation` RLS policy, matching
+  `grocery_items`'s -- confirmed live via an unauthenticated PostgREST
+  `select id,name,qty,unit,par,category`: a `200 []` response, not a "does
+  not exist" 400. So unlike most prior gaps, no migration was needed at
+  all -- the schema had simply never been wired up to any UI.
+  `plan.md` §2.5 clarifies stock levels are meant to be manually maintained
+  by the Cook (a helper), not AI-generated -- `USE_MOCK_AI` is unrelated,
+  it only governs the three edge-function agents in `aiagent.md`.
+- **Also found while closing this:** `useGroceryList`'s low-stock ->
+  auto-suggested-grocery-item logic (`grocery.actions.ts`/
+  `use-grocery-list.ts` lines ~78-91, matching `plan.md` §2.5's
+  "Auto-Generated Shopping List" step) was already fully built against
+  `pantry.items` -- it was just running on fake data. No changes were
+  needed there; it started working for real the moment `usePantry` did.
+- **Fixed by:** New `src/features/pantry/pantry.actions.ts`
+  (`listPantryItemsFn`/`insertPantryItemFn`/`updatePantryItemQtyFn`/
+  `deletePantryItemFn`), following the exact same auth/household-scoping
+  pattern as `grocery.actions.ts` -- no manager-only gating, since
+  `pantry_items_isolation` is a plain household-scoped policy and plan.md
+  has a helper (the Cook) writing to this data too. `use-pantry.ts`
+  rewritten to fetch on mount/token-change and refetch after every write,
+  same "write then refresh" pattern as C9-C21; `adjust()` now reads the
+  current item from already-fetched state and calls the same `setQty`
+  writer used by manual edits, rather than a separate delta-mutation
+  endpoint. `app-store-provider.tsx`'s `usePantry()` call now threads
+  `session.token`/`ready` through, same as `useVales`/`usePayslips`.
+  `pantry.constants.ts` (`INITIAL_PANTRY`, zero other importers) deleted
+  outright, same "delete confirmed-dead mock" precedent as C8/C13.
+- **Verification:** `tsc --noEmit`, `eslint` (touched files clean; the
+  pre-existing repo-wide CRLF noise from C22 is unrelated and untouched),
+  the Vitest suite, and a full `vite build` all pass clean.
+- **Known residual limitation, not closed by this fix:** At the time this was
+  written, `PantryPage` was still mounted at both `/manager/pantry` and the
+  vestigial `/helper/pantry` (see the `ViewAsSwitcher`/`HelperShell`
+  discussion this gap was found during), so a write from either route
+  authenticated as whatever session token `AppStoreProvider` carried (always
+  a manager's), not a genuinely separate helper identity -- same posture as
+  C9-C14. **Superseded by C26**, which removed `/helper/pantry` and the rest
+  of the vestigial helper-facing web surface entirely -- `PantryPage` is now
+  manager-only.
+
+### C26. Removed the vestigial helper-facing web surface (`/helper` route tree, `ViewAsSwitcher`'s persona toggle, and everything only reachable from either)
+
+- **Found:** 2026-08-14, user asked whether the `ViewAsSwitcher`'s "Helper"
+  pill (`TopBar`) really did let a manager preview a helper's mobile-equivalent
+  view from inside this web app. It did -- a full parallel `/helper` route
+  tree (`today`/`pantry`/`pay`), rendered inside a separate `HelperShell`,
+  live on the deployed Vercel app for any signed-in manager. `AGENTS.md`
+  already states the helper-facing Worker's Station lives exclusively in
+  `LINARA_MOBILE`; C13/C18/C21 had each already stripped *pieces* of this
+  surface (the grocery checklist, a fake photo button, fake payout buttons)
+  for duplicating real `LINARA_MOBILE` execution work, but the shell around
+  it was never removed, just hollowed out piece by piece.
+- **Root cause:** Predates the mobile split -- this was originally a
+  single app serving both roles. Nothing since the split ever did a full
+  sweep to remove the leftover half; each gap closure only touched the one
+  feature it was scoped to.
+- **Confirmed before deleting anything:** `LINARA_MOBILE` already has its own
+  real claim flow (`app/(auth)/claim-account.tsx`, `flag-terms.tsx`,
+  `review-terms.tsx`, `welcome.tsx`) and real per-helper Supabase auth
+  (`helper_notes` RLS keys off `auth.uid()` -- the Privacy Wall `AGENTS.md`
+  describes), so nothing deleted here was the *only* copy of any real
+  functionality. `src/features/notes/` (the helper's "My Notes" widget) was
+  additionally confirmed to be a pure `localStorage` mock -- never wired to
+  the real `helper_notes` table at all, not even partially.
+- **Fixed by:**
+  - Deleted the whole `/helper` route tree (`src/routes/_app/helper*`) and
+    every component/page reachable only from it: `helper-shell.tsx`,
+    `helper-today-page.tsx`, `helper-task-lists.tsx`, `end-of-day.tsx`,
+    `pay-record-page.tsx`/`pay-record.tsx`, `claim-account-flow.tsx`/
+    `claimed-welcome.tsx`, `block-reason-modal.tsx`, `next-task-card.tsx`,
+    `quick-utos-feed.tsx`/`utos-chip.tsx`, `my-week-card.tsx`,
+    `rosa-avail-control.tsx`, and the entire `src/features/notes/` folder.
+    Each was verified to have zero importers outside this surface via
+    repo-wide grep before deletion.
+  - `view-as-switcher.tsx` rewritten to only switch between co-manager
+    `admins` (the real, non-vestigial half of what it did) -- the `helper`
+    prop and persona-toggle branch are gone; `top-bar.tsx` stopped
+    threading `helper` into it. `nav.constants.ts`'s `HELPER_NAV` removed.
+  - `use-invites.ts`'s `findByCode`/`claim`/`flag` removed (local-only
+    display patches whose only caller was `helper-shell.tsx`); `resolveFlag`
+    kept (real caller: `manager-pass-page.tsx`).
+  - `people.actions.ts`'s `verifyClaimFn`/`flagInviteFn`/`claimInviteFn` and
+    their dedicated `PendingInviteRow`/`ClaimHelperInviteRow` types removed
+    -- `LINARA_MOBILE` calls the underlying `lookup_pending_invite`/
+    `flag_invite`/`claim_helper_invite` RPCs directly against Supabase, not
+    through these TanStack server functions, so mobile is unaffected.
+    `inviteHelperFn`/`cancelInviteFn`/`listHelperProfilesFn`/
+    `updateHelperWageFn` untouched.
+  - `palengke-chip.tsx`'s `to` prop (`"/manager/pantry" | "/helper/pantry"`)
+    removed entirely -- its one remaining caller always used the default.
+  - `routes/index.tsx`'s public landing page CTA "May Invite Code ako
+    (Helper)" (linking to `/helper/today`) removed -- user-confirmed no
+    replacement; no public web-based helper onboarding exists anymore.
+  - **Also removed, per user decision:** the e2e test layer. `tests/
+claims-smoke.spec.ts` exclusively exercised the now-deleted `/helper/today`
+    claim banner; there was no other e2e test in the repo. Deleted alongside
+    it: `tests/support/mock-supabase-server.ts`, `playwright.config.ts`, the
+    `@playwright/test` devDependency and `test:e2e` script, and the "Install
+    Playwright Browser"/"Run e2e" steps in `.github/workflows/ci.yml`
+    (originally added by C4, fixed further by C22).
+- **Verification:** `tsc --noEmit`, `eslint` (touched files clean; repo-wide
+  CRLF noise is the same pre-existing/unrelated issue as C22), the Vitest
+  suite, and a full `vite build` all pass clean -- the build's own chunk list
+  confirms no `helper-*` SSR chunk is emitted anymore, and `routeTree.gen.ts`
+  regenerates with zero `/helper` entries. `npm install` re-run to sync
+  `package-lock.json` after the Playwright removal.
+- **Known residual limitation, not closed by this fix:** This repo now has
+  **zero end-to-end test coverage** -- the only e2e test existed to test the
+  surface just deleted. A real manager-facing smoke test (e.g. "manager logs
+  in, Pass board loads") is separate future work; `tests/support/
+mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
+  that (it already stubs `auth/v1/user`/`user_profiles`/`helper_profiles`;
+  it would need `tickets`/`households` stubs added too), but was deleted
+  here rather than built out, to keep this pass scoped to deletion.
+- **Follow-up, same day:** `inviteHelperFn`'s returned `inviteUrl`
+  (`/claim?code=...`) pointed at a `/claim` route that never existed in this
+  app and was confirmed to have zero readers (`grep -rn "inviteUrl" src`) --
+  `use-invites.ts`'s `create()` only ever consumed `result.helperId`/
+  `.inviteCode`. Removed the dead field and its string entirely; `status`
+  stays on the return shape (a real, if currently unconsumed, part of the
+  contract -- not a dangling reference like `inviteUrl` was).
+
+### C27. `currentHelperId` (`activeHelpers[0]`) was a single, unstable stand-in for "the helper" across most helper-scoped features -- broke down for 2+ active helpers
+
+- **Found:** 2026-08-14, user asked what could go wrong with a large number
+  of helpers, prompted by that day's `/helper` surface removal (C26). Full
+  design writeup and per-area detail live in
+  [`MULTI_HELPER_HANDLING.md`](MULTI_HELPER_HANDLING.md) -- this entry is a
+  pointer, not a duplicate, matching how `aiagent.md` holds full prompt
+  detail while this file only points at it.
+- **Root cause:** `currentHelperId` (`app-store-provider.tsx`) was
+  `activeHelpers[0]`, ordered `created_at DESC` by `listHelperProfilesFn` --
+  the most recently invited active helper, not a manager's actual choice,
+  silently changing as new helpers claimed their accounts. Quick Utos, the
+  after-hours Ledger, the Availability friction wall, and the Pay Dial all
+  keyed off this one value.
+- **Fixed in three passes, 2026-08-14 to 2026-08-15** (see
+  `MULTI_HELPER_HANDLING.md` for full detail on each):
+  1. **Quick Utos + Ledger:** a real recipient picker; AI `suggestedStation`
+     surfaced (never auto-applied) via a toast; `ledger.record` follows the
+     utos's own `toHelperId`. The friction wall (`use-send-gate.ts`) was
+     generalized via a new `statusFor(helperId, schedules, nowTs, manual?)`
+     (`availability.utils.ts`), which also fixed a pre-existing live bug in
+     `addTask` (assigning a task to any helper other than `currentHelperId`
+     silently skipped the off-shift warning entirely) -- not new scope, a
+     bug this same generalization happened to close.
+  2. **Pay Dial / payslip history:** `ManagerMoneyPage` gained a helper
+     switcher (same picker pattern). Found while fixing it: `LedgerEntry`
+     (the client type) had no `helperId` field at all, even though
+     `ledger_entries.helper_id` was already being fetched --
+     `toLedgerEntry()` just never mapped it through, so the Pay Dial's
+     rest-owed-minutes math was summing *every* active helper's ledger
+     entries into one dial regardless of whose numbers it claimed to show. A
+     switcher alone would not have fixed that; added `LedgerEntry.helperId`,
+     set from `row.helper_id`.
+  3. **The manual "Available for N hours" opt-in:** confirmed real and
+     actively used on `LINARA_MOBILE`'s Today tab (`DignityHeader`/
+     `RosaAvailControl`, not dead code) but written only to that device's
+     own local storage (`AsyncStorage` on mobile, `localStorage` on web,
+     the latter already unreachable post-C26) -- never Supabase, so neither
+     app could see the other's copy. Closed via
+     `supabase/add-helper-manual-availability.sql`
+     (`helper_profiles.manual_status`/`.manual_available_until` -- no RLS
+     change needed, `helper_profiles_isolation` already lets a claimed
+     helper's own session write her own row directly), `statusFor()`
+     gaining a `manual` param usable for any helper, `useAvailability`
+     simplified to read-only, and `LINARA_MOBILE`'s
+     `use-rosa-availability.ts` switching from `AsyncStorage` state to a
+     pure derivation fed by a real Supabase-backed profile fetch +
+     mutation (new `services/api/availability.ts`).
+- **Verification:** `tsc --noEmit`, scoped `eslint`, `vitest`, and `vite
+  build` all pass clean on `LINARA`; `tsc --noEmit` and `eslint` pass clean
+  on `LINARA_MOBILE` (no test suite there). `supabase/
+  add-helper-manual-availability.sql` needs to be applied by hand -- same
+  no-service-role-key posture as every prior migration in this file --
+  confirmed **not yet live** as of this writing via an unauthenticated
+  PostgREST `select id,manual_status,manual_available_until` against
+  `helper_profiles`: a `42703` "column does not exist" 400, not the `200
+[]` a landed migration would return. Not yet verified against a live
+  signed-in multi-helper household end-to-end.
+- **Known residual limitation, not closed by this fix:** None of the three
+  passes touch `LINARA_MOBILE` beyond what's described above, and no
+  realtime channel was added for the manual opt-in -- a helper's mobile-side
+  change is picked up by the web app on its next `helper_profiles` refetch
+  (mount/token-change), not instantly, which was judged sufficient (see
+  `MULTI_HELPER_HANDLING.md`'s verification notes).
 
 ---
 

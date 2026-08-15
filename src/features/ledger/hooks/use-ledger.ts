@@ -24,6 +24,7 @@ function toLedgerEntry(row: LedgerEntryRow): LedgerEntry {
   const autoMinutes = row.duration_minutes;
   return {
     id: row.id,
+    helperId: row.helper_id,
     sourceId: row.id,
     kind: row.kind === "utos" ? "utos" : "task",
     title: row.title,

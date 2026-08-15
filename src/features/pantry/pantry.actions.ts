@@ -3,14 +3,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { createAuthedClient } from "@/lib/supabase";
 
 // --------------------------------------------------------------------------
-// Pantry stock levels (`pantry_items`) -- closes KNOWN_GAPS.md Open Gap #23.
-// `pantry_items` was already part of the original Story_3 core schema (see
-// architecture.md Section 8, item 8) with household-scoped RLS
-// (`pantry_items_isolation`) already live -- this file is purely the missing
-// application layer, no migration needed. Mirrors grocery.actions.ts's shape
-// exactly: no manager-only role check beyond what RLS already enforces,
-// since stock-taking is "shared with the Cook" (see pantry-section.tsx's own
-// copy), not a manager-sensitive action like wage or budget.
+// Pantry stock levels (`pantry_items`) -- closes KNOWN_GAPS.md gap C23.
+// Same "curate real household state, no role gating beyond auth" posture as
+// grocery.actions.ts -- plan.md 2.5 has the Cook (a helper) updating stock
+// directly, so this isn't manager-only.
 // --------------------------------------------------------------------------
 
 export interface PantryItemRow {
@@ -42,7 +38,7 @@ export const listPantryItemsFn = createServerFn({ method: "POST" })
     return (rows ?? []) as PantryItemRow[];
   });
 
-/** Adds a new pantry item, stocked at the given starting quantity/par. */
+/** Adds a new stock item. */
 export const insertPantryItemFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
@@ -90,10 +86,7 @@ export const insertPantryItemFn = createServerFn({ method: "POST" })
     return { id: row.id as string };
   });
 
-/** Sets a pantry item's current quantity -- powers both the +/- adjust
- * buttons and the direct qty edit, which both resolve to an absolute qty
- * client-side before calling this (same "single mutator, callers compute
- * the delta" shape the old local-only mock already had). */
+/** Sets a stock item's quantity -- used for both the +/- steppers and direct edits. */
 export const updatePantryItemQtyFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; itemId: string; qty: number }) => data)
   .handler(async ({ data }) => {
@@ -112,7 +105,7 @@ export const updatePantryItemQtyFn = createServerFn({ method: "POST" })
     return { itemId, qty };
   });
 
-/** Removes a pantry item entirely. */
+/** Removes a stock item. */
 export const deletePantryItemFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; itemId: string }) => data)
   .handler(async ({ data }) => {

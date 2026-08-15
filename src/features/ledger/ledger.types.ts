@@ -4,6 +4,7 @@ export type LedgerResolution = "rest" | "premium";
 export type LedgerReason = "available" | "override" | "emergency" | "rest_day" | "rest_break";
 export type LedgerEntry = {
   id: string;
+  helperId: string;
   sourceId: string; // task id or utos id
   kind: "task" | "utos";
   title: string;

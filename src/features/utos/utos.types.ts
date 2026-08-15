@@ -4,7 +4,8 @@ export type QuickUtos = {
   id: string;
   content: string;
   from: string; // admin display name (e.g. "Sir Ben")
-  to: string;
+  to: string; // recipient display name
+  toHelperId: string; // recipient's real helper_profiles id
   timestamp: number;
   ackState: "sent" | "seen" | "done";
   afterHours?: boolean;

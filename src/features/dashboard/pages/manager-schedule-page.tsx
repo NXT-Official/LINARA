@@ -18,11 +18,12 @@ export function ManagerSchedulePage() {
     schedules,
     invites,
     appointments,
-    availability,
-    helper,
     helpers,
     activeHelpers,
     utos,
+    utosRecipientId,
+    setUtosRecipientId,
+    clock,
   } = useAppStores();
   const activeInvites = invites.invites.filter((i) => i.status === "active");
   const { adminType, currentAdmin } = session;
@@ -32,14 +33,17 @@ export function ManagerSchedulePage() {
   const canEditShifts = adminType === "primary" || adminType === "co";
   const canOverride = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
-  const rosaStatus = availability.status;
   const queued = tasks.filter((t) => t.queued);
 
   const gate = useSendGate({
-    status: rosaStatus,
     authorName,
     isRemote,
-    currentHelperId: helper?.id ?? null,
+    schedules,
+    nowTs: clock.nowTs,
+    helperProfiles: invites.helperProfiles,
+    resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
+    utosTargetHelperId: utosRecipientId,
+    activeHelpers,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });
@@ -57,7 +61,13 @@ export function ManagerSchedulePage() {
         </div>
       )}
       <ShiftsSection schedules={schedules} helpers={activeInvites} readOnly={!canEditShifts} />
-      <QuickUtosLauncher onSend={gate.sendUtos} helperName={helper?.name ?? "your helper"} />
+      <QuickUtosLauncher
+        onSend={gate.sendUtos}
+        helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
+        activeHelpers={activeHelpers}
+        selectedHelperId={utosRecipientId}
+        onSelectHelper={setUtosRecipientId}
+      />
       <RoutinesView
         routines={routines}
         token={session.token}
@@ -100,8 +110,8 @@ export function ManagerSchedulePage() {
       {gate.intent && (
         <AvailabilityGate
           intent={gate.intent}
-          status={rosaStatus}
-          helperName={helper?.name ?? "your helper"}
+          status={gate.intent.status}
+          helperName={gate.intent.helperName}
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}
