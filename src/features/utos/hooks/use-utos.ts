@@ -25,6 +25,7 @@ function toQuickUtos(row: QuickUtosRow, toHelperName: string): QuickUtos {
     content: row.content,
     from: row.sender_name,
     to: toHelperName,
+    toHelperId: row.recipient_id,
     timestamp: new Date(row.created_at).getTime(),
     ackState: row.ack_state,
     afterHours: row.after_hours,

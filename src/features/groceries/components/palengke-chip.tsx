@@ -7,17 +7,11 @@ import { fmtPeso } from "../grocery.utils";
 /** Grocery list glance + jump-off point. Links to the real Pantry page
  * instead of opening a modal -- there's no in-place execution to do here
  * anymore (see KNOWN_GAPS.md Closed Gap C13). */
-export function PalengkeChip({
-  compact,
-  to = "/manager/pantry",
-}: {
-  compact?: boolean;
-  to?: "/manager/pantry" | "/helper/pantry";
-} = {}) {
+export function PalengkeChip({ compact }: { compact?: boolean } = {}) {
   const ctx = useGrocery();
   return (
     <Link
-      to={to}
+      to="/manager/pantry"
       className={`inline-flex items-center gap-1 rounded-full border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-[oklch(0.4_0.13_55)] transition hover:bg-terracotta-soft ${
         compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]"
       }`}

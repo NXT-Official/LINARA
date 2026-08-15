@@ -61,12 +61,6 @@ function LandingPage() {
           >
             Start Household Pass
           </Link>
-          <Link
-            to="/helper/today"
-            className="w-full rounded-full border border-border bg-white px-8 py-4 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-all sm:w-auto text-center"
-          >
-            May Invite Code ako (Helper)
-          </Link>
         </div>
       </section>
 
