@@ -5,6 +5,8 @@ import {
   formatDisplayTime,
   computePrepSchedule,
   displayTimeTo24h,
+  parseHM,
+  fmtHM12,
 } from "./time";
 
 describe("time helper utilities", () => {
@@ -54,6 +56,32 @@ describe("time helper utilities", () => {
       const result = computePrepSchedule("2026-08-03", "12:30 AM", 60);
       expect(result.date).toBe("2026-08-02");
       expect(result.time).toBe("11:30 PM");
+    });
+  });
+
+  describe("parseHM / fmtHM12", () => {
+    it("parses plain HH:MM", () => {
+      expect(parseHM("6:30")).toBe(6 * 60 + 30);
+      expect(parseHM("18:00")).toBe(18 * 60);
+    });
+
+    it("parses Postgres TIME strings with seconds (Supabase shift_start/shift_end shape)", () => {
+      expect(parseHM("18:00:00")).toBe(18 * 60);
+      expect(fmtHM12("18:00:00")).toBe("6:00 PM");
+      expect(fmtHM12("06:00:00")).toBe("6:00 AM");
+    });
+
+    it("returns 0 for malformed time strings", () => {
+      expect(parseHM("not-a-time")).toBe(0);
+      expect(parseHM("")).toBe(0);
+      expect(parseHM("18")).toBe(0);
+    });
+
+    it("rejects out-of-range values instead of returning nonsense minutes", () => {
+      // The previous regex accepted these via \d{1,2}/\d{2}, so "99:99"
+      // silently became minute 6039 -- past the end of the day.
+      expect(parseHM("99:99")).toBe(0);
+      expect(parseHM("24:00")).toBe(0);
     });
   });
 

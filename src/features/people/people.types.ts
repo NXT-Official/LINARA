@@ -35,6 +35,11 @@ export type Invite = {
   name: string;
   station: Station;
   employment: Employment;
+  /** Raw "HH:MM"/"HH:MM:SS" as stored in helper_profiles -- the data, for
+   * writes and comparisons. Prefer these over parsing `shift`. */
+  shiftStart: string;
+  shiftEnd: string;
+  /** Display-only, already localized ("6:00 AM – 7:00 PM"). Never parse this. */
   shift: string;
   restDay: string;
   wagePHP: number;

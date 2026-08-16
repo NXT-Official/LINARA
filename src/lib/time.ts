@@ -90,10 +90,19 @@ export const isoToDisplayTime = (iso: string): string => {
 };
 export const isoToISODate = (iso: string): string => toISODate(new Date(iso));
 
+// Postgres TIME columns (shift_start, shift_end, break_start, break_end) come
+// back from Supabase as "HH:MM:SS", not "HH:MM". Splitting on ":" and reading
+// only the first two parts tolerates both shapes -- the same approach
+// ../LINARA_MOBILE/lib/availability.ts uses, kept deliberately in step. Returns
+// 0 for anything unparseable, which several callers rely on (they treat a
+// missing/!invalid schedule as "no window" rather than handling a throw).
 export const parseHM = (s: string): number => {
-  const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return 0;
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const [rawH, rawM] = s.split(":");
+  const hours = Number(rawH);
+  const minutes = Number(rawM);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return 0;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return 0;
+  return hours * 60 + minutes;
 };
 export const fmtHM12 = (s: string): string => formatDisplayTime(parseHM(s));
 

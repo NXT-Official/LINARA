@@ -27,7 +27,7 @@ export function PeopleSection({
   invites: Invite[];
   canInvite: boolean;
   onInvite: (
-    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags"> & {
+    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: "semi_monthly" | "monthly";
     },
   ) => Promise<Invite>;

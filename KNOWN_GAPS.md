@@ -1742,6 +1742,89 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   "Start new day" click to catch up, same as before this fix for any
   jump that size.
 
+### C33. C6's `break_start`/`break_end` columns were never propagated to `LINARA_MOBILE` -- the two apps disagreed about a helper's protected break, with pay consequences
+
+- **Found:** 2026-08-16, while fixing a `LINARA` Shifts display bug (see C34)
+  and auditing `LINARA_MOBILE` for the same class of mistake.
+- **Root cause:** C6 added `helper_profiles.break_start`/`break_end`
+  specifically so "the Ledger's `rest_break` classification and Availability's
+  on-shift check keep working." Both consumers it named live in `LINARA`, and
+  both were updated. `LINARA_MOBILE` was not: `services/api/helper-profile.ts`'s
+  `.select()` omitted the two columns, `lib/availability.ts`'s `ShiftWindow`
+  had no break fields, and `deriveRosaStatus` had no break concept at all.
+  This is exactly the cross-repo hazard `AGENTS.md` warns about -- `LINARA`
+  owns the schema, changed it, and the mobile client wasn't updated in step.
+  C6's own "Known residual limitation" section didn't mention mobile, so this
+  looks overlooked rather than deliberately deferred.
+- **Why it mattered:** During a break window (say 12:00-13:00), the manager's
+  web dashboard resolved the helper to **Off** -- the friction wall fired on
+  sends, and `use-ledger.ts`'s `classify()` tagged any work done then as
+  `rest_break`. The helper's own Worker's Station simultaneously showed **"On
+  Shift"** (`rosa-avail-control.tsx`). The two apps disagreed about protected
+  time, and that disagreement fed after-hours pay classification.
+- **Fixed by:** Teaching mobile the same break window `LINARA` already knew
+  about: `ShiftWindow` gains optional `breakStart`/`breakEnd`,
+  `deriveRosaStatus` excludes break minutes from `onShift` (falling through to
+  the manual-opt-in check exactly as web's `isMinuteInShift` -> `statusFor`
+  does), `getMyHelperProfile` selects and returns the two columns, and
+  `app/(app)/today.tsx` passes them through. No schema change -- the columns
+  already existed and already carried the right data. Both repos typecheck
+  clean.
+- **Known residual limitation, not closed by this fix:** The pre-claim
+  handshake path (`services/api/handshake.ts` -> the `lookup_pending_invite`
+  RPC) still returns no break columns, so the review-terms screen shown before
+  a helper claims their account can't display a break. That needs a SQL change
+  to the RPC's return shape, and breaks aren't collected at invite time
+  anyway (`invite-helper-modal.tsx` has no break inputs) -- so today there is
+  never a break to show at that point. Revisit if breaks ever become part of
+  the invited terms. Separately, neither app can represent a shift crossing
+  midnight (`minutes >= start && minutes < end` is always false when
+  `end < start`); quiet hours (22:00-06:00) mask most of that range and the
+  product only models day shifts, so it stays latent.
+
+### C34. `helper_profiles`' Postgres `TIME` columns come back as `"HH:MM:SS"`, which `LINARA`'s `parseHM` silently parsed as midnight
+
+- **Found:** 2026-08-16, from a user report that the Schedule > Shifts row
+  preview read "12:00 AM - 12:00 AM" while the expanded editor showed the
+  correct times.
+- **Root cause:** `src/lib/time.ts`'s `parseHM` matched `/^(\d{1,2}):(\d{2})$/`
+  -- no seconds -- and returned `0` on any non-match. Supabase returns
+  `shift_start`/`shift_end`/`break_start`/`break_end` (Postgres `TIME`) as
+  `"HH:MM:SS"`, so every one of them parsed to minute 0. The collapsed Shifts
+  row (`summarizeSchedule` -> `fmtHM12` -> `parseHM`) therefore always rendered
+  midnight-to-midnight. The editor looked fine only because
+  `<input type="time">` receives the raw string and parses `HH:MM:SS` natively,
+  never touching `parseHM`. The same silent `0` also broke `isMinuteInShift`
+  (`minutes >= 0 && minutes < 0` is never true, so every helper read as
+  permanently off-shift on the Availability grid) and `use-ledger.ts`'s
+  `rest_break` window check. Notably `LINARA_MOBILE` had this right all along
+  -- it uses `split(":")`, which ignores the extra component, and documents the
+  `"HH:MM:SS"` shape explicitly.
+- **Fixed by:** Replacing `parseHM`'s regex with a `split(":")` + range-check
+  parse -- deliberately the same approach `LINARA_MOBILE/lib/availability.ts`
+  already used, so the two repos now agree on how a `TIME` string is read.
+  This also tightened validation the regex never had: `\d{1,2}`/`\d{2}` happily
+  accepted `"99:99"` and turned it into minute 6039, past the end of the day;
+  out-of-range values now return 0 like any other unparseable input. (An
+  interim fix that just added an optional `:SS` to the regex tripped
+  `security/detect-unsafe-regex` -- a false positive, since every quantifier
+  was bounded, but the split version avoids the question entirely.)
+  Regression tests in `src/lib/time.test.ts` cover the Postgres shape, the
+  malformed cases, and the out-of-range cases.
+  A second, independent surface of the same blind spot: `use-invites.ts`'s
+  `toInvite` never formatted at all, emitting a raw `"06:00:00 - 19:00:00"`
+  into the People roster, the invite-code screen, and My Terms. Worse,
+  `Invite.shift` was doing double duty -- a display string on the read path and
+  a data carrier on the write path (`create()` recovered the times via
+  `data.shift.split(" - ")`). `Invite` now carries raw `shiftStart`/`shiftEnd`
+  alongside a display-only, `fmtHM12`-formatted `shift`, and `create()` takes
+  the raw fields directly instead of parsing a localized string back into data.
+- **Known residual limitation, not closed by this fix:** `parseHM` still
+  returns `0` rather than throwing on genuinely malformed input, so a future
+  format surprise degrades to midnight rather than failing loudly. Left as-is
+  because several call sites treat the schedule as optional and rely on a
+  non-throwing parse; a stricter version would need those audited first.
+
 ---
 
 ## Template for New Entries
