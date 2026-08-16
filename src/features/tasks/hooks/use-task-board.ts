@@ -7,6 +7,7 @@ import {
   combineDateAndTime,
   isoToDisplayTime,
   isoToISODate,
+  parseISODate,
   startOfDayIso,
   toISODate,
   weekdayOf,
@@ -21,6 +22,7 @@ import {
   listTicketsFn,
   openQueuedTicketsFn,
   setBoardClosedFn,
+  setBoardDateFn,
   updateTicketFn,
   type TicketRow,
 } from "../task.actions";
@@ -132,8 +134,16 @@ export function useTaskBoard({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [boardClosed, setBoardClosed] = useState(false);
-  // Simulated "today" -- starts as real today; can be pushed forward via startNewDay.
+  // The board's "today" -- starts as real today, but is corrected to the
+  // household's persisted board_date once that loads (see the mount effect
+  // below); can be pushed forward via startNewDay.
   const [simDate, setSimDate] = useState<Date>(() => new Date());
+  // Set when the real device date has moved past simDate -- either the mount
+  // fetch found a stale persisted board_date, or a tab has been left open
+  // across a real day boundary (see the nowTs effect below). Consumed by
+  // app-store-provider.tsx, which auto-runs the same rollover as a manual
+  // "Start new day" once this is non-null (KNOWN_GAPS.md C31).
+  const [rolloverNeededFor, setRolloverNeededFor] = useState<Date | null>(null);
 
   const refresh = useCallback(
     async (dateOverride?: Date) => {
@@ -151,11 +161,38 @@ export function useTaskBoard({
       console.error("[useTaskBoard] Failed to load the board:", err);
     });
     getBoardClosedFn({ data: { token } })
-      .then((res) => setBoardClosed(res.boardClosed))
+      .then((res) => {
+        setBoardClosed(res.boardClosed);
+        // Guarded with a value-equality check: parseISODate always returns a
+        // new Date object, and setSimDate's identity feeds refresh's own
+        // useCallback deps (which this effect depends on) -- an unguarded
+        // update here would re-run this effect every time it resolves.
+        const persisted = parseISODate(res.boardDate);
+        setSimDate((prev) => (toISODate(prev) === toISODate(persisted) ? prev : persisted));
+      })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to load board-closed state:", err);
       });
   }, [ready, token, refresh]);
+
+  // Detects a board nobody advanced past a real day boundary: either the
+  // fetch above just set simDate from a stale persisted board_date, or a tab
+  // has been open long enough for nowTs to tick past an in-memory simDate
+  // that was correct when the tab was opened. Idempotent -- startNewDay()
+  // clears rolloverNeededFor once it actually runs.
+  useEffect(() => {
+    if (rolloverNeededFor) return;
+    const today = new Date(nowTs);
+    if (toISODate(today) > toISODate(simDate)) {
+      setRolloverNeededFor(today);
+    }
+  }, [nowTs, simDate, rolloverNeededFor]);
+
+  /** Clears rolloverNeededFor without actually rolling the board over --
+   * used by app-store-provider.tsx's server cross-check (KNOWN_GAPS.md O2)
+   * when the server's own clock disagrees the day has moved on, meaning the
+   * device clock that set the flag was wrong. */
+  const dismissRollover = () => setRolloverNeededFor(null);
 
   const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
     if (!token) {
@@ -354,45 +391,66 @@ export function useTaskBoard({
     setRoutines((prev) => prev.filter((r) => r.id !== id));
   };
 
-  /** Roll the board to the next day: respawn matching routines. Dropping
-   * finished/expired tasks off the visible board is now handled by refresh()'s
-   * query itself (see listTicketsFn), not by discarding local state. */
-  const startNewDay = () => {
-    const next = new Date(simDate);
-    next.setDate(next.getDate() + 1);
-    const wd = weekdayOf(next);
-    setSimDate(next);
-    setBoardClosed(false);
+  /** Which of today's local routines haven't already spawned a live ticket
+   * for `targetDate`'s weekday -- the pure half of startNewDay(), reused by
+   * previewRespawnCount() below so the confirmation modal's preview can't
+   * drift from what actually spawns. */
+  const routinesToSpawn = (targetDate: Date): Routine[] => {
+    const wd = weekdayOf(targetDate);
+    const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
+    return routines.filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id));
+  };
 
-    if (!token) return;
+  /** How many routines would respawn if startNewDay(targetDate) ran right
+   * now -- no mutation, for the "Start new day" confirmation preview. */
+  const previewRespawnCount = (targetDate: Date): number => routinesToSpawn(targetDate).length;
+
+  /** Roll the board to `targetDate`: respawn matching routines and persist
+   * the new board_date (KNOWN_GAPS.md C31) alongside the existing
+   * board_closed reopen. Dropping finished/expired tasks off the visible
+   * board is handled by refresh()'s query itself (see listTicketsFn), not by
+   * discarding local state. Used both for the manual "Start new day" click
+   * (targetDate = simDate + 1 day) and for silently catching up a board left
+   * behind a real day boundary (targetDate = today) -- see
+   * app-store-provider.tsx. */
+  const startNewDay = async (targetDate: Date): Promise<{ routinesRespawned: number }> => {
+    setSimDate(targetDate);
+    setBoardClosed(false);
+    setRolloverNeededFor(null);
+
+    if (!token) return { routinesRespawned: 0 };
 
     setBoardClosedFn({ data: { token, closed: false } }).catch((err) => {
       console.error("[useTaskBoard] Failed to persist board reopen on new day:", err);
     });
+    setBoardDateFn({ data: { token, date: toISODate(targetDate) } }).catch((err) => {
+      console.error("[useTaskBoard] Failed to persist the new board date:", err);
+    });
 
-    const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
-    const toSpawn = routines.filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id));
+    const toSpawn = routinesToSpawn(targetDate);
 
-    Promise.all(
-      toSpawn.map((r) =>
-        insertTicketFn({
-          data: {
-            token,
-            title: r.title,
-            notes: r.note,
-            helperId: r.helperId,
-            scheduledStartIso: combineDateAndTime(toISODate(next), r.time),
-            recurrence: encodeRecurrence(r.recurrence),
-            routineId: r.id,
-          },
-        }),
-      ),
-    )
-      .then(() => refresh(next))
-      .catch((err) => {
-        console.error("[useTaskBoard] Failed to roll over to the next day:", err);
-        toast.error("Hindi na-simulan ang bagong araw nang maayos.");
-      });
+    try {
+      await Promise.all(
+        toSpawn.map((r) =>
+          insertTicketFn({
+            data: {
+              token,
+              title: r.title,
+              notes: r.note,
+              helperId: r.helperId,
+              scheduledStartIso: combineDateAndTime(toISODate(targetDate), r.time),
+              recurrence: encodeRecurrence(r.recurrence),
+              routineId: r.id,
+            },
+          }),
+        ),
+      );
+      await refresh(targetDate);
+    } catch (err) {
+      console.error("[useTaskBoard] Failed to roll over to the next day:", err);
+      toast.error("Hindi na-simulan ang bagong araw nang maayos.");
+    }
+    return { routinesRespawned: toSpawn.length };
   };
 
   return {
@@ -400,6 +458,8 @@ export function useTaskBoard({
     routines,
     boardClosed,
     simDate,
+    rolloverNeededFor,
+    dismissRollover,
     addTask,
     updateStatus,
     blockTask,
@@ -410,6 +470,7 @@ export function useTaskBoard({
     addRoutine,
     removeRoutine,
     startNewDay,
+    previewRespawnCount,
     refresh,
   };
 }

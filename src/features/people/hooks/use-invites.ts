@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { fmtHM12 } from "@/lib/time";
+
 import {
   cancelInviteFn,
   inviteHelperFn,
@@ -42,7 +44,9 @@ function toInvite(row: HelperProfileRow): Invite {
     name: row.name,
     station: row.station as Station,
     employment: row.employment ?? "live-in",
-    shift: `${row.shift_start} - ${row.shift_end}`,
+    shiftStart: row.shift_start,
+    shiftEnd: row.shift_end,
+    shift: `${fmtHM12(row.shift_start)} – ${fmtHM12(row.shift_end)}`,
     restDay: WEEKLY_REST_DAY_NAMES[row.weekly_rest_day] ?? "Sunday",
     wagePHP: Number(row.monthly_rate),
     phone: row.phone ?? "",
@@ -84,14 +88,17 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   }, [ready, token, refresh]);
 
   const create = async (
-    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags"> & {
+    // `shift` is display-only and derived below -- callers pass the raw
+    // shiftStart/shiftEnd instead, so nothing has to parse a localized string
+    // back into data.
+    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: "semi_monthly" | "monthly";
     },
     byName: string,
   ): Promise<Invite> => {
     if (!token) throw new Error("Not authenticated");
 
-    const [shiftStart, shiftEnd] = data.shift.split(" - ");
+    const { shiftStart, shiftEnd } = data;
     const weeklyRestDay = WEEKLY_REST_DAY_NAMES.indexOf(
       data.restDay as (typeof WEEKLY_REST_DAY_NAMES)[number],
     );
@@ -117,7 +124,9 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
       name: data.name,
       station: data.station,
       employment: data.employment,
-      shift: data.shift,
+      shiftStart,
+      shiftEnd,
+      shift: `${fmtHM12(shiftStart)} – ${fmtHM12(shiftEnd)}`,
       restDay: data.restDay,
       wagePHP: data.wagePHP,
       phone: data.phone,

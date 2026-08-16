@@ -6,6 +6,7 @@ import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
+import { StartNewDayModal } from "../components/start-new-day-modal";
 
 /** Today at a glance: what needs a decision, then the day itself. */
 export function ManagerPassPage({
@@ -29,6 +30,7 @@ export function ManagerPassPage({
     utosRecipientId,
     clock,
     startNewDay,
+    previewNewDay,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
   const {
@@ -48,6 +50,34 @@ export function ManagerPassPage({
   const rosaStatus = availability.status;
 
   const [open, setOpen] = useState(false);
+  const [confirmingNewDay, setConfirmingNewDay] = useState(false);
+  const [newDayPreview, setNewDayPreview] = useState<{
+    pendingUtos: number;
+    routinesRespawning: number;
+  } | null>(null);
+  const [startingNewDay, setStartingNewDay] = useState(false);
+
+  const openNewDayConfirm = () => {
+    setConfirmingNewDay(true);
+    setNewDayPreview(null);
+    previewNewDay()
+      .then(setNewDayPreview)
+      .catch((err) => {
+        console.error("[ManagerPassPage] Failed to load new-day preview:", err);
+        setNewDayPreview({ pendingUtos: 0, routinesRespawning: 0 });
+      });
+  };
+
+  const confirmNewDay = async () => {
+    setStartingNewDay(true);
+    try {
+      await startNewDay();
+    } finally {
+      setStartingNewDay(false);
+      setConfirmingNewDay(false);
+    }
+  };
+
   const active = tasks.filter((t) => !t.queued && !t.suggested);
   const gate = useSendGate({
     authorName,
@@ -80,7 +110,7 @@ export function ManagerPassPage({
         authorName={authorName}
         isRemote={isRemote}
         canStartNewDay={canStartNewDay}
-        onStartNewDay={startNewDay}
+        onStartNewDay={openNewDayConfirm}
         onReschedule={rescheduleTask}
         onDecideVale={vales.decide}
         onResolveFlag={inviteStore.resolveFlag}
@@ -110,6 +140,14 @@ export function ManagerPassPage({
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}
+        />
+      )}
+      {confirmingNewDay && (
+        <StartNewDayModal
+          preview={newDayPreview}
+          loading={startingNewDay}
+          onConfirm={confirmNewDay}
+          onCancel={() => setConfirmingNewDay(false)}
         />
       )}
     </>

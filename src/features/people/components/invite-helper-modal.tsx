@@ -15,7 +15,7 @@ export function InviteHelperModal({
 }: {
   onClose: () => void;
   onSubmit: (
-    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags"> & {
+    data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: PaydayInterval;
     },
   ) => Promise<void>;
@@ -41,7 +41,8 @@ export function InviteHelperModal({
         name: name.trim(),
         station,
         employment,
-        shift: `${shiftStart} - ${shiftEnd}`,
+        shiftStart,
+        shiftEnd,
         restDay,
         paydayInterval,
         wagePHP: parseInt(wage, 10) || 0,

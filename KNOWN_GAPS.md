@@ -1232,26 +1232,64 @@ test` all pass locally, including a from-scratch `rm -rf node_modules
   pattern as `grocery.actions.ts` -- no manager-only gating, since
   `pantry_items_isolation` is a plain household-scoped policy and plan.md
   has a helper (the Cook) writing to this data too. `use-pantry.ts`
-  rewritten to fetch on mount/token-change and refetch after every write,
-  same "write then refresh" pattern as C9-C21; `adjust()` now reads the
-  current item from already-fetched state and calls the same `setQty`
-  writer used by manual edits, rather than a separate delta-mutation
-  endpoint. `app-store-provider.tsx`'s `usePantry()` call now threads
-  `session.token`/`ready` through, same as `useVales`/`usePayslips`.
-  `pantry.constants.ts` (`INITIAL_PANTRY`, zero other importers) deleted
-  outright, same "delete confirmed-dead mock" precedent as C8/C13.
+  rewritten: `items` is server-fetched state, fetched on mount/token-change;
+  `add`/`remove` write-then-refresh (same pattern as C9-C21); `setQty`/
+  `adjust` are optimistic-with-rollback instead (update local state
+  immediately, persist async, and on failure `refresh()` to pull the real
+  value back) -- the +/- buttons need snappy repeated-click feedback the old
+  synchronous mock had, and `adjust`'s delta math reads the already-
+  optimistic local `items` state so rapid clicks compose correctly instead
+  of racing a round trip. `app-store-provider.tsx`'s `usePantry()` call
+  threads `session.token`/`ready` through (same as `useVales`/
+  `usePayslips`), and gained a third `postgres_changes` listener on the
+  existing `household-board-channel` (same `household_id` filter) for
+  `pantry_items`, refetching on any change -- same "refetch on any change"
+  treatment as `tickets`/`appointments` on that channel; `PantryStore` grew
+  a `refresh()` method to support it. `pantry.constants.ts`
+  (`INITIAL_PANTRY`, zero other importers) deleted outright, same
+  "delete confirmed-dead mock" precedent as C8/C13.
 - **Verification:** `tsc --noEmit`, `eslint` (touched files clean; the
   pre-existing repo-wide CRLF noise from C22 is unrelated and untouched),
-  the Vitest suite, and a full `vite build` all pass clean.
-- **Known residual limitation, not closed by this fix:** At the time this was
-  written, `PantryPage` was still mounted at both `/manager/pantry` and the
-  vestigial `/helper/pantry` (see the `ViewAsSwitcher`/`HelperShell`
-  discussion this gap was found during), so a write from either route
-  authenticated as whatever session token `AppStoreProvider` carried (always
-  a manager's), not a genuinely separate helper identity -- same posture as
-  C9-C14. **Superseded by C26**, which removed `/helper/pantry` and the rest
-  of the vestigial helper-facing web surface entirely -- `PantryPage` is now
-  manager-only.
+  the Vitest suite, and a full `vite build` all pass clean. Also verified
+  live end-to-end against a real signed-in manager session: a
+  Playwright-driven browser walkthrough -- login -> Pantry page -> confirmed
+  the page renders genuinely empty (not the old `INITIAL_PANTRY` mock's
+  Rice/cereal/etc -- household's real `pantry_items` had zero rows) -> added
+  a real item -> confirmed it rendered -> hard-reloaded the page and
+  confirmed the item survived (proving persistence, not local state) ->
+  adjusted its qty with the `+` button -> reloaded again and confirmed that
+  persisted too -> removed the item via the UI as cleanup and confirmed it
+  was gone after one more reload, leaving the test household as found.
+- **Known residual limitation, not closed by this fix:**
+  - At the time this was written, `PantryPage` was still mounted at both
+    `/manager/pantry` and the vestigial `/helper/pantry` (see the
+    `ViewAsSwitcher`/`HelperShell` discussion this gap was found during), so
+    a write from either route authenticated as whatever session token
+    `AppStoreProvider` carried (always a manager's), not a genuinely
+    separate helper identity -- same posture as C9-C14. **Superseded by
+    C26**, which removed `/helper/pantry` and the rest of the vestigial
+    helper-facing web surface entirely -- `PantryPage` is now manager-only.
+  - Two transient issues surfaced during the live browser verification above
+    that are **not** attributed to this fix -- flagging so a future session
+    doesn't waste time re-diagnosing from scratch, not because either is
+    confirmed to need a fix: (1) a hard page reload occasionally (seen once
+    across several full test runs, not reliably reproducible) bounced the
+    browser back to `/login` instead of staying signed in, then recovered
+    once logged back in -- `use-session.ts`'s rehydration effect only clears
+    the stored token and falls back to `"anon"` if `getManagerProfileFn`
+    throws, consistent with an occasional transient failure of that one call
+    under a fast reload, not a bug reproduced on demand. (2) a Supabase
+    Realtime `"tried to join multiple times"` console error appeared in two
+    of several full test runs (never in isolated reload-only runs) -- the
+    same `household-board-channel` re-subscribe-on-dependency-change pattern
+    already used for `tickets`/`appointments` since C12/C14, and an isolated
+    test on the pre-this-fix code with the same reload count never
+    reproduced it either, so this reads as a pre-existing timing race in
+    that shared effect (most likely `currentHelperId`/`session.householdId`
+    changing mid-flight, re-running the effect's cleanup+recreate) that a
+    busier test session has more chances to hit, not something this fix's
+    `pantry_items` listener newly introduced. Neither issue affected the
+    actual read/write correctness verified above.
 
 ### C26. Removed the vestigial helper-facing web surface (`/helper` route tree, `ViewAsSwitcher`'s persona toggle, and everything only reachable from either)
 
@@ -1399,6 +1437,393 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   change is picked up by the web app on its next `helper_profiles` refetch
   (mount/token-change), not instantly, which was judged sufficient (see
   `MULTI_HELPER_HANDLING.md`'s verification notes).
+
+### C28. Time simulation (`use-sim-clock.ts`) caused real testing confusion, silently pinning every default-configured helper to "off" for the rest of a session
+
+- **Found:** 2026-08-15, tracing why a freshly-invited helper with default
+  shift/rest-day values kept showing as off-shift/resting no matter what the
+  real wall clock said.
+- **Root cause:** `sim-clock.tsx`'s "After shift · 7:00 PM" and "Rest day ·
+  Sun 10 AM" demo presets exactly match every new helper's default
+  `shiftEnd`/`restDay` (`invite-helper-modal.tsx`: 19:00 / Sunday). Clicking
+  either during testing sets `use-sim-clock.ts`'s `offsetMs`, which never
+  auto-resets -- every subsequent `statusFor()` call for a default-configured
+  helper then reads as permanently off/resting for the rest of the browser
+  session, with no visible indication `nowTs` had drifted from real time
+  beyond the small `SimClock` pill in the top bar.
+- **Fixed by:** Disabled the mechanism rather than deleting it, so it can be
+  re-enabled for a future demo without a rebuild. `use-sim-clock.ts` now
+  always ticks off real `Date.now()` (`offsetMs` hardcoded `null`,
+  `setOffsetMs` a no-op); the original offset-driven implementation is kept
+  intact inside a block comment immediately below, with instructions for
+  restoring it. `top-bar.tsx`'s `<SimClock>` import and render are commented
+  out (not deleted); `sim-clock.tsx` itself is untouched, since it was
+  already only reachable from that now-commented render.
+- **Re-verified (item 2 of the same pass):** with sim time disabled, a
+  freshly-invited default helper (06:00-19:00 shift, Sunday rest day) reads
+  correctly against real wall-clock time via `statusFor()`
+  (`src/features/availability/availability.utils.ts`) -- on-shift during
+  business hours, off outside quiet hours once past 19:00, resting on a real
+  Sunday. `statusFor()` itself has no other default-leaning shortcut; its
+  quiet-hours/shift/manual-opt-in checks all take real `nowTs` with no
+  sim-clock dependency.
+- **Verification:** `tsc --noEmit`, scoped `eslint` (touched files clean;
+  repo-wide CRLF noise is the same pre-existing/unrelated issue noted in
+  C22/C25), the Vitest suite, and a full `vite build` (SSR + client) all pass
+  clean; the build's chunk list confirms no behavior change to the removed
+  render path.
+- **Known residual limitation, not closed by this fix:** None -- the demo
+  clock is fully inert, not partially working.
+
+### C29. Quick Utos default recipient wasn't availability-aware; the recipient picker was ordered by invite recency, not name
+
+- **Found:** 2026-08-15, same pass as C28, auditing Pass-board UX now that
+  sim time no longer masks real availability state.
+- **Root cause:** `app-store-provider.tsx`'s Quick Utos recipient defaulted
+  to `currentHelperId` (`activeHelpers[0]`, most-recently-invited -- see
+  `MULTI_HELPER_HANDLING.md`) with no regard for whether that helper was
+  actually reachable right now. A manager inviting a second helper who
+  happened to be off-shift would see the newer helper pre-selected by
+  default even while the first helper was on-shift and reachable.
+  Separately, `quick-utos-launcher.tsx`'s recipient `<select>` listed
+  `activeHelpers` in that same newest-invited-first order, not alphabetical
+  or availability order, making the picker harder to scan as a household's
+  helper roster grows.
+- **Fixed by:** `app-store-provider.tsx` now computes `defaultUtosRecipientId`
+  via `statusFor()`/`manualFromRow()`
+  (`src/features/availability/availability.utils.ts`): the first active
+  helper (in existing roster order) whose status isn't `"off"`, falling back
+  to `currentHelperId` only when nobody is reachable. A manager's explicit
+  pick (`pickedUtosHelperId`) still always wins, unchanged.
+  `quick-utos-launcher.tsx` sorts a **local copy** of `activeHelpers`
+  alphabetically by name for the `<select>` only -- the shared
+  `activeHelpers` array itself is untouched, so lane order elsewhere (Pass
+  board, task/routine/appointment assignment dropdowns) is unaffected.
+  Alphabetical was chosen over live-availability ordering because the latter
+  would silently reshuffle option positions under the manager while the
+  dropdown is open (status can flip on `clock.nowTs`'s 30s tick) -- bad UX
+  for a native `<select>`.
+- **Verification:** `tsc --noEmit`, scoped `eslint`, the Vitest suite, and a
+  full `vite build` all pass clean.
+- **Known residual limitation, not closed by this fix:** The AI Router's
+  `suggestedStation` toast (see `MULTI_HELPER_HANDLING.md`) is unchanged --
+  still surfaced, never auto-applied. `MULTI_HELPER_HANDLING.md` updated
+  alongside this entry.
+
+### C30. "Start new day" fired immediately with no confirmation or preview, and its Quick Utos clear only ever covered the current recipient, not every active helper
+
+- **Found:** 2026-08-15, same pass as C28/C29. `manager-pass-tab.tsx`'s
+  "Start new day" button called `onStartNewDay` directly on click -- no
+  dialog, no preview, no success toast -- for an action that permanently
+  deletes pending Quick Utos, persists `board_closed = false`, and spawns
+  new routine tickets in one click. Auditing what the delete actually
+  covered (to write an accurate preview) turned up a second, sharper bug:
+  `use-utos.ts`'s `clearForNewDay()` only ever deleted
+  `quick_utos` rows for `toHelperId` (the **current Quick Utos recipient**,
+  see `MULTI_HELPER_HANDLING.md`), not every active helper's pending utos.
+  In a multi-helper household, "Start new day" was silently leaving a second
+  helper's Quick Utos untouched -- not documented anywhere as intentional,
+  and not what `utos.types.ts`'s "deliberately ephemeral... genuinely
+  deletes them" doc comment implies.
+- **Decision (user-confirmed before writing code):** fix the household-wide
+  clearing gap in the same pass rather than just word around it, since an
+  accurate confirmation-modal preview needs to describe what actually
+  happens.
+- **Fixed by:**
+  - `utos.actions.ts` gained `clearAllUtosForHelpersFn({ token, helperIds })`
+    (`DELETE ... WHERE recipient_id IN (helperIds)`) and
+    `listUtosForHelpersFn({ token, helperIds })` (id-only select, used only
+    for the confirmation preview's live count). `clearUtosForHelperFn` is
+    removed -- confirmed zero callers once `use-utos.ts`'s `clearForNewDay`/
+    `wipedToday` were removed alongside it (`wipedToday` was already
+    write-only, no reader anywhere in the app, even before this change).
+  - `app-store-provider.tsx` gained a shared `runDayRollover(targetDate)`:
+    runs the household-wide clear (`activeHelpers.map(h => h.id)`) and
+    `board.startNewDay(targetDate)` in parallel, then `utos.refresh()` so the
+    current recipient's list reflects the clear. The exposed `startNewDay`
+    (now `() => Promise<void>`) computes `target = simDate + 1 day`, awaits
+    `runDayRollover`, and shows a success toast reporting the real counts.
+    New `previewNewDay(): Promise<{ pendingUtos, routinesRespawning }>`
+    fetches the same live counts without mutating anything.
+  - `use-task-board.ts`'s `startNewDay` is generalized to
+    `startNewDay(targetDate: Date): Promise<{ routinesRespawned: number }>`
+    (same respawn logic, now parameterized and awaited instead of
+    fire-and-forget) and gained a pure `previewRespawnCount(targetDate)` --
+    both reuse a shared `routinesToSpawn()` so the preview can't drift from
+    what actually spawns.
+  - New `start-new-day-modal.tsx` (styled like `invite-helper-modal.tsx`)
+    shows the live preview ("N pending Quick Utos will be cleared", "M
+    routines will respawn for tomorrow", "The board will reopen") with
+    Cancel / Start new day actions. `manager-pass-page.tsx` owns the modal's
+    open state and fetches the preview when it opens; `onStartNewDay` passed
+    to `ManagerPassTab` now opens the modal instead of calling `startNewDay`
+    directly -- `manager-pass-tab.tsx` itself needed no changes, its button
+    already just calls whatever `onStartNewDay` prop it's given.
+- **Verification:** `tsc --noEmit`, scoped `eslint`, the Vitest suite, and a
+  full `vite build` all pass clean. No schema change was needed for this
+  entry specifically (see C31 for the related `board_date` migration, not
+  yet applied live).
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9-C21 -- the household-wide clear authenticates as whatever
+  session token `AppStoreProvider` carries (today, always a manager's).
+
+### C31. Nothing caught a manager who never manually clicked "Start new day" and returned after the real calendar day had moved on
+
+- **Found:** 2026-08-15, same pass as C28-C30, while implementing the
+  auto-rollover half of the original ask ("compare the board's current day
+  against the real device date on load"). That literal check doesn't
+  actually catch the described bug: `simDate`
+  (`use-task-board.ts`) is local `useState(() => new Date())` -- it
+  self-corrects to "today" on every fresh page load, so a plain reload never
+  looks stale by that comparison alone. The real bug is that
+  `households.board_closed` and "have today's routines spawned yet" are
+  never reconciled if a manager closes the board one night and never
+  manually clicks "Start new day" before the next real session: on reload,
+  `simDate` trivially matches today, but `board_closed` stays `true` from
+  whenever it was last set (possibly several real days ago) and no routine
+  tickets were ever spawned for any of the intervening days, since only
+  `startNewDay()` spawns them.
+- **Decision (user-confirmed before writing code):** apply the catch-up
+  silently with a passive toast notice, not the same blocking confirmation
+  as the manual "Start new day" button (see C30) -- the day has already
+  moved on by the time anyone's looking, so gating it behind a click just
+  delays a manager from seeing today's real board.
+- **Fixed by:**
+  - `supabase/add-household-board-date.sql` adds
+    `households.board_date DATE NOT NULL DEFAULT CURRENT_DATE` -- the
+    calendar day the board was last explicitly rolled to, persisted so
+    staleness can be detected across reloads (not just within one
+    already-open tab). No new RLS policy needed (same household-scoped
+    `households_update_budget` UPDATE policy as `board_closed`). Per this
+    repo's own established caution: application code never trusts the
+    column's `CURRENT_DATE` default as an ongoing source of truth -- every
+    write is an explicit `toISODate()` string computed client-side, same
+    posture as `ledger_entries.doneTsIso` (Closed Gap C10). The default only
+    matters for a brand-new household's very first read.
+  - `task.actions.ts`'s `getBoardClosedFn` now also selects/returns
+    `boardDate`; new `setBoardDateFn({ token, date })` persists it, same
+    manager-only gating as `setBoardClosedFn`.
+  - `use-task-board.ts`'s mount fetch now sets `simDate` from the persisted
+    `boardDate` (guarded with a value-equality check inside a functional
+    `setSimDate` update, since `parseISODate()` -- new in `lib/time.ts` --
+    returns a fresh `Date` object every call, and an unguarded update would
+    loop through `refresh`'s own `simDate` dependency). A new
+    `rolloverNeededFor: Date | null` state, set by a `useEffect` keyed on
+    `nowTs`/`simDate` (`toISODate(new Date(nowTs)) > toISODate(simDate)`),
+    covers both real staleness scenarios with one check: a tab left open
+    across a real midnight (`simDate` stays fixed in memory while `nowTs`
+    ticks past it every 30s), and a multi-day-stale reload (`simDate`
+    initializes from the stale persisted `boardDate` above, already behind
+    on mount). `startNewDay(targetDate)` clears the flag when it actually
+    runs.
+  - `app-store-provider.tsx` watches `board.rolloverNeededFor`: when set, for
+    a signed-in `primary`/`co` manager session only (mirrors
+    `canStartNewDay`'s own gating -- a remote-only session leaves the flag
+    for a real manager session to pick up rather than attempting a call the
+    server's role check would 403), it runs the same `runDayRollover(target)`
+    used by C30's manual path (jumping straight to *today*, not
+    `simDate + 1`, so a multi-day-stale tab doesn't need N manual catch-up
+    cycles), then an **info** toast (not the success one) reporting the real
+    counts. A ref guard prevents re-entering while already in flight.
+- **Verification:** `tsc --noEmit`, scoped `eslint`, the Vitest suite, and a
+  full `vite build` all pass clean. This session had no service-role key
+  (same posture as every prior migration in this file), so
+  `supabase/add-household-board-date.sql` needs to be applied by hand before
+  auto-rollover works live -- flagging here so the next session doesn't
+  assume it's already applied, same posture as C17/C21/C27. Not yet verified
+  against a live signed-in session with a real multi-day-stale board.
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9-C21/C30. No realtime channel exists for `board_date`/
+  `rolloverNeededFor` across devices -- if two managers have the app open on
+  different devices, only the one whose `nowTs` first ticks past the
+  boundary (or whose fresh load first fetches a stale `boardDate`) performs
+  the rollover; the other picks up the result on its own next
+  `household-board-channel` refetch, same "not instant" posture already
+  accepted for `board_closed` in Closed Gap C17. **Also see Closed Gap
+  C32:** the `nowTs > simDate` trigger above is pure client `Date.now()`;
+  C32 gates the actual rollover fire on a server clock cross-check rather
+  than leaving the client comparison unverified.
+
+### C32. Auto-rollover (Closed Gap C31) trusted the device's own clock with no server-side cross-check (former Open Gap O2)
+
+- **Found:** 2026-08-16, discussing hardening options for C31's
+  just-shipped auto-rollover with the user, before any code was written for
+  this one.
+- **Root cause:** `use-task-board.ts`'s `rolloverNeededFor` effect fires a
+  real, irreversible household-wide Quick Utos `DELETE` (plus
+  routine-ticket inserts) purely off
+  `toISODate(new Date(nowTs)) > toISODate(simDate)` -- `nowTs` is
+  `clock.nowTs`, which is just the device's own `Date.now()` (ticking every
+  30s, see `use-sim-clock.ts` -- now-disabled sim offset aside, it has
+  always been plain client time, same as every other `nowTs`/
+  `toISODate(new Date())` call site in this app). Nothing about that
+  comparison was validated against anything outside the browser: a device
+  clock set wrong (accidentally or deliberately) forward would trip the
+  comparison immediately and fire a real delete on a false premise, with no
+  undo; a misconfigured timezone would shift what "today" means locally,
+  tripping the comparison a day early/late relative to the household's
+  actual PH day; and nothing bounded *how far* a jump was, so a wildly
+  wrong clock (stuck, epoch-adjacent, accidentally set years off) wasn't
+  treated any differently from a normal one-day catch-up.
+- **Decisions (user-confirmed before writing code):** reaching for
+  NTP/GPS/carrier time was rejected -- NITZ is OS-only and not queryable by
+  any app; NTP is UDP-based and unreachable from a browser; neither is
+  worth the complexity for what's only ever a calendar-day comparison, not
+  sub-second accuracy. Postgres's own clock is used instead, since it's
+  infrastructure-managed (NTP-synced, not user-controllable) and it's the
+  same system `board_date` is already stored in. Of the two options
+  discussed for reconciling the server round trip (once per mount, inside
+  `getBoardClosedFn`) against `rolloverNeededFor`'s comparison (every 30s
+  `nowTs` tick) -- deriving a persistent client/server offset (like the old
+  sim-clock `offsetMs`, but truth-sourced) vs. one fresh server round trip
+  right before the destructive action actually fires -- the second was
+  picked and scoped narrowly to the rollover trigger only: cheaper on the
+  server (no continuous polling), doesn't touch `use-sim-clock.ts`'s
+  `nowTs` or its other non-destructive consumers (availability status,
+  Quick Utos default recipient, the friction wall), and checks the server
+  at the one moment that actually matters. A sanity bound was added
+  regardless of clock source, per the user's ask.
+- **Fixed by:**
+  - `supabase/add-server-now-function.sql` adds a `stable` SQL function
+    `public.server_now() returns timestamptz` (`select now()`), granted to
+    `authenticated, anon` -- same grant shape as `current_household_id()`
+    in `fix-household-rls-recursion.sql`, though every real caller today is
+    authenticated. No `SECURITY DEFINER` needed (no table access, unlike
+    `current_household_id()`).
+  - `task.actions.ts` gained `getServerNowFn({ token })`: authenticates the
+    caller, then calls `.rpc("server_now")` and returns
+    `{ serverNowIso: string }`. Deliberately separate from `getBoardClosedFn`
+    (which still only round-trips once per mount) rather than folding the
+    server day into it, since this needs a *fresh* call right before the
+    rollover fires, not a stale mount-time snapshot.
+  - `use-task-board.ts` gained `dismissRollover()`, a thin
+    `setRolloverNeededFor(null)` wrapper -- clears the flag without running
+    the rollover, for the false-positive path below.
+  - `app-store-provider.tsx`'s auto-rollover effect now calls
+    `getServerNowFn` before calling `runDayRollover`, still gated the same
+    `primary`/`co` manager check as before:
+    - If the server's own day (`toISODate(new Date(serverNowIso))`) does
+      **not** exceed `simDate`, the device's clock was wrong -- this is
+      treated as an expected false-positive, not an error:
+      `board.dismissRollover()` clears the flag with no delete/respawn, and
+      a `rejectedRolloverDayRef` throttles re-verification to once per
+      distinct device-perceived day (so a device stuck on a wrong clock
+      doesn't hammer `getServerNowFn` on every 30s tick -- it naturally
+      resets once the device's perceived "today" changes).
+    - If the server agrees, the rollover fires against the **server's**
+      confirmed day (not the client's guessed one), so the two clock
+      sources can never disagree about what day was actually rolled to.
+    - Sanity bound: if the server-confirmed gap between `simDate` and today
+      exceeds `MAX_PLAUSIBLE_ROLLOVER_DAYS` (14), auto-rollover is skipped
+      entirely -- `rolloverNeededFor` is deliberately left **set** (not
+      cleared) in this branch, unlike the false-positive path, so the
+      per-tick effect doesn't immediately re-derive and retry it; a manager
+      can still catch up manually via "Start new day" (C30), which has no
+      such cap.
+- **Verification:** `tsc --noEmit`, scoped `eslint` (only the same
+  pre-existing CRLF/prettier noise documented in C22/C25 on unrelated
+  lines, filtered out), the Vitest suite, and a full `vite build` (SSR +
+  client) all pass clean. This session had no service-role key (same
+  posture as every prior migration in this file), so
+  `supabase/add-server-now-function.sql` was applied by the user directly
+  -- confirmed live 2026-08-16 with an anonymous PostgREST
+  `POST .../rest/v1/rpc/server_now`: a `200` response with a real
+  `timestamptz` value, not a "function does not exist" 404. Not yet
+  verified against a live signed-in session with a real clock-mismatch
+  scenario (the false-positive dismiss / sanity-bound-skip paths).
+- **Known residual limitation, not closed by this fix:** Same helper-auth
+  caveat as C9-C21/C30/C31. Multiple managers' devices can still disagree
+  about *when* to check (each ticks its own `nowTs` independently), but
+  once any of them does check, the server's own day is what actually gets
+  applied -- so a skewed-forward device can no longer force a false
+  rollover, it can only trigger an earlier (correctly-verified) real one.
+  The 14-day sanity bound is a fixed constant, not household-configurable;
+  a household genuinely unmanaged for more than two weeks needs a manual
+  "Start new day" click to catch up, same as before this fix for any
+  jump that size.
+
+### C33. C6's `break_start`/`break_end` columns were never propagated to `LINARA_MOBILE` -- the two apps disagreed about a helper's protected break, with pay consequences
+
+- **Found:** 2026-08-16, while fixing a `LINARA` Shifts display bug (see C34)
+  and auditing `LINARA_MOBILE` for the same class of mistake.
+- **Root cause:** C6 added `helper_profiles.break_start`/`break_end`
+  specifically so "the Ledger's `rest_break` classification and Availability's
+  on-shift check keep working." Both consumers it named live in `LINARA`, and
+  both were updated. `LINARA_MOBILE` was not: `services/api/helper-profile.ts`'s
+  `.select()` omitted the two columns, `lib/availability.ts`'s `ShiftWindow`
+  had no break fields, and `deriveRosaStatus` had no break concept at all.
+  This is exactly the cross-repo hazard `AGENTS.md` warns about -- `LINARA`
+  owns the schema, changed it, and the mobile client wasn't updated in step.
+  C6's own "Known residual limitation" section didn't mention mobile, so this
+  looks overlooked rather than deliberately deferred.
+- **Why it mattered:** During a break window (say 12:00-13:00), the manager's
+  web dashboard resolved the helper to **Off** -- the friction wall fired on
+  sends, and `use-ledger.ts`'s `classify()` tagged any work done then as
+  `rest_break`. The helper's own Worker's Station simultaneously showed **"On
+  Shift"** (`rosa-avail-control.tsx`). The two apps disagreed about protected
+  time, and that disagreement fed after-hours pay classification.
+- **Fixed by:** Teaching mobile the same break window `LINARA` already knew
+  about: `ShiftWindow` gains optional `breakStart`/`breakEnd`,
+  `deriveRosaStatus` excludes break minutes from `onShift` (falling through to
+  the manual-opt-in check exactly as web's `isMinuteInShift` -> `statusFor`
+  does), `getMyHelperProfile` selects and returns the two columns, and
+  `app/(app)/today.tsx` passes them through. No schema change -- the columns
+  already existed and already carried the right data. Both repos typecheck
+  clean.
+- **Known residual limitation, not closed by this fix:** The pre-claim
+  handshake path (`services/api/handshake.ts` -> the `lookup_pending_invite`
+  RPC) still returns no break columns, so the review-terms screen shown before
+  a helper claims their account can't display a break. That needs a SQL change
+  to the RPC's return shape, and breaks aren't collected at invite time
+  anyway (`invite-helper-modal.tsx` has no break inputs) -- so today there is
+  never a break to show at that point. Revisit if breaks ever become part of
+  the invited terms. Separately, neither app can represent a shift crossing
+  midnight (`minutes >= start && minutes < end` is always false when
+  `end < start`); quiet hours (22:00-06:00) mask most of that range and the
+  product only models day shifts, so it stays latent.
+
+### C34. `helper_profiles`' Postgres `TIME` columns come back as `"HH:MM:SS"`, which `LINARA`'s `parseHM` silently parsed as midnight
+
+- **Found:** 2026-08-16, from a user report that the Schedule > Shifts row
+  preview read "12:00 AM - 12:00 AM" while the expanded editor showed the
+  correct times.
+- **Root cause:** `src/lib/time.ts`'s `parseHM` matched `/^(\d{1,2}):(\d{2})$/`
+  -- no seconds -- and returned `0` on any non-match. Supabase returns
+  `shift_start`/`shift_end`/`break_start`/`break_end` (Postgres `TIME`) as
+  `"HH:MM:SS"`, so every one of them parsed to minute 0. The collapsed Shifts
+  row (`summarizeSchedule` -> `fmtHM12` -> `parseHM`) therefore always rendered
+  midnight-to-midnight. The editor looked fine only because
+  `<input type="time">` receives the raw string and parses `HH:MM:SS` natively,
+  never touching `parseHM`. The same silent `0` also broke `isMinuteInShift`
+  (`minutes >= 0 && minutes < 0` is never true, so every helper read as
+  permanently off-shift on the Availability grid) and `use-ledger.ts`'s
+  `rest_break` window check. Notably `LINARA_MOBILE` had this right all along
+  -- it uses `split(":")`, which ignores the extra component, and documents the
+  `"HH:MM:SS"` shape explicitly.
+- **Fixed by:** Replacing `parseHM`'s regex with a `split(":")` + range-check
+  parse -- deliberately the same approach `LINARA_MOBILE/lib/availability.ts`
+  already used, so the two repos now agree on how a `TIME` string is read.
+  This also tightened validation the regex never had: `\d{1,2}`/`\d{2}` happily
+  accepted `"99:99"` and turned it into minute 6039, past the end of the day;
+  out-of-range values now return 0 like any other unparseable input. (An
+  interim fix that just added an optional `:SS` to the regex tripped
+  `security/detect-unsafe-regex` -- a false positive, since every quantifier
+  was bounded, but the split version avoids the question entirely.)
+  Regression tests in `src/lib/time.test.ts` cover the Postgres shape, the
+  malformed cases, and the out-of-range cases.
+  A second, independent surface of the same blind spot: `use-invites.ts`'s
+  `toInvite` never formatted at all, emitting a raw `"06:00:00 - 19:00:00"`
+  into the People roster, the invite-code screen, and My Terms. Worse,
+  `Invite.shift` was doing double duty -- a display string on the read path and
+  a data carrier on the write path (`create()` recovered the times via
+  `data.shift.split(" - ")`). `Invite` now carries raw `shiftStart`/`shiftEnd`
+  alongside a display-only, `fmtHM12`-formatted `shift`, and `create()` takes
+  the raw fields directly instead of parsing a localized string back into data.
+- **Known residual limitation, not closed by this fix:** `parseHM` still
+  returns `0` rather than throwing on genuinely malformed input, so a future
+  format surprise degrades to midnight rather than failing loudly. Left as-is
+  because several call sites treat the schedule as optional and rely on a
+  non-throwing parse; a stricter version would need those audited first.
 
 ---
 
