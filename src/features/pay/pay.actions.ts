@@ -17,10 +17,89 @@ export interface PayslipRow {
   vale_deductions: number;
   net_pay: number;
   payout_channel_code: PayoutChannelCode;
-  payout_status: "pending_send" | "processing" | "succeeded" | "failed";
+  payout_status: "pending_send" | "processing" | "succeeded" | "failed" | "needs_review";
   failure_reason: string | null;
   requested_at: string;
   confirmed_at: string | null;
+}
+
+type AuthedClient = ReturnType<typeof createAuthedClient>;
+
+/** Attempt-level outcome. Rolled up to a payslip status in Postgres by
+ *  record_payout_attempt_result -- see supabase/add-payout-attempts.sql. */
+type AttemptStatus = "accepted" | "succeeded" | "failed" | "cancelled" | "ambiguous";
+
+/**
+ * Record an attempt's outcome and roll it up to the parent payslip in one
+ * transaction. Vale release is decided in Postgres (only 'failed'/'cancelled'
+ * release them -- never 'ambiguous', whose vales may already have been paid).
+ */
+async function recordAttempt(
+  client: AuthedClient,
+  attemptId: string,
+  status: AttemptStatus,
+  opts: { pspPayoutId?: string | null; failureReason?: string | null } = {},
+) {
+  const { error } = await client.rpc("record_payout_attempt_result", {
+    p_attempt_id: attemptId,
+    p_status: status,
+    p_psp_payout_id: opts.pspPayoutId ?? null,
+    p_failure_reason: opts.failureReason ?? null,
+  });
+  if (error) {
+    console.error("[initiatePayoutFn] Failed to record attempt result:", error.message);
+  }
+}
+
+/**
+ * Reconciliation: ask Xendit what actually happened to a reference id, rather
+ * than guessing. This is what makes an ambiguous outcome recoverable -- the
+ * industry-standard answer to "did the PSP get my request?" is to look it up
+ * by your own reference, not to replay an idempotency key and infer from the
+ * error. Returns null when the lookup itself fails (then, and only then, does
+ * the attempt land in 'ambiguous' for a human).
+ */
+async function lookupXenditPayout(
+  xenditUrl: string,
+  xenditKey: string,
+  referenceId: string,
+): Promise<{ id?: string; status?: string } | null> {
+  try {
+    const res = await fetch(
+      `${xenditUrl}/v2/payouts?reference_id=${encodeURIComponent(referenceId)}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Basic ${Buffer.from(`${xenditKey}:`).toString("base64")}` },
+      },
+    );
+    if (!res.ok) return null;
+    const payload = (await res.json()) as
+      { data?: Array<{ id?: string; status?: string }> } | Array<{ id?: string; status?: string }>;
+    const rows = Array.isArray(payload) ? payload : (payload.data ?? []);
+    return rows.length > 0 ? rows[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Xendit payout status -> our attempt status. */
+function attemptStatusFromXendit(status: string | undefined): AttemptStatus | null {
+  switch ((status ?? "").toUpperCase()) {
+    case "ACCEPTED":
+    case "REQUESTED":
+    case "PENDING":
+      return "accepted";
+    case "SUCCEEDED":
+    case "COMPLETED":
+      return "succeeded";
+    case "FAILED":
+      return "failed";
+    case "CANCELLED":
+    case "REVERSED":
+      return "cancelled";
+    default:
+      return null;
+  }
 }
 
 /**
@@ -49,6 +128,7 @@ export const listPayslipsFn = createServerFn({ method: "POST" })
 interface XenditPayoutResponse {
   id?: string;
   message?: string;
+  error_code?: string;
   errors?: Array<{ message?: string }>;
 }
 
@@ -67,6 +147,32 @@ interface XenditPayoutResponse {
  * it just means a manager sees the payslip and can tell (from the stuck
  * status) that the payout was never actually sent, distinct from a genuine
  * Xendit failure (which sets failure_reason). No auto-retry -- out of scope.
+ *
+ * Intent + attempts (Session A', supabase/add-payout-attempts.sql): the
+ * payslip is the INTENT (one per helper+cutoff, carrying the unique
+ * constraint), and every Xendit call is an append-only row in
+ * payout_attempts with its OWN reference id / Idempotency-key. The key is
+ * therefore transport-scoped -- it guards one HTTP request, not the cutoff
+ * forever. Business dedup is the unique constraint plus the status machine
+ * (only a 'failed' payslip may spawn another attempt).
+ *
+ * Outcome handling, in order of preference:
+ *   1. 2xx                 -> attempt 'accepted'   -> payslip 'processing'.
+ *   2. No response at all   -> DON'T GUESS. Look the reference id up via
+ *                              GET /v2/payouts?reference_id=... and adopt the
+ *                              real status. This is what makes an ambiguous
+ *                              send recoverable without human intervention.
+ *   3. Lookup also failed   -> attempt 'ambiguous' -> payslip 'needs_review'.
+ *                              Vales stay settled (they may already be paid)
+ *                              and initiate_payslip refuses a retry until a
+ *                              human reconciles.
+ *   4. Explicit rejection   -> attempt 'failed'    -> payslip 'failed', vales
+ *                              released, cutoff retryable with a FRESH key.
+ * The attempt -> payslip rollup and the vale release both happen inside
+ * record_payout_attempt_result, so they can't drift apart.
+ *
+ * Returns { payslipId, netPay, status } for the non-throwing outcomes and
+ * throws for a genuine failure (the UI toasts the thrown message).
  */
 export const initiatePayoutFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string; channelCode: PayoutChannelCode }) => data)
@@ -93,8 +199,12 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     const basePay = monthlyRate / cutoffs;
     const statutoryShare = computeStatutorySplit(monthlyRate).totalEmployee / cutoffs;
     const { cutoffStart, cutoffEnd } = currentCutoffRange(new Date(), paydayInterval);
-    const referenceId = crypto.randomUUID();
 
+    // No client-minted reference id any more: initiate_payslip derives it
+    // deterministically from (helper, cutoff) and reuses it across retries, so
+    // a retry replays the SAME Xendit Idempotency-key instead of minting a
+    // fresh one (the old crypto.randomUUID() per attempt was double-pay Vector
+    // A). See supabase/add-payslip-double-pay-guards.sql.
     const { data: rpcRows, error: rpcError } = await authedClient.rpc("initiate_payslip", {
       p_helper_id: helperId,
       p_cutoff_start: cutoffStart,
@@ -102,7 +212,6 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       p_base_pay: basePay,
       p_statutory_employee_share: statutoryShare,
       p_channel_code: channelCode,
-      p_reference_id: referenceId,
     });
 
     if (rpcError || !rpcRows?.[0]) {
@@ -111,16 +220,28 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
 
     const payslipId = rpcRows[0].payslip_id as string;
     const netPay = Number(rpcRows[0].net_pay);
+    const attemptId = rpcRows[0].attempt_id as string;
+    const referenceId = rpcRows[0].reference_id as string;
 
     const xenditKey = process.env.XENDIT_SECRET_WRITE_KEY || "";
     const xenditUrl = process.env.XENDIT_API_URL || "https://api.xendit.co";
 
-    try {
-      if (!xenditKey) {
-        throw new Error("XENDIT_SECRET_WRITE_KEY is not configured");
-      }
+    if (!xenditKey) {
+      // Nothing was ever sent -- definitively failed, so the vales are freed
+      // and the cutoff stays retryable once the key is configured.
+      await recordAttempt(authedClient, attemptId, "failed", {
+        failureReason: "XENDIT_SECRET_WRITE_KEY is not configured",
+      });
+      throw new Error("XENDIT_SECRET_WRITE_KEY is not configured");
+    }
 
-      const response = await fetch(`${xenditUrl}/v2/payouts`, {
+    // (1) Send the payout. This attempt's reference id is fresh, so it is
+    // BOTH the Xendit reference_id and the Idempotency-key -- the key protects
+    // an in-process network retry of this one request, nothing more. Business
+    // dedup is payslips_one_per_cutoff plus the status machine.
+    let response: Response;
+    try {
+      response = await fetch(`${xenditUrl}/v2/payouts`, {
         method: "POST",
         headers: {
           Authorization: `Basic ${Buffer.from(`${xenditKey}:`).toString("base64")}`,
@@ -134,45 +255,79 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
             account_holder_name: helperRow.name,
             account_number: helperRow.phone,
           },
+          // Xendit v2/payouts takes a DECIMAL amount in major units (PHP), not
+          // centavos -- sending cents once paid out 100x (KNOWN_GAPS.md C35).
+          // The *100/100 is a round-to-2-decimals idiom, NOT a unit
+          // conversion; do not "simplify" the /100 away.
           amount: Math.round(netPay * 100) / 100,
           currency: "PHP",
           description: `LINARA payout ${cutoffStart} to ${cutoffEnd}`,
         }),
       });
+    } catch (networkErr) {
+      // No response at all -- Xendit may or may not have received this. Don't
+      // guess: ask them what happened to this reference id.
+      const detail = networkErr instanceof Error ? networkErr.message : "network error";
+      const found = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const resolved = found ? attemptStatusFromXendit(found.status) : null;
 
-      const body: XenditPayoutResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          body.message || body.errors?.[0]?.message || `Xendit error ${response.status}`,
-        );
+      if (resolved) {
+        await recordAttempt(authedClient, attemptId, resolved, {
+          pspPayoutId: found?.id ?? null,
+          failureReason: resolved === "accepted" ? null : `Xendit reports ${found?.status}`,
+        });
+        if (resolved === "accepted" || resolved === "succeeded") {
+          return { payslipId, netPay, status: "processing" as const };
+        }
+        throw new Error(`Hindi natuloy ang payout — Xendit reports ${found?.status}.`);
       }
 
-      const { error: updateError } = await authedClient
-        .from("payslips")
-        .update({ payout_status: "processing", payout_external_id: body.id ?? null })
-        .eq("id", payslipId);
-
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown Xendit error";
-
-      await authedClient
-        .from("payslips")
-        .update({ payout_status: "failed", failure_reason: message })
-        .eq("id", payslipId);
-
-      // Unsettle so the vales this attempt claimed are eligible for the next
-      // "Pay Now" click instead of being silently stuck against a failed payslip.
-      await authedClient
-        .from("vales")
-        .update({ settled_in_payslip_id: null })
-        .eq("settled_in_payslip_id", payslipId);
-
-      throw new Error(message);
+      // Lookup failed too. Only NOW is it genuinely ambiguous.
+      await recordAttempt(authedClient, attemptId, "ambiguous", {
+        failureReason: `Couldn't confirm the payout reached Xendit (${detail}), and the reference lookup also failed. Reconcile in the Xendit dashboard before retrying.`,
+      });
+      throw new Error(
+        "Hindi makumpirma kung natanggap ng Xendit ang payout. Naka-hold para i-review — tignan sa Xendit bago ulitin.",
+      );
     }
 
-    return { payslipId, netPay };
+    const body: XenditPayoutResponse = await response
+      .json()
+      .catch(() => ({}) as XenditPayoutResponse);
+
+    // (2) Xendit accepted (2xx).
+    if (response.ok) {
+      await recordAttempt(authedClient, attemptId, "accepted", { pspPayoutId: body.id ?? null });
+      return { payslipId, netPay, status: "processing" as const };
+    }
+
+    // (3) Xendit replied with an error. A duplicate here means this attempt's
+    // key was somehow already used -- which should be impossible now that keys
+    // are per-attempt and UNIQUE. Treat it as a bug signal, but resolve it the
+    // safe way: look the reference up rather than assume.
+    const errorText = `${body.error_code ?? ""} ${body.message ?? ""} ${body.errors?.[0]?.message ?? ""}`;
+    const isDuplicate = response.status === 409 || /duplicate|idempotency[ -]?key/i.test(errorText);
+
+    if (isDuplicate) {
+      const found = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const resolved = found ? attemptStatusFromXendit(found.status) : null;
+      await recordAttempt(authedClient, attemptId, resolved ?? "ambiguous", {
+        pspPayoutId: found?.id ?? null,
+        failureReason: resolved
+          ? null
+          : "Xendit reported a duplicate idempotency key but the reference lookup found nothing. Reconcile before retrying.",
+      });
+      if (resolved === "accepted" || resolved === "succeeded") {
+        return { payslipId, netPay, status: "processing" as const };
+      }
+      throw new Error(
+        "Duplicate na naiulat ang Xendit para sa payout na ito. Naka-hold para i-review.",
+      );
+    }
+
+    // Genuine rejection: Xendit received it and said no (bad account number,
+    // insufficient balance, ...). Safe to retry -- vales are freed in Postgres.
+    const message = body.message || body.errors?.[0]?.message || `Xendit error ${response.status}`;
+    await recordAttempt(authedClient, attemptId, "failed", { failureReason: message });
+    throw new Error(message);
   });

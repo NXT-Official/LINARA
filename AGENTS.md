@@ -15,6 +15,7 @@ implementing, reviewing, or modifying anything here, read:
 **Cross-repo context — do not treat this app in isolation:**
 
 - Both apps point at the **same** Supabase project (`SUPABASE_URL` here == `EXPO_PUBLIC_SUPABASE_URL` in `../LINARA_MOBILE/.env`). This app is the schema owner — a change here to a table, column, or RLS policy that `../LINARA_MOBILE` also reads/writes will break the mobile client unless both are updated together.
+- **There is only that one project, and as of 2026-08-16 it holds sandbox/test data only** — no real household is onboarded, and the paired Xendit account is sandbox. So *data* in it is disposable (deleting a bad row is usually better than engineering around it), while *schema* changes are still one-way and applied by hand. This stops being true the moment a real household signs up; RA 10361's payslip-retention obligation attaches at that point. See the environment note at the top of `KNOWN_GAPS.md`'s Closed Gaps section.
 - `public.helper_notes` is RLS-isolated per helper (the "Privacy Wall") — no code path in either app may let a manager read it.
 - This web app is manager-facing (Pass, Board, Money, People, Schedule). The helper-facing Worker's Station lives exclusively in `../LINARA_MOBILE`.
 - If `../LINARA_MOBILE/plan.md` or `../LINARA_MOBILE/architecture.md` describe a flow or schema detail that conflicts with this repo's docs, treat this repo as canonical for anything schema-related and flag the discrepancy rather than silently picking one.

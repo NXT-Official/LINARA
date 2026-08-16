@@ -57,8 +57,19 @@ the bottom.
 
 ## Closed Gaps
 
-Fixed and applied to the live database. Kept here so neither repo
+Fixed and applied to the shared Supabase database. Kept here so neither repo
 re-investigates something already resolved.
+
+> **Environment note (corrected 2026-08-16):** there is exactly **one**
+> Supabase project, and it currently holds **sandbox/test data only** — no real
+> household is on it yet, and the paired Xendit account is sandbox. Earlier
+> entries (and `PAYMENTS_REMEDIATION.md`) described the payout path as "live",
+> which was true in the sense that the code path works end to end, but **not**
+> in the sense of real money or real kasambahay payroll records. Schema caution
+> still applies — it is the only project, and everything here is applied by
+> hand — but data caution does not: rows in it are disposable. Revisit this
+> note the moment a real household is onboarded, because the retention
+> obligations in RA 10361 attach at that point.
 
 ### C1. `user_profiles_isolation` (and every household_id policy copying its pattern) caused infinite recursion (Postgres 42P17)
 
@@ -1061,6 +1072,13 @@ XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
   URL, subscribed to `payout.succeeded`/`payout.failed`/`payout.reversed`)
   before a real payout's confirmation can ever land -- none of that is
   something this session could do without dashboard access.
+- **Correction, 2026-08-16:** the "not yet live" note above is **stale** --
+  `payslips`/`vales.settled_in_payslip_id` have since been applied and are
+  live (user-confirmed). Treat the payout path as production from here on.
+  A separate 2026-08-16 audit found three real defects in it (reachable
+  double-pay, timezone-broken cutoffs, and rest-owed shown as pay but never
+  paid) -- see [`PAYMENTS_REMEDIATION.md`](PAYMENTS_REMEDIATION.md) for the
+  evidence and the session-by-session plan. None of those are fixed yet.
 - **Known residual limitation, not closed by this fix:** Same helper-auth
   caveat as C9-C20 is moot here specifically, since `initiate_payslip`'s
   own manager-only check would reject a genuine helper session regardless.
@@ -1824,6 +1842,237 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   format surprise degrades to midnight rather than failing loudly. Left as-is
   because several call sites treat the schedule as optional and rely on a
   non-throwing parse; a stricter version would need those audited first.
+
+### C35. Xendit payouts were sent at 100x their value -- `v2/payouts` takes major units, not cents
+
+- **Found:** 2026-08-16, during the Session 0 verification pass of
+  `PAYMENTS_REMEDIATION.md` (a user-reported "the ~3,250 peso transaction
+  became PHP 356,250.00"). The code defect itself had already been fixed
+  two days earlier without a gap entry; this records it, and the residual
+  data divergence it left behind.
+- **Root cause:** `src/features/pay/pay.actions.ts` sent
+  `amount: Math.round(netPay * 100)` -- the minor-units (centavos)
+  convention used by Stripe and most card processors. Xendit's
+  `POST /v2/payouts` takes a **decimal amount in major units (PHP)**, so
+  every payout was requested at 100x its intended value. Introduced in
+  `9d88674` (2026-08-14 05:00:45 +0800), fixed in `e1266c5`
+  (2026-08-14 21:07:27 +0800) by changing it to
+  `Math.round(netPay * 100) / 100`, which is now just a round-to-2-decimals
+  idiom and no longer a unit conversion. Worth stating plainly so the next
+  reader doesn't "simplify" it back: **the `* 100` and the `/ 100` are not
+  redundant, and removing both would reintroduce unrounded floats; removing
+  only the `/ 100` reintroduces this bug.**
+- **Why it wasn't caught:** nothing asserts the unit anywhere. There is no
+  test on the request body, the `payslips` table stores `net_pay` in pesos
+  while the wire format was centavos, and Xendit accepted the request
+  without complaint -- an implausibly large payout is a business decision as
+  far as their API is concerned, so the only signal was the amount showing
+  up wrong in their dashboard.
+- **Known residual limitation, not closed by the code fix:** the one payslip
+  row that exists in the live database (`helper_id e13ecc26...`, cutoff
+  `2026-08-01 -> 2026-08-15`, `requested_at 2026-08-14 12:59:41+00`) was
+  created **8 minutes before** the fix landed, so it is one of these. Its
+  stored `net_pay` is in pesos while the payout Xendit actually received was
+  100x that -- **`payslips` and Xendit's ledger disagree for this row**, and
+  it was sitting in `payout_status = 'processing'` because the corresponding
+  Xendit payout never reached a terminal state. Sandbox money, user-confirmed
+  2026-08-16, so no real funds are exposed. **Cancelled at Xendit 2026-08-16**
+  (`POST /v2/payouts/{id}/cancel` on `disb-5fae2444-...`, response
+  `status: "CANCELLED"`; a read-only GET beforehand confirmed it was still
+  `ACCEPTED` and thus cancellable, with `estimated_arrival_time
+  2026-08-17T03:00:00Z` -- scheduled to disburse, not frozen). Re-verified by
+  GET on 2026-08-16: `status: "CANCELLED"`, `amount: 356250`,
+  `updated 2026-08-16T08:02:49Z`. The 100x payout will not disburse. This is a
+  live instance of exactly the divergence `PAYMENTS_REMEDIATION.md`'s Session D
+  reconciliation view is meant to catch.
+- **Open sub-item left for the maintainer to verify in the SQL editor** (the
+  app's anon key can't read `payslips` through RLS): whether the
+  cancellation's `payout.failed`/`payout.reversed` callback actually flipped
+  the row (`processing` -> `failed`, `confirmed_at` set) and unsettled its
+  vale back to the pool. If it did **not** flip, the row stays `processing`,
+  and Session A's partial unique index on
+  `(helper_id, cutoff_start, cutoff_end) WHERE payout_status <> 'failed'`
+  would lock the Aug 1-15 cutoff permanently -- so Session A must resolve this
+  legacy row (via the planned `needs_review` path or a manual status
+  correction) as part of landing that index. This is also the first
+  opportunity to observe the webhook writing into `payslips` end to end (see
+  next bullet).
+- **Separately confirmed in the same pass:** no payslip row has **ever**
+  reached `succeeded` or `failed` (Session 0 Q4 returned a single
+  `processing` row and nothing else). The Xendit webhook subscription is
+  correctly configured and a 10k test disbursement did succeed, but that
+  disbursement was made directly against Xendit's API and has no `payslips`
+  row, so `xendit-payout-webhook` writing back into `payslips` remains
+  **unverified end to end**. Configuration being right is not the same as
+  delivery being observed; C21 recorded the former as the open question and
+  it is the latter that is still open.
+
+### C36. Double-pay was reachable two ways -- a retry minted a fresh idempotency key, and the duplicate guard had no constraint behind it
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session A).
+  **Closed:** 2026-08-16 -- `supabase/add-payslip-double-pay-guards.sql`
+  applied by hand in the Supabase SQL editor by the maintainer, same posture as
+  C17/C21/C27/C31.
+- **Vector A (retry after an ambiguous failure):** `pay.actions.ts` minted
+  `referenceId = crypto.randomUUID()` per attempt and sent it as Xendit's
+  `Idempotency-key`. Every retry was therefore a *different* request to Xendit,
+  so their idempotency could never collapse it. Worse, the `catch` swallowed
+  **every** post-`fetch` throw as `payout_status = 'failed'` and unsettled the
+  vales -- including a JSON parse error, a timeout, or a failure of the
+  *follow-up status UPDATE* after Xendit had already returned 200. The manager
+  saw "Failed", clicked Pay again, and a second real payout went out.
+- **Vector B (TOCTOU race):** `initiate_payslip` did
+  `IF EXISTS (...) RAISE` then `INSERT`, with no unique constraint behind it.
+  Under READ COMMITTED two concurrent transactions both passed the `EXISTS`
+  check and both inserted. The table's only `UNIQUE` was on
+  `payout_reference_id`, a fresh UUID per call, so it never collided. The UI's
+  `paying` state guards one component instance -- two managers, or one manager
+  in two tabs, defeats it.
+- **Fixed by:** `supabase/add-payslip-double-pay-guards.sql` plus
+  `src/features/pay/`:
+  1. **Reference id is now derived inside the RPC**, deterministically as
+     `md5(helper:cutoff_start:cutoff_end)::uuid`, and a retry **reuses the
+     existing row's id** -- so a retry replays the SAME Idempotency-key and
+     Xendit collapses it. `pay.actions.ts` no longer mints one.
+  2. **`UNIQUE INDEX payslips_one_per_cutoff (helper_id, cutoff_start,
+     cutoff_end)`** -- deliberately NOT the partial
+     `WHERE payout_status <> 'failed'` index `PAYMENTS_REMEDIATION.md`
+     originally sketched. A failed attempt is retried by **updating the row in
+     place**, never by inserting a second one, so there is only ever one row
+     per cutoff. The partial-index shape is incompatible with reusing the
+     reference id (the rows would collide on `payout_reference_id`, and
+     `xendit-payout-webhook` -- which matches on `reference_id` -- would face
+     two rows with the same id and could not tell which to update). Per-attempt
+     history is deferred to Session D's `supersedes_payslip_id`.
+  3. **`SELECT ... FOR UPDATE`** on the per-cutoff row, serializing two
+     concurrent calls, plus a `unique_violation` handler around the INSERT so
+     the loser of a concurrent-insert race gets the friendly "A payslip already
+     exists for this cutoff" rather than a raw constraint error.
+  4. **New `needs_review` status** for genuinely ambiguous outcomes (no
+     response from Xendit, or Xendit accepted but our bookkeeping write
+     failed). It does **not** unsettle vales and the RPC **refuses to retry
+     it** -- only a `failed` row is retryable. `pay.actions.ts` now
+     distinguishes three outcomes instead of collapsing everything into
+     `failed`; see its doc comment for the taxonomy. Mirrored into
+     `../LINARA_MOBILE` (`services/api/payslips.ts` `PayoutStatus`, and both
+     `Record<PayoutStatus, ...>` maps in `components/features/pay/
+     payslip-history.tsx`) so the helper's app renders the new status -- the
+     C33 cross-repo lesson applied preemptively this time.
+- **Verified against a real Postgres**, not just by reading: the migration was
+  applied to a throwaway `postgres:15-alpine` container with a minimal schema
+  fixture (the only failure being `role "authenticated" does not exist`, absent
+  outside Supabase), re-applied twice more to prove idempotency, and then
+  exercised with **two genuinely overlapping transactions** -- session A holding
+  an open transaction inside the RPC while session B entered it for the same
+  helper+cutoff. Result: exactly **one** payslip row; session B got the
+  friendly error. Both race paths were hit independently -- the concurrent
+  INSERT caught by the unique index, and the existing-row case caught by the
+  `FOR UPDATE` + status guard. Also confirmed: the reference id matches
+  `md5(...)` exactly, `needs_review` blocks a retry, and a `failed` row is
+  retried **in place** (same row id, same reference id, count still 1, vale
+  re-settled).
+- **Known limitation, deliberately accepted:** reusing the reference id means a
+  payout **cancelled** at Xendit can never be re-sent for that cutoff -- the
+  replayed key returns DUPLICATE and the row would park in `processing` for a
+  payout that isn't in flight. The escape hatch (rotate the stored reference
+  id) is documented with ready-to-run SQL in the migration's header comment.
+  This applies to the one pre-existing row from C35, whose reference id Xendit
+  already knows as CANCELLED.
+- **Still open, carried into Session B:** `initiate_payslip` continues to
+  accept `p_cutoff_start`/`p_cutoff_end` from the caller, so the guard is only
+  as trustworthy as `pay.actions.ts`'s (timezone-broken) arithmetic. Session B
+  moves the derivation inside the function. Also unresolved: Xendit's
+  idempotency **retention window** is undocumented, so the duplicate-replay
+  defence is unproven past an unknown horizon, and the duplicate-detection
+  match in `pay.actions.ts` (HTTP 409 or a duplicate/idempotency hint in the
+  body) is defensive rather than confirmed against a real replay.
+
+### C37. C36 conflated business idempotency with transport idempotency, making a cancelled payout unrepayable
+
+- **Found:** 2026-08-16, immediately after C36 shipped -- the race-proof harness
+  surfaced the dead end, and a review of standard payment-system practice
+  confirmed the root cause was structural rather than a bug.
+  **Closed:** 2026-08-16 -- both files applied by hand in the Supabase SQL
+  editor by the maintainer, in the required order:
+  `supabase/cleanup-c35-legacy-payslip.sql` **first** (it targets rows by
+  `payslips.payout_reference_id`), then `supabase/add-payout-attempts.sql`
+  (which drops that column). Re-running either is safe.
+- **Root cause:** there are two distinct idempotency problems and C36 solved
+  both with one mechanism.
+  - **Business idempotency** -- "never create two payouts for one cutoff".
+    Scope: the logical payout. Lifetime: permanent. Correct mechanism: a DB
+    unique constraint. C36 got this right and it is unchanged
+    (`payslips_one_per_cutoff`).
+  - **Transport idempotency** -- "never let one network retry become two API
+    calls". Scope: a single HTTP request. Lifetime: the PSP's retention window
+    (Stripe/Adyen ~24h; Xendit's is undocumented, Session 0 Q6). Correct
+    mechanism: a per-**attempt** key.
+
+  C36 derived one key per `(helper, cutoff)` and reused it forever, which made
+  a transport-scoped mechanism permanent. Two consequences: (1) a payout
+  **cancelled** at Xendit could never be re-sent for that cutoff -- the
+  replayed key returns DUPLICATE, so the caller marked the row `processing` for
+  a payout that was not in flight, a dead end; and (2) the protection silently
+  expires anyway once the PSP forgets the key, at which point reuse buys no
+  deduplication while still blocking a legitimate re-send. Worst of both.
+- **Fixed by** adopting the intent + attempts model that Stripe
+  (PaymentIntent -> Charges), Adyen and PayPal all use:
+  - **`public.payout_attempts`** (`supabase/add-payout-attempts.sql`) --
+    append-only, one row per Xendit API call, each with its own UNIQUE
+    `reference_id` (sent as both Xendit's `reference_id` and the
+    `Idempotency-key`), `psp_payout_id`, `status`, and `amount_sent` snapshot.
+    That last column is exactly what C35 lacked: a per-attempt record of what
+    was actually requested, which is what makes reconciliation possible.
+    RLS via `payout_attempts -> payslips -> helper_profiles`, one hop further
+    out than `payslips_isolation`.
+  - **`record_payout_attempt_result`** -- single place that maps an attempt
+    status to a payslip status and decides vale release, called by both the web
+    caller and the webhook so the two can't implement it differently.
+    `cancelled` maps to payslip `failed` (the payout is definitively not
+    happening, so the cutoff should be retryable); only `failed`/`cancelled`
+    release vales -- never `ambiguous`, whose vales may already have been paid.
+  - **`initiate_payslip` rewritten** to spawn a fresh attempt with a fresh
+    `gen_random_uuid()` key. Same guards and the same `FOR UPDATE` +
+    unique-index race protection as C36.
+  - **`pay.actions.ts` now reconciles instead of guessing.** On no response it
+    calls `GET /v2/payouts?reference_id=...` and adopts the real status; only
+    if that lookup *also* fails does the attempt become `ambiguous` ->
+    `needs_review`. This is the standard answer to "did the PSP get my
+    request?" and it makes most previously-ambiguous sends self-resolving.
+  - **`xendit-payout-webhook` resolves via `payout_attempts.reference_id`**
+    rather than the dropped `payslips.payout_reference_id`, and delegates the
+    rollup to the RPC. Also now handles `payout.cancelled`.
+  - `payslips.payout_reference_id` **dropped** (it lives on the attempt now;
+    a second copy would only drift). `payout_external_id` kept as a
+    denormalized mirror of the latest attempt for the Money tab. Neither is
+    selected by `../LINARA_MOBILE` and neither was in this repo's `PayslipRow`,
+    so both clients are unaffected -- verified, not assumed.
+- **Verified against a real Postgres**, same harness as C36: both migrations
+  applied in order to a throwaway `postgres:15-alpine`, the attempts migration
+  re-applied twice more to prove idempotency, then seven behavioural tests. Two
+  overlapping transactions still yield exactly one payslip and one attempt;
+  `accepted` -> `processing`; a retry is blocked while `processing` and while
+  `needs_review`; `ambiguous` does **not** release vales; an invalid status is
+  rejected. The decisive one: **`cancelled` -> payslip `failed`, vale released,
+  and the retry produced attempt #2 with a brand-new reference id** -- the dead
+  end C36 documented as an accepted limitation is now structurally impossible,
+  with attempt #1 preserved as history.
+- **Why this was worth doing now rather than later:** the database holds
+  sandbox/test data only (see the environment note at the top of this section),
+  so the restructure cost one deleted row instead of a data migration against
+  real payroll. It also lands before Session B rewrites `initiate_payslip`
+  again, so that function settles into its final shape once instead of twice.
+- **Known residual limitations:** (1) the duplicate-detection match in
+  `pay.actions.ts` (HTTP 409 or a duplicate/idempotency hint in the body) is
+  still defensive rather than confirmed against a real Xendit replay, though it
+  now matters far less since a duplicate on a per-attempt key would indicate a
+  bug rather than a normal retry; (2) the shape of Xendit's
+  `GET /v2/payouts?reference_id=` response is assumed to be either a bare array
+  or `{data: [...]}` and should be confirmed against a real call; (3) a payslip
+  still carries a rolled-up snapshot that is **mutated in place** on retry, so
+  the per-attempt history is authoritative and the payslip is a cache of the
+  latest attempt -- acceptable while data is disposable, and worth revisiting
+  against RA 10361's retention obligation before a real household is onboarded.
 
 ---
 

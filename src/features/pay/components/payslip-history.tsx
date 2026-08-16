@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Clock, Smartphone, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Smartphone, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { fmtPeso } from "@/features/groceries/grocery.utils";
@@ -13,16 +13,26 @@ const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = {
   processing: "Processing",
   succeeded: "Paid",
   failed: "Failed",
+  needs_review: "Needs review",
 };
 
 function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
-  const Icon = status === "succeeded" ? CheckCircle2 : status === "failed" ? XCircle : Clock;
+  const Icon =
+    status === "succeeded"
+      ? CheckCircle2
+      : status === "failed"
+        ? XCircle
+        : status === "needs_review"
+          ? AlertTriangle
+          : Clock;
   const tone =
     status === "succeeded"
       ? "text-emerald bg-emerald/10"
       : status === "failed"
         ? "text-destructive bg-destructive/10"
-        : "text-accent bg-accent/10";
+        : status === "needs_review"
+          ? "text-amber-600 bg-amber-500/10"
+          : "text-accent bg-accent/10";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}
@@ -47,7 +57,10 @@ export function PayslipHistory({
 }: {
   helper: Helper | null;
   payslips: Payslip[];
-  onPayNow: (helperId: string, channelCode: PayoutChannelCode) => Promise<unknown>;
+  onPayNow: (
+    helperId: string,
+    channelCode: PayoutChannelCode,
+  ) => Promise<{ status: Payslip["payoutStatus"] }>;
 }) {
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
 
@@ -63,8 +76,14 @@ export function PayslipHistory({
   const pay = async (channelCode: PayoutChannelCode) => {
     setPaying(channelCode);
     try {
-      await onPayNow(helper.id, channelCode);
-      toast.success(`Payout sent via ${channelCode === "PH_GCASH" ? "GCash" : "Maya"}.`);
+      const result = await onPayNow(helper.id, channelCode);
+      if (result?.status === "needs_review") {
+        toast.warning(
+          "Hindi makumpirma ang payout — naka-hold para i-review. Tignan sa Xendit bago ulitin.",
+        );
+      } else {
+        toast.success(`Payout sent via ${channelCode === "PH_GCASH" ? "GCash" : "Maya"}.`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Hindi na-send ang payout. Subukan ulit.");
     } finally {
@@ -84,7 +103,14 @@ export function PayslipHistory({
           </h3>
         </div>
         {currentCutoffPayslip ? (
-          <StatusBadge status={currentCutoffPayslip.payoutStatus} />
+          <div className="flex flex-col items-end gap-1">
+            <StatusBadge status={currentCutoffPayslip.payoutStatus} />
+            {currentCutoffPayslip.payoutStatus === "needs_review" && (
+              <span className="text-[10px] text-amber-600 text-right max-w-[11rem]">
+                Reconcile against Xendit before retrying.
+              </span>
+            )}
+          </div>
         ) : (
           <div className="flex gap-2">
             <button
