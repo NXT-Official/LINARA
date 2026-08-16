@@ -361,6 +361,52 @@ The line that must never soften: Available means "you may disturb me," never "th
 
 break work is flagged distinctly because it matters most.
 
+> **Implementation status of the two paragraphs above — as of 2026-08-17.**
+> This section is the product intent; here is how much of it the code actually
+> backs, so nobody reads it as a description of what ships today. Full detail in
+> [`KNOWN_GAPS.md`](KNOWN_GAPS.md) C39 and
+> [`PAYMENTS_REMEDIATION.md`](PAYMENTS_REMEDIATION.md) Session C.
+>
+> - **Built.** Rest owed accrues in minutes and is now *redeemable*: the
+>   kasambahay requests a date and a time range from her own app, a manager
+>   approves it, and the minutes are debited. Before this, "owed" was a word
+>   with no mechanism behind it — the balance only ever went up.
+> - **Built.** "Surfaced to both sides as the same number" is enforced
+>   structurally, not by convention: the Manager's Money tab, My Pay, and the
+>   server-side approval guard all read one Postgres function
+>   (`rest_owed_balance_minutes`), so they cannot drift apart.
+> - **Built.** Rest-day and rest-break work stay flagged distinctly —
+>   `ledger_entries.reason` already carries `rest_day` / `rest_break`
+>   separately from `available` / `override` / `emergency`.
+> - **Fixed, and it had been backwards.** The Manager's Pay Dial used to show
+>   rest owed as *pesos* at a hardcoded ₱120/hr and add it into net pay —
+>   money no payout ever contained (`initiate_payslip` never read the ledger),
+>   at roughly 4x any wage-derived rate, and inverted: it monetized the
+>   rest-owed minutes while silently dropping the premium ones. It now shows
+>   time, outside net pay.
+> - **Deferred — no cash path exists.** The "distinct, secondary resolution…
+>   rest-day premium" is recorded in the data (`resolution_type = 'premium_pay'`)
+>   but nothing pays it, by decision rather than oversight. Two things need
+>   settling first: whether Batas Kasambahay's premium actually applies to a
+>   kasambahay the way the Labor Code's does to a regular employee (RA 10361 is
+>   a special law and carries no overtime schedule of its own), and if so at
+>   what rate — +25% is the Labor Code's *ordinary-day* overtime figure, while
+>   the *rest-day* figure is +30%, and this paragraph ties premium to rest-day
+>   work. Worth confirming against current DOLE guidance before anyone is paid
+>   on it.
+> - **Consequence of that deferral, worth knowing.** Because premium minutes
+>   were excluded from the rest-owed counter *and* never paid, they previously
+>   accrued to nothing at all. They are now counted into the redeemable rest
+>   balance, so rest-day work is not worth less than ordinary off-shift work
+>   while the policy is pending. They keep their `premium_pay` tag, so a future
+>   cash decision converts only the minutes not already taken as time.
+> - **Not built — the one real gap against this section.** "Keep the resolution
+>   type flexible per worker" is *not* true yet. `helper_profiles.employment`
+>   ('live-in' / 'live-out') exists, but the rest-vs-premium default is still
+>   ephemeral client state (`useState` in `use-ledger.ts`), household-wide and
+>   reset on reload — it is neither persisted nor per-worker. A live-out day
+>   helper cannot yet "lean back toward an hourly/OT model" as this describes.
+
 ### — The override deliberate friction
 
 #### The confirmation fires only when reaching an Off helper:

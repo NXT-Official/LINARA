@@ -17,11 +17,20 @@ Shifts display bug.
   which made a *cancelled* payout unrepayable. See `KNOWN_GAPS.md` C37. This
   also absorbed most of what Session D was going to be — the append-only
   `payout_attempts` table supersedes the planned `supersedes_payslip_id`.
-- **Session B (Postgres time frame) — NOT STARTED.** Next up, and now smaller:
-  `initiate_payslip` has already settled into its final shape, so B only has to
-  move the cutoff derivation inside it.
-- **Session C (rest-owed) — BLOCKED** on the cash-vs-time-off-in-lieu product
-  decision.
+- **Session B (Postgres time frame) — COMPLETE 2026-08-16, migration NOT YET
+  APPLIED.** `supabase/add-household-timezone-and-cutoffs.sql` is written and
+  verified against a throwaway Postgres, but still needs running in the
+  Supabase SQL editor. See `KNOWN_GAPS.md` C38. **The code in both repos
+  already expects it** (`initiate_payslip` is called without cutoff arguments,
+  and `getServerNowFn` reads `household_today()`), so payouts and the
+  auto-rollover cross-check will fail until it is applied.
+- **Session C (rest-owed) — DECIDED and COMPLETE 2026-08-16, migration NOT YET
+  APPLIED.** `supabase/add-rest-off-requests.sql`. **Decision: after-hours work
+  is TIME, not money** — rest owed accrues in hours/minutes and is redeemed by
+  the kasambahay requesting a date + range that the manager approves. Cash
+  treatment of rest-day premium is deferred to a future decision; no peso path
+  was built. See `KNOWN_GAPS.md` C39, including the judgement call about
+  `premium_pay` minutes and the two bugs the concurrency test caught.
 
 A fourth defect surfaced during Session 0 (Xendit payouts sent at 100x value),
 recorded as `KNOWN_GAPS.md` C35. Its code fix had already shipped; the one

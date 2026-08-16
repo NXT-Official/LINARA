@@ -2074,6 +2074,200 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   latest attempt -- acceptable while data is disposable, and worth revisiting
   against RA 10361's retention obligation before a real household is onboarded.
 
+### C38. Cutoff dates were derived in JS from local Date components and formatted as UTC, so client and server disagreed about "this cutoff"
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session B).
+  **Migration written 2026-08-16; NOT YET APPLIED** --
+  `supabase/add-household-timezone-and-cutoffs.sql`.
+- **Root cause:** `src/features/pay/pay.utils.ts`'s `currentCutoffRange` built
+  a `Date` from **local** components (`getFullYear`/`getMonth`/`getDate`) and
+  then rendered it with `toISOString()` (**UTC**). Confirmed by running the
+  real function under three zones:
+
+  | `TZ` | `Aug 10 04:00Z` | `Aug 16 04:00Z` |
+  | --- | --- | --- |
+  | `UTC` | `08-01..08-15` ok | `08-16..08-31` ok |
+  | `Asia/Manila` | `07-31..08-14` **bad** | `08-15..08-30` **bad** |
+  | `America/Los_Angeles` | `08-01..08-15` ok | `08-01..08-15` **wrong half** |
+
+  The bug is **one-directional** -- only positive UTC offsets shift, because
+  local midnight renders to the *previous* day in UTC. `Asia/Manila` (UTC+8) is
+  exactly the broken case; negative offsets were correct by accident. (An
+  earlier draft of `PAYMENTS_REMEDIATION.md` claimed LA shifted too -- it does
+  not, and that has been corrected in place.)
+- **Two consequences beyond the off-by-one**, neither in the original writeup:
+  1. **Month-end was truncated.** In Manila, `16 -> EOM` on a 31-day August
+     produced `2026-08-15..2026-08-30`. **August 31 fell into no cutoff at
+     all** -- a day of work that no payslip could ever cover.
+  2. **The cutoff *bucket* flipped, not just the formatting** (the LA column
+     above selects the first half on the 16th, because the day-of-month
+     comparison driving the branch is itself timezone-dependent). So this could
+     never have been fixed by correcting `isoDate` alone.
+- **Why it mattered in practice:** the same function ran on **both** sides --
+  the server wrote `cutoff_start`/`cutoff_end`, the browser looked the current
+  cutoff up. Session 0 confirmed the server ran UTC (Vercel's Node default), so
+  stored dates were right *by accident* while the Manila browser searched for a
+  cutoff one day off, never matched, and therefore **kept showing "Pay via
+  GCash/Maya" immediately after a successful payout**. That is what invited the
+  second click that C36/C37 now prevent structurally. Verified against the real
+  data: the one payslip stored `2026-08-01..2026-08-15` for a payout requested
+  at `2026-08-14 20:59 +08`, which is what UTC produces and Manila does not.
+- **Fixed by** moving every persisted/compared calendar day onto Postgres's
+  clock, in an explicit household timezone -- the same frame as `server_now()`
+  (C32) rather than a second source of truth:
+  - **`households.timezone`**, defaulting to `'Asia/Manila'`. A real column
+    rather than a hardcoded constant: it cost nothing while there is one
+    household and no real payroll, and avoids a migration against live payroll
+    later. `household_timezone()` degrades to `'Asia/Manila'` on an
+    unrecognized IANA name rather than letting `AT TIME ZONE` raise, because on
+    this path a raise means payroll stops.
+  - **`household_today()`** -- the household's civil date, server-side.
+  - **`cutoff_bounds_for(day, interval)`** (IMMUTABLE, so it is directly
+    testable without mocking a clock) and **`household_cutoff(interval)`**.
+    Month lengths and leap Februaries come free from date arithmetic instead of
+    being hand-rolled.
+  - **`initiate_payslip` derives its own cutoff** from the helper's own
+    `payday_interval` and no longer accepts `p_cutoff_start`/`p_cutoff_end`.
+    Previously the double-pay guard was only as trustworthy as
+    `pay.actions.ts`'s (broken) arithmetic -- a caller computing the wrong
+    cutoff would have sailed straight past `payslips_one_per_cutoff` by
+    inserting under the wrong key.
+  - **`currentCutoffRange` deleted.** `pay.utils.ts` now holds display
+    formatting only, with a header explaining what not to reintroduce, and
+    `pay.utils.test.ts` asserts the module exports nothing else.
+    `useHouseholdCutoff` reads the RPC instead -- deliberately keyed on the
+    **selected** helper's interval rather than living beside `usePayslips` in
+    the provider, since `payday_interval` is per-helper and the Money tab has a
+    switcher (the `MULTI_HELPER_HANDLING.md` failure mode). While the cutoff is
+    unknown the Pay buttons stay hidden rather than rendering on a guess.
+  - **C32's remaining hole closed in the same pass:** `getServerNowFn` now also
+    returns `householdToday`, and `app-store-provider.tsx` uses it instead of
+    `toISODate(new Date(res.serverNowIso))` -- which took a trustworthy server
+    *instant* and rendered it to a day in the **browser's** timezone, so a
+    device with a right clock but a wrong timezone still derived the wrong day
+    from a correct answer.
+  - **Mirrored in `../LINARA_MOBILE`** (`services/api/cutoff.ts`, consumed by
+    `DigitalPayslip` via `app/(app)/pay.tsx`), which previously showed no cutoff
+    dates at all. It reads the same RPC rather than gaining a third independent
+    copy of the rule. Note this corrects the premise in
+    `PAYMENTS_REMEDIATION.md` that mobile "computes its own cutoff estimate" --
+    it computes its own *amount* estimate and had no date logic.
+- **Verified against a real Postgres**, same harness as C36/C37: all three
+  payments migrations applied in order to a throwaway `postgres:15-alpine`, the
+  new one re-applied for idempotency, then boundary tests. Every asserted
+  boundary exact (31-day month end, 30-day, 28-day Feb, **29-day leap Feb**,
+  and the 15th/16th split); **every one of 2026's 365 days and 2028's 366 days
+  falls inside its own cutoff for both intervals** (the check that would have
+  caught the orphaned Aug 31); consecutive cutoffs are contiguous across
+  2026-2028 with **zero gaps or overlaps**; the bogus-timezone fallback works;
+  and `initiate_payslip` derived `2026-08-16..2026-08-31` on its own, matching
+  `household_cutoff` exactly -- where the old JS would have produced
+  `08-15..08-30`.
+- **Known residual limitation:** `households.timezone` has no UI -- it is a
+  column with a default and no way for a manager to change it. Fine while every
+  household is in PH; needs a settings surface before that stops being true.
+
+### C39. Rest-owed hours were shown in the Pay Dial as pesos, never paid, and had no way to be taken as time either
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session C).
+  **Migration written 2026-08-16; NOT YET APPLIED** --
+  `supabase/add-rest-off-requests.sql`.
+- **Product decision that unblocked it (user, 2026-08-16):** after-hours work
+  is **time, not money**. "Live-in kasambahay are not paid hourly overtime the
+  way an office worker is... off-hours work is balanced by rest owed (time off
+  in lieu); the after-hours balance accrues in hours/minutes of rest, not
+  pesos." The kasambahay requests a date + time range, the manager approves,
+  and the minutes are debited. **Cash treatment of rest-day premium is
+  explicitly deferred** pending a separate policy decision.
+- **What was wrong:** `spend-and-payday.tsx` computed
+  `restOwedEarnings = (totalMin - premiumMin) / 60 * 120` and added it into
+  `netPay`. Three separate defects in one expression:
+  1. **It was never paid.** `initiate_payslip` does not read `ledger_entries`
+     at all, so the Pay Dial promised money no payout ever contained.
+     `../LINARA_MOBILE`'s `DigitalPayslip` omitted it, matching the real payout
+     — so the helper saw the accurate number and the manager an inflated one.
+  2. **The rate was invented.** `restOwedRate = 120` was a bare literal with no
+     relationship to anyone's wage, and **no hourly-rate derivation exists
+     anywhere in the codebase**. At the ₱6,000 regional minimum, the standard
+     PH divisors (÷26 ÷8) give ≈₱28.85/hr — so the dial overstated by roughly
+     **4x**.
+  3. **It was inverted.** It monetized the `rest_owed` minutes — exactly the
+     ones owed back as *time* — while silently dropping the `premium_pay`
+     minutes, which are the only ones any cash policy would ever have covered.
+- **Fixed by:**
+  - **Pay Dial de-monetized.** `netPay = base - statutory - vales`, matching
+    what `initiate_payslip` actually writes and what mobile shows. Rest owed is
+    rendered as **time** (`fmtHoursMinutes`), outside net pay.
+  - **`public.rest_off_requests`** — the redemption path that never existed.
+    Helper requests a `rest_date` + `[start_time, end_time)`; a manager
+    approves; approved minutes debit the balance. `minutes` is denormalized at
+    request time (same snapshot reasoning as `payslips.base_pay` / C10).
+    Partial unique index so only *approved* rows are unique per window — a
+    declined slot may be re-requested.
+  - **`rest_owed_balance_minutes(helper)`** — one definition of the balance,
+    read by the manager's dashboard, the helper's app, **and** the approval
+    guard, so the three cannot drift. That is the decision's "surfaced to both
+    sides as the same number" requirement made structural rather than
+    conventional.
+  - **`request_rest_off` / `decide_rest_off_request`** RPCs, manager-gated on
+    the decide side, with the balance re-checked at approval time.
+  - Manager UI: `RestOffRequests` on the Money tab. Helper UI:
+    `RestOffRequestForm` on the My Pay tab, plus `RestOwedCounter` switched to
+    show the **redeemable balance** rather than raw accrual, so it equals the
+    manager's figure.
+- **Judgement call worth revisiting when the cash policy lands:** both apps
+  previously excluded `premium_pay` entries from the rest-owed counter on the
+  assumption they would be paid in cash — but nothing has ever paid them, so
+  those minutes accrued to *nothing*. `rest_owed_balance_minutes` therefore
+  **counts them**, since otherwise rest-DAY work (the kind the decision calls
+  out as mattering most) would earn strictly less than ordinary off-shift work.
+  They stay tagged `premium_pay`, so a future cash policy converts only the
+  **unsettled** ones. Search `COUNT_PREMIUM_AS_REST` in the migration to change
+  this.
+- **Verified against a real Postgres**, same harness as C36-C38, and it
+  **caught two real bugs in the first draft**:
+  1. `request_rest_off`'s OUT parameter `minutes` collided with
+     `rest_off_requests.minutes`, so `SUM(minutes)` raised "column reference is
+     ambiguous" and the function failed *every* call. Renamed to
+     `requested_minutes` (and `status` → `resulting_status` on the decide side)
+     with every body query alias-qualified.
+  2. **The overdraw guard did not work.** The first draft locked the *request*
+     row (`FOR UPDATE OF r`), but two managers approving two *different*
+     requests lock different rows and never contend — so 240 minutes of balance
+     approved two 240-minute requests, and the `GREATEST(0, ...)` floor then
+     **hid** the overdraw by clamping the display to zero. Fixed by locking the
+     **helper** (`helper_profiles ... FOR UPDATE`), the actually-contended
+     resource. Re-tested: one approval succeeds, the other is refused with
+     "Not enough rest owed to approve: 0 minutes available, 240 requested",
+     exactly one approval lands, and the balance never goes negative.
+  Ten checks in total also cover: pending requests not debiting, over-requesting
+  refused, double-decide refused, decline recording its reason without touching
+  the balance, non-managers refused, zero-length and inverted windows refused,
+  and the balance flooring at zero under a large negative `adjust_minutes`.
+- **Known residual limitations:** the mobile request form takes date and time
+  as typed text (`YYYY-MM-DD` / `HH:MM`) rather than native pickers — it
+  validates shape and balance, but a picker would be kinder; `rest_date` is not
+  validated against the household timezone's today, so a helper can request a
+  past date; there is no cancel path for a pending request (the `cancelled`
+  status exists but nothing sets it); and nothing checks a requested window
+  against the helper's actual shift or an existing approved window on the same
+  day.
+- **Open gap this exposed, NOT closed here:** `home-management-concept.md` says
+  "keep the resolution type flexible per worker: a live-out day helper leans
+  back toward an hourly/OT model, while a live-in accrues rest owed."
+  `helper_profiles.employment` ('live-in' / 'live-out') exists and is collected
+  at invite time, but the rest-vs-premium default is still
+  `useState<LedgerResolution>("rest")` in `use-ledger.ts` — **ephemeral client
+  state, household-wide, reset on reload, and not keyed to a helper at all**.
+  So the per-worker flexibility the concept describes is not real yet. Closing
+  it means persisting a default (most naturally a
+  `helper_profiles.default_resolution` column seeded from `employment`) and
+  having `recordLedgerEntryFn` read it per helper instead of taking whatever
+  the UI's shared toggle happens to be set to. Left open deliberately: it only
+  becomes load-bearing once the premium/cash path exists, which is itself
+  deferred — but it is worth doing in the same pass as that decision, not
+  after.
+
 ---
 
 ## Template for New Entries

@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import type { Helper } from "@/features/people/people.types";
 
+import type { HouseholdCutoff } from "../pay.actions";
 import type { Payslip, PayoutChannelCode } from "../pay.types";
-import { currentCutoffRange, formatCutoffRange } from "../pay.utils";
+import { formatCutoffRange } from "../pay.utils";
 
 const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = {
   pending_send: "Sending…",
@@ -53,10 +54,18 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
 export function PayslipHistory({
   helper,
   payslips,
+  cutoff,
   onPayNow,
 }: {
   helper: Helper | null;
   payslips: Payslip[];
+  /**
+   * The current cutoff, derived in Postgres and passed down -- never computed
+   * here. `null` while it loads; the Pay buttons stay hidden until it arrives,
+   * because without it we cannot tell whether this cutoff was already paid,
+   * and showing "Pay via GCash" on a guess is exactly the bug Session B fixes.
+   */
+  cutoff: HouseholdCutoff | null;
   onPayNow: (
     helperId: string,
     channelCode: PayoutChannelCode,
@@ -67,11 +76,14 @@ export function PayslipHistory({
   if (!helper) return null;
 
   const helperPayslips = payslips.filter((p) => p.helperId === helper.id);
-  const { cutoffStart, cutoffEnd } = currentCutoffRange(new Date(), helper.paydayInterval);
-  const currentCutoffPayslip = helperPayslips.find(
-    (p) =>
-      p.cutoffStart === cutoffStart && p.cutoffEnd === cutoffEnd && p.payoutStatus !== "failed",
-  );
+  const currentCutoffPayslip = cutoff
+    ? helperPayslips.find(
+        (p) =>
+          p.cutoffStart === cutoff.cutoffStart &&
+          p.cutoffEnd === cutoff.cutoffEnd &&
+          p.payoutStatus !== "failed",
+      )
+    : undefined;
 
   const pay = async (channelCode: PayoutChannelCode) => {
     setPaying(channelCode);
@@ -99,10 +111,12 @@ export function PayslipHistory({
             Current cutoff
           </span>
           <h3 className="font-display text-lg text-foreground">
-            {formatCutoffRange(cutoffStart, cutoffEnd)}
+            {cutoff ? formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd) : "…"}
           </h3>
         </div>
-        {currentCutoffPayslip ? (
+        {!cutoff ? (
+          <span className="text-[11px] text-muted-foreground">Loading cutoff…</span>
+        ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={currentCutoffPayslip.payoutStatus} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (

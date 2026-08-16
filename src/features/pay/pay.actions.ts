@@ -5,7 +5,6 @@ import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people
 import type { PaydayInterval } from "@/features/people/people.types";
 
 import type { PayoutChannelCode } from "./pay.types";
-import { currentCutoffRange } from "./pay.utils";
 
 export interface PayslipRow {
   id: string;
@@ -125,6 +124,43 @@ export const listPayslipsFn = createServerFn({ method: "POST" })
     return (rows ?? []) as PayslipRow[];
   });
 
+export interface HouseholdCutoff {
+  today: string;
+  cutoffStart: string;
+  cutoffEnd: string;
+  timezone: string;
+}
+
+/**
+ * The current cutoff for a payday interval, derived in Postgres from
+ * (now() AT TIME ZONE households.timezone)::date -- see
+ * supabase/add-household-timezone-and-cutoffs.sql. This is the ONLY way the
+ * client learns what "this cutoff" is; it must never compute one itself, or
+ * client and server go back to disagreeing (which is what kept the Pay buttons
+ * on screen after a successful payout).
+ */
+export const getHouseholdCutoffFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; paydayInterval: PaydayInterval }) => data)
+  .handler(async ({ data }) => {
+    const { token, paydayInterval } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient.rpc("household_cutoff", {
+      p_payday_interval: paydayInterval,
+    });
+
+    if (error || !rows?.[0]) {
+      throw new Error(error?.message || "Failed to read the current cutoff");
+    }
+
+    return {
+      today: rows[0].today as string,
+      cutoffStart: rows[0].cutoff_start as string,
+      cutoffEnd: rows[0].cutoff_end as string,
+      timezone: rows[0].timezone as string,
+    } satisfies HouseholdCutoff;
+  });
+
 interface XenditPayoutResponse {
   id?: string;
   message?: string;
@@ -198,17 +234,16 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     const cutoffs = cutoffsPerMonth(paydayInterval);
     const basePay = monthlyRate / cutoffs;
     const statutoryShare = computeStatutorySplit(monthlyRate).totalEmployee / cutoffs;
-    const { cutoffStart, cutoffEnd } = currentCutoffRange(new Date(), paydayInterval);
 
-    // No client-minted reference id any more: initiate_payslip derives it
-    // deterministically from (helper, cutoff) and reuses it across retries, so
-    // a retry replays the SAME Xendit Idempotency-key instead of minting a
-    // fresh one (the old crypto.randomUUID() per attempt was double-pay Vector
-    // A). See supabase/add-payslip-double-pay-guards.sql.
+    // The cutoff is NOT passed in any more -- initiate_payslip derives it from
+    // the helper's own payday_interval on the Postgres clock, in the
+    // household's timezone. Previously the caller computed it here and the
+    // double-pay guard was therefore only as trustworthy as this file's
+    // arithmetic -- which was timezone-broken, so a wrong cutoff would have
+    // sailed straight past payslips_one_per_cutoff under the wrong key. See
+    // supabase/add-household-timezone-and-cutoffs.sql.
     const { data: rpcRows, error: rpcError } = await authedClient.rpc("initiate_payslip", {
       p_helper_id: helperId,
-      p_cutoff_start: cutoffStart,
-      p_cutoff_end: cutoffEnd,
       p_base_pay: basePay,
       p_statutory_employee_share: statutoryShare,
       p_channel_code: channelCode,
@@ -222,6 +257,8 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     const netPay = Number(rpcRows[0].net_pay);
     const attemptId = rpcRows[0].attempt_id as string;
     const referenceId = rpcRows[0].reference_id as string;
+    const cutoffStart = rpcRows[0].cutoff_start as string;
+    const cutoffEnd = rpcRows[0].cutoff_end as string;
 
     const xenditKey = process.env.XENDIT_SECRET_WRITE_KEY || "";
     const xenditUrl = process.env.XENDIT_API_URL || "https://api.xendit.co";

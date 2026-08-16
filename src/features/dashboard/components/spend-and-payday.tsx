@@ -2,7 +2,7 @@ import { CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles } from "lucide-re
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
-import { ledgerEntryMinutes } from "@/features/ledger/ledger.utils";
+import { fmtHoursMinutes, ledgerEntryMinutes } from "@/features/ledger/ledger.utils";
 import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people.utils";
 import type { Helper } from "@/features/people/people.types";
 
@@ -53,24 +53,29 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   // unfiltered sum here would mix every active helper's rest-owed minutes
   // into whichever one dial happens to be showing.
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === helper?.id);
-  const totalMin = helperLedgerEntries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
 
-  const premiumMin = helperLedgerEntries
-    .filter((e) => e.resolution === "premium")
-    .reduce((s, e) => s + ledgerEntryMinutes(e), 0);
+  // After-hours work is TIME OWED, not pesos (user decision 2026-08-16; see
+  // KNOWN_GAPS.md C39). Live-in kasambahay are not paid hourly overtime the
+  // way an office worker is -- off-hours work is balanced by rest owed
+  // (time-off-in-lieu), redeemed through a rest-off request the manager
+  // approves. Cash treatment of rest-day premium is deferred until a separate
+  // policy decision.
+  //
+  // What was here before: `restOwedEarnings = (totalMin - premiumMin)/60 * 120`
+  // added into netPay. Three things wrong with it -- (1) `initiate_payslip`
+  // never read ledger_entries, so none of it was ever actually paid; (2) the
+  // ₱120/hr was a bare literal with no relation to anyone's wage (at the
+  // ₱6,000 regional minimum a derived hourly rate is ~₱28.85, so the dial
+  // overstated by ~4x); and (3) it was inverted -- it monetized the REST
+  // minutes, which are exactly the ones owed back as time, while silently
+  // dropping the PREMIUM minutes, which are the only ones a cash policy would
+  // ever have covered.
+  const restOwedMin = helperLedgerEntries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
 
-  const restMin = totalMin - premiumMin;
-  const restOwedHours = restMin / 60;
-
-  // Custom overtime/accrued hourly rate (e.g. ₱120 per hour)
-  const restOwedRate = 120;
-  const restOwedEarnings = restOwedHours * restOwedRate;
-
-  // Net Pay = Base Salary - Gov Deductions - Vales + Rest Owed
-  const netPay = Math.max(
-    0,
-    baseSalary - governmentDeductions - approvedValesTotal + restOwedEarnings,
-  );
+  // Net Pay = Base Salary - Gov Deductions - Vales. Nothing from the ledger:
+  // this now matches what initiate_payslip actually writes and what
+  // LINARA_MOBILE's DigitalPayslip shows the helper.
+  const netPay = Math.max(0, baseSalary - governmentDeductions - approvedValesTotal);
 
   // Pay Dial scale relative to baseline salary
   const payPct = baseSalary > 0 ? Math.min(100, Math.round((netPay / baseSalary) * 100)) : 0;
@@ -193,13 +198,15 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 -{fmtPeso(approvedValesTotal)} vale
               </span>
             )}
-            {approvedValesTotal > 0 && restOwedEarnings > 0 && <span>·</span>}
-            {restOwedEarnings > 0 && (
-              <span className="text-emerald inline-flex items-center gap-0.5">
-                +{fmtPeso(restOwedEarnings)} rest hours
+            {approvedValesTotal > 0 && restOwedMin > 0 && <span>·</span>}
+            {restOwedMin > 0 && (
+              // Time, not pesos, and deliberately NOT part of net pay -- it is
+              // redeemed as time off, not added to the payout.
+              <span className="text-accent inline-flex items-center gap-0.5">
+                {fmtHoursMinutes(restOwedMin)} rest owed
               </span>
             )}
-            {approvedValesTotal === 0 && restOwedEarnings === 0 && (
+            {approvedValesTotal === 0 && restOwedMin === 0 && (
               <span className="text-muted-foreground inline-flex items-center gap-1">
                 <Sparkles className="h-3 w-3 text-accent" /> Normal cutoff cycle
               </span>

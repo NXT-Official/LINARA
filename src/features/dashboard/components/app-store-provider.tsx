@@ -20,7 +20,7 @@ import { useUtos } from "@/features/utos/hooks/use-utos";
 import { clearAllUtosForHelpersFn, listUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
-import { toISODate } from "@/lib/time";
+import { parseISODate, toISODate } from "@/lib/time";
 import { toast } from "sonner";
 
 import { AppStoreContext, type AppStores } from "../app-store-context";
@@ -392,22 +392,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     rollingOverRef.current = true;
     getServerNowFn({ data: { token: session.token! } })
       .then((res) => {
-        const serverToday = new Date(res.serverNowIso);
+        // Session B: use the server's own civil date rather than rendering
+        // res.serverNowIso to a day in the BROWSER's timezone. That
+        // `toISODate(new Date(serverNowIso))` was C32's remaining hole -- a
+        // device with a right clock but a wrong timezone still derived the
+        // wrong day from a correct server answer. household_today() resolves
+        // it in households.timezone, server side.
+        const serverTodayIso = res.householdToday;
+        // Local midnight of the server's civil day. Only used for the
+        // day-count arithmetic and for runDayRollover's target, both of which
+        // want a Date; the day itself is never re-derived from it.
+        const serverToday = parseISODate(serverTodayIso);
 
-        if (toISODate(serverToday) <= toISODate(board.simDate)) {
+        if (serverTodayIso <= toISODate(board.simDate)) {
           // Server disagrees the day has moved -- the device's clock was
           // wrong. Expected false-positive path, not an error.
           console.warn(
-            `[AppStoreProvider] Auto rollover skipped: device thinks it's ${targetDay}, server says ${toISODate(serverToday)}.`,
+            `[AppStoreProvider] Auto rollover skipped: device thinks it's ${targetDay}, server says ${serverTodayIso}.`,
           );
           rejectedRolloverDayRef.current = targetDay;
           board.dismissRollover();
           return;
         }
 
-        const daysDiff = Math.round(
-          (serverToday.getTime() - board.simDate.getTime()) / 86_400_000,
-        );
+        const daysDiff = Math.round((serverToday.getTime() - board.simDate.getTime()) / 86_400_000);
         if (daysDiff > MAX_PLAUSIBLE_ROLLOVER_DAYS) {
           // Server-confirmed, but an implausibly large jump -- leave
           // rolloverNeededFor set (not cleared) so this doesn't retry every

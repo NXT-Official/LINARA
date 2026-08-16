@@ -1,14 +1,16 @@
 import { useState } from "react";
 
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
+import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
+import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, payslips } = useAppStores();
+  const { ledger, helper, helpers, activeHelpers, payslips, session } = useAppStores();
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
   // explicitly switched. Local to this page: unlike the Quick Utos
@@ -18,6 +20,14 @@ export function ManagerMoneyPage() {
   const selectedHelperId = pickedPayHelperId ?? helper?.id ?? null;
   const selectedHelper = helpers.find((h) => h.id === selectedHelperId) ?? helper ?? null;
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === selectedHelper?.id);
+
+  // Keyed on the SELECTED helper's interval, not the household default -- see
+  // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
+  const cutoff = useHouseholdCutoff({
+    token: session.token,
+    ready: session.status === "authed",
+    paydayInterval: selectedHelper?.paydayInterval,
+  });
 
   return (
     <div className="space-y-6">
@@ -46,7 +56,13 @@ export function ManagerMoneyPage() {
       <PayslipHistory
         helper={selectedHelper}
         payslips={payslips.payslips}
+        cutoff={cutoff}
         onPayNow={payslips.payNow}
+      />
+      <RestOffRequests
+        helper={selectedHelper}
+        token={session.token}
+        ready={session.status === "authed"}
       />
       <AfterHoursLedger
         entries={helperLedgerEntries}
