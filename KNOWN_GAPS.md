@@ -2077,8 +2077,8 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 ### C38. Cutoff dates were derived in JS from local Date components and formatted as UTC, so client and server disagreed about "this cutoff"
 
 - **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session B).
-  **Migration written 2026-08-16; NOT YET APPLIED** --
-  `supabase/add-household-timezone-and-cutoffs.sql`.
+  **Closed:** 2026-08-17 -- `supabase/add-household-timezone-and-cutoffs.sql`
+  applied by hand in the Supabase SQL editor by the maintainer.
 - **Root cause:** `src/features/pay/pay.utils.ts`'s `currentCutoffRange` built
   a `Date` from **local** components (`getFullYear`/`getMonth`/`getDate`) and
   then rendered it with `toISOString()` (**UTC**). Confirmed by running the
@@ -2170,8 +2170,8 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 ### C39. Rest-owed hours were shown in the Pay Dial as pesos, never paid, and had no way to be taken as time either
 
 - **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session C).
-  **Migration written 2026-08-16; NOT YET APPLIED** --
-  `supabase/add-rest-off-requests.sql`.
+  **Closed:** 2026-08-17 -- `supabase/add-rest-off-requests.sql` applied by
+  hand in the Supabase SQL editor by the maintainer.
 - **Product decision that unblocked it (user, 2026-08-16):** after-hours work
   is **time, not money**. "Live-in kasambahay are not paid hourly overtime the
   way an office worker is... off-hours work is balanced by rest owed (time off

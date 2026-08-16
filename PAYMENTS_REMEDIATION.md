@@ -17,20 +17,22 @@ Shifts display bug.
   which made a *cancelled* payout unrepayable. See `KNOWN_GAPS.md` C37. This
   also absorbed most of what Session D was going to be — the append-only
   `payout_attempts` table supersedes the planned `supersedes_payslip_id`.
-- **Session B (Postgres time frame) — COMPLETE 2026-08-16, migration NOT YET
-  APPLIED.** `supabase/add-household-timezone-and-cutoffs.sql` is written and
-  verified against a throwaway Postgres, but still needs running in the
-  Supabase SQL editor. See `KNOWN_GAPS.md` C38. **The code in both repos
-  already expects it** (`initiate_payslip` is called without cutoff arguments,
-  and `getServerNowFn` reads `household_today()`), so payouts and the
-  auto-rollover cross-check will fail until it is applied.
-- **Session C (rest-owed) — DECIDED and COMPLETE 2026-08-16, migration NOT YET
-  APPLIED.** `supabase/add-rest-off-requests.sql`. **Decision: after-hours work
-  is TIME, not money** — rest owed accrues in hours/minutes and is redeemed by
-  the kasambahay requesting a date + range that the manager approves. Cash
-  treatment of rest-day premium is deferred to a future decision; no peso path
-  was built. See `KNOWN_GAPS.md` C39, including the judgement call about
-  `premium_pay` minutes and the two bugs the concurrency test caught.
+- **Session B (Postgres time frame) — COMPLETE and APPLIED 2026-08-17.**
+  `supabase/add-household-timezone-and-cutoffs.sql`. See `KNOWN_GAPS.md` C38.
+- **Session C (rest-owed) — DECIDED, COMPLETE and APPLIED 2026-08-17.**
+  `supabase/add-rest-off-requests.sql`. **Decision: after-hours work is TIME,
+  not money** — rest owed accrues in hours/minutes and is redeemed by the
+  kasambahay requesting a date + range that a manager approves. **Rest-day
+  premium is explicitly NOT paid in cash** (confirmed 2026-08-17): rest-day
+  work resolves through the same day-off request as everything else, so there
+  is no peso path anywhere in the payout code. See `KNOWN_GAPS.md` C39.
+- **Session D (records and reconciliation) — mostly SUPERSEDED** by Session A′'s
+  `payout_attempts` table, which already provides the per-attempt audit trail
+  the planned `supersedes_payslip_id` was for. What remains of it is folded
+  into Session E below.
+- **Session E (remaining gaps) — NOT STARTED.** The accumulated residual
+  limitations from C35–C39, gathered with a paste-ready prompt at the bottom of
+  this document.
 
 A fourth defect surfaced during Session 0 (Xendit payouts sent at 100x value),
 recorded as `KNOWN_GAPS.md` C35. Its code fix had already shipped; the one
@@ -699,6 +701,121 @@ Only worth doing once A–C are settled.
   history explains itself.
 - A reconciliation view: our `payslips` vs Xendit's payout ledger, to catch
   exactly the ambiguous-failure case Session A defends against.
+
+---
+
+## Session E — Close the residual gaps (the current backlog)
+
+Everything below is a *known, recorded* limitation from C35–C39, not new
+discovery. Nothing here is load-bearing for correctness of the payout path —
+A, A′, B and C are applied and the money path is sound. These are the rough
+edges those sessions deliberately left, gathered in one place.
+
+Grouped by what they need, because they are not one kind of work:
+
+**E1 — Verify against the real Xendit sandbox (no code until it's observed).**
+Three things were built defensively because they could not be confirmed:
+- `xendit-payout-webhook` writing back into `payslips` has **never been
+  observed end to end** (C35). Config is correct and a direct disbursement
+  succeeded, but no payslip row has ever reached a terminal state through it.
+- The duplicate-detection match in `pay.actions.ts` (HTTP 409, or a
+  duplicate/idempotency hint in the body) is a guess at Xendit's shape (C37).
+- The `GET /v2/payouts?reference_id=` response is assumed to be either a bare
+  array or `{data:[…]}` (C37). The whole ambiguous-outcome reconciliation path
+  depends on parsing it correctly.
+- Xendit's idempotency **retention window** is undocumented (C36/Session 0 Q6).
+Do a real sandbox payout, let the webhook land, force a duplicate, and read the
+actual payloads. Then tighten the parsing to what was observed and delete the
+defensive guesses.
+
+**E2 — Per-worker resolution default (the one real gap against the concept).**
+`home-management-concept.md` says "keep the resolution type flexible per
+worker: a live-out day helper leans back toward an hourly/OT model, while a
+live-in accrues rest owed." Not true today: the rest-vs-premium default is
+`useState<LedgerResolution>("rest")` in `use-ledger.ts` — **ephemeral client
+state, household-wide, reset on reload, not keyed to a helper**.
+`helper_profiles.employment` ('live-in'/'live-out') already exists and is
+collected at invite time. Closing it means a persisted
+`helper_profiles.default_resolution` seeded from `employment`, with
+`recordLedgerEntryFn` reading it per helper instead of taking whatever a shared
+UI toggle happens to be set to. Note this is *lower* stakes than it looks now
+that rest-day premium is not paid in cash — every resolution ends in the same
+mechanism — but it is the last thing standing between the concept doc and the
+code.
+
+**E3 — Rest-off request UX and validation (C39 residuals).**
+- Mobile takes date/time as typed text (`YYYY-MM-DD` / `HH:MM`); native
+  pickers would be kinder and remove a whole class of input error.
+- `rest_date` is not validated against the household's *today* (C38 gave us
+  `household_today()` — use it), so a past date can be requested.
+- No cancel path for a pending request. The `cancelled` status exists in the
+  CHECK constraint and nothing ever sets it.
+- Nothing checks a requested window against the helper's actual shift, or
+  against an existing approved window on the same day.
+
+**E4 — The invariant test Session C never wrote.**
+The stated acceptance criterion was: the manager's Pay Dial, the helper's
+`DigitalPayslip`, and the `net_pay` actually written by `initiate_payslip` all
+agree for the same helper and cutoff. They *do* agree now, but by construction
+(the peso line was removed) rather than by assertion. A regression test would
+stop the next person reintroducing a ledger term into one of the three.
+
+**E5 — Reconciliation and staleness (what's left of Session D).**
+- `pending_send` has no staleness detection (C21 accepted it; with a real
+  payout path it deserves revisiting).
+- No reconciliation view of our `payslips`/`payout_attempts` against Xendit's
+  own ledger. C35 is a worked example of exactly the divergence it would catch
+  — our row said ₱3,562.50 while Xendit had ₱356,250.
+- `households.timezone` has no UI (C38). Fine while every household is in PH.
+
+**E6 — Append-only payslips, if and when real payroll lands.**
+A payslip's snapshot is still **mutated in place** on retry, so
+`payout_attempts` is the authoritative history and `payslips` is a cache of the
+latest attempt (C37). Acceptable while data is disposable. RA 10361's
+payslip-retention obligation attaches the moment a real household is onboarded
+— revisit before that, not after.
+
+> **Prompt for Session E**
+>
+> ```
+> Read AGENTS.md, then PAYMENTS_REMEDIATION.md and KNOWN_GAPS.md C35-C39 in
+> the LINARA repo. Sessions 0, A, A', B and C are done and their migrations
+> are applied; the payout path is correct. This session is the backlog of
+> residual gaps those sessions deliberately left, written up as "Session E"
+> in PAYMENTS_REMEDIATION.md.
+>
+> Context you need up front:
+> - One Supabase project, sandbox/test data only, sandbox Xendit account. No
+>   real household, no real payroll records. Data is disposable; schema is
+>   not. This reverses the moment a real household is onboarded.
+> - After-hours work is TIME, not money. Rest-day premium is NOT paid in
+>   cash - rest-day work resolves through the same day-off request flow as
+>   everything else. There is no peso path in the payout code and I do not
+>   want one added.
+> - I run all migrations myself in the Supabase SQL editor. Write idempotent
+>   SQL into supabase/ and hand it to me. Never apply it, never assume it has
+>   been applied.
+> - LINARA owns the schema; ../LINARA_MOBILE must be checked in the same pass
+>   (KNOWN_GAPS.md C33 is the cautionary tale).
+> - Docker is available and previous sessions verified every migration
+>   against a throwaway postgres:15-alpine before handing it over, including
+>   concurrent-transaction tests. That caught two real bugs in Session C's
+>   first draft. Keep doing that - do not just reason about correctness.
+>
+> Do E1 FIRST and report back before writing code for it. It is the only item
+> that can invalidate the others: it verifies the webhook end to end and
+> replaces three defensive guesses in pay.actions.ts with observed Xendit
+> behaviour. I can drive the sandbox calls if you tell me exactly what to run.
+>
+> Then propose an order for E2-E6 with your reasoning and let me pick. Do not
+> attempt all of them in one session - E3 alone is a real chunk of UI work
+> across both repos.
+>
+> Add KNOWN_GAPS.md entries as you close things, matching the existing
+> format, and keep home-management-concept.md's implementation-status note
+> honest - E2 in particular is called out there as the one gap against that
+> section.
+> ```
 
 ---
 

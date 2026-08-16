@@ -384,22 +384,27 @@ break work is flagged distinctly because it matters most.
 >   at roughly 4x any wage-derived rate, and inverted: it monetized the
 >   rest-owed minutes while silently dropping the premium ones. It now shows
 >   time, outside net pay.
-> - **Deferred — no cash path exists.** The "distinct, secondary resolution…
->   rest-day premium" is recorded in the data (`resolution_type = 'premium_pay'`)
->   but nothing pays it, by decision rather than oversight. Two things need
->   settling first: whether Batas Kasambahay's premium actually applies to a
->   kasambahay the way the Labor Code's does to a regular employee (RA 10361 is
->   a special law and carries no overtime schedule of its own), and if so at
->   what rate — +25% is the Labor Code's *ordinary-day* overtime figure, while
->   the *rest-day* figure is +30%, and this paragraph ties premium to rest-day
->   work. Worth confirming against current DOLE guidance before anyone is paid
->   on it.
-> - **Consequence of that deferral, worth knowing.** Because premium minutes
->   were excluded from the rest-owed counter *and* never paid, they previously
->   accrued to nothing at all. They are now counted into the redeemable rest
->   balance, so rest-day work is not worth less than ordinary off-shift work
->   while the policy is pending. They keep their `premium_pay` tag, so a future
->   cash decision converts only the minutes not already taken as time.
+> - **Decided 2026-08-17: rest-day premium is NOT paid in cash.** Rest-day work
+>   resolves the same way as any other off-hours work — as time the kasambahay
+>   redeems by requesting a day off that a manager approves. So *every* path
+>   through this section now ends in the same mechanism, and there is no peso
+>   path anywhere in the payout code. `resolution_type = 'premium_pay'` still
+>   exists in the data and rest-day work is still tagged distinctly (it does
+>   matter, and the tag is what a future policy would key off), but it changes
+>   nothing about what the kasambahay receives today.
+> - **Which makes the balance rule the intended behaviour, not a stopgap.**
+>   `premium_pay` minutes count into the redeemable rest balance. Before this,
+>   they were excluded from the counter *and* never paid — so rest-day work,
+>   the kind this section calls out as mattering most, accrued to nothing at
+>   all. Counting them is now simply what the decision says.
+> - **If cash is ever revisited**, two things need settling before any number
+>   is encoded: whether Batas Kasambahay's premium applies to a kasambahay the
+>   way the Labor Code's does to a regular employee (RA 10361 is a special law
+>   and carries no overtime schedule of its own), and if so at what rate —
+>   +25% is the Labor Code's *ordinary-day* overtime figure while the
+>   *rest-day* figure is +30%, and this paragraph ties premium to rest-day
+>   work. Confirm against current DOLE guidance rather than either figure being
+>   assumed. Minutes already redeemed as time are settled and must not convert.
 > - **Not built — the one real gap against this section.** "Keep the resolution
 >   type flexible per worker" is *not* true yet. `helper_profiles.employment`
 >   ('live-in' / 'live-out') exists, but the rest-vs-premium default is still
