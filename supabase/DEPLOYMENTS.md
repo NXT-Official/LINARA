@@ -17,9 +17,15 @@ read to find (**C44**).
 ## Deploying
 
 ```bash
+npm install                        # the CLI is a devDependency; do not install it globally
 npx supabase login                 # once per machine; browser flow
 npm run deploy:functions           # deploys ALL functions in supabase/functions
 ```
+
+The `supabase` CLI is pinned in `devDependencies`, so the bare `supabase` in the
+npm scripts resolves through `node_modules/.bin`. There is no global install to
+keep in sync, and `npx supabase` inside this repo runs that same pinned version
+rather than downloading a floating one.
 
 `verify_jwt` per function comes from [`config.toml`](config.toml) — **do not pass
 `--no-verify-jwt` by hand**. The webhook needs it (Xendit sends no Supabase JWT,
@@ -50,7 +56,8 @@ Set separately from deploys and **not** cleared by one
 | Secret | Used by |
 | --- | --- |
 | `XENDIT_WEBHOOK_VERIFICATION_TOKEN` | `xendit-payout-webhook` |
-| `OPENAI_API_KEY` / provider keys | the AI functions, per `README.md` |
+| `USE_MOCK_AI` | the six AI functions — set, so they return canned output |
+| `OPENAI_API_KEY` / provider keys | the AI functions, per `README.md` — **not set yet**; needed only once `USE_MOCK_AI` comes off |
 
 ## Log
 
@@ -59,5 +66,5 @@ command ran.
 
 | Date | Function(s) | Commit | Verified by |
 | --- | --- | --- | --- |
+| 2026-08-18 | `generate-sop`, `parse-scheduler`, `promote-voice-task`, `route-utos`, `simplify-sop`, `transcribe-notes` | `81df8cb` | First deploy ever — `functions list` beforehand returned **only** `xendit-payout-webhook`, so the row below understated it: these six had never existed in the project, not merely "unknown vintage". All six came up `ACTIVE` at `version: 1` with `verify_jwt: true`; the webhook reported "No change found" and stayed at `version: 4`, `verify_jwt: false`. Not exercised by a real call — they run under `USE_MOCK_AI`, and no provider key is set. |
 | 2026-08-17 | `xendit-payout-webhook` | pre-`6fab066` source (the C37 rewrite) | Two real sandbox payouts reached `succeeded` end to end; `amount_sent` matched `net_pay` on both; vale stayed settled on success. Closed C35 and C44. |
-| — | the other six | **unknown vintage** | Never verified. `generate-sop`, `simplify-sop`, `route-utos`, `parse-scheduler`, `transcribe-notes`, `promote-voice-task` have no recorded deploy. Redeploy all once so "committed" and "deployed" are known equal, then log it here. |

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(cd /c/tmp)",
+      "Bash(curl.exe -s -o /c/tmp/page.html -w \"%{http_code}\" http://localhost:8080/)",
+      "Bash(echo 'HTTP __TRACKED_VAR__')",
+      "Bash(grep -oiE \"internal server error|cannot read|is not defined|useHouseholdPayroll\" /c/tmp/page.html)",
+      "Bash(grep -n \"needs applying too\\\\|fix-resolution-default-to-rest.sql\\\\`\\\\*\\\\*\" KNOWN_GAPS.md)",
+      "PowerShell(npm install -D supabase 2>&1)",
+      "PowerShell(npm run deploy:functions:check 2>&1)",
+      "PowerShell(npm run deploy:functions 2>&1)",
+      "PowerShell(npm exec -- supabase secrets list --project-ref tueckhlrrupmnzhblewy 2>&1)"
+    ]
+  }
+}
