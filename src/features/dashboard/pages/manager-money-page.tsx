@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
 import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
@@ -33,15 +34,24 @@ export function ManagerMoneyPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="sr-only">Money</h1>
+        {/* Every figure below this line is about ONE helper, and which one is
+            a decision the manager has to be able to see they are making --
+            these are wage, vale and payout numbers, and mistaking whose they
+            are is the MULTI_HELPER_HANDLING.md failure mode. The old version
+            was a muted "Viewing" label beside an unstyled select, quiet enough
+            to miss entirely; the maintainer did miss it. Now it reads as a
+            control, names the person, and carries the avatar. */}
         {activeHelpers.length > 1 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Viewing
+          <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+              Showing
             </span>
+            <Avatar initials={selectedHelper?.initials ?? "??"} />
             <select
               value={selectedHelperId ?? ""}
               onChange={(e) => setPickedPayHelperId(e.target.value)}
-              className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
+              aria-label="Whose money to show"
+              className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
             >
               {activeHelpers.map((h) => (
                 <option key={h.id} value={h.id}>
