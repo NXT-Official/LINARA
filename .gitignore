@@ -72,6 +72,11 @@ tmp/
 temp/
 *.tmp
 logs/
+
+# Supabase CLI scratch state. supabase/.temp/linked-project.json records which
+# project the CLI is pointed at, including the owner's email in the project
+# name -- machine-local, and not something to commit.
+supabase/.temp/
 *.log
 npm-debug.log*
 yarn-debug.log*
