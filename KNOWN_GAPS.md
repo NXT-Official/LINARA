@@ -2276,6 +2276,10 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   status exists but nothing sets it); and nothing checks a requested window
   against the helper's actual shift or an existing approved window on the same
   day.
+- **Three of those four closed 2026-08-17** by
+  `supabase/add-rest-off-validation.sql` (Session E item E3a) — see **C47**.
+  What remains open is the native-picker one (E3b) and the shift check, which
+  was deliberately declined rather than deferred.
 - **Open gap this exposed, NOT closed here:** `home-management-concept.md` says
   "keep the resolution type flexible per worker: a live-out day helper leans
   back toward an hourly/OT model, while a live-in accrues rest owed."
@@ -2659,6 +2663,70 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   discharge this system neither performs nor records. **Related:** C42's
   per-entry settlement gap and this one are both "we computed it, we did not
   track what happened to it".
+
+### C47. Rest-off requests accepted past dates and overlapping windows, and the `cancelled` status existed with nothing able to set it
+
+- **Found:** 2026-08-16 as C39's residual limitations. **Closed:** 2026-08-17 —
+  `supabase/add-rest-off-validation.sql` (Session E item E3a), applied by hand
+  by the maintainer.
+- **What was wrong:**
+  1. **Past dates were requestable.** `request_rest_off` never compared
+     `rest_date` to anything, so a helper could ask for a day off that had
+     already happened — and a manager could approve it, debiting real minutes
+     for time that could not be taken.
+  2. **Overlapping windows were accepted.** The only guard was
+     `rest_off_one_approved_per_window`, a unique index on
+     `(helper, date, start, end)` for approved rows, which stops an *exact*
+     duplicate and nothing else. `08:00-12:00` and `09:00-13:00` on one day both
+     passed, double-debiting the hours they share.
+  3. **`cancelled` was unreachable.** The status was in the table's CHECK
+     constraint from the start and no code path ever set it, so a mistyped date
+     could only be undone by asking a manager to *decline* — recording a refusal
+     in the history where there had only been a typo.
+- **Fixed by:**
+  - `rest_date < household_today()` refused, on the Postgres clock in the
+    household's timezone (C38) so a device with a wrong date cannot defeat it.
+    **Today itself stays requestable** — asking at 08:00 for 14:00 is ordinary.
+  - A half-open overlap check against both `pending` and `approved` rows for
+    that helper and date. Half-open matters: `08:00-12:00` and `12:00-16:00` are
+    adjacent, not clashing, or nobody could book consecutive slots. Pending is
+    included because two overlapping pending requests would otherwise both be
+    approvable, and the second approval would silently take hours the first
+    already had.
+  - `cancel_rest_off_request` — the kasambahay who asked, or a manager, may
+    withdraw a **pending** request. An **approved** one cannot be cancelled here:
+    the balance is already debited and a day may have been arranged around it,
+    which is a conversation rather than a button.
+  - **`request_rest_off` now locks the HELPER row** (`FOR UPDATE`), not the
+    request rows — the contended resource is her balance and her day, and two
+    requests that do not exist yet cannot be locked. Without it, two concurrent
+    overlapping requests both pass the check and both insert. This is precisely
+    the mistake C39's first draft made on the *approval* side, where locking the
+    request meant two managers approving different requests never contended.
+- **Deliberately NOT enforced: the shift check.** C39 lists "nothing checks a
+  requested window against the helper's actual shift". Left open on purpose —
+  the rule is not obvious, and a live-in asking for a whole day, or for hours
+  straddling her shift boundary, is an ordinary request. Enforcing a guess would
+  be this app telling a household how to arrange its own time. It stays with the
+  manager's approval, which is a human reading a request.
+- **Verified against a real Postgres**, same harness as C36–C42: fixture with a
+  linked helper user (so the "her own request" branch is genuinely exercised),
+  migration applied twice for idempotency, then **11 behavioural checks** —
+  past date refused, today and future accepted, overlap refused against pending
+  *and* approved, adjacent windows allowed, a cancelled window becoming
+  re-requestable, double-cancel refused, approved-cancel refused, the owning
+  helper allowed, a *different* helper refused, and the balance untouched by
+  cancelling a pending request. Plus an **overlapping-transaction test**: with
+  one session holding an open request transaction, a concurrent overlapping
+  request for the same helper blocked on the helper lock, then correctly refused
+  once the first committed — exactly one row landed.
+- **Cross-repo:** `../LINARA_MOBILE` gained `cancelRestOffRequest`, a
+  Kanselahin button on pending rows only, and an advisory past-date warning fed
+  by `household_today()` from the cutoff RPC — never the device's clock. The
+  overlap check is deliberately *not* mirrored client-side: it would need every
+  existing window for that date, and a stale client refusing a legitimate
+  request is worse than the server refusing an illegitimate one with a message
+  that says which window clashed.
 
 ---
 

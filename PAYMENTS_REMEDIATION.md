@@ -70,8 +70,12 @@ Shifts display bug.
     surfaced a new open item: **rest owed has no per-entry settlement**, which
     matters only once cash conversion exists but should be settled with that
     policy rather than after it.
-  - **Remaining, in the order picked 2026-08-17:** E3a (rest-off validation +
-    cancel path), E5 (reconciliation/staleness), then E3b (native pickers).
+  - **E3a (rest-off validation + cancel path) — DONE, migration PENDING
+    APPLICATION.** `supabase/add-rest-off-validation.sql`, Docker-verified
+    (11 behavioural checks, idempotency, and an overlapping-transaction test).
+    `KNOWN_GAPS.md` **C47**. Closes three of C39's four residuals; the shift
+    check was declined rather than deferred, with reasons.
+  - **Remaining:** E5 (reconciliation/staleness), then E3b (native pickers).
     E6 stays deferred until a real household is onboarded.
 
 A fourth defect surfaced during Session 0 (Xendit payouts sent at 100x value),
