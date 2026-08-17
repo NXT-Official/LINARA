@@ -3,7 +3,8 @@ import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
 import { fmtHoursMinutes, ledgerEntryMinutes } from "@/features/ledger/ledger.utils";
-import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people.utils";
+import { cutoffsPerMonth } from "@/features/people/people.utils";
+import { netPayForCutoff, payComponentsForCutoff } from "@/features/pay/net-pay";
 import type { Helper } from "@/features/people/people.types";
 
 /**
@@ -33,11 +34,9 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   // LINARA_MOBILE's DigitalPayslip, in place of the old hardcoded
   // baseSalary = 8000 / governmentDeductions = 240.
   const monthlyRate = helper?.monthlyRate ?? 0;
-  const cutoffs = cutoffsPerMonth(helper?.paydayInterval ?? "semi_monthly");
-  const isPerCutoff = cutoffs > 1;
-  const baseSalary = monthlyRate / cutoffs;
-  const statutorySplit = computeStatutorySplit(monthlyRate);
-  const governmentDeductions = statutorySplit.totalEmployee / cutoffs;
+  const paydayInterval = helper?.paydayInterval ?? "semi_monthly";
+  const isPerCutoff = cutoffsPerMonth(paydayInterval) > 1;
+  const { basePay: baseSalary } = payComponentsForCutoff(monthlyRate, paydayInterval);
 
   // Sum up approved-but-not-yet-paid-out vales for current helper. Excludes
   // vales already settled against a past payslip (Payslip payout_status !=
@@ -72,10 +71,12 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   // ever have covered.
   const restOwedMin = helperLedgerEntries.reduce((s, e) => s + ledgerEntryMinutes(e), 0);
 
-  // Net Pay = Base Salary - Gov Deductions - Vales. Nothing from the ledger:
-  // this now matches what initiate_payslip actually writes and what
-  // LINARA_MOBILE's DigitalPayslip shows the helper.
-  const netPay = Math.max(0, baseSalary - governmentDeductions - approvedValesTotal);
+  // Net Pay = Base Salary - Gov Deductions - Vales. Nothing from the ledger.
+  // Derived through the shared rule rather than restated here, so this dial
+  // cannot drift from what initiate_payslip writes or from what
+  // LINARA_MOBILE's DigitalPayslip shows the helper -- see net-pay.ts and
+  // net-pay.test.ts (Session E / E4).
+  const netPay = netPayForCutoff(monthlyRate, paydayInterval, approvedValesTotal);
 
   // Pay Dial scale relative to baseline salary
   const payPct = baseSalary > 0 ? Math.min(100, Math.round((netPay / baseSalary) * 100)) : 0;
