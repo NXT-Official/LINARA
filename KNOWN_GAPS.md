@@ -2595,15 +2595,70 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   their last deploy are silently stale in the same way. Their per-function
   `verify_jwt` state is likewise unrecorded — `config.toml` currently pins only
   the webhook, because that is the only one whose correct value is known.
-- **To close:** at minimum, a deploy checklist item wherever
-  `supabase/functions/**` is touched, and a note in this file when a function is
-  deployed, matching how migrations are recorded. Better: deploy them from CI on
-  merge, which removes the human step that failed here. Cheapest useful first
-  step: redeploy all seven once, so "deployed" and "committed" are known to
-  match on a specific date.
+- **Partially addressed 2026-08-17** — the repo side is built, the operational
+  side still needs one run:
+  - `supabase/config.toml` now pins `verify_jwt` for **all seven** functions,
+    not just the webhook. The six client-called ones read an `Authorization`
+    header and serve CORS (verified by inspection), so `true` is right for them;
+    the webhook authenticates its caller with `X-CALLBACK-TOKEN` and must stay
+    `false`. Written out explicitly even where it matches the CLI default,
+    because C44 happened when a deployment detail lived in someone's memory.
+  - `npm run deploy:functions` deploys **all** functions with those settings, so
+    nobody has to remember `--no-verify-jwt` — passing it by hand is now the
+    wrong thing to do.
+  - `supabase/DEPLOYMENTS.md` is the missing counterpart to how migrations are
+    recorded here: how to deploy, what to verify afterwards, which secrets exist,
+    and a log of what was deployed when.
+- **Still open:** the other six functions have **never been deployed from a
+  known commit** and remain of unknown vintage. Redeploy all seven once and log
+  it, so "committed" and "deployed" are known equal on a date. Better still,
+  deploy from CI on merge, which removes the human step that failed here
+  entirely.
 - **Related:** C21 recorded the webhook's *configuration* as the open question
   and treated it as settled once the dashboard was right. C44 shows that was
   never the whole question.
+
+### C46. Statutory contributions are deducted from every payslip and remitted to nobody -- the app has no remittance path at all
+
+- **Found:** 2026-08-17, answering "who does the money go to?" after the first
+  real payouts (C35). **Open**, and deliberately so — see the decision below.
+- **What the code does:** `computeStatutorySplit` derives the SSS / PhilHealth /
+  Pag-IBIG employee and employer shares per RA 10361 (employer covers 100% under
+  ₱5,000/mo; split above it). `initiate_payslip` subtracts the **employee share**
+  from `net_pay`, and `payslips.statutory_employee_share` snapshots it. The
+  kasambahay is therefore paid less by exactly that amount, on every cutoff.
+- **What no code does:** send it anywhere. There is **no remittance path in
+  either repo** — no agency integration, no payable, no record that a
+  contribution was ever forwarded, and no way for a kasambahay to see whether it
+  was. The employer share is computed for display only and never leaves the
+  screen. Grep for "remit" across both repos: the only hit is an aspiration in
+  `home-management-concept.md`'s fintech roadmap.
+- **Why the gap is easy to miss:** `ARCHITECTURE.md` 5.2 calls this the
+  "Statutory Contribution Matrix" and says it "automates SSS, PhilHealth, and
+  Pag-IBIG monthly calculations", which is true and reads as more than it is.
+  Calculating a deduction and discharging the obligation it represents are
+  different things, and only the first is built.
+- **Decision (user, 2026-08-17): the manager remits outside the app, and that is
+  the intended model for now.** LINARA is not becoming a remittance processor.
+  This entry stays open as a *disclosure* gap rather than a payments one.
+- **Proposed closure, not yet built — proof of remittance, visible to the
+  kasambahay.** An entry on the manager's payment surface accepting evidence
+  that the contributions were paid (reference number, period covered, an
+  uploaded receipt), surfaced in the helper's own app so she can see her
+  government deductibles are genuinely being remitted rather than simply
+  withheld. That is the point of it: today the deduction is visible to her and
+  its destination is not, which is precisely the trust asymmetry this product
+  exists to remove. Cross-repo when built — a table here, a manager-facing
+  upload in this app, a read-only view in `../LINARA_MOBILE`'s My Pay, and
+  Storage rules for the receipt file.
+- **Why it matters before a real household, not after:** withholding an
+  employee's statutory share and failing to remit it is the *employer's*
+  liability under RA 10361, and the app is the thing telling them the amount was
+  handled. Sandbox data today, so nothing is exposed — but the moment a real
+  kasambahay is onboarded, every cutoff creates a real obligation whose
+  discharge this system neither performs nor records. **Related:** C42's
+  per-entry settlement gap and this one are both "we computed it, we did not
+  track what happened to it".
 
 ---
 

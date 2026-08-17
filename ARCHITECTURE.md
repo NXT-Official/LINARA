@@ -308,7 +308,23 @@ The backend implements labor guidelines based on Republic Act No. 10361 (Batas K
 - **Statutory Contribution Matrix:** Automates SSS, PhilHealth, and Pag-IBIG monthly calculations:
   - _If base wage < ₱5,000:_ The employer covers 100% of the statutory contributions (per RA 10361).
   - _If base wage >= ₱5,000:_ The cost is split according to national government contribution tables.
-- **Rest Premium Compensation:** Automatically calculates after-hours work and rest day overrides, logging the overtime minutes to the ledger. Out-of-hours tasks accrue time-off in lieu ("Rest Owed") or premium pay calculated at a standard 1.3x multiplier of the helper's hourly rate equivalent.
+  - **Calculation only — there is no remittance path.** The employee share is
+    deducted from `net_pay` and snapshotted on the payslip; nothing forwards it
+    to any agency, records that it was forwarded, or shows the kasambahay where
+    it went. The manager remits outside the app (user decision, 2026-08-17).
+    Read "automates ... calculations" literally: discharging the obligation is
+    not built. See [`KNOWN_GAPS.md`](KNOWN_GAPS.md) **C46**, which also carries
+    the proposed closure — proof of remittance, visible to the helper.
+- **Rest Premium Compensation:** Automatically calculates after-hours work and rest day overrides, logging the overtime minutes to the ledger. Out-of-hours tasks accrue time-off in lieu ("Rest Owed").
+  - **Superseded 2026-08-17 — there is no 1.3x multiplier and no cash premium.**
+    This bullet previously described premium pay "calculated at a standard 1.3x
+    multiplier of the helper's hourly rate equivalent". That multiplier existed
+    nowhere in the code, and the product decision behind
+    [`KNOWN_GAPS.md`](KNOWN_GAPS.md) **C39** settled that after-hours work is
+    **time, not money**: rest-day work resolves through the same day-off request
+    as everything else, and no peso path exists anywhere in the payout code.
+    `resolution_type = 'premium_pay'` survives as a *tag* on the ledger entry —
+    it still accrues as redeemable rest minutes, identically to `rest_owed`.
 
 ### 5.3 Fintech Outbound Payment Pipeline
 
