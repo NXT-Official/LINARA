@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
-import { computeStatutorySplit, cutoffsPerMonth } from "@/features/people/people.utils";
 import type { PaydayInterval } from "@/features/people/people.types";
+
+import { payComponentsForCutoff } from "./net-pay";
 
 import type { PayoutChannelCode } from "./pay.types";
 
@@ -57,6 +58,16 @@ async function recordAttempt(
  * by your own reference, not to replay an idempotency key and infer from the
  * error. Returns null when the lookup itself fails (then, and only then, does
  * the attempt land in 'ambiguous' for a human).
+ *
+ * Response shape VERIFIED against the live sandbox 2026-08-17 (E1, probes
+ * 1B/1F -- see E1_XENDIT_VERIFICATION.md). It is always an object:
+ *
+ *   {"has_more":false,"data":[{ id, status, reference_id, ... }]}
+ *
+ * An earlier draft also accepted a bare top-level array; that was a defensive
+ * guess and never occurs, so it's gone. Note an unknown reference id returns
+ * HTTP 200 with an EMPTY data array, not a 404 -- so "no match" arrives here
+ * as rows.length === 0, not via the !res.ok guard.
  */
 async function lookupXenditPayout(
   xenditUrl: string,
@@ -72,16 +83,21 @@ async function lookupXenditPayout(
       },
     );
     if (!res.ok) return null;
-    const payload = (await res.json()) as
-      { data?: Array<{ id?: string; status?: string }> } | Array<{ id?: string; status?: string }>;
-    const rows = Array.isArray(payload) ? payload : (payload.data ?? []);
-    return rows.length > 0 ? rows[0] : null;
+    const payload = (await res.json()) as {
+      has_more?: boolean;
+      data?: Array<{ id?: string; status?: string }>;
+    };
+    return payload.data?.[0] ?? null;
   } catch {
     return null;
   }
 }
 
-/** Xendit payout status -> our attempt status. */
+/** Xendit payout status -> our attempt status. ACCEPTED, REQUESTED, SUCCEEDED
+ *  and FAILED were all observed on the live sandbox 2026-08-17 (E1) -- a single
+ *  payout went ACCEPTED -> REQUESTED -> SUCCEEDED within ~80s. CANCELLED is
+ *  real (C35 cancelled one by hand); PENDING/COMPLETED/REVERSED are unobserved
+ *  and kept as tolerant aliases. */
 function attemptStatusFromXendit(status: string | undefined): AttemptStatus | null {
   switch ((status ?? "").toUpperCase()) {
     case "ACCEPTED":
@@ -163,6 +179,9 @@ export const getHouseholdCutoffFn = createServerFn({ method: "POST" })
 
 interface XenditPayoutResponse {
   id?: string;
+  /** Present on 2xx. On a replayed Idempotency-key this is the payout's
+   *  CURRENT status, which may already be terminal -- see the 2xx branch. */
+  status?: string;
   message?: string;
   error_code?: string;
   errors?: Array<{ message?: string }>;
@@ -193,7 +212,11 @@ interface XenditPayoutResponse {
  * (only a 'failed' payslip may spawn another attempt).
  *
  * Outcome handling, in order of preference:
- *   1. 2xx                 -> attempt 'accepted'   -> payslip 'processing'.
+ *   1. 2xx                 -> adopt the body's own status (normally ACCEPTED/
+ *                              REQUESTED -> 'accepted' -> payslip
+ *                              'processing'). A replayed key returns the
+ *                              original payout with its CURRENT status, so a
+ *                              2xx can legitimately mean 'succeeded'.
  *   2. No response at all   -> DON'T GUESS. Look the reference id up via
  *                              GET /v2/payouts?reference_id=... and adopt the
  *                              real status. This is what makes an ambiguous
@@ -229,11 +252,16 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       throw new Error("This helper has no phone number on file -- add one before paying out.");
     }
 
+    // Same shared rule the Pay Dial reads, so the manager's estimate and the
+    // figures Postgres snapshots cannot drift apart (Session E / E4). Postgres
+    // still derives net_pay itself from these two -- it is the authority on the
+    // vale total, which it reads under a row lock.
     const paydayInterval = helperRow.payday_interval as PaydayInterval;
     const monthlyRate = Number(helperRow.monthly_rate);
-    const cutoffs = cutoffsPerMonth(paydayInterval);
-    const basePay = monthlyRate / cutoffs;
-    const statutoryShare = computeStatutorySplit(monthlyRate).totalEmployee / cutoffs;
+    const { basePay, statutoryEmployeeShare: statutoryShare } = payComponentsForCutoff(
+      monthlyRate,
+      paydayInterval,
+    );
 
     // The cutoff is NOT passed in any more -- initiate_payslip derives it from
     // the helper's own payday_interval on the Postgres clock, in the
@@ -332,16 +360,49 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       .json()
       .catch(() => ({}) as XenditPayoutResponse);
 
-    // (2) Xendit accepted (2xx).
+    // (2) Xendit accepted (2xx -- 200, not 201; verified 2026-08-17).
+    //
+    // Trust the body's own status rather than assuming 'accepted'. Normally it
+    // is ACCEPTED/REQUESTED and this resolves to 'accepted' exactly as before.
+    // It matters when this request was a REPLAY of an Idempotency-key that
+    // Xendit already has: an identical payload returns HTTP 200 with the
+    // ORIGINAL payout object carrying its CURRENT status (E1 probe 1C), which
+    // can already be SUCCEEDED. Recording that as merely 'accepted' would park
+    // the payslip in 'processing' waiting for a webhook that has already been
+    // and gone. Unknown/absent status falls back to 'accepted', which is the
+    // safe reading of a 2xx: Xendit has it, outcome still pending.
     if (response.ok) {
-      await recordAttempt(authedClient, attemptId, "accepted", { pspPayoutId: body.id ?? null });
-      return { payslipId, netPay, status: "processing" as const };
+      const reported = attemptStatusFromXendit(body.status) ?? "accepted";
+      await recordAttempt(authedClient, attemptId, reported, {
+        pspPayoutId: body.id ?? null,
+        failureReason:
+          reported === "accepted" || reported === "succeeded"
+            ? null
+            : `Xendit reports ${body.status}`,
+      });
+      if (reported === "accepted" || reported === "succeeded") {
+        return {
+          payslipId,
+          netPay,
+          status: reported === "succeeded" ? ("succeeded" as const) : ("processing" as const),
+        };
+      }
+      // 2xx carrying a terminal FAILED/CANCELLED -- possible only on a replay.
+      throw new Error(`Hindi natuloy ang payout — Xendit reports ${body.status}.`);
     }
 
     // (3) Xendit replied with an error. A duplicate here means this attempt's
     // key was somehow already used -- which should be impossible now that keys
     // are per-attempt and UNIQUE. Treat it as a bug signal, but resolve it the
     // safe way: look the reference up rather than assume.
+    // VERIFIED 2026-08-17 (E1 probe 1D): a same-key/different-payload replay
+    // returns HTTP 409 with error_code "DUPLICATE_ERROR" and a message naming
+    // the idempotency key -- so both halves of this test match, and neither is
+    // a guess any more. Keep it a 409-OR-substring test rather than an equality
+    // check on the literal: the payouts guide documents the same condition
+    // under the name DUPLICATE_PAYOUT_ERROR, so the exact string is not stable
+    // across their surfaces. A same-key/IDENTICAL-payload replay never reaches
+    // here at all -- that returns 200 and is handled at (2) above.
     const errorText = `${body.error_code ?? ""} ${body.message ?? ""} ${body.errors?.[0]?.message ?? ""}`;
     const isDuplicate = response.status === 409 || /duplicate|idempotency[ -]?key/i.test(errorText);
 
