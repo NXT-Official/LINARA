@@ -1,0 +1,31 @@
+# Supabase CLI project configuration.
+#
+# Added 2026-08-17 (KNOWN_GAPS.md C44/C45). This repo does NOT use the CLI for
+# migrations -- those are applied by hand in the SQL editor, see AGENTS.md and
+# PAYMENTS_REMEDIATION.md's working agreement. This file exists for ONE reason:
+# to stop an Edge Function being redeployed with the wrong auth setting.
+
+project_id = "tueckhlrrupmnzhblewy"
+
+# ---------------------------------------------------------------------------
+# The Xendit callback receiver. verify_jwt MUST stay false.
+#
+# Every other function in this repo is called by one of our own apps with a
+# user's JWT, so Supabase's default gateway check is correct for them. This one
+# is different: the caller is Xendit, over the public internet, with no
+# Supabase session of any kind. It authenticates the CALLER instead, comparing
+# the X-CALLBACK-TOKEN header against XENDIT_WEBHOOK_VERIFICATION_TOKEN (see
+# functions/xendit-payout-webhook/index.ts).
+#
+# With verify_jwt left at its default of true, the gateway rejects Xendit with
+# a 401 BEFORE our function runs, and nothing appears in the function logs at
+# all -- the failure looks exactly like "Xendit never called us". A payout
+# would then sit in `processing` forever, which is precisely the shape of the
+# bug this file was written after (C44), just arriving by a different route.
+#
+# So: deploy this function as
+#     supabase functions deploy xendit-payout-webhook --no-verify-jwt
+# or rely on the setting below, which is why it is written down.
+# ---------------------------------------------------------------------------
+[functions.xendit-payout-webhook]
+verify_jwt = false

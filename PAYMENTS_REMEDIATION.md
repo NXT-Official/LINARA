@@ -39,10 +39,16 @@ Shifts display bug.
     below). Runbook and raw payloads:
     [`E1_XENDIT_VERIFICATION.md`](E1_XENDIT_VERIFICATION.md) /
     [`E1_XENDIT_VERIFIED.md`](E1_XENDIT_VERIFIED.md). See `KNOWN_GAPS.md` C40.
-    **What is left is the important half:** the webhook writing into `payslips`
-    is *still* unobserved end to end (the probes used reference ids with no
-    `payout_attempts` row), so C35's open sub-item stands. That needs one real
-    payout through the Pay button — step 2 of the runbook.
+    **Step 2 has now been run, and it found a live bug** (2026-08-17): the
+    deployed `xendit-payout-webhook` was a **pre-C37 build** querying the
+    `payslips.payout_reference_id` column that C37 had dropped, so every
+    callback since 2026-08-16 threw and returned 500 and every payout would
+    have hung in `processing` while Xendit reported success. The code was
+    committed and never deployed. See `KNOWN_GAPS.md` **C44**, and **C45** for
+    the category — nothing in this repo tracks which function build is live.
+    **C35's sub-item stays open** until a payout completes end to end on the
+    redeployed function, ideally one carrying a vale so settlement is exercised
+    too.
   - **E4 (the invariant test) — DONE.** `KNOWN_GAPS.md` C41. Code and tests
     only, no migration. Extended the same day: `../LINARA_MOBILE` gained a test
     runner so the cross-repo half stops skipping in CI (`KNOWN_GAPS.md` C43).

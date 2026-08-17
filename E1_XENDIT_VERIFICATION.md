@@ -524,11 +524,36 @@ to exercise `initiate_payslip` → `pay.actions.ts` → Xendit → webhook →
 - The Money tab shows a **status badge, not the Pay buttons**, on reload.
 - Supabase function log shows the RPC call, no error.
 
-> **Observed (step 2) — 0.2 before, 0.2 after, function log, UI state:**
+> **Observed (step 2) — RUN 2026-08-17, and it FAILED, which is the point.**
+>
+> Paid **Kuya Marito** (₱12,000/mo semi-monthly → ₱6,000 base − ₱187.50
+> statutory = **₱5,812.50**, no vale), not Ate Marites — so the vale-settlement
+> path is **still unexercised** and step 2 should be re-run against her once
+> the fix is deployed.
+>
+> Xendit settled the payout successfully. The payslip stayed in `processing`.
+> The Supabase function log said:
 >
 > ```
-> (paste)
+> [xendit-payout-webhook] Lookup failed: column payslips.payout_reference_id does not exist
 > ```
+>
+> **The deployed function was a pre-C37 build** — the migration dropping that
+> column was applied on 2026-08-16 and the rewritten function was committed the
+> same day, but never deployed. Every callback since had thrown and returned
+> 500. Full write-up in `KNOWN_GAPS.md` **C44**, with the category-level gap as
+> **C45**.
+>
+> **This is exactly what step 1E was for.** The two probe deliveries in step 1
+> had already hit this error; step 1E (read the function logs) was skipped
+> because the pre-flight had confirmed the webhook *configuration*, and the
+> configuration was genuinely correct. It was the deployed *build* that was
+> wrong. Do not let a green pre-flight stand in for reading the logs.
+>
+> **Still to confirm after redeploying:** whether a Xendit retry lands on its
+> own (24h window), that the payslip reaches `succeeded` with `confirmed_at`
+> set, that a *vale-carrying* payout leaves the vale settled, and that the Money
+> tab shows a badge rather than the Pay buttons.
 
 **Opportunistic sub-probe — cancel (only if the payout is still `ACCEPTED`
 when you check at 5):** `curl.exe -i -u "$($env:XKEY):" -X POST

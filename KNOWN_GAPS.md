@@ -2504,6 +2504,79 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   helper back on different numbers — the same class of bug C41 closed one level
   up. Not addressed here.
 
+### C44. The deployed `xendit-payout-webhook` was a pre-C37 build querying a dropped column, so every payout since 2026-08-16 would have hung in `processing` forever
+
+- **Found:** 2026-08-17, on the first real payout run through the app — Session E
+  item E1's step 2, the check C35 had been waiting on. **Cause understood and
+  fixed in the repo the same day; the redeploy is the actual fix and is
+  maintainer-run.**
+- **The evidence**, from the Supabase function log, on a payout Xendit had
+  already settled successfully:
+
+  ```
+  [xendit-payout-webhook] Lookup failed: column payslips.payout_reference_id does not exist
+  ```
+
+- **Root cause:** C37 (`add-payout-attempts.sql`, applied 2026-08-16) **dropped**
+  `payslips.payout_reference_id` and rewrote the webhook to resolve the incoming
+  `reference_id` against `public.payout_attempts` instead. The migration was
+  applied. The rewritten function was committed. **It was never deployed.** The
+  build serving the live URL was still the pre-C37 one, so every callback threw,
+  returned 500, and left the payslip in `processing` while Xendit's ledger said
+  `SUCCEEDED`.
+- **Why it stayed hidden for a day:** nothing else calls this function, and no
+  payslip had ever reached a terminal state — which C35 recorded as the open
+  question and E1 existed to answer. The Session 0 / E1 pre-flight confirmed the
+  *configuration* (URL correct, token set, `payout.succeeded`/`failed`/`reversed`
+  subscribed) and every one of those was right. **Configuration being correct
+  says nothing about which build is answering.** E1's step 1E — read the function
+  logs after a probe — was the check that would have caught it a day earlier,
+  and it was the one part of step 1 that was skipped; the two probe deliveries
+  had thrown this same error unnoticed.
+- **Fixed by** redeploying the committed source:
+  `supabase functions deploy xendit-payout-webhook --project-ref <ref> --no-verify-jwt`.
+  The stuck payslip is resolved either by a Xendit retry (they retry an
+  unacknowledged webhook for 24h, so the 500'd delivery is still queued) or by
+  calling `record_payout_attempt_result` by hand — deliberately the same
+  function the webhook calls, so a manual reconciliation cannot produce a
+  different result from an automatic one.
+- **`--no-verify-jwt` is not optional and is now written down.** Supabase's
+  gateway verifies a Supabase JWT by default; Xendit sends none, authenticating
+  instead with `X-CALLBACK-TOKEN`. A redeploy without the flag would have
+  rejected every callback with a 401 **before** the function ran — no function
+  log at all, indistinguishable from "Xendit never called". There was no
+  `supabase/config.toml` in the repo, so this requirement lived nowhere;
+  `supabase/config.toml` now pins `verify_jwt = false` for this function.
+
+### C45. Nothing tracks which Edge Function build is actually deployed, and there is no deploy step in the workflow
+
+- **Found:** 2026-08-17, generalizing from C44 — that bug is one instance of a
+  category. **Open.**
+- **What's missing:** migrations have a documented, deliberate hand-run process
+  (AGENTS.md, PAYMENTS_REMEDIATION.md's working agreement) and every applied one
+  is recorded in this file with a date. Edge Functions have **no equivalent** —
+  no deploy step in any story or checklist, no record of what was last pushed,
+  and no way to compare `supabase/functions/*` against what is live. Code can
+  therefore be written, reviewed, committed, and never reach production, with
+  nothing failing loudly. C44 is exactly that, and it sat live for a day on the
+  path that moves money.
+- **Blast radius:** seven functions — `xendit-payout-webhook`, `generate-sop`,
+  `simplify-sop`, `route-utos`, `parse-scheduler`, `transcribe-notes`,
+  `promote-voice-task`. **Only the webhook has been verified as current
+  (2026-08-17).** The other six are of unknown vintage; any that changed since
+  their last deploy are silently stale in the same way. Their per-function
+  `verify_jwt` state is likewise unrecorded — `config.toml` currently pins only
+  the webhook, because that is the only one whose correct value is known.
+- **To close:** at minimum, a deploy checklist item wherever
+  `supabase/functions/**` is touched, and a note in this file when a function is
+  deployed, matching how migrations are recorded. Better: deploy them from CI on
+  merge, which removes the human step that failed here. Cheapest useful first
+  step: redeploy all seven once, so "deployed" and "committed" are known to
+  match on a specific date.
+- **Related:** C21 recorded the webhook's *configuration* as the open question
+  and treated it as settled once the dashboard was right. C44 shows that was
+  never the whole question.
+
 ---
 
 ## Template for New Entries
