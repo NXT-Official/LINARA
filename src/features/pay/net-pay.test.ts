@@ -138,12 +138,40 @@ describe("the other surfaces still implement the same rule", () => {
 
     // It may still SHOW rest owed -- as time, via fmtHoursMinutes. What it must
     // never do is multiply minutes by a rate (the deleted ₱120/hr literal) or
-    // fold them into netPay.
+    // fold them into a peso total.
     expect(dial).toContain("fmtHoursMinutes(restOwedMin)");
-    expect(dial).toContain("netPayForCutoff(");
     expect(dial).not.toMatch(/restOwed\w*\s*[*/]/);
     expect(dial).not.toMatch(/restOwedEarnings/);
     expect(dial).not.toMatch(/restOwedRate/);
+  });
+
+  it("the payroll hook derives amounts through the shared rule", () => {
+    // The arithmetic moved out of the dial and into useHouseholdPayroll when
+    // the card became household-wide. This assertion moved with it -- a guard
+    // left pointing at the old location would still pass while guarding
+    // nothing, which is worse than not having it.
+    const hook = codeOnly(
+      readFileSync(resolve(REPO_ROOT, "src/features/pay/hooks/use-household-payroll.ts"), "utf8"),
+    );
+
+    expect(hook).toContain("netPayForCutoff(");
+    // No independent restatement of the formula, and no ledger term anywhere
+    // near a peso figure.
+    expect(hook).not.toMatch(/statutor\w*\s*[-+]/i);
+    expect(hook).not.toMatch(/restOwed\w*\s*[*]/);
+  });
+
+  it("a paid cutoff reports the payslip's snapshot, not a recomputation", () => {
+    // The defect this hook was written for: the dial ignored `payslips`, so a
+    // cutoff already paid still displayed its full accrued amount. Once paid,
+    // the record is the honest number -- a recomputation would silently rewrite
+    // history if the wage changed mid-cutoff (same reasoning as C10).
+    const hook = codeOnly(
+      readFileSync(resolve(REPO_ROOT, "src/features/pay/hooks/use-household-payroll.ts"), "utf8"),
+    );
+
+    expect(hook).toContain("payslip?.netPay");
+    expect(hook).toMatch(/state === "due"/);
   });
 
   it("LINARA_MOBILE states the same rule, when the sibling repo is present", (ctx) => {
