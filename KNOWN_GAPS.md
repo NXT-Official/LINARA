@@ -2268,6 +2268,242 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   deferred — but it is worth doing in the same pass as that decision, not
   after.
 
+### C40. Xendit's actual API and webhook behaviour had never been observed -- three parsing branches in the payout path were documented guesses, and one was based on a wrong reading
+
+- **Found:** 2026-08-16 as residual limitations of C35/C36/C37, gathered as
+  Session E item E1 in `PAYMENTS_REMEDIATION.md`. **Partially closed:**
+  2026-08-17 by running real payouts against the sandbox. Full evidence, with
+  raw request/response bodies, is in
+  [`E1_XENDIT_VERIFICATION.md`](E1_XENDIT_VERIFICATION.md); the maintainer's
+  captures are in [`E1_XENDIT_VERIFIED.md`](E1_XENDIT_VERIFIED.md).
+- **Why it mattered:** C35, C36 and C37 each shipped a defensive branch written
+  from documentation rather than observation, and each note said so. Defensive
+  code that has never met the thing it defends against is not a safety margin,
+  it is an untested path in the one part of the app that moves money.
+- **What was observed** (two ₱100 sandbox payouts, one settling, one forced to
+  fail with the `123456` test account number):
+  1. **`GET /v2/payouts?reference_id=` always returns an object**,
+     `{"has_more":false,"data":[…]}` — never a bare array. `lookupXenditPayout`
+     had accepted both; the array branch was dead code and is now gone.
+     An **unknown** reference returns **HTTP 200 with an empty `data`**, not a
+     404, so a miss arrives as `rows.length === 0` rather than through the
+     `!res.ok` guard — which is what makes it resolve to `ambiguous` ->
+     `needs_review` as designed.
+  2. **A replayed `Idempotency-key` behaves conditionally on the payload:**
+     identical payload -> **HTTP 200 carrying the ORIGINAL payout object with
+     its CURRENT status**; different payload -> **HTTP 409,
+     `error_code: "DUPLICATE_ERROR"`**. **This contradicted our own Session 0
+     Q6 finding**, which recorded the 409 case unconditionally and is now
+     corrected in place in `PAYMENTS_REMEDIATION.md`. The practical consequence
+     is the opposite of what that note implied: a network retry resolves
+     through the ordinary 2xx path and the duplicate branch is only ever a bug
+     signal, exactly as C37 predicted it would become once keys went
+     per-attempt.
+  3. **`pay.actions.ts`'s duplicate test was correct as written** — really 409,
+     really a matching `DUPLICATE_ERROR` string. Kept unchanged, with the
+     comment promoted from guess to verified. Deliberately still a
+     `409 OR substring` test, not an equality check: Xendit's payouts guide
+     documents the same condition under the name `DUPLICATE_PAYOUT_ERROR`, so
+     the literal is not stable across their own surfaces.
+  4. **The webhook envelope matches what `xendit-payout-webhook` parses**, field
+     for field: top-level `event` (`payout.succeeded` / `payout.failed`),
+     `data.reference_id`, `data.id`, and `data.failure_code` present on failure
+     only. No parser change needed. Also noted: the top-level `created` is the
+     *event's* timestamp while `data.created` is the *payout's* — 80s apart on
+     the success, 3.5 min on the failure. Nothing reads them today; E5's
+     reconciliation view will need the right one.
+  5. **Test mode settles in ~80 seconds**, not at the advertised
+     `estimated_arrival_time` (+15 min), and **simulated failures are
+     asynchronous** — `account_number: "123456"` returns `200 ACCEPTED`,
+     indistinguishable from a good payout, and only becomes
+     `FAILED`/`TEMPORARY_TRANSFER_ERROR` minutes later via webhook.
+- **One behaviour change this justified, not just comments:** on a 2xx,
+  `pay.actions.ts` now adopts the response body's own `status` through
+  `attemptStatusFromXendit` instead of unconditionally recording `accepted`.
+  Normally identical (ACCEPTED/REQUESTED -> `accepted`), it matters on a replay
+  of an already-settled payout, which would otherwise park the payslip in
+  `processing` waiting for a webhook that had already been and gone.
+- **Cross-repo:** none required. `../LINARA_MOBILE` contains no Xendit request
+  or response parsing at all — it reads `payslips` rows only. Checked, not
+  assumed (the C33 lesson).
+- **STILL OPEN — the headline item of C35 is NOT closed by this.** The webhook
+  writing back into `payslips` **remains unobserved end to end.** Both probes
+  deliberately used a reference id with no `payout_attempts` row behind it, so
+  they exercised delivery and parsing but not the rollup. What is still needed
+  is one real payout through the app's Pay button (Session E step 2 of the
+  runbook), plus confirmation from the Supabase function logs that the two
+  probe deliveries were received and answered 200 — a payload in Xendit's
+  outbox is not proof of delivery. Also still unobserved: `payout.reversed` /
+  `payout.cancelled` (neither fires in this flow), `pay.actions.ts`'s
+  synchronous-rejection branch (no simulation account number reaches it), and
+  **Xendit's idempotency retention window**, which remains undocumented and
+  unanswered by support.
+
+### C41. The Pay Dial, the helper's payslip and the real `net_pay` agreed only by construction -- nothing stopped a fourth term being added to one of them
+
+- **Found:** 2026-08-17, as Session E item E4 in `PAYMENTS_REMEDIATION.md`.
+  **Closed:** 2026-08-17, code and tests only — **no migration, nothing to
+  apply**.
+- **What was wrong:** C39's stated acceptance criterion was that the manager's
+  Pay Dial, `../LINARA_MOBILE`'s `DigitalPayslip`, and the `net_pay` written by
+  `initiate_payslip` agree for the same helper and cutoff. They did — but
+  because the peso line had been *deleted* from one of three independently
+  hand-written copies of the same expression. Nothing asserted the agreement,
+  and C39's own history is the argument for why that is not enough: the Pay
+  Dial had carried an invented ₱120/hr term for months while the other two did
+  not.
+- **Fixed by** `src/features/pay/net-pay.ts` — one definition of
+  `net = max(0, base - statutory employee share - unsettled approved vales)`,
+  consumed by both in-repo copies (`spend-and-payday.tsx` and
+  `pay.actions.ts`). The invariant is enforced by the **signature**: there is no
+  parameter through which a rest-owed total could be passed.
+- **The other two surfaces are in languages this suite cannot import**, so
+  `net-pay.test.ts` pins them by reading their source: `initiate_payslip`'s
+  `GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total)` and the
+  absence of any `ledger_entries` reference in it; the Pay Dial still rendering
+  rest owed through `fmtHoursMinutes` and never multiplying it by a rate; and
+  `DigitalPayslip`'s matching expression. Crude on purpose — a comment does not
+  fail a build.
+- **Two things the test itself caught, worth recording:** (1) the first run
+  failed on `spend-and-payday.tsx`'s *comment*, which deliberately quotes the
+  deleted `restOwedEarnings` expression as history — the guards now strip
+  comments before matching, so they fail on the code coming back, not on the
+  record of it having gone; (2) each guard was verified to actually match a
+  synthetic reintroduction, since a regression test that cannot fail is worse
+  than none.
+- **Known limitation:** the mobile assertion **skips** when
+  `../LINARA_MOBILE` is not checked out beside this repo — which is exactly the
+  case in CI. `LINARA_MOBILE` has **no test runner at all** (verified
+  2026-08-17: no jest/vitest, no test script, no `*.test.ts`), so today this is
+  the only place the check can live. Adding one there is a real decision with
+  its own scope, deliberately not taken unilaterally in this pass.
+
+### C42. The rest-vs-premium default was one household-wide toggle in React state, so in a two-helper household it classified the wrong worker's off-shift work
+
+- **Found:** 2026-08-16 as the open sub-item of C39; picked up as Session E
+  item E2. **Closed:** 2026-08-17 — `supabase/add-helper-default-resolution.sql`,
+  applied by hand in the Supabase SQL editor by the maintainer.
+- **REVISED the same day, and the revision needs applying too.** The first
+  version derived `premium_pay` from `employment = 'live-out'`. That mapping was
+  removed hours after it landed —
+  **run `supabase/fix-resolution-default-to-rest.sql`**, which detects the old
+  expression and swaps it (a no-op if already correct, and harmless on a fresh
+  database). Reasoning is under "Why the employment mapping was removed" below.
+- **What the concept doc promised:** `home-management-concept.md` —
+  *"keep the resolution type flexible per worker: a live-out day helper leans
+  back toward an hourly/OT model, while a live-in accrues rest owed."*
+- **What the code did:** `useState<LedgerResolution>("rest")` in `use-ledger.ts`,
+  surfaced as a **"House default"** toggle on the Money tab. Ephemeral (reset on
+  every reload), household-wide, and not keyed to a helper — while the card it
+  sat in was *already* filtered to one selected helper. In the sandbox's
+  two-helper household that meant a manager could look at Kuya Marito's ledger,
+  flip the toggle, and change how **Ate Marites'** next completion was
+  classified. `helper_profiles.employment` ('live-in'/'live-out') has existed
+  and been collected at invite time the whole while, unused for this.
+- **Fixed by:**
+  - **`helper_profiles.default_resolution`** — nullable. NULL is a real state
+    meaning *"follow this helper's employment"*, not a missing value.
+  - **`helper_profiles.effective_resolution`** — a STORED generated column,
+    `COALESCE(default_resolution, 'rest_owed')`. One definition, read by the
+    trigger, the manager's web app and the helper's app alike — the same posture
+    as `rest_owed_balance_minutes` (C39) and `household_cutoff` (C38).
+  - **A `BEFORE INSERT` trigger on `ledger_entries`** filling an omitted
+    `resolution_type` from that column, so the rule belongs to the database
+    rather than to one of two clients. `insertLedgerEntryFn` now omits the field
+    entirely; an explicitly-passed value still wins, which is the per-entry
+    override the manager already had on each row.
+  - **`set_helper_default_resolution`**, manager-gated inside the function.
+    Necessary, not ceremonial: `helper_profiles_isolation` is `FOR ALL` across
+    the household, so without an RPC a **helper** could rewrite her own terms of
+    employment by writing the table directly.
+  - The Money tab's toggle is now **"<Helper>'s default"**, persisted, and says
+    which of the two states it is in ("Following employment type" vs "Set for
+    this helper · tap again to follow employment").
+- **Why nullable rather than a seeded snapshot:** seeding would have frozen
+  whatever was true at migration time and required repeating for every new
+  helper via yet another trigger. A live derivation cannot drift.
+- **Why the employment mapping was removed, hours after it shipped**
+  (`supabase/fix-resolution-default-to-rest.sql`): the maintainer asked why
+  `premium_pay` featured at all, given rest-day premium is deferred. Following
+  that through: since C39 both tags behave **identically** — both accrue into
+  the redeemable rest balance and are taken as time off — so deriving
+  `premium_pay` from `employment` changed nothing today. What it did change is
+  tomorrow. `rest_owed_balance_minutes` is pool arithmetic,
+  `SUM(entries) - SUM(approved rest_off_requests.minutes)`, with **no per-entry
+  settlement marker**. Once minutes are redeemed as time off, the individual
+  entries still look untouched and still carry their tag. C39 anticipates a
+  future cash policy converting "only the unsettled `premium_pay` ones", but
+  *unsettled* is **not answerable per entry** — so auto-tagging grew the
+  ambiguous population from roughly nothing to every live-out helper's entire
+  history: minutes a later cash policy could pay for a second time, after they
+  had already been taken as days off. The default is now `rest_owed` for
+  everyone and the premium tag is only ever a human decision. "Flexible per
+  worker" is unchanged — it is simply never *implied*.
+- **Open sub-item this exposed, NOT closed:** there is **no per-entry
+  settlement** for rest owed. `rest_off_requests` debits a pool; nothing records
+  which `ledger_entries` those minutes came from. While everything resolves as
+  time this is harmless — the balance is correct either way. It becomes
+  load-bearing the moment any cash conversion exists, and it should be settled
+  *with* that policy rather than retrofitted after premium-tagged minutes have
+  accumulated. Related: `vales.settled_in_payslip_id` is the pattern to copy.
+- **Verified against a real Postgres**, same harness as C36–C39, and re-verified
+  after the revision along **both** paths that now exist: a fresh database
+  running only the revised original, and a database that ran the ORIGINAL and
+  then the fixer — which is the live project's path. On the latter the live-out
+  helper flipped `premium_pay` → `rest_owed` while an explicitly-set helper kept
+  her choice, the fixer was a no-op on re-run, and the trigger, the RPC and the
+  per-entry override all still worked after the generated column was dropped and
+  re-added (Postgres 15 cannot `ALTER` a generated expression). The fixture had a
+  live-in, a live-out, a NULL-employment helper and a pre-existing ledger row;
+  the migration was applied and **re-applied twice** (clean); **12 behavioural
+  checks**
+  covering per-helper defaulting, explicit override, history left untouched, the
+  manager gate, the helper refusal, unauthenticated refusal, a bogus value, a
+  cross-household write, employment-change behaviour, and no row left with a
+  NULL `resolution_type`. Plus an **overlapping-transaction check**: an insert
+  running while another session holds an uncommitted default change does **not
+  block** (278ms), reads the last committed value, and picks up the new one
+  after commit — correct READ COMMITTED behaviour rather than a lock stall.
+- **Cross-repo (this is the part that mattered):** `../LINARA_MOBILE`'s
+  `restOwedMinutes` **excluded** `premium_pay` entries, with a comment claiming
+  *"Premium-pay entries are paid in cash instead"* — which was never true and
+  which C39 explicitly reversed. Postgres's `rest_owed_balance_minutes` counts
+  them (`COUNT_PREMIUM_AS_REST`), so the two disagreed. It is used as the
+  fallback shown while the authoritative balance query is in flight, and **E2
+  would have made it systematically wrong**: a live-out helper's entries now
+  default to `premium_pay`, so she would have seen a flat zero rest owed before
+  the real number arrived. Fixed to count every entry, with the divergence that
+  remains (it does not subtract redeemed minutes) stated in the comment. Exactly
+  the C33 failure mode, caught in the same pass this time.
+- **Known limitations:** the toggle is only on the Money tab (there is no
+  per-helper settings surface in People yet); and `employment` itself has no UI
+  after invite time, so a live-in → live-out change still needs SQL.
+
+### C43. LINARA_MOBILE had no test runner, so a cross-repo invariant could only be checked from LINARA — where it skipped in CI
+
+- **Found:** 2026-08-17 while closing E4 (C41). **Closed:** 2026-08-17, by
+  maintainer decision to add one rather than leave the gap recorded.
+- **The problem:** C41's guard on the helper-facing payslip formula lived in
+  `LINARA`'s suite and read `../LINARA_MOBILE`'s source across the repo
+  boundary. That only works where both repos are checked out side by side —
+  it skipped in CI, which is precisely where a regression would land unnoticed.
+- **Fixed by** adding `vitest` to `../LINARA_MOBILE` (dev dependency, `test` and
+  `test:watch` scripts) and extracting `lib/net-pay.ts` — the same rule as
+  LINARA's `net-pay.ts`, pulled out of `digital-payslip.tsx` so it can be tested
+  without rendering React Native. `lib/net-pay.test.ts` asserts the arithmetic,
+  the zero floor, the cutoff division, and (by arity) that no ledger term can be
+  passed in. LINARA's cross-repo check remains as a second line of defence,
+  now also asserting the component still routes through the shared function.
+- **Deliberate omission, worth knowing:** the mobile suite does **not** read any
+  file from disk. Doing so needs `node:fs`, which needs `@types/node`, which
+  would put Node's globals into a React Native app's typecheck (where
+  `setTimeout` and friends have different types) for a test-only convenience.
+  The source-reading guards stay in LINARA, which already runs in Node.
+- **Still true:** the two repos each hand-write `computeStatutorySplit`. Nothing
+  asserts those two copies agree, and a divergence would put the manager and the
+  helper back on different numbers — the same class of bug C41 closed one level
+  up. Not addressed here.
+
 ---
 
 ## Template for New Entries

@@ -30,9 +30,37 @@ Shifts display bug.
   `payout_attempts` table, which already provides the per-attempt audit trail
   the planned `supersedes_payslip_id` was for. What remains of it is folded
   into Session E below.
-- **Session E (remaining gaps) — NOT STARTED.** The accumulated residual
-  limitations from C35–C39, gathered with a paste-ready prompt at the bottom of
-  this document.
+- **Session E (remaining gaps) — IN PROGRESS, started 2026-08-17.** The
+  accumulated residual limitations from C35–C39, gathered with a paste-ready
+  prompt at the bottom of this document.
+  - **E1 (verify against the sandbox) — MOSTLY DONE.** Six live probes run;
+    three defensive guesses replaced with observed behaviour and one of this
+    document's own findings corrected (Session 0 Q6, see the correction inline
+    below). Runbook and raw payloads:
+    [`E1_XENDIT_VERIFICATION.md`](E1_XENDIT_VERIFICATION.md) /
+    [`E1_XENDIT_VERIFIED.md`](E1_XENDIT_VERIFIED.md). See `KNOWN_GAPS.md` C40.
+    **What is left is the important half:** the webhook writing into `payslips`
+    is *still* unobserved end to end (the probes used reference ids with no
+    `payout_attempts` row), so C35's open sub-item stands. That needs one real
+    payout through the Pay button — step 2 of the runbook.
+  - **E4 (the invariant test) — DONE.** `KNOWN_GAPS.md` C41. Code and tests
+    only, no migration. Extended the same day: `../LINARA_MOBILE` gained a test
+    runner so the cross-repo half stops skipping in CI (`KNOWN_GAPS.md` C43).
+  - **E2 (per-worker resolution default) — DONE and APPLIED 2026-08-17,** with
+    a follow-up **still to run**: `supabase/add-helper-default-resolution.sql`
+    then `supabase/fix-resolution-default-to-rest.sql` (the latter removes the
+    employment → `premium_pay` derivation; see `KNOWN_GAPS.md` C42). Both
+    Docker-verified — 12 behavioural checks, idempotency, an
+    overlapping-transaction check, and the upgrade path from the original
+    migration to the fixed one. Closes the last gap against
+    `home-management-concept.md`'s "flexible per worker", caught a live
+    cross-repo divergence in `../LINARA_MOBILE`'s rest-owed fallback, and
+    surfaced a new open item: **rest owed has no per-entry settlement**, which
+    matters only once cash conversion exists but should be settled with that
+    policy rather than after it.
+  - **Remaining, in the order picked 2026-08-17:** E3a (rest-off validation +
+    cancel path), E5 (reconciliation/staleness), then E3b (native pickers).
+    E6 stays deferred until a real household is onboarded.
 
 A fourth defect surfaced during Session 0 (Xendit payouts sent at 100x value),
 recorded as `KNOWN_GAPS.md` C35. Its code fix had already shipped; the one
@@ -482,6 +510,23 @@ or the retry will surface as a fresh failure and invent a new wrong state.
 **The retention window is not publicly documented** on either the payouts
 integration page or the API reference; it needs a Xendit support answer or an
 empirical test before idempotency is leaned on as the primary defence.
+
+> **CORRECTED 2026-08-17 by Session E's E1 — the paragraph above is wrong, and
+> it was wrong when written.** It was read off the documentation, not observed.
+> Against the live sandbox the behaviour is **conditional on the payload**:
+>
+> - same key + **identical** payload → **HTTP 200 and the original payout
+>   object**, carrying that payout's *current* status. No error.
+> - same key + **different** payload → **HTTP 409**, `error_code:
+>   "DUPLICATE_ERROR"`.
+>
+> This does not invalidate anything shipped. C36 built on the pessimistic
+> reading and C37 then made keys per-attempt, so a duplicate can no longer
+> arise from a normal retry either way — the practical effect is that a network
+> retry resolves itself through the ordinary 2xx path rather than the duplicate
+> branch. Evidence and the exact payloads are in
+> [`E1_XENDIT_VERIFICATION.md`](E1_XENDIT_VERIFICATION.md) probes 1C/1D.
+> The **retention window is still unanswered** — that half stands.
 
 **Decisions taken (user-confirmed 2026-08-16):** ambiguous failures get a new
 `needs_review` status; a genuine retry **reuses** the same reference id.

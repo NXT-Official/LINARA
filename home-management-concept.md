@@ -405,12 +405,31 @@ break work is flagged distinctly because it matters most.
 >   *rest-day* figure is +30%, and this paragraph ties premium to rest-day
 >   work. Confirm against current DOLE guidance rather than either figure being
 >   assumed. Minutes already redeemed as time are settled and must not convert.
-> - **Not built — the one real gap against this section.** "Keep the resolution
->   type flexible per worker" is *not* true yet. `helper_profiles.employment`
->   ('live-in' / 'live-out') exists, but the rest-vs-premium default is still
->   ephemeral client state (`useState` in `use-ledger.ts`), household-wide and
->   reset on reload — it is neither persisted nor per-worker. A live-out day
->   helper cannot yet "lean back toward an hourly/OT model" as this describes.
+> - **Built 2026-08-17 — this was the last gap against this section.** "Keep the
+>   resolution type flexible per worker" is now real. `helper_profiles` carries
+>   a per-helper `default_resolution` (nullable — NULL means "follow this
+>   helper's `employment`") plus a generated `effective_resolution` that
+>   resolves the two, and a `BEFORE INSERT` trigger on `ledger_entries` applies
+>   it per helper. A manager sets it per worker (Money tab) or per entry (the
+>   ledger row's own toggle). Before this it was one `useState` in
+>   `use-ledger.ts` — household-wide, reset on reload, and in a two-helper
+>   household capable of classifying the *other* worker's off-shift work. See
+>   [`KNOWN_GAPS.md`](KNOWN_GAPS.md) C42.
+> - **But the "live-out leans toward hourly/OT" half is deliberately NOT
+>   automatic.** The first cut of that migration derived `premium_pay` from
+>   `employment = 'live-out'`, reading this paragraph literally. It was removed
+>   the same day. Since rest-day premium is not paid in cash (bullet above),
+>   both tags behave identically — both accrue redeemable rest minutes — so the
+>   mapping changed nothing today, while quietly creating a large population of
+>   premium-tagged minutes that a future cash policy could not distinguish from
+>   ones already taken as time off (the rest balance is pool arithmetic with no
+>   per-entry settlement). Everyone now defaults to `rest_owed`; a manager can
+>   still put any worker on `premium_pay` explicitly. So this sentence describes
+>   a lever that exists and a default that stays conservative until the cash
+>   question is actually decided.
+> - **Still not built:** `employment` has no UI after invite time; and rest owed
+>   has no per-entry settlement, which is the thing to fix *with* any cash
+>   policy rather than after it.
 
 ### — The override deliberate friction
 
