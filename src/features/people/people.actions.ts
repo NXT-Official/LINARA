@@ -41,6 +41,12 @@ interface HelperProfileRow {
   phone: string | null;
   manual_status: "available" | "off" | null;
   manual_available_until: string | null;
+  /** Per-helper rest/premium default (Session E / E2). `default_resolution` is
+   * the manager's explicit choice, NULL meaning "follow employment";
+   * `effective_resolution` is the generated column that resolves the two and is
+   * what callers should read. supabase/add-helper-default-resolution.sql. */
+  default_resolution: "rest_owed" | "premium_pay" | null;
+  effective_resolution: "rest_owed" | "premium_pay" | null;
   created_at: string;
 }
 

@@ -9,14 +9,24 @@ import { fmtHoursMinutes, ledgerEntryMinutes, reasonLabel } from "../ledger.util
 export function AfterHoursLedger({
   entries,
   ledgerDefault,
+  isExplicitDefault = false,
   onSetDefault,
   onUpdateEntry,
   audience,
   helperName,
 }: {
   entries: LedgerEntry[];
+  /**
+   * The SELECTED helper's effective default (Session E / E2) -- not a house
+   * setting. Comes from helper_profiles.effective_resolution, which Postgres
+   * derives from the explicit default or, failing that, employment.
+   */
   ledgerDefault: LedgerResolution;
-  onSetDefault?: (r: LedgerResolution) => void;
+  /** True when a manager set it explicitly, false when it is following
+   *  employment. Both are legitimate states and the UI says which. */
+  isExplicitDefault?: boolean;
+  /** `null` clears the override, returning the helper to their employment type. */
+  onSetDefault?: (r: LedgerResolution | null) => void | Promise<unknown>;
   onUpdateEntry: (
     id: string,
     patch: Partial<Pick<LedgerEntry, "adjustMinutes" | "resolution">>,
@@ -26,6 +36,7 @@ export function AfterHoursLedger({
 }) {
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
+  const [savingDefault, setSavingDefault] = useState(false);
 
   // Filter to current month (based on doneTs).
   const now = new Date();
@@ -82,17 +93,28 @@ export function AfterHoursLedger({
           </p>
         </div>
         {audience === "manager" && onSetDefault && (
-          <div className="shrink-0">
+          <div className="shrink-0 text-right">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              House default
+              {helperName ? `${helperName}'s default` : "Default"}
             </div>
             <div className="mt-1 inline-flex rounded-full border border-border bg-background p-0.5">
               {(["rest", "premium"] as const).map((k) => (
                 <button
                   key={k}
-                  onClick={() => onSetDefault(k)}
+                  onClick={async () => {
+                    // Tapping the selected option clears the override rather
+                    // than being a no-op -- that is the only way back to
+                    // "follow employment" without a third button.
+                    setSavingDefault(true);
+                    try {
+                      await onSetDefault(ledgerDefault === k && isExplicitDefault ? null : k);
+                    } finally {
+                      setSavingDefault(false);
+                    }
+                  }}
                   aria-pressed={ledgerDefault === k}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  disabled={savingDefault}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:opacity-60 ${
                     ledgerDefault === k
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -102,6 +124,17 @@ export function AfterHoursLedger({
                 </button>
               ))}
             </div>
+            {/* Which of the two states this is matters. Unset means nobody has
+                chosen -- it is NOT derived from live-in/live-out, deliberately
+                (supabase/fix-resolution-default-to-rest.sql): while rest-day
+                premium is not paid in cash both tags are taken as time off, so
+                a helper should only carry the premium tag because a manager
+                decided it. Tapping the selected option clears it back to here. */}
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {isExplicitDefault
+                ? "Set for this helper · tap again to clear"
+                : "Not set · defaults to banked rest"}
+            </p>
           </div>
         )}
       </div>

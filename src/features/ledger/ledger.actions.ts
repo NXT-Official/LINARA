@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createAuthedClient } from "@/lib/supabase";
 
 import type { LedgerReason, LedgerResolution } from "./ledger.types";
+import { RESOLUTION_TO_RESOLUTION_TYPE, RESOLUTION_TYPE_TO_RESOLUTION } from "./ledger.utils";
 
 // LedgerReason (5 values) -> ledger_entries.source_type (4 values, CHECK
 // constraint). "available" and "override" both collapse to "overtime" --
@@ -27,15 +28,11 @@ export const SOURCE_TYPE_TO_REASON: Record<string, LedgerReason> = {
   rest_break_work: "rest_break",
 };
 
-const RESOLUTION_TO_RESOLUTION_TYPE: Record<LedgerResolution, string> = {
-  rest: "rest_owed",
-  premium: "premium_pay",
-};
-
-export const RESOLUTION_TYPE_TO_RESOLUTION: Record<string, LedgerResolution> = {
-  rest_owed: "rest",
-  premium_pay: "premium",
-};
+// Re-exported so existing importers keep working. They must NOT be DEFINED in
+// this file: it imports createAuthedClient, so anything reaching for a mapping
+// would pull a Supabase client into its import graph -- which is exactly what
+// broke when people.utils.ts started needing them (Session E / E2).
+export { RESOLUTION_TO_RESOLUTION_TYPE, RESOLUTION_TYPE_TO_RESOLUTION };
 
 export interface LedgerEntryRow {
   id: string;
@@ -79,6 +76,18 @@ export const listLedgerEntriesFn = createServerFn({ method: "POST" })
  * `doneTsIso` is passed explicitly (not left to the DB's NOW() default)
  * because the app clock can run on a simulated offset (see use-sim-clock.ts)
  * that may not match the server's real wall-clock time.
+ *
+ * `resolution` is OPTIONAL and normally omitted (Session E / E2). Left out,
+ * Postgres fills `resolution_type` from THIS HELPER's own default -- the
+ * ledger_entries_default_resolution trigger reading
+ * helper_profiles.effective_resolution. Previously this was always supplied by
+ * the caller from a single `useState` in use-ledger.ts: household-wide,
+ * ephemeral, reset on reload, and not keyed to a helper at all, so in a
+ * two-helper household one shared toggle classified both workers' off-shift
+ * work (MULTI_HELPER_HANDLING.md's failure mode, and the last gap against
+ * home-management-concept.md's "flexible per worker").
+ *
+ * Pass it only to override a SINGLE entry against that default.
  */
 export const insertLedgerEntryFn = createServerFn({ method: "POST" })
   .validator(
@@ -88,7 +97,8 @@ export const insertLedgerEntryFn = createServerFn({ method: "POST" })
       title: string;
       kind: "task" | "utos";
       reason: LedgerReason;
-      resolution: LedgerResolution;
+      /** Omit to use the helper's own default; set only to override this entry. */
+      resolution?: LedgerResolution;
       autoMinutes: number;
       doneTsIso: string;
     }) => data,
@@ -106,7 +116,10 @@ export const insertLedgerEntryFn = createServerFn({ method: "POST" })
         kind,
         duration_minutes: autoMinutes,
         resolved: true,
-        resolution_type: RESOLUTION_TO_RESOLUTION_TYPE[resolution],
+        // undefined -> column omitted -> the trigger fills it per helper. Do
+        // not "helpfully" default this to 'rest_owed' here; that would put the
+        // rule back in the client, one app of two.
+        resolution_type: resolution ? RESOLUTION_TO_RESOLUTION_TYPE[resolution] : undefined,
         resolved_at: doneTsIso,
         created_at: doneTsIso,
       })
@@ -148,6 +161,49 @@ export const updateLedgerEntryFn = createServerFn({ method: "POST" })
     }
 
     return { entryId };
+  });
+
+/**
+ * Sets (or clears) a helper's own rest-vs-premium default -- Session E / E2,
+ * closing home-management-concept.md's "keep the resolution type flexible per
+ * worker", which until now was a household-wide `useState` that reset on
+ * reload.
+ *
+ * `resolution: null` clears the explicit choice and returns the helper to
+ * following their `employment` type ('live-out' -> premium, otherwise rest).
+ * That is a real state, not a missing value, which is why the column is
+ * nullable rather than seeded: a seeded snapshot would leave a helper switched
+ * from live-in to live-out sitting on the old answer forever.
+ *
+ * Manager-gated inside `set_helper_default_resolution` itself, not here --
+ * `helper_profiles_isolation` is FOR ALL across the household, so without the
+ * RPC a HELPER could rewrite her own terms by writing the table directly. Same
+ * posture as initiate_payslip and decide_rest_off_request.
+ */
+export const setHelperDefaultResolutionFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; helperId: string; resolution: LedgerResolution | null }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, helperId, resolution } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient.rpc("set_helper_default_resolution", {
+      p_helper_id: helperId,
+      p_resolution: resolution ? RESOLUTION_TO_RESOLUTION_TYPE[resolution] : null,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const row = rows?.[0];
+    return {
+      defaultResolution:
+        RESOLUTION_TYPE_TO_RESOLUTION[(row?.default_resolution as string) ?? ""] ?? null,
+      effectiveResolution:
+        RESOLUTION_TYPE_TO_RESOLUTION[(row?.effective_resolution as string) ?? ""] ?? "rest",
+    };
   });
 
 export interface ValeRow {

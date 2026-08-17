@@ -27,6 +27,11 @@ export interface HelperProfileRow {
   monthly_rate: number;
   payday_interval: "semi_monthly" | "monthly";
   phone: string | null;
+  /** Explicit per-helper rest/premium default; NULL means "follow employment".
+   * `effective_resolution` is the generated column that resolves the two --
+   * read that one. See supabase/add-helper-default-resolution.sql. */
+  default_resolution: "rest_owed" | "premium_pay" | null;
+  effective_resolution: "rest_owed" | "premium_pay" | null;
   invite_code: string | null;
   status: "PENDING_CLAIM" | "ACTIVE" | "INACTIVE";
   /** Real, per-helper "Available for N hours" opt-in, set from her own

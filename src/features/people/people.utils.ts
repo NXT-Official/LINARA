@@ -1,3 +1,5 @@
+import { RESOLUTION_TYPE_TO_RESOLUTION } from "@/features/ledger/ledger.utils";
+
 import type { HelperProfileRow } from "./hooks/use-invites";
 import { WEEKLY_REST_DAY_NAMES } from "./people.constants";
 import type { Helper, PaydayInterval, Station } from "./people.types";
@@ -32,6 +34,12 @@ export function toHelper(row: HelperProfileRow): Helper {
     monthlyRate: Number(row.monthly_rate),
     paydayInterval: row.payday_interval,
     phone: row.phone ?? "",
+    // Postgres decides both of these (supabase/add-helper-default-resolution.sql).
+    // effective_resolution is a generated column; the `?? "rest"` is only for a
+    // client running against a database where the migration hasn't been applied
+    // yet -- it must never become a place the rule is re-implemented.
+    defaultResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.default_resolution ?? ""] ?? null,
+    effectiveResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.effective_resolution ?? ""] ?? "rest",
   };
 }
 
@@ -48,6 +56,8 @@ export const UNKNOWN_HELPER: Helper = {
   monthlyRate: 0,
   paydayInterval: "semi_monthly",
   phone: "",
+  defaultResolution: null,
+  effectiveResolution: "rest",
 };
 
 export interface StatutorySplit {

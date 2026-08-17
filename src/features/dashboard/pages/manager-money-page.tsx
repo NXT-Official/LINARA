@@ -10,7 +10,7 @@ import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, payslips, session } = useAppStores();
+  const { ledger, helper, helpers, activeHelpers, invites, payslips, session } = useAppStores();
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
   // explicitly switched. Local to this page: unlike the Quick Utos
@@ -66,11 +66,21 @@ export function ManagerMoneyPage() {
       />
       <AfterHoursLedger
         entries={helperLedgerEntries}
-        ledgerDefault={ledger.resolutionDefault}
-        onSetDefault={ledger.setResolutionDefault}
+        // Per-helper now, not household-wide (Session E / E2). The old props
+        // read a useState in useLedger that applied to every helper at once
+        // and reset on reload.
+        ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
+        isExplicitDefault={selectedHelper?.defaultResolution != null}
+        onSetDefault={async (resolution) => {
+          if (!selectedHelper) return;
+          await ledger.setHelperDefault(selectedHelper.id, resolution);
+          // effective_resolution is a generated column, so the new value has to
+          // come back from Postgres rather than be assumed here.
+          await invites.refresh();
+        }}
         onUpdateEntry={ledger.updateEntry}
         audience="manager"
-        helperName={selectedHelper?.name ?? "your helper"}
+        helperName={selectedHelper?.short ?? "your helper"}
       />
     </div>
   );
