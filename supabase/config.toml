@@ -29,3 +29,29 @@ project_id = "tueckhlrrupmnzhblewy"
 # ---------------------------------------------------------------------------
 [functions.xendit-payout-webhook]
 verify_jwt = false
+
+# ---------------------------------------------------------------------------
+# The other six are called by our own apps with a signed-in user's JWT -- each
+# reads an `Authorization` header and serves CORS, which the webhook does not
+# (verified by inspection 2026-08-17). true is the CLI default, but they are
+# written out anyway: C44 happened because a deployment detail lived in
+# somebody's memory instead of the repo, and "the default was fine" is only
+# knowable if someone checked. These say someone checked.
+# ---------------------------------------------------------------------------
+[functions.generate-sop]
+verify_jwt = true
+
+[functions.simplify-sop]
+verify_jwt = true
+
+[functions.route-utos]
+verify_jwt = true
+
+[functions.parse-scheduler]
+verify_jwt = true
+
+[functions.transcribe-notes]
+verify_jwt = true
+
+[functions.promote-voice-task]
+verify_jwt = true

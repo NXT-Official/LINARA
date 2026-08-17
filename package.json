@@ -13,7 +13,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:functions": "supabase functions deploy --project-ref tueckhlrrupmnzhblewy",
+    "deploy:functions:check": "supabase functions list --project-ref tueckhlrrupmnzhblewy"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
