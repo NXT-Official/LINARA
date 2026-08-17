@@ -58,9 +58,9 @@ Shifts display bug.
   - **E4 (the invariant test) — DONE.** `KNOWN_GAPS.md` C41. Code and tests
     only, no migration. Extended the same day: `../LINARA_MOBILE` gained a test
     runner so the cross-repo half stops skipping in CI (`KNOWN_GAPS.md` C43).
-  - **E2 (per-worker resolution default) — DONE and APPLIED 2026-08-17,** with
-    a follow-up **still to run**: `supabase/add-helper-default-resolution.sql`
-    then `supabase/fix-resolution-default-to-rest.sql` (the latter removes the
+  - **E2 (per-worker resolution default) — DONE and APPLIED.**
+    `supabase/add-helper-default-resolution.sql` (2026-08-17) then
+    `supabase/fix-resolution-default-to-rest.sql` (2026-08-18, removing the
     employment → `premium_pay` derivation; see `KNOWN_GAPS.md` C42). Both
     Docker-verified — 12 behavioural checks, idempotency, an
     overlapping-transaction check, and the upgrade path from the original
@@ -70,13 +70,19 @@ Shifts display bug.
     surfaced a new open item: **rest owed has no per-entry settlement**, which
     matters only once cash conversion exists but should be settled with that
     policy rather than after it.
-  - **E3a (rest-off validation + cancel path) — DONE, migration PENDING
-    APPLICATION.** `supabase/add-rest-off-validation.sql`, Docker-verified
-    (11 behavioural checks, idempotency, and an overlapping-transaction test).
+  - **E3a (rest-off validation + cancel path) — DONE and APPLIED 2026-08-18.**
+    `supabase/add-rest-off-validation.sql`, Docker-verified (11 behavioural
+    checks, idempotency, and an overlapping-transaction test).
     `KNOWN_GAPS.md` **C47**. Closes three of C39's four residuals; the shift
     check was declined rather than deferred, with reasons.
   - **Remaining:** E5 (reconciliation/staleness), then E3b (native pickers).
     E6 stays deferred until a real household is onboarded.
+
+  **Every migration this session is now applied.** What is still outstanding is
+  operational, not schema: the Edge Function redeploy that would make
+  "committed" and "deployed" known-equal for the six non-payment functions
+  (`KNOWN_GAPS.md` C45), and the three unobserved Xendit branches at the end of
+  C40.
 
 A fourth defect surfaced during Session 0 (Xendit payouts sent at 100x value),
 recorded as `KNOWN_GAPS.md` C35. Its code fix had already shipped; the one

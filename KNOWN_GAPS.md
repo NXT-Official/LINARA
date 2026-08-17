@@ -2413,12 +2413,14 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found:** 2026-08-16 as the open sub-item of C39; picked up as Session E
   item E2. **Closed:** 2026-08-17 — `supabase/add-helper-default-resolution.sql`,
   applied by hand in the Supabase SQL editor by the maintainer.
-- **REVISED the same day, and the revision needs applying too.** The first
-  version derived `premium_pay` from `employment = 'live-out'`. That mapping was
-  removed hours after it landed —
-  **run `supabase/fix-resolution-default-to-rest.sql`**, which detects the old
-  expression and swaps it (a no-op if already correct, and harmless on a fresh
-  database). Reasoning is under "Why the employment mapping was removed" below.
+- **REVISED hours later, and the revision is applied too:**
+  `supabase/fix-resolution-default-to-rest.sql`, run by the maintainer
+  **2026-08-18**. The first version derived `premium_pay` from
+  `employment = 'live-out'`; that mapping is gone, and every helper without an
+  explicit choice now defaults to `rest_owed`. Reasoning is under "Why the
+  employment mapping was removed" below. Both files must be run in order on a
+  database that only has the first; on a fresh one the revised original is
+  sufficient and the fixer is a no-op.
 - **What the concept doc promised:** `home-management-concept.md` —
   *"keep the resolution type flexible per worker: a live-out day helper leans
   back toward an hourly/OT model, while a live-in accrues rest owed."*
@@ -2666,9 +2668,9 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 
 ### C47. Rest-off requests accepted past dates and overlapping windows, and the `cancelled` status existed with nothing able to set it
 
-- **Found:** 2026-08-16 as C39's residual limitations. **Closed:** 2026-08-17 —
-  `supabase/add-rest-off-validation.sql` (Session E item E3a), applied by hand
-  by the maintainer.
+- **Found:** 2026-08-16 as C39's residual limitations. **Closed:** written
+  2026-08-17 as Session E item E3a; `supabase/add-rest-off-validation.sql`
+  applied by hand in the Supabase SQL editor by the maintainer **2026-08-18**.
 - **What was wrong:**
   1. **Past dates were requestable.** `request_rest_off` never compared
      `rest_date` to anything, so a helper could ask for a day off that had
