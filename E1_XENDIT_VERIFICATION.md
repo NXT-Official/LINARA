@@ -550,10 +550,22 @@ to exercise `initiate_payslip` → `pay.actions.ts` → Xendit → webhook →
 > configuration was genuinely correct. It was the deployed *build* that was
 > wrong. Do not let a green pre-flight stand in for reading the logs.
 >
-> **Still to confirm after redeploying:** whether a Xendit retry lands on its
-> own (24h window), that the payslip reaches `succeeded` with `confirmed_at`
-> set, that a *vale-carrying* payout leaves the vale settled, and that the Money
-> tab shows a badge rather than the Pay buttons.
+> **RESOLVED after the redeploy — step 2 PASSES and E1 is complete.**
+>
+> | helper | net_pay | amount_sent | payslip | attempt | confirmed_at |
+> | --- | --- | --- | --- | --- | --- |
+> | Kuya Marito | 5812.50 | 5812.50 | succeeded | succeeded | 16:43:52Z |
+> | Ate Marites | 3812.50 | 3812.50 | succeeded | succeeded | 16:53:01Z |
+>
+> Ate Marites' ₱500 vale kept its `settled_in_payslip_id` — a success must not
+> release it, and does not. Kuya Marito's row confirmed ~2h after its failed
+> delivery, which looks like Xendit's own retry landing on the corrected build.
+>
+> **Not proven by this run, despite the green table:** the Money tab's badge.
+> The dashboard did show "paid", but the Pay Dial on both tabs still displays
+> the full accrued amount for a cutoff that has been paid — it never reads
+> `payslips` at all. That is a separate defect this run exposed, and it could
+> not have been seen before, because no payslip had ever reached `succeeded`.
 
 **Opportunistic sub-probe — cancel (only if the payout is still `ACCEPTED`
 when you check at 5):** `curl.exe -i -u "$($env:XKEY):" -X POST

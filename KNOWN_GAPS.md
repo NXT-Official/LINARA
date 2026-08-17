@@ -1906,6 +1906,30 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   **unverified end to end**. Configuration being right is not the same as
   delivery being observed; C21 recorded the former as the open question and
   it is the latter that is still open.
+- **CLOSED 2026-08-17 — the webhook is now verified end to end.** Two real
+  payouts completed through the app after the C44 redeploy, and the database
+  agrees with Xendit on every field that mattered:
+
+  | helper | net_pay | amount_sent | payslip | attempt | confirmed_at |
+  | --- | --- | --- | --- | --- | --- |
+  | Kuya Marito | 5812.50 | 5812.50 | succeeded | succeeded | 16:43:52Z |
+  | Ate Marites | 3812.50 | 3812.50 | succeeded | succeeded | 16:53:01Z |
+
+  This settles the three things this entry left open. `record_payout_attempt_result`
+  rolls an attempt up to its payslip correctly from the webhook path, not just
+  from the web caller. `amount_sent` matches `net_pay` exactly on both — the
+  per-attempt snapshot this entry was written for now has a clean reading, and
+  the 100x class of divergence would have been visible here immediately. And
+  **a successful payout does not release the vale**: Ate Marites' ₱500 kept its
+  `settled_in_payslip_id`, which is the branch `record_payout_attempt_result`
+  restricts to `failed`/`cancelled`.
+
+  Kuya Marito's payout was sent at 14:42 and confirmed at 16:43 — roughly two
+  hours later, consistent with **Xendit's own retry** of the delivery that C44's
+  stale build had 500'd, landing once the correct build was live. If so, the
+  24-hour retry window behaves as their docs claim, and a deployment fault was
+  self-healing once fixed. Worth knowing before relying on it: it means a bad
+  deploy costs a delay, not a lost callback.
 
 ### C36. Double-pay was reachable two ways -- a retry minted a fresh idempotency key, and the duplicate guard had no constraint behind it
 
@@ -2326,18 +2350,20 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Cross-repo:** none required. `../LINARA_MOBILE` contains no Xendit request
   or response parsing at all — it reads `payslips` rows only. Checked, not
   assumed (the C33 lesson).
-- **STILL OPEN — the headline item of C35 is NOT closed by this.** The webhook
-  writing back into `payslips` **remains unobserved end to end.** Both probes
-  deliberately used a reference id with no `payout_attempts` row behind it, so
-  they exercised delivery and parsing but not the rollup. What is still needed
-  is one real payout through the app's Pay button (Session E step 2 of the
-  runbook), plus confirmation from the Supabase function logs that the two
-  probe deliveries were received and answered 200 — a payload in Xendit's
-  outbox is not proof of delivery. Also still unobserved: `payout.reversed` /
-  `payout.cancelled` (neither fires in this flow), `pay.actions.ts`'s
-  synchronous-rejection branch (no simulation account number reaches it), and
-  **Xendit's idempotency retention window**, which remains undocumented and
-  unanswered by support.
+- **The headline item of C35 was NOT closed by this — and then was, later the
+  same day.** Both probes here deliberately used a reference id with no
+  `payout_attempts` row, so they exercised delivery and parsing but not the
+  rollup. Running the real payout (runbook step 2) is what found C44, the stale
+  deployment; after that redeploy two real payouts completed end to end and C35
+  is closed. See C35's own closing note for the figures.
+- **Still unobserved, and carried forward:** `payout.reversed` /
+  `payout.cancelled` (neither fires in a normal flow — C37's cancel → `failed`
+  → retryable path is Docker-verified only); `pay.actions.ts`'s
+  synchronous-rejection branch, which no simulation account number reaches
+  (it needs an outright refusal such as insufficient balance); and **Xendit's
+  idempotency retention window**, still undocumented and unanswered by support.
+  None of these block the payout path; all three are defensive branches that
+  work by construction rather than by observation.
 
 ### C41. The Pay Dial, the helper's payslip and the real `net_pay` agreed only by construction -- nothing stopped a fourth term being added to one of them
 
@@ -2507,9 +2533,11 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 ### C44. The deployed `xendit-payout-webhook` was a pre-C37 build querying a dropped column, so every payout since 2026-08-16 would have hung in `processing` forever
 
 - **Found:** 2026-08-17, on the first real payout run through the app — Session E
-  item E1's step 2, the check C35 had been waiting on. **Cause understood and
-  fixed in the repo the same day; the redeploy is the actual fix and is
-  maintainer-run.**
+  item E1's step 2, the check C35 had been waiting on. **Closed 2026-08-17:**
+  the committed source was redeployed, after which two real payouts completed
+  end to end (figures in C35's closing note). The stuck payslip resolved about
+  two hours after its failed delivery, consistent with Xendit's own 24h retry
+  landing on the corrected build rather than needing a manual reconciliation.
 - **The evidence**, from the Supabase function log, on a payout Xendit had
   already settled successfully:
 

@@ -33,7 +33,13 @@ Shifts display bug.
 - **Session E (remaining gaps) — IN PROGRESS, started 2026-08-17.** The
   accumulated residual limitations from C35–C39, gathered with a paste-ready
   prompt at the bottom of this document.
-  - **E1 (verify against the sandbox) — MOSTLY DONE.** Six live probes run;
+  - **E1 (verify against the sandbox) — DONE 2026-08-17.** Both real payouts
+    completed end to end and `KNOWN_GAPS.md` **C35 is closed**: the webhook
+    rolls an attempt up to its payslip, `amount_sent` matches `net_pay` exactly
+    on both, and a *successful* payout leaves the vale settled. Getting there
+    found C44 (the deployed webhook was a pre-C37 build) and C45 (nothing
+    tracks which function build is live). Three defensive branches remain
+    unobserved and are listed at the end of C40. Six live probes run;
     three defensive guesses replaced with observed behaviour and one of this
     document's own findings corrected (Session 0 Q6, see the correction inline
     below). Runbook and raw payloads:
