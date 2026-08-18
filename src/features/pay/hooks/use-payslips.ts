@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { initiatePayoutFn, listPayslipsFn, type PayslipRow } from "../pay.actions";
+import {
+  initiatePayoutFn,
+  listPayslipsFn,
+  reconcilePayoutFn,
+  type PayslipRow,
+} from "../pay.actions";
 import type { Payslip, PayoutChannelCode } from "../pay.types";
 
 export type PayslipStore = ReturnType<typeof usePayslips>;
@@ -97,5 +102,22 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     }
   };
 
-  return { payslips, refresh, payNow };
+  /**
+   * Ask Xendit what really happened to a payout that has stopped moving, and
+   * refresh either way -- including when nothing changed, since the caller
+   * cannot tell a no-op from a stale local copy without re-reading.
+   */
+  const reconcile = async (payslipId: string) => {
+    if (!token) {
+      toast.error("Hindi ka naka-sign in.");
+      throw new Error("Not authenticated");
+    }
+    try {
+      return await reconcilePayoutFn({ data: { token, payslipId } });
+    } finally {
+      await refresh();
+    }
+  };
+
+  return { payslips, refresh, payNow, reconcile };
 }

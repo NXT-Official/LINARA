@@ -75,8 +75,15 @@ Shifts display bug.
     checks, idempotency, and an overlapping-transaction test).
     `KNOWN_GAPS.md` **C47**. Closes three of C39's four residuals; the shift
     check was declined rather than deferred, with reasons.
-  - **Remaining:** E5 (reconciliation/staleness), then E3b (native pickers).
-    E6 stays deferred until a real household is onboarded.
+  - **E5 (reconciliation + staleness) — HALF DONE 2026-08-18, code only.**
+    Staleness detection and a per-payout "Check with Xendit" reconcile action
+    are in (`KNOWN_GAPS.md` **C48**), which is what would have unstuck C44
+    without SQL. **Still open:** the bulk reconciliation view against Xendit's
+    whole ledger — the thing that catches orphans and amount drift *without*
+    anyone suspecting a specific row, which is what C35 needed — and
+    `households.timezone` still has no UI.
+  - **Remaining:** E5's bulk view, then E3b (native pickers). E6 stays deferred
+    until a real household is onboarded.
 
   **Every migration this session is now applied.** What is still outstanding is
   operational, not schema: the Edge Function redeploy that would make

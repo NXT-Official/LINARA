@@ -2368,6 +2368,39 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   idempotency retention window**, still undocumented and unanswered by support.
   None of these block the payout path; all three are defensive branches that
   work by construction rather than by observation.
+- **All three probed 2026-08-18** — runbook steps 5–7 in
+  `E1_XENDIT_VERIFICATION.md`. Two are now answered further than "unobserved",
+  and one guess above is **wrong**:
+  1. **`payout.cancelled` is not reachable in the sandbox at all.** Cancel was
+     refused **1.2s** after creation with
+     `CANCELLATION_NOT_ALLOWED — already been processed by Xendit`. The window
+     is effectively zero, not "short" — the 3.5 min in observation 5 above is
+     how long the *failure* takes to surface, not how long the payout stays
+     cancellable. So this branch can only ever be exercised by a **synthetic
+     webhook replay** against our own endpoint until a real production
+     reversal occurs. That test is worth running, but it verifies **our
+     handler, not Xendit's envelope** — the same distinction that made C44
+     invisible, and it must be logged that way rather than closing this bullet.
+  2. **The synchronous-rejection trigger is found, and it is not insufficient
+     balance** — that guess above is wrong twice over: `GET /balance` returns
+     `REQUEST_FORBIDDEN_ERROR` on both sandbox keys, and ₱99,999,999 was
+     accepted, so test mode does not check balance. Three real HTTP 400s do
+     reach it: `CHANNEL_CODE_NOT_SUPPORTED_ERROR` (not app-reachable, the
+     channel is a UI enum), `MINIMUM_TRANSFER_LIMIT_ERROR` at `amount: 0`, and
+     `API_VALIDATION_ERROR` for an `account_number` failing `/^\d+$/` — the
+     last is app-reachable through `helper_profiles.phone` and is the route to
+     use. None is a 409, so `isDuplicate` cannot mis-catch them. **The app-side
+     run is still pending**; only Xendit's half is observed.
+  3. **The retention window is `> 25.13h`** — a replay at that age returned
+     HTTP 200 with the *original* payout id. Lower bound only; support still
+     unanswered. Two ladder keys were seeded 2026-08-18 to bracket it further.
+     Incidental but useful: a **reconstructed** request body was accepted as
+     identical, so only the reference id needs preserving, not the exact bytes.
+- **A fourth item, adjacent and also unrun:** step 3 of the runbook (the
+  failure rollup *through the app*) still has an empty `Observed` block. Both
+  post-redeploy payouts succeeded, so `failed` → vale release → retry has never
+  been exercised outside Docker either. Not part of C40's original three, but
+  the same class of gap and it shares step 6's setup — do them together.
 
 ### C41. The Pay Dial, the helper's payslip and the real `net_pay` agreed only by construction -- nothing stopped a fourth term being added to one of them
 
@@ -2745,6 +2778,64 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   existing window for that date, and a stale client refusing a legitimate
   request is worse than the server refusing an illegitimate one with a message
   that says which window clashed.
+
+### C48. A payout that stopped moving looked exactly like one that was merely slow, and nothing but hand-written SQL could unstick it
+
+- **Found:** 2026-08-18, opening Session E item E5 (what remained of Session D).
+  C21 had recorded the `pending_send` half and accepted it when nothing had ever
+  really paid out. **Closed:** 2026-08-18, code only — **no migration**.
+- **What was wrong:** `pending_send` and `processing` rendered as "Sending…" and
+  "Processing" *indefinitely*. Two different failures hid behind that:
+  - **`pending_send`** means `initiate_payslip` wrote the row and the Xendit call
+    never resolved — the server function died between the two (its own doc
+    comment predicted this). Nothing else can ever move that row.
+  - **`processing`** means Xendit accepted it and the webhook never came. **C44
+    is that case exactly**: a stale deployment 500'd every callback, and both
+    payouts would have sat in `processing` forever. The fix then was a hand-run
+    `record_payout_attempt_result` in the SQL editor, because the app offered
+    nothing.
+- **Fixed by** `src/features/pay/payout-staleness.ts` (pure, 12 tests) plus a
+  `reconcilePayoutFn` server action surfaced as a **"Check with Xendit"** button
+  that appears only once a payout is actually stale:
+  - **Different fuses for different failures.** `pending_send` is stale after
+    **2 minutes** (Xendit answers in seconds; past that it is abandoned, not
+    slow). `processing` after **60 minutes** — sandbox settles in ~80s and real
+    e-wallet payouts in minutes, but Xendit's own `estimated_arrival_time` has
+    been observed at +15 min, so the threshold is generous on purpose. A false
+    "stuck" badge teaches a manager to ignore the badge, which costs more than
+    the waiting it saves.
+  - **The advice is "check", never "retry".** `pending_send` may already have
+    reached Xendit, so assuming it did not is precisely how a cutoff gets paid
+    twice. A test asserts the wording, because this is the one place a
+    well-meaning edit could invert the safety property.
+  - **Reconciliation resolves through `record_payout_attempt_result`** — the
+    same function the webhook calls — so a manual reconciliation and an
+    automatic one cannot reach different conclusions.
+- **The judgement call worth knowing about:** `lookupXenditPayout` now returns a
+  discriminated `{ok:true, payout}` / `{ok:false}` instead of a bare null,
+  because **"Xendit has no such payout" and "we could not ask Xendit" are
+  different facts** and conflating them is how a reconciliation double-pays.
+  E1's probe 1F is what makes the distinction usable: an unknown reference
+  returns HTTP 200 with an empty `data` array, not an error. So:
+  - reconcile + clean "no such payout" → attempt `failed`, vales released,
+    cutoff payable again. Safe **only because minutes have passed** — the button
+    is not offered on a fresh payout.
+  - reconcile + failed lookup → **throws and records nothing.** An unanswered
+    question is not an answer.
+  - The *send* path deliberately keeps its old, more conservative reading: it
+    runs milliseconds after the request, where Xendit legitimately may not have
+    recorded it yet, so "not found" stays `ambiguous` there.
+- **Also in this pass:** `usePayslips` polls every 15s **while and only while**
+  something is `pending_send`/`processing`. A payout's terminal status arrives by
+  webhook minutes after the click, and nothing refetched — so even a perfectly
+  healthy payout kept reading "sending" until the manager reloaded. Polled rather
+  than subscribed on purpose: Realtime would need `payslips` added to the
+  publication, a migration widening what is broadcast on a money table, to save a
+  query that only runs during a payout.
+- **Still open from E5:** the *bulk* reconciliation view (our
+  `payslips`/`payout_attempts` against Xendit's whole ledger, which would catch
+  orphans and amount drift like C35's ₱3,562.50-vs-₱356,250 without anyone
+  suspecting a specific row), and `households.timezone` still has no UI (C38).
 
 ---
 

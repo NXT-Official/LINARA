@@ -68,6 +68,7 @@ export function ManagerMoneyPage() {
         payslips={payslips.payslips}
         cutoff={cutoff}
         onPayNow={payslips.payNow}
+        onReconcile={payslips.reconcile}
       />
       <RestOffRequests
         helper={selectedHelper}

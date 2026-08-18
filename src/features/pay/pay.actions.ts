@@ -51,13 +51,21 @@ async function recordAttempt(
   }
 }
 
+type XenditPayoutSummary = { id?: string; status?: string };
+
+/**
+ * "Xendit has no such payout" and "we couldn't ask Xendit" are different facts,
+ * and conflating them is how a reconciliation double-pays. Hence a discriminated
+ * result rather than a bare null.
+ */
+type XenditLookup = { ok: true; payout: XenditPayoutSummary | null } | { ok: false };
+
 /**
  * Reconciliation: ask Xendit what actually happened to a reference id, rather
  * than guessing. This is what makes an ambiguous outcome recoverable -- the
  * industry-standard answer to "did the PSP get my request?" is to look it up
  * by your own reference, not to replay an idempotency key and infer from the
- * error. Returns null when the lookup itself fails (then, and only then, does
- * the attempt land in 'ambiguous' for a human).
+ * error.
  *
  * Response shape VERIFIED against the live sandbox 2026-08-17 (E1, probes
  * 1B/1F -- see E1_XENDIT_VERIFICATION.md). It is always an object:
@@ -65,15 +73,15 @@ async function recordAttempt(
  *   {"has_more":false,"data":[{ id, status, reference_id, ... }]}
  *
  * An earlier draft also accepted a bare top-level array; that was a defensive
- * guess and never occurs, so it's gone. Note an unknown reference id returns
- * HTTP 200 with an EMPTY data array, not a 404 -- so "no match" arrives here
- * as rows.length === 0, not via the !res.ok guard.
+ * guess and never occurs, so it's gone. And an unknown reference returns HTTP
+ * 200 with an EMPTY data array, not a 404 -- which is exactly why `{ok:true,
+ * payout:null}` is a real, usable answer and not the same thing as `{ok:false}`.
  */
 async function lookupXenditPayout(
   xenditUrl: string,
   xenditKey: string,
   referenceId: string,
-): Promise<{ id?: string; status?: string } | null> {
+): Promise<XenditLookup> {
   try {
     const res = await fetch(
       `${xenditUrl}/v2/payouts?reference_id=${encodeURIComponent(referenceId)}`,
@@ -82,14 +90,14 @@ async function lookupXenditPayout(
         headers: { Authorization: `Basic ${Buffer.from(`${xenditKey}:`).toString("base64")}` },
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false };
     const payload = (await res.json()) as {
       has_more?: boolean;
-      data?: Array<{ id?: string; status?: string }>;
+      data?: Array<XenditPayoutSummary>;
     };
-    return payload.data?.[0] ?? null;
+    return { ok: true, payout: payload.data?.[0] ?? null };
   } catch {
-    return null;
+    return { ok: false };
   }
 }
 
@@ -333,7 +341,13 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       // No response at all -- Xendit may or may not have received this. Don't
       // guess: ask them what happened to this reference id.
       const detail = networkErr instanceof Error ? networkErr.message : "network error";
-      const found = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const lookup = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const found = lookup.ok ? lookup.payout : null;
+      // NOTE: a clean "Xendit has no such payout" is deliberately NOT treated
+      // as a definitive failure here, unlike in reconcilePayoutFn. This runs
+      // milliseconds after the request went out, so their side may simply not
+      // have recorded it yet -- the ambiguity is real. Reconciliation gets to
+      // draw the stronger conclusion because minutes have passed by then.
       const resolved = found ? attemptStatusFromXendit(found.status) : null;
 
       if (resolved) {
@@ -407,7 +421,8 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     const isDuplicate = response.status === 409 || /duplicate|idempotency[ -]?key/i.test(errorText);
 
     if (isDuplicate) {
-      const found = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const dupLookup = await lookupXenditPayout(xenditUrl, xenditKey, referenceId);
+      const found = dupLookup.ok ? dupLookup.payout : null;
       const resolved = found ? attemptStatusFromXendit(found.status) : null;
       await recordAttempt(authedClient, attemptId, resolved ?? "ambiguous", {
         pspPayoutId: found?.id ?? null,
@@ -428,4 +443,99 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     const message = body.message || body.errors?.[0]?.message || `Xendit error ${response.status}`;
     await recordAttempt(authedClient, attemptId, "failed", { failureReason: message });
     throw new Error(message);
+  });
+
+/**
+ * Ask Xendit what actually happened to a payout that has stopped moving, and
+ * write the answer back.
+ *
+ * Session E / E5. Two states can strand a payslip with nothing able to advance
+ * it: `pending_send`, where this server function died between creating the row
+ * and Xendit's reply (see initiatePayoutFn's two-phase note), and `processing`,
+ * where Xendit accepted it but the webhook never arrived -- C44, exactly, where
+ * a stale deployment 500'd every callback and the payouts would have sat there
+ * forever. Before this, the only fix for either was hand-written SQL.
+ *
+ * It is the same reconciliation initiatePayoutFn already performs on an
+ * ambiguous send, promoted to something a manager can trigger, and it resolves
+ * through `record_payout_attempt_result` -- the same function the webhook
+ * calls -- so a manual reconciliation and an automatic one cannot reach
+ * different conclusions.
+ *
+ * The one judgement call worth understanding: when Xendit returns cleanly and
+ * has NO payout for this reference, that is treated as a definitive failure --
+ * the attempt is marked `failed`, which releases the vales and makes the cutoff
+ * payable again. That inference is only safe because time has passed (the UI
+ * offers this on a stale payout, not a fresh one) and because E1 established
+ * that an unknown reference returns 200-with-empty-data rather than an error.
+ * A failed LOOKUP is never treated that way -- it throws and changes nothing,
+ * because "we couldn't ask" must never be recorded as "it didn't happen".
+ */
+export const reconcilePayoutFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; payslipId: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, payslipId } = data;
+    const authedClient = createAuthedClient(token);
+
+    // Latest attempt only. Earlier ones are history: their outcome is already
+    // recorded and re-resolving them would rewrite it.
+    const { data: attempts, error: attemptError } = await authedClient
+      .from("payout_attempts")
+      .select("id, reference_id, status, attempt_number")
+      .eq("payslip_id", payslipId)
+      .order("attempt_number", { ascending: false })
+      .limit(1);
+
+    const attempt = attempts?.[0];
+    if (attemptError || !attempt) {
+      throw new Error("No payout attempt found for this payslip.");
+    }
+
+    if (["succeeded", "failed", "cancelled"].includes(attempt.status as string)) {
+      // Already terminal -- the webhook or an earlier reconciliation got there
+      // first. Nothing to do, and saying so beats silently re-writing it.
+      return { status: attempt.status as string, changed: false };
+    }
+
+    const xenditKey = process.env.XENDIT_SECRET_WRITE_KEY || "";
+    const xenditUrl = process.env.XENDIT_API_URL || "https://api.xendit.co";
+    if (!xenditKey) {
+      throw new Error("XENDIT_SECRET_WRITE_KEY is not configured");
+    }
+
+    const lookup = await lookupXenditPayout(xenditUrl, xenditKey, attempt.reference_id as string);
+
+    if (!lookup.ok) {
+      // Could not ask. Record nothing: an unanswered question is not an answer.
+      throw new Error("Hindi ma-contact ang Xendit ngayon. Subukan ulit mamaya.");
+    }
+
+    if (!lookup.payout) {
+      // Xendit answered, and has no payout under this reference. Since this is
+      // offered only on a payout that has been stuck for minutes, the request
+      // never landed -- so the cutoff is genuinely unpaid and must become
+      // payable again. record_payout_attempt_result releases the vales.
+      await recordAttempt(authedClient, attempt.id as string, "failed", {
+        failureReason:
+          "Reconciled with Xendit: no payout exists for this reference, so it never reached them.",
+      });
+      return { status: "failed", changed: true };
+    }
+
+    const resolved = attemptStatusFromXendit(lookup.payout.status);
+    if (!resolved) {
+      throw new Error(
+        `Xendit reports an unrecognized status (${lookup.payout.status ?? "none"}). Reconcile in their dashboard.`,
+      );
+    }
+
+    await recordAttempt(authedClient, attempt.id as string, resolved, {
+      pspPayoutId: lookup.payout.id ?? null,
+      failureReason:
+        resolved === "accepted" || resolved === "succeeded"
+          ? null
+          : `Reconciled with Xendit: they report ${lookup.payout.status}.`,
+    });
+
+    return { status: resolved, changed: resolved !== (attempt.status as string) };
   });

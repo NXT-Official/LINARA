@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock, Smartphone, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Smartphone, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { fmtPeso } from "@/features/groceries/grocery.utils";
@@ -7,6 +7,7 @@ import type { Helper } from "@/features/people/people.types";
 
 import type { HouseholdCutoff } from "../pay.actions";
 import type { Payslip, PayoutChannelCode } from "../pay.types";
+import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
 
 const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = {
@@ -56,6 +57,7 @@ export function PayslipHistory({
   payslips,
   cutoff,
   onPayNow,
+  onReconcile,
 }: {
   helper: Helper | null;
   payslips: Payslip[];
@@ -70,8 +72,13 @@ export function PayslipHistory({
     helperId: string,
     channelCode: PayoutChannelCode,
   ) => Promise<{ status: Payslip["payoutStatus"] }>;
+  /** Asks Xendit what really happened to a stuck payout and writes the answer
+   *  back. Offered only once `payoutStaleness` says the row has stopped
+   *  moving -- see that module for why the two states get different fuses. */
+  onReconcile: (payslipId: string) => Promise<{ status: string; changed: boolean }>;
 }) {
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
+  const [reconciling, setReconciling] = useState(false);
 
   if (!helper) return null;
 
@@ -84,6 +91,34 @@ export function PayslipHistory({
           p.payoutStatus !== "failed",
       )
     : undefined;
+
+  // Recomputed on every render, which is enough: usePayslips polls every 15s
+  // while anything is in flight, so the age refreshes with it rather than
+  // needing a ticker of its own.
+  const staleness = currentCutoffPayslip
+    ? payoutStaleness(currentCutoffPayslip, Date.now())
+    : { ageMinutes: 0, isStale: false, advice: null };
+
+  const reconcile = async () => {
+    if (!currentCutoffPayslip) return;
+    setReconciling(true);
+    try {
+      const result = await onReconcile(currentCutoffPayslip.id);
+      if (!result.changed) {
+        toast.info("Walang pagbabago — ganoon pa rin ang sabi ng Xendit.");
+      } else if (result.status === "succeeded") {
+        toast.success("Nakumpirma: natanggap na ang payout.");
+      } else if (result.status === "failed" || result.status === "cancelled") {
+        toast.warning("Hindi natuloy ang payout sa Xendit. Pwede nang subukan ulit.");
+      } else {
+        toast.info("Nasa Xendit pa rin ang payout — hindi pa tapos.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Hindi ma-check ang Xendit.");
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const pay = async (channelCode: PayoutChannelCode) => {
     setPaying(channelCode);
@@ -123,6 +158,26 @@ export function PayslipHistory({
               <span className="text-[10px] text-amber-600 text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
               </span>
+            )}
+            {/* A payout that has stopped moving looks exactly like one that is
+                merely young -- both render "Sending…" indefinitely. Past the
+                threshold, say so and offer the only safe action: ask Xendit.
+                NOT "retry": pending_send may already have reached them, and
+                assuming otherwise is how a cutoff gets paid twice. */}
+            {staleness.isStale && (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] text-amber-600 text-right max-w-[13rem]">
+                  Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
+                </span>
+                <button
+                  onClick={reconcile}
+                  disabled={reconciling}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
+                >
+                  <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
+                  {reconciling ? "Checking…" : "Check with Xendit"}
+                </button>
+              </div>
             )}
           </div>
         ) : (
