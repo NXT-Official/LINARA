@@ -2276,10 +2276,10 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   status exists but nothing sets it); and nothing checks a requested window
   against the helper's actual shift or an existing approved window on the same
   day.
-- **Three of those four closed 2026-08-17** by
-  `supabase/add-rest-off-validation.sql` (Session E item E3a) — see **C47**.
-  What remains open is the native-picker one (E3b) and the shift check, which
-  was deliberately declined rather than deferred.
+- **All four resolved.** Three closed 2026-08-17/18 by
+  `supabase/add-rest-off-validation.sql` (Session E item E3a) — see **C47**. The
+  native-picker one closed 2026-08-18 (E3b) — see **C49**. The shift check was
+  deliberately **declined** rather than deferred; reasoning in C47.
 - **Open gap this exposed, NOT closed here:** `home-management-concept.md` says
   "keep the resolution type flexible per worker: a live-out day helper leans
   back toward an hourly/OT model, while a live-in accrues rest owed."
@@ -2836,6 +2836,42 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   `payslips`/`payout_attempts` against Xendit's whole ledger, which would catch
   orphans and amount drift like C35's ₱3,562.50-vs-₱356,250 without anyone
   suspecting a specific row), and `households.timezone` still has no UI (C38).
+
+### C49. The kasambahay typed dates and times by hand on a phone, and a picker is the easiest place to reintroduce C38
+
+- **Found:** 2026-08-16 as C39's fourth residual. **Closed:** 2026-08-18,
+  Session E item E3b — `../LINARA_MOBILE` only, no migration.
+- **What was wrong:** the rest-off request form took `YYYY-MM-DD` and `HH:MM` as
+  free text. It validated the shape, so a typo became an error message rather
+  than bad data — but every typo was still a round trip through failure, on a
+  phone keyboard, for the user with the least reason to tolerate one.
+- **Fixed by** `components/ui/date-time-field.tsx`, wrapping
+  `@react-native-community/datetimepicker` (installed via `expo install`, so the
+  version matches the SDK) in a field styled to match `TextField`. **The value
+  stays a wire string** — `YYYY-MM-DD` / `HH:MM` — so the RPCs, the advisory
+  past-date check and the balance preview are all untouched.
+- **The real risk here was not the UI, it was the conversion.** A picker hands
+  back a `Date`, which is an *instant*; the RPCs take a *civil* date and time.
+  Rendering that instant with `toISOString()` converts to UTC first, so in
+  Asia/Manila anything before 08:00 lands on the **previous day** — which is
+  C38, the bug that had client and server disagreeing about cutoffs for weeks.
+  `lib/datetime-fields.ts` therefore reads local components only and never
+  touches UTC in either direction (`new Date("2026-08-20")` is UTC midnight by
+  spec, so parsing is built from parts too). **26 tests**, run under `UTC`,
+  `Asia/Manila` and `America/Los_Angeles` — the same three zones ../LINARA's
+  suite uses, including the positive offset that actually broke.
+- **A subtlety the tests caught in their own first draft:** they built a `Date`
+  inside the timezone wrapper and asserted on it *outside*, which fails for a
+  correct implementation — a `Date` is an instant, so local midnight in Manila
+  really is the previous day when read back in another zone. The assertions now
+  live inside the wrapper. Worth knowing before writing the next timezone test:
+  it is easy to write one that tests the harness instead of the code.
+- **Other behaviour worth recording:** the picker's `minimumDate` is fed from
+  `household_today()` (the same server-derived date the advisory warning uses,
+  never the device clock), so a past date cannot be offered in the first place —
+  the server still refuses one regardless. And an Android dialog dismissal
+  reports `event.type === "dismissed"`, which must not be written as a value, or
+  cancelling silently selects whatever the wheel was showing.
 
 ---
 

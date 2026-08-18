@@ -82,8 +82,10 @@ Shifts display bug.
     whole ledger — the thing that catches orphans and amount drift *without*
     anyone suspecting a specific row, which is what C35 needed — and
     `households.timezone` still has no UI.
-  - **Remaining:** E5's bulk view, then E3b (native pickers). E6 stays deferred
-    until a real household is onboarded.
+  - **E3b (native pickers) — DONE 2026-08-18.** `KNOWN_GAPS.md` **C49**.
+    Mobile only, no migration.
+  - **Remaining:** E5's bulk reconciliation view. E6 stays deferred until a real
+    household is onboarded.
 
   **Every migration this session is now applied.** What is still outstanding is
   operational, not schema: the Edge Function redeploy that would make
