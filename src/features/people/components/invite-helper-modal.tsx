@@ -57,8 +57,14 @@ export function InviteHelperModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+      {/* Capped to the viewport and laid out as header / scrolling body /
+          footer. Without the cap this panel grew to fit its nine fields plus
+          the wage warning, pushing "Send invite" off the bottom of the screen
+          on any short window -- unreachable without zooming the browser out,
+          since the page behind a `fixed inset-0` overlay cannot scroll it into
+          view. dvh rather than vh so mobile browser chrome is accounted for. */}
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
+        <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-display text-xl text-foreground">Invite a helper</h3>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -73,7 +79,12 @@ export function InviteHelperModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="mt-4 space-y-3">
+        {/* min-h-0 is load-bearing: a flex child defaults to min-height:auto,
+            which refuses to shrink below its content and would defeat the cap
+            above no matter what overflow says. The negative margin lets the
+            scrollbar sit in the panel's padding instead of insetting the
+            fields. */}
+        <div className="-mr-1 mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           <Field label="Full name">
             <input
               value={name}
@@ -192,7 +203,9 @@ export function InviteHelperModal({
             </div>
           )}
         </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
+        {/* Outside the scroll area on purpose: "Send invite" stays put and
+            reachable however long the form gets. */}
+        <div className="mt-5 flex shrink-0 items-center justify-end gap-2 border-t border-border/40 pt-4">
           <button
             onClick={onClose}
             disabled={submitting}
