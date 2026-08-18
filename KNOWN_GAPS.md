@@ -2531,10 +2531,26 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   would put Node's globals into a React Native app's typecheck (where
   `setTimeout` and friends have different types) for a test-only convenience.
   The source-reading guards stay in LINARA, which already runs in Node.
-- **Still true:** the two repos each hand-write `computeStatutorySplit`. Nothing
-  asserts those two copies agree, and a divergence would put the manager and the
-  helper back on different numbers — the same class of bug C41 closed one level
-  up. Not addressed here.
+- **Was still true, closed 2026-08-18:** the two repos each hand-write
+  `computeStatutorySplit`, and nothing asserted the copies agreed — a divergence
+  would put the manager and the helper on different deductions for the same
+  wage, the same class of bug C41 closed one level up. Now pinned twice, because
+  the two guards catch different mistakes:
+  1. **A mirrored value table** in `people.utils.test.ts` and
+     `../LINARA_MOBILE/lib/statutory.test.ts`, including the ₱5,000 boundary
+     (₱5,000 exactly is *not* "under", which is the one place an off-by-one
+     hides). Catches a change made without updating that repo's own test.
+  2. **A direct comparison of the two function bodies**, comments stripped and
+     whitespace collapsed. Catches the likelier case — someone updates a rate
+     *and* the test beside it, and never opens the other repo.
+
+  Mobile's copy moved to `lib/statutory.ts` (re-exported from
+  `legal-contribution-split.tsx`, so nothing else changed) purely so it could be
+  tested without rendering React Native — same move as `lib/net-pay.ts` in C43.
+  **Both guards were mutation-tested**: raising the SSS employee rate on the
+  mobile side alone fails the body comparison here *and* mobile's own value
+  table. Note the body comparison skips when the sibling repo is absent, so CI
+  relies on the value tables; that is why both exist.
 
 ### C44. The deployed `xendit-payout-webhook` was a pre-C37 build querying a dropped column, so every payout since 2026-08-16 would have hung in `processing` forever
 
