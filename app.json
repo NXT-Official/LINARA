@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "56dfaee7-1db5-49af-9dba-32fee1891b1c"
+      }
+    },
+    "android": {
+      "package": "com.naaxtech.tanstack_start_ts"
+    }
+  }
+}
