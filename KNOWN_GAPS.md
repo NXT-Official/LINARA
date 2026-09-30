@@ -53,6 +53,46 @@ the bottom.
   Claude API) and the constraint that `transcribe-notes` (Whisper) has no
   Claude equivalent and would stay on a separate provider regardless.
 
+### O2. A household can only ever have one admin -- co-manager and remote (OFW) admin have no way in
+
+- **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).
+- **What's missing:** `plan.md` §1.2, `README.md` §2 and `home-management-concept.md` §9 describe three admin types, with the OFW remote admin called "the killer differentiator". The schema supports them (`user_profiles.user_type IN ('primary_manager','co_manager','remote_admin','helper')`), and the UI for them exists (`remote-glance.tsx`, the suggestions inbox, `ViewAsSwitcher`, the remote branch in `use-send-gate.ts`). But nothing creates a second admin: `use-session.ts` builds `admins` as `admin ? [admin] : []` (just the signed-in user), `updateAdminType` is a `console.warn` stub, and there's no admin invite. The landing page ("Perfect for busy parents or OFW families managing from abroad") promises a mode nobody can reach.
+- **Blocks:** Any demo or marketing of OFW mode, multi-admin attribution ("from [name]"), and the remote-suggestion approval flow.
+- **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
+- **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
+
+### O4. "Your record stays even if you change households" has no mechanism behind it
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `LINARA_MOBILE/app/(auth)/claim-account.tsx` tells the helper "Mananatili ang record mo kahit magpalit ka ng household". The landing page says her history forms "a portable portfolio she can present to banks, agencies, or future employers". The concept doc (§4 principle 4) calls this non-negotiable. In the code: nothing ever sets `helper_profiles.status = 'INACTIVE'` (no offboarding flow); `user_profiles.household_id` is a single `NOT NULL` column, so one account belongs to exactly one household; a second employer's invite can't be claimed by an existing account (the claim flow calls `auth.signUp`, which fails for an existing email); and there's no export, certificate, or "Record" tab (concept §11 lists `Today · Pantry · My Pay · Record`; mobile ships the first three).
+- **Blocks:** The portable-record pitch, and the future proof-of-income and fintech path (concept §12).
+- **Current workaround:** None.
+- **To close:** (1) An offboarding action on the web People page that sets the helper `INACTIVE` without deleting her rows. (2) A decision on how a helper's account relates to more than one household over time, which is a schema change (e.g. a helper↔household membership table instead of `user_profiles.household_id`) and RLS that keeps her read access to her own past payslips after she leaves. (3) A helper-side record view or export. Schema is `LINARA`'s call; the view is `LINARA_MOBILE`'s. RA 10361 payslip retention attaches here once real households exist.
+
+### O5. Quick Utos are deleted only when a manager opens the app, not nightly
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `plan.md` §2.3 and README §3.3 say "at midnight, all individual Quick Utos … are permanently deleted from the database". The concept doc makes it a hard build rule ("wiped nightly must be real deletion"). The only deletion is `clearAllUtosForHelpersFn`, called from `runDayRollover` in `app-store-provider.tsx`. That runs on manual "Start new day" or on C31's auto-rollover, and both need a manager's browser to load the app. If no manager opens the web app for three days, three days of utos stay in `quick_utos`. The deletion is real when it happens; the timing is what the docs overstate. This is the cron that `SYSTEM_CRON_SECRET` was a placeholder for (see O1).
+- **Blocks:** Any privacy/"no surveillance log" claim in marketing.
+- **Current workaround:** Relies on the manager opening the app daily.
+- **To close:** A scheduled server-side purge (`pg_cron` job or a scheduled Edge Function) that deletes `quick_utos` rows older than the household's civil day, using `households.timezone` from C38. Owned by `LINARA`.
+
+### O7. No push notifications -- an override "high-priority alert" only reaches a helper whose app is open
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `plan.md` §2.4 step 4 ("The helper receives a high-priority alert") and §2.2 step 5 (appointment-moved heads-up). `LINARA_MOBILE` has no `expo-notifications` dependency and there are no device-token columns in the schema. Tickets and utos arrive over Realtime (C23), which only delivers while the app is foregrounded.
+- **Blocks:** The emergency-override story, and anything marketed as "she gets notified". Note this interacts with the concept doc's "no pings after hours" rule: pushes must respect availability the same way the friction wall does, not bypass it.
+- **Current workaround:** The helper sees items the next time she opens the app.
+- **To close:** `expo-notifications` plus a token table (schema: `LINARA`) and a server-side sender triggered on override/emergency sends and appointment reschedules only.
+
+### O8. No privacy policy or terms of service, in either app or on the site
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** No privacy policy, terms, or data-deletion path exists anywhere (grep across both repos). The app collects wages, emails, receipt/evidence photos and voice notes, and the web app processes payouts. Both app stores require a privacy-policy URL, and both require in-app account deletion for apps with account creation. The Data Privacy Act (RA 10173) applies to both the household and the helper's data.
+- **Blocks:** App-store submission; any public signup.
+- **Current workaround:** None (fine while everything is sandbox-only, per the Closed Gaps environment note).
+- **To close:** Policy/terms pages on the web app (linked from landing, `/login`, and the mobile claim screen), plus an account-deletion request path. Deletion has to be reconciled with RA 10361 payslip retention, so "delete my account" can't mean "delete my payslips". Needs a legal review before publishing, not just a template.
+
 ---
 
 ## Closed Gaps
@@ -2872,6 +2912,23 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   the server still refuses one regardless. And an Android dialog dismissal
   reports `event.type === "dismissed"`, which must not be written as a value, or
   cancelling silently selects whatever the wheel was showing.
+
+### C50. A helper who lost her session could not sign back in, and neither app had a password reset (former Open Gap O3)
+
+- **Found:** 2026-09-30, launch-readiness review. **Fixed:** 2026-09-30.
+- **Was:** `LINARA_MOBILE`'s `(auth)` stack had only the invite-code path, and that code is single-use. A reinstall, a new phone or an expired refresh token locked the helper out for good. There was no sign-out, and no password reset in either app.
+- **Fix (`LINARA_MOBILE`):** `app/(auth)/sign-in.tsx` plus `services/api/auth.ts`. `signInHelper` signs in and then requires a `helper_profiles` row; a manager account is signed straight back out with a pointer to the web dashboard. `welcome.tsx` now links to sign-in. `(app)/_layout.tsx` sends a lost session to sign-in rather than the invite screen. A two-tap Sign out (`components/features/account/sign-out-button.tsx`) sits at the bottom of My Pay. It refuses while `offline_sync_queue` still has rows: the queue isn't scoped to a user, so those rows would otherwise replay under whoever signs in next on the phone, private notes included. It clears the React Query cache on the way out.
+- **Fix (`LINARA`, shared reset):** one `/reset-password` page (`password-reset-flow.tsx`) serves both apps. Without a recovery fragment it requests a link (`requestPasswordResetFn`); arriving from the link it sets the new password (`completePasswordResetFn`, using a per-request client so the recovery session can't linger in the shared `supabaseClient`). The manager `/login` has a "Forgot password?" link. Both apps' Supabase clients use the default implicit flow, so a reset started on the phone completes fine in a browser. The landing page forwards `#type=recovery` links to `/reset-password` for resets sent without a redirect.
+- **Manual setup still required (Supabase dashboard, not code):** add `<web origin>/reset-password` to Auth → URL Configuration → Redirect URLs, or Supabase silently falls back to the Site URL. Set `EXPO_PUBLIC_WEB_APP_URL` in `LINARA_MOBILE`'s env/EAS secrets; it's optional, and without it the Site URL plus the landing-page forward still works.
+- **Not verified on a device:** `LINARA_MOBILE` has no `react-native-web`, so the new screens were typechecked and linted but not rendered. The web half was checked in a production build.
+
+### C51. Landing page claimed "on-chain" validation, Batas Kasambahay compliance, training modules and OFW mode (former Open Gap O6)
+
+- **Found:** 2026-09-30, launch-readiness review. **Fixed:** 2026-09-30.
+- **Was:** `src/routes/index.tsx` said rates were "validated on-chain" (no blockchain exists), "Batas Kasambahay Compliant" (C46: contributions are deducted, never remitted), mentioned "completed training modules" (no such feature) and a portable portfolio (O4), and pitched OFW management (O2).
+- **Fix:** the copy now says only what ships. "Built around Batas Kasambahay": wages checked against the regional minimum, and the SSS/PhilHealth/Pag-IBIG split worked out on every payslip. "Her login, her pay record": she sets her own password; payslips, vale balance and rest owed show the same numbers on both sides. "Built for busy parents who can't watch the house all day" replaces the OFW line.
+- **Put these back when:** "compliant" once remittance exists (C46), OFW once O2 closes, and portable record once O4 closes.
+- **Same pass (brand assets, not a gap):** replaced the placeholder `favicon.ico`-for-every-size PWA icons and Expo's default mobile icons with an interim logomark (the brand doc's "i"-dot as a roofline with a check tick), added `og-image.png` plus `og:image`/`twitter:image` meta (made absolute via the new `SITE_URL` build var, falling back to Vercel's production URL), renamed the mobile app from `LINARA_MOBILE` to `Linara`, and made the iOS icon opaque. The mark is a stand-in until a designer produces the real one.
 
 ---
 
