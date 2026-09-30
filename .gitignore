@@ -94,3 +94,6 @@ terminal_log.log
 # 8. LOCAL AI TOOL SETTINGS
 # ========================================================================
 .claude/settings.local.json
+
+# Impeccable engine binary: platform-specific (~17 MB); the launcher downloads it on first run.
+.claude/skills/impeccable/scripts/bin/
