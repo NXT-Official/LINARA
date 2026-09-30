@@ -101,6 +101,14 @@ the bottom.
 - **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
+
+### O14. `reschedule_notice.oldTime` is rendered in the web server's time zone
+
+- **Found:** 2026-10-01, building the mobile appointment-move heads-up.
+- **What's missing:** `rescheduleAppointmentFn` (`src/features/appointments/appointment.actions.ts`) is a server function, and it builds the notice's `oldTime`/`oldDate` with `isoToDisplayTime`/`isoToISODate`, which format in the *runtime's* time zone. On Vercel that is UTC, so a Manila household's "was 8:00 PM" would be stored as "12:00 PM". Same family as O9 and the C38 cutoff bug.
+- **Blocks:** Showing "was X, now Y" anywhere.
+- **Current workaround:** `LINARA_MOBILE`'s `MovedTasksBanner` shows only the new time (from the real `scheduled_start` instant) and the appointment's title, never `oldTime`.
+- **To close:** Store the old instant (`oldStartIso`) in the notice instead of a pre-formatted string, and format it on the device, or in `households.timezone`. Owned by `LINARA`.
 ---
 
 ## Closed Gaps
@@ -2970,6 +2978,13 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-01, `LINARA_MOBILE` `47da6ce`.
 - **Was:** `getFocusTask` took her earliest unfinished ticket with no other filter, so her Station could show a remote admin's suggestion still awaiting on-site approval (`suggested`), a ticket held off the board until the manager reopens it (`queued`), or a ticket scheduled for a later day. The first two contradict the concept doc's remote-admin rule and "the board closes for the night"; the web Pass hides all three.
 - **Fix:** the query filters `suggested = false` and `queued = false`, and applies the same day-by-day rule as the web Pass (`isLaterThanToday`, in `lib/today.ts` with tests). It also stopped re-reading her finished history on every fetch.
+
+### C57. Helpers' flags on their terms never reached the manager
+
+- **Found / fixed:** 2026-10-01, `LINARA` `456d2dd`, while adding My Record's "May mali?" in `LINARA_MOBILE` (`8e95906`).
+- **Was:** the web never read `invite_flags`. `use-invites.ts` mapped every helper with `flags: []`, so a flag a kasambahay raised while claiming (`flag_invite`, "the wage is wrong") was stored and shown to no one, and Needs You's "Mark resolved" only hid a flag in the current tab. The review-terms promise that she can flag anything wrong had no manager side.
+- **Fix:** `listInviteFlagsFn` loads the household's flags (a separate query, since `invite_flags.invite_id` has no declared foreign key to embed on) and `use-invites` attaches them per helper; `resolveInviteFlagFn` deletes on "Mark resolved", with rollback and a toast on failure. The invite-time minimum-wage check now writes `field = 'wage_below_minimum'` and shows as a "Compliance check" instead of as the helper flagging her wage. `LINARA_MOBILE` My Record lets a claimed helper raise a flag any time; `flag_invite` only accepts unclaimed invites, so she writes the row directly under the household-scoped `invite_flags_isolation` policy.
+- **Residual:** wage-check rows written before this change carry `field = 'wage'` and still read as helper flags (sandbox data only).
 
 ---
 
