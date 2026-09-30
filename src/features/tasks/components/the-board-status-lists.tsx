@@ -8,18 +8,24 @@ import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
-/** The Board layout: today's tasks by status, in time order, with a 'now' marker. */
+/**
+ * The Board layout: today's tasks by status, in time order, with a 'now'
+ * marker; later days' tasks follow under "Coming up" and aren't counted.
+ */
 export function TheBoardStatusLists({
   tasks,
+  upcoming,
   helpers,
   nowTs,
 }: {
   tasks: Task[];
+  upcoming: Task[];
   helpers: Helper[];
   nowTs: number;
 }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
   const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
+  const later = useMemo(() => [...upcoming].sort(byStart), [upcoming]);
   const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const doing = sorted.filter((t) => t.status === "in_progress");
   const done = sorted.filter((t) => t.status === "done");
@@ -74,7 +80,7 @@ export function TheBoardStatusLists({
       <div className="space-y-2.5">
         {current.list.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            Nothing here.
+            {tab === "todo" ? "Nothing left for today." : "Nothing here."}
           </div>
         ) : (
           current.list.map((t, i) => (
@@ -92,6 +98,24 @@ export function TheBoardStatusLists({
         )}
         {tab === "todo" && nowMarkerIdx === current.list.length && current.list.length > 0 && (
           <NowMarker />
+        )}
+        {tab === "todo" && later.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 px-1 pt-2">
+              <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            {later.map((t) => (
+              <BoardTaskCard
+                key={t.id}
+                task={t}
+                when={taskWhen(t, nowTs)}
+                late={false}
+                isDoing={false}
+                helpers={helpers}
+              />
+            ))}
+          </>
         )}
       </div>
     </section>

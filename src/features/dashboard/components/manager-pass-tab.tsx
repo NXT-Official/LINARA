@@ -20,7 +20,10 @@ export type PassMode = "line" | "board";
 const PASS_MODE_KEY = "linara.passMode";
 
 export type ManagerPassTabProps = {
+  /** Today's tasks, including ones carried over from earlier days. */
   active: Task[];
+  /** Scheduled for a later day: shown as "Coming up", never counted today. */
+  upcoming: Task[];
   suggestions: Task[];
   blocked: Task[];
   pastDue: Task[];
@@ -57,6 +60,7 @@ export type ManagerPassTabProps = {
  */
 export function ManagerPassTab({
   active,
+  upcoming,
   suggestions,
   blocked,
   pastDue,
@@ -277,13 +281,14 @@ export function ManagerPassTab({
                   key={h.id}
                   helper={h}
                   tasks={active.filter((t) => t.helperId === h.id)}
+                  upcoming={upcoming.filter((t) => t.helperId === h.id)}
                   nowTs={nowTs}
                 />
               ))
             )}
           </div>
         ) : (
-          <TheBoardStatusLists tasks={active} helpers={helpers} nowTs={nowTs} />
+          <TheBoardStatusLists tasks={active} upcoming={upcoming} helpers={helpers} nowTs={nowTs} />
         )}
       </section>
 

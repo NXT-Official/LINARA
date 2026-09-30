@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Task } from "./task.types";
-import { byStart, isPastDue, taskWhen } from "./task.utils";
+import { byStart, isLaterThanToday, isPastDue, taskWhen } from "./task.utils";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -75,5 +75,31 @@ describe("byStart", () => {
     const wed8am = task({ id: "b", time: "8:00 AM", scheduledStart: "2026-09-30T00:00:00Z" });
     const thu7am = task({ id: "c", time: "7:00 AM", scheduledStart: "2026-09-30T23:00:00Z" });
     expect([thu7am, wed8am, fri11pm].sort(byStart).map((t) => t.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("isLaterThanToday", () => {
+  const now = new Date(2026, 8, 30, 22, 0).getTime(); // Wed 10 PM, local
+  const startingAt = (d: Date) => task({ scheduledStart: d.toISOString() });
+
+  it("keeps today's tasks, early or late, on today", () => {
+    expect(isLaterThanToday(startingAt(new Date(2026, 8, 30, 0, 0)), now)).toBe(false);
+    expect(isLaterThanToday(startingAt(new Date(2026, 8, 30, 23, 59)), now)).toBe(false);
+  });
+
+  it("keeps carried-over tasks on today", () => {
+    expect(isLaterThanToday(startingAt(new Date(2026, 8, 25, 19, 30)), now)).toBe(false);
+  });
+
+  it("moves anything from midnight onward to later", () => {
+    expect(isLaterThanToday(startingAt(new Date(2026, 9, 1, 0, 0)), now)).toBe(true);
+  });
+
+  it("treats a task already in progress as today's", () => {
+    const early = task({
+      status: "in_progress",
+      scheduledStart: new Date(2026, 9, 1, 8).toISOString(),
+    });
+    expect(isLaterThanToday(early, now)).toBe(false);
   });
 });

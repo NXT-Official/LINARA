@@ -61,3 +61,17 @@ export function taskWhen(t: Task, nowTs: number): string {
   if (days < 6.5) return `${weekdayOf(start)} ${t.time}`;
   return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${t.time}`;
 }
+
+/**
+ * Scheduled for a later day than today. The Pass is day-by-day: these sit in
+ * "Coming up" and count toward none of today's numbers. A task already in
+ * progress is today's whatever its date.
+ */
+export function isLaterThanToday(t: Task, nowTs: number): boolean {
+  if (t.status === "in_progress") return false;
+  const ms = startMs(t);
+  if (Number.isNaN(ms)) return false;
+  const tomorrow = new Date(nowTs);
+  tomorrow.setHours(24, 0, 0, 0);
+  return ms >= tomorrow.getTime();
+}

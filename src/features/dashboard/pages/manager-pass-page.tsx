@@ -5,7 +5,7 @@ import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
-import { isPastDue } from "@/features/tasks/task.utils";
+import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
@@ -84,7 +84,11 @@ export function ManagerPassPage({
     }
   };
 
-  const active = tasks.filter((t) => !t.queued && !t.suggested);
+  // The Pass is day-by-day: anything scheduled for a later day sits in
+  // "Coming up" and counts toward none of today's numbers.
+  const onBoard = tasks.filter((t) => !t.queued && !t.suggested);
+  const active = onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs));
+  const upcoming = onBoard.filter((t) => isLaterThanToday(t, clock.nowTs));
   const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
   const gate = useSendGate({
     authorName,
@@ -104,8 +108,9 @@ export function ManagerPassPage({
       <h1 className="sr-only">The Pass</h1>
       <ManagerPassTab
         active={active}
+        upcoming={upcoming}
         suggestions={tasks.filter((t) => t.suggested)}
-        blocked={active.filter((t) => t.status === "blocked")}
+        blocked={onBoard.filter((t) => t.status === "blocked")}
         pastDue={pastDue}
         nowTs={clock.nowTs}
         pendingVales={vales.vales.filter((v) => v.status === "pending")}
