@@ -27,7 +27,7 @@ import {
   type TicketRow,
 } from "../task.actions";
 import type { Recurrence, Routine, Status, Task } from "../task.types";
-import { routineMatches } from "../task.utils";
+import { movedFromLabel, routineMatches } from "../task.utils";
 
 export type AddTaskFlags = {
   afterHours?: boolean;
@@ -89,11 +89,12 @@ function toTask(row: TicketRow, helpers: Helper[]): Task {
     leadMinutes: row.lead_minutes ?? undefined,
     rescheduleNotice: row.reschedule_notice
       ? {
-          // Formatted here, on the viewer's device (O14); legacy rows fall back
-          // to the string the server stored.
-          oldTime: row.reschedule_notice.oldStartIso
-            ? isoToDisplayTime(row.reschedule_notice.oldStartIso)
-            : (row.reschedule_notice.oldTime ?? ""),
+          // Formatted here, on the viewer's device (C59). Notices from before
+          // that fix only hold a string the server formatted in the wrong
+          // zone, so they say that the task moved but not from when.
+          movedFrom: row.reschedule_notice.oldStartIso
+            ? movedFromLabel(row.reschedule_notice.oldStartIso, row.scheduled_start)
+            : undefined,
           appointmentTitle: row.reschedule_notice.appointmentTitle,
         }
       : undefined,

@@ -1,4 +1,10 @@
-import { parseTimeToMinutes, toISODate, weekdayOf, type Weekday } from "@/lib/time";
+import {
+  isoToDisplayTime,
+  parseTimeToMinutes,
+  toISODate,
+  weekdayOf,
+  type Weekday,
+} from "@/lib/time";
 import type { Recurrence, Routine, Task } from "./task.types";
 
 export function recurrenceLabel(r?: Recurrence): string | null {
@@ -74,4 +80,19 @@ export function isLaterThanToday(t: Task, nowTs: number): boolean {
   const tomorrow = new Date(nowTs);
   tomorrow.setHours(24, 0, 0, 0);
   return ms >= tomorrow.getTime();
+}
+
+/**
+ * Where a moved task used to be, relative to where it is now: just the time
+ * when the day didn't change, otherwise the day too ("Thu 6:00 PM", or
+ * "Oct 3, 6:00 PM" a week or more away).
+ */
+export function movedFromLabel(oldIso: string, newIso: string): string {
+  const before = new Date(oldIso);
+  const after = new Date(newIso);
+  const time = isoToDisplayTime(oldIso);
+  if (toISODate(before) === toISODate(after)) return time;
+  const days = Math.abs(after.getTime() - before.getTime()) / 86_400_000;
+  if (days < 6.5) return `${weekdayOf(before)} ${time}`;
+  return `${before.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`;
 }

@@ -22,7 +22,8 @@ export type Task = {
   appointmentTitle?: string;
   scheduledDate?: string; // YYYY-MM-DD, for appointment prep tasks
   leadMinutes?: number; // lead offset before the appointment, in minutes
-  rescheduleNotice?: { oldTime: string; appointmentTitle: string };
+  /** Set when an appointment move shifted this task; movedFrom is "6:00 PM" / "Thu 6:00 PM". */
+  rescheduleNotice?: { movedFrom?: string; appointmentTitle: string };
   afterHours?: boolean;
   emergency?: boolean;
   queuedForShift?: boolean; // waiting for Rosa's next working period
