@@ -53,12 +53,79 @@ the bottom.
   Claude API) and the constraint that `transcribe-notes` (Whisper) has no
   Claude equivalent and would stay on a separate provider regardless.
 
+### O2. A household can only ever have one admin -- co-manager and remote (OFW) admin have no way in
+
+- **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).
+- **What's missing:** `plan.md` §1.2, `README.md` §2 and `home-management-concept.md` §9 describe three admin types, with the OFW remote admin called "the killer differentiator". The schema supports them (`user_profiles.user_type IN ('primary_manager','co_manager','remote_admin','helper')`), and the UI for them exists (`remote-glance.tsx`, the suggestions inbox, `ViewAsSwitcher`, the remote branch in `use-send-gate.ts`). But nothing creates a second admin: `use-session.ts` builds `admins` as `admin ? [admin] : []` (just the signed-in user), `updateAdminType` is a `console.warn` stub, and there's no admin invite. The landing page ("Perfect for busy parents or OFW families managing from abroad") promises a mode nobody can reach.
+- **Blocks:** Any demo or marketing of OFW mode, multi-admin attribution ("from [name]"), and the remote-suggestion approval flow.
+- **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
+- **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
+
+### O4. "Your record stays even if you change households" has no mechanism behind it
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `LINARA_MOBILE/app/(auth)/claim-account.tsx` tells the helper "Mananatili ang record mo kahit magpalit ka ng household". The landing page says her history forms "a portable portfolio she can present to banks, agencies, or future employers". The concept doc (§4 principle 4) calls this non-negotiable. In the code: nothing ever sets `helper_profiles.status = 'INACTIVE'` (no offboarding flow); `user_profiles.household_id` is a single `NOT NULL` column, so one account belongs to exactly one household; a second employer's invite can't be claimed by an existing account (the claim flow calls `auth.signUp`, which fails for an existing email); and there's no export, certificate, or "Record" tab (concept §11 lists `Today · Pantry · My Pay · Record`; mobile ships the first three).
+- **Blocks:** The portable-record pitch, and the future proof-of-income and fintech path (concept §12).
+- **Current workaround:** None.
+- **To close:** (1) An offboarding action on the web People page that sets the helper `INACTIVE` without deleting her rows. (2) A decision on how a helper's account relates to more than one household over time, which is a schema change (e.g. a helper↔household membership table instead of `user_profiles.household_id`) and RLS that keeps her read access to her own past payslips after she leaves. (3) A helper-side record view or export. Schema is `LINARA`'s call; the view is `LINARA_MOBILE`'s. RA 10361 payslip retention attaches here once real households exist.
+
+### O5. Quick Utos are deleted only when a manager opens the app, not nightly
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `plan.md` §2.3 and README §3.3 say "at midnight, all individual Quick Utos … are permanently deleted from the database". The concept doc makes it a hard build rule ("wiped nightly must be real deletion"). The only deletion is `clearAllUtosForHelpersFn`, called from `runDayRollover` in `app-store-provider.tsx`. That runs on manual "Start new day" or on C31's auto-rollover, and both need a manager's browser to load the app. If no manager opens the web app for three days, three days of utos stay in `quick_utos`. The deletion is real when it happens; the timing is what the docs overstate. This is the cron that `SYSTEM_CRON_SECRET` was a placeholder for (see O1).
+- **Blocks:** Any privacy/"no surveillance log" claim in marketing.
+- **Current workaround:** Relies on the manager opening the app daily.
+- **To close:** A scheduled server-side purge (`pg_cron` job or a scheduled Edge Function) that deletes `quick_utos` rows older than the household's civil day, using `households.timezone` from C38. Owned by `LINARA`.
+
+### O7. No push notifications -- an override "high-priority alert" only reaches a helper whose app is open
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** `plan.md` §2.4 step 4 ("The helper receives a high-priority alert") and §2.2 step 5 (appointment-moved heads-up). `LINARA_MOBILE` has no `expo-notifications` dependency and there are no device-token columns in the schema. Tickets and utos arrive over Realtime (C23), which only delivers while the app is foregrounded.
+- **Blocks:** The emergency-override story, and anything marketed as "she gets notified". Note this interacts with the concept doc's "no pings after hours" rule: pushes must respect availability the same way the friction wall does, not bypass it.
+- **Current workaround:** The helper sees items the next time she opens the app.
+- **To close:** `expo-notifications` plus a token table (schema: `LINARA`) and a server-side sender triggered on override/emergency sends and appointment reschedules only.
+
+### O8. No privacy policy or terms of service, in either app or on the site
+
+- **Found:** 2026-09-30, launch-readiness review.
+- **What's missing:** No privacy policy, terms, or data-deletion path exists anywhere (grep across both repos). The app collects wages, emails, receipt/evidence photos and voice notes, and the web app processes payouts. Both app stores require a privacy-policy URL, and both require in-app account deletion for apps with account creation. The Data Privacy Act (RA 10173) applies to both the household and the helper's data.
+- **Blocks:** App-store submission; any public signup.
+- **Current workaround:** None (fine while everything is sandbox-only, per the Closed Gaps environment note).
+- **To close:** Policy/terms pages on the web app (linked from landing, `/login`, and the mobile claim screen), plus an account-deletion request path. Deletion has to be reconciled with RA 10361 payslip retention, so "delete my account" can't mean "delete my payslips". Needs a legal review before publishing, not just a template.
+
+### O9. Task times render in the viewer's device time zone, not the household's
+
+- **Found:** 2026-09-30, while adding past-due tasks to Needs You.
+- **What's missing:** `isoToDisplayTime` / `combineDateAndTime` (`src/lib/time.ts`) read and write `tickets.scheduled_start` in the **browser's** time zone. An OFW admin in Dubai would see a 7:30 PM Manila task as 3:30 PM, and a task they create for "7:30 PM" lands at 11:30 PM in the house. C38 fixed the same class of bug for pay cutoffs with `households.timezone`; tickets never got that treatment.
+- **Blocks:** Nothing today (O2: a remote admin can't join yet). Becomes real the moment OFW mode ships, which is the brand doc's stated wedge.
+- **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
+- **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
+
+
+### O14. `reschedule_notice.oldTime` is rendered in the web server's time zone
+
+- **Found:** 2026-10-01, building the mobile appointment-move heads-up.
+- **What's missing:** `rescheduleAppointmentFn` (`src/features/appointments/appointment.actions.ts`) is a server function, and it builds the notice's `oldTime`/`oldDate` with `isoToDisplayTime`/`isoToISODate`, which format in the *runtime's* time zone. On Vercel that is UTC, so a Manila household's "was 8:00 PM" would be stored as "12:00 PM". Same family as O9 and the C38 cutoff bug.
+- **Blocks:** Showing "was X, now Y" anywhere.
+- **Current workaround:** `LINARA_MOBILE`'s `MovedTasksBanner` shows only the new time (from the real `scheduled_start` instant) and the appointment's title, never `oldTime`.
+- **To close:** Store the old instant (`oldStartIso`) in the notice instead of a pre-formatted string, and format it on the device, or in `households.timezone`. Owned by `LINARA`.
 ---
 
 ## Closed Gaps
 
-Fixed and applied to the live database. Kept here so neither repo
+Fixed and applied to the shared Supabase database. Kept here so neither repo
 re-investigates something already resolved.
+
+> **Environment note (corrected 2026-08-16):** there is exactly **one**
+> Supabase project, and it currently holds **sandbox/test data only** — no real
+> household is on it yet, and the paired Xendit account is sandbox. Earlier
+> entries (and `PAYMENTS_REMEDIATION.md`) described the payout path as "live",
+> which was true in the sense that the code path works end to end, but **not**
+> in the sense of real money or real kasambahay payroll records. Schema caution
+> still applies — it is the only project, and everything here is applied by
+> hand — but data caution does not: rows in it are disposable. Revisit this
+> note the moment a real household is onboarded, because the retention
+> obligations in RA 10361 attach at that point.
 
 ### C1. `user_profiles_isolation` (and every household_id policy copying its pattern) caused infinite recursion (Postgres 42P17)
 
@@ -1061,6 +1128,13 @@ XENDIT_WEBHOOK_VERIFICATION_TOKEN=...`, and that same token entered into
   URL, subscribed to `payout.succeeded`/`payout.failed`/`payout.reversed`)
   before a real payout's confirmation can ever land -- none of that is
   something this session could do without dashboard access.
+- **Correction, 2026-08-16:** the "not yet live" note above is **stale** --
+  `payslips`/`vales.settled_in_payslip_id` have since been applied and are
+  live (user-confirmed). Treat the payout path as production from here on.
+  A separate 2026-08-16 audit found three real defects in it (reachable
+  double-pay, timezone-broken cutoffs, and rest-owed shown as pay but never
+  paid) -- see [`PAYMENTS_REMEDIATION.md`](PAYMENTS_REMEDIATION.md) for the
+  evidence and the session-by-session plan. None of those are fixed yet.
 - **Known residual limitation, not closed by this fix:** Same helper-auth
   caveat as C9-C20 is moot here specifically, since `initiate_payslip`'s
   own manager-only check would reject a genuine helper session regardless.
@@ -1824,6 +1898,1093 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   format surprise degrades to midnight rather than failing loudly. Left as-is
   because several call sites treat the schedule as optional and rely on a
   non-throwing parse; a stricter version would need those audited first.
+
+### C35. Xendit payouts were sent at 100x their value -- `v2/payouts` takes major units, not cents
+
+- **Found:** 2026-08-16, during the Session 0 verification pass of
+  `PAYMENTS_REMEDIATION.md` (a user-reported "the ~3,250 peso transaction
+  became PHP 356,250.00"). The code defect itself had already been fixed
+  two days earlier without a gap entry; this records it, and the residual
+  data divergence it left behind.
+- **Root cause:** `src/features/pay/pay.actions.ts` sent
+  `amount: Math.round(netPay * 100)` -- the minor-units (centavos)
+  convention used by Stripe and most card processors. Xendit's
+  `POST /v2/payouts` takes a **decimal amount in major units (PHP)**, so
+  every payout was requested at 100x its intended value. Introduced in
+  `9d88674` (2026-08-14 05:00:45 +0800), fixed in `e1266c5`
+  (2026-08-14 21:07:27 +0800) by changing it to
+  `Math.round(netPay * 100) / 100`, which is now just a round-to-2-decimals
+  idiom and no longer a unit conversion. Worth stating plainly so the next
+  reader doesn't "simplify" it back: **the `* 100` and the `/ 100` are not
+  redundant, and removing both would reintroduce unrounded floats; removing
+  only the `/ 100` reintroduces this bug.**
+- **Why it wasn't caught:** nothing asserts the unit anywhere. There is no
+  test on the request body, the `payslips` table stores `net_pay` in pesos
+  while the wire format was centavos, and Xendit accepted the request
+  without complaint -- an implausibly large payout is a business decision as
+  far as their API is concerned, so the only signal was the amount showing
+  up wrong in their dashboard.
+- **Known residual limitation, not closed by the code fix:** the one payslip
+  row that exists in the live database (`helper_id e13ecc26...`, cutoff
+  `2026-08-01 -> 2026-08-15`, `requested_at 2026-08-14 12:59:41+00`) was
+  created **8 minutes before** the fix landed, so it is one of these. Its
+  stored `net_pay` is in pesos while the payout Xendit actually received was
+  100x that -- **`payslips` and Xendit's ledger disagree for this row**, and
+  it was sitting in `payout_status = 'processing'` because the corresponding
+  Xendit payout never reached a terminal state. Sandbox money, user-confirmed
+  2026-08-16, so no real funds are exposed. **Cancelled at Xendit 2026-08-16**
+  (`POST /v2/payouts/{id}/cancel` on `disb-5fae2444-...`, response
+  `status: "CANCELLED"`; a read-only GET beforehand confirmed it was still
+  `ACCEPTED` and thus cancellable, with `estimated_arrival_time
+  2026-08-17T03:00:00Z` -- scheduled to disburse, not frozen). Re-verified by
+  GET on 2026-08-16: `status: "CANCELLED"`, `amount: 356250`,
+  `updated 2026-08-16T08:02:49Z`. The 100x payout will not disburse. This is a
+  live instance of exactly the divergence `PAYMENTS_REMEDIATION.md`'s Session D
+  reconciliation view is meant to catch.
+- **Open sub-item left for the maintainer to verify in the SQL editor** (the
+  app's anon key can't read `payslips` through RLS): whether the
+  cancellation's `payout.failed`/`payout.reversed` callback actually flipped
+  the row (`processing` -> `failed`, `confirmed_at` set) and unsettled its
+  vale back to the pool. If it did **not** flip, the row stays `processing`,
+  and Session A's partial unique index on
+  `(helper_id, cutoff_start, cutoff_end) WHERE payout_status <> 'failed'`
+  would lock the Aug 1-15 cutoff permanently -- so Session A must resolve this
+  legacy row (via the planned `needs_review` path or a manual status
+  correction) as part of landing that index. This is also the first
+  opportunity to observe the webhook writing into `payslips` end to end (see
+  next bullet).
+- **Separately confirmed in the same pass:** no payslip row has **ever**
+  reached `succeeded` or `failed` (Session 0 Q4 returned a single
+  `processing` row and nothing else). The Xendit webhook subscription is
+  correctly configured and a 10k test disbursement did succeed, but that
+  disbursement was made directly against Xendit's API and has no `payslips`
+  row, so `xendit-payout-webhook` writing back into `payslips` remains
+  **unverified end to end**. Configuration being right is not the same as
+  delivery being observed; C21 recorded the former as the open question and
+  it is the latter that is still open.
+- **CLOSED 2026-08-17 — the webhook is now verified end to end.** Two real
+  payouts completed through the app after the C44 redeploy, and the database
+  agrees with Xendit on every field that mattered:
+
+  | helper | net_pay | amount_sent | payslip | attempt | confirmed_at |
+  | --- | --- | --- | --- | --- | --- |
+  | Kuya Marito | 5812.50 | 5812.50 | succeeded | succeeded | 16:43:52Z |
+  | Ate Marites | 3812.50 | 3812.50 | succeeded | succeeded | 16:53:01Z |
+
+  This settles the three things this entry left open. `record_payout_attempt_result`
+  rolls an attempt up to its payslip correctly from the webhook path, not just
+  from the web caller. `amount_sent` matches `net_pay` exactly on both — the
+  per-attempt snapshot this entry was written for now has a clean reading, and
+  the 100x class of divergence would have been visible here immediately. And
+  **a successful payout does not release the vale**: Ate Marites' ₱500 kept its
+  `settled_in_payslip_id`, which is the branch `record_payout_attempt_result`
+  restricts to `failed`/`cancelled`.
+
+  Kuya Marito's payout was sent at 14:42 and confirmed at 16:43 — roughly two
+  hours later, consistent with **Xendit's own retry** of the delivery that C44's
+  stale build had 500'd, landing once the correct build was live. If so, the
+  24-hour retry window behaves as their docs claim, and a deployment fault was
+  self-healing once fixed. Worth knowing before relying on it: it means a bad
+  deploy costs a delay, not a lost callback.
+
+### C36. Double-pay was reachable two ways -- a retry minted a fresh idempotency key, and the duplicate guard had no constraint behind it
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session A).
+  **Closed:** 2026-08-16 -- `supabase/add-payslip-double-pay-guards.sql`
+  applied by hand in the Supabase SQL editor by the maintainer, same posture as
+  C17/C21/C27/C31.
+- **Vector A (retry after an ambiguous failure):** `pay.actions.ts` minted
+  `referenceId = crypto.randomUUID()` per attempt and sent it as Xendit's
+  `Idempotency-key`. Every retry was therefore a *different* request to Xendit,
+  so their idempotency could never collapse it. Worse, the `catch` swallowed
+  **every** post-`fetch` throw as `payout_status = 'failed'` and unsettled the
+  vales -- including a JSON parse error, a timeout, or a failure of the
+  *follow-up status UPDATE* after Xendit had already returned 200. The manager
+  saw "Failed", clicked Pay again, and a second real payout went out.
+- **Vector B (TOCTOU race):** `initiate_payslip` did
+  `IF EXISTS (...) RAISE` then `INSERT`, with no unique constraint behind it.
+  Under READ COMMITTED two concurrent transactions both passed the `EXISTS`
+  check and both inserted. The table's only `UNIQUE` was on
+  `payout_reference_id`, a fresh UUID per call, so it never collided. The UI's
+  `paying` state guards one component instance -- two managers, or one manager
+  in two tabs, defeats it.
+- **Fixed by:** `supabase/add-payslip-double-pay-guards.sql` plus
+  `src/features/pay/`:
+  1. **Reference id is now derived inside the RPC**, deterministically as
+     `md5(helper:cutoff_start:cutoff_end)::uuid`, and a retry **reuses the
+     existing row's id** -- so a retry replays the SAME Idempotency-key and
+     Xendit collapses it. `pay.actions.ts` no longer mints one.
+  2. **`UNIQUE INDEX payslips_one_per_cutoff (helper_id, cutoff_start,
+     cutoff_end)`** -- deliberately NOT the partial
+     `WHERE payout_status <> 'failed'` index `PAYMENTS_REMEDIATION.md`
+     originally sketched. A failed attempt is retried by **updating the row in
+     place**, never by inserting a second one, so there is only ever one row
+     per cutoff. The partial-index shape is incompatible with reusing the
+     reference id (the rows would collide on `payout_reference_id`, and
+     `xendit-payout-webhook` -- which matches on `reference_id` -- would face
+     two rows with the same id and could not tell which to update). Per-attempt
+     history is deferred to Session D's `supersedes_payslip_id`.
+  3. **`SELECT ... FOR UPDATE`** on the per-cutoff row, serializing two
+     concurrent calls, plus a `unique_violation` handler around the INSERT so
+     the loser of a concurrent-insert race gets the friendly "A payslip already
+     exists for this cutoff" rather than a raw constraint error.
+  4. **New `needs_review` status** for genuinely ambiguous outcomes (no
+     response from Xendit, or Xendit accepted but our bookkeeping write
+     failed). It does **not** unsettle vales and the RPC **refuses to retry
+     it** -- only a `failed` row is retryable. `pay.actions.ts` now
+     distinguishes three outcomes instead of collapsing everything into
+     `failed`; see its doc comment for the taxonomy. Mirrored into
+     `../LINARA_MOBILE` (`services/api/payslips.ts` `PayoutStatus`, and both
+     `Record<PayoutStatus, ...>` maps in `components/features/pay/
+     payslip-history.tsx`) so the helper's app renders the new status -- the
+     C33 cross-repo lesson applied preemptively this time.
+- **Verified against a real Postgres**, not just by reading: the migration was
+  applied to a throwaway `postgres:15-alpine` container with a minimal schema
+  fixture (the only failure being `role "authenticated" does not exist`, absent
+  outside Supabase), re-applied twice more to prove idempotency, and then
+  exercised with **two genuinely overlapping transactions** -- session A holding
+  an open transaction inside the RPC while session B entered it for the same
+  helper+cutoff. Result: exactly **one** payslip row; session B got the
+  friendly error. Both race paths were hit independently -- the concurrent
+  INSERT caught by the unique index, and the existing-row case caught by the
+  `FOR UPDATE` + status guard. Also confirmed: the reference id matches
+  `md5(...)` exactly, `needs_review` blocks a retry, and a `failed` row is
+  retried **in place** (same row id, same reference id, count still 1, vale
+  re-settled).
+- **Known limitation, deliberately accepted:** reusing the reference id means a
+  payout **cancelled** at Xendit can never be re-sent for that cutoff -- the
+  replayed key returns DUPLICATE and the row would park in `processing` for a
+  payout that isn't in flight. The escape hatch (rotate the stored reference
+  id) is documented with ready-to-run SQL in the migration's header comment.
+  This applies to the one pre-existing row from C35, whose reference id Xendit
+  already knows as CANCELLED.
+- **Still open, carried into Session B:** `initiate_payslip` continues to
+  accept `p_cutoff_start`/`p_cutoff_end` from the caller, so the guard is only
+  as trustworthy as `pay.actions.ts`'s (timezone-broken) arithmetic. Session B
+  moves the derivation inside the function. Also unresolved: Xendit's
+  idempotency **retention window** is undocumented, so the duplicate-replay
+  defence is unproven past an unknown horizon, and the duplicate-detection
+  match in `pay.actions.ts` (HTTP 409 or a duplicate/idempotency hint in the
+  body) is defensive rather than confirmed against a real replay.
+
+### C37. C36 conflated business idempotency with transport idempotency, making a cancelled payout unrepayable
+
+- **Found:** 2026-08-16, immediately after C36 shipped -- the race-proof harness
+  surfaced the dead end, and a review of standard payment-system practice
+  confirmed the root cause was structural rather than a bug.
+  **Closed:** 2026-08-16 -- both files applied by hand in the Supabase SQL
+  editor by the maintainer, in the required order:
+  `supabase/cleanup-c35-legacy-payslip.sql` **first** (it targets rows by
+  `payslips.payout_reference_id`), then `supabase/add-payout-attempts.sql`
+  (which drops that column). Re-running either is safe.
+- **Root cause:** there are two distinct idempotency problems and C36 solved
+  both with one mechanism.
+  - **Business idempotency** -- "never create two payouts for one cutoff".
+    Scope: the logical payout. Lifetime: permanent. Correct mechanism: a DB
+    unique constraint. C36 got this right and it is unchanged
+    (`payslips_one_per_cutoff`).
+  - **Transport idempotency** -- "never let one network retry become two API
+    calls". Scope: a single HTTP request. Lifetime: the PSP's retention window
+    (Stripe/Adyen ~24h; Xendit's is undocumented, Session 0 Q6). Correct
+    mechanism: a per-**attempt** key.
+
+  C36 derived one key per `(helper, cutoff)` and reused it forever, which made
+  a transport-scoped mechanism permanent. Two consequences: (1) a payout
+  **cancelled** at Xendit could never be re-sent for that cutoff -- the
+  replayed key returns DUPLICATE, so the caller marked the row `processing` for
+  a payout that was not in flight, a dead end; and (2) the protection silently
+  expires anyway once the PSP forgets the key, at which point reuse buys no
+  deduplication while still blocking a legitimate re-send. Worst of both.
+- **Fixed by** adopting the intent + attempts model that Stripe
+  (PaymentIntent -> Charges), Adyen and PayPal all use:
+  - **`public.payout_attempts`** (`supabase/add-payout-attempts.sql`) --
+    append-only, one row per Xendit API call, each with its own UNIQUE
+    `reference_id` (sent as both Xendit's `reference_id` and the
+    `Idempotency-key`), `psp_payout_id`, `status`, and `amount_sent` snapshot.
+    That last column is exactly what C35 lacked: a per-attempt record of what
+    was actually requested, which is what makes reconciliation possible.
+    RLS via `payout_attempts -> payslips -> helper_profiles`, one hop further
+    out than `payslips_isolation`.
+  - **`record_payout_attempt_result`** -- single place that maps an attempt
+    status to a payslip status and decides vale release, called by both the web
+    caller and the webhook so the two can't implement it differently.
+    `cancelled` maps to payslip `failed` (the payout is definitively not
+    happening, so the cutoff should be retryable); only `failed`/`cancelled`
+    release vales -- never `ambiguous`, whose vales may already have been paid.
+  - **`initiate_payslip` rewritten** to spawn a fresh attempt with a fresh
+    `gen_random_uuid()` key. Same guards and the same `FOR UPDATE` +
+    unique-index race protection as C36.
+  - **`pay.actions.ts` now reconciles instead of guessing.** On no response it
+    calls `GET /v2/payouts?reference_id=...` and adopts the real status; only
+    if that lookup *also* fails does the attempt become `ambiguous` ->
+    `needs_review`. This is the standard answer to "did the PSP get my
+    request?" and it makes most previously-ambiguous sends self-resolving.
+  - **`xendit-payout-webhook` resolves via `payout_attempts.reference_id`**
+    rather than the dropped `payslips.payout_reference_id`, and delegates the
+    rollup to the RPC. Also now handles `payout.cancelled`.
+  - `payslips.payout_reference_id` **dropped** (it lives on the attempt now;
+    a second copy would only drift). `payout_external_id` kept as a
+    denormalized mirror of the latest attempt for the Money tab. Neither is
+    selected by `../LINARA_MOBILE` and neither was in this repo's `PayslipRow`,
+    so both clients are unaffected -- verified, not assumed.
+- **Verified against a real Postgres**, same harness as C36: both migrations
+  applied in order to a throwaway `postgres:15-alpine`, the attempts migration
+  re-applied twice more to prove idempotency, then seven behavioural tests. Two
+  overlapping transactions still yield exactly one payslip and one attempt;
+  `accepted` -> `processing`; a retry is blocked while `processing` and while
+  `needs_review`; `ambiguous` does **not** release vales; an invalid status is
+  rejected. The decisive one: **`cancelled` -> payslip `failed`, vale released,
+  and the retry produced attempt #2 with a brand-new reference id** -- the dead
+  end C36 documented as an accepted limitation is now structurally impossible,
+  with attempt #1 preserved as history.
+- **Why this was worth doing now rather than later:** the database holds
+  sandbox/test data only (see the environment note at the top of this section),
+  so the restructure cost one deleted row instead of a data migration against
+  real payroll. It also lands before Session B rewrites `initiate_payslip`
+  again, so that function settles into its final shape once instead of twice.
+- **Known residual limitations:** (1) the duplicate-detection match in
+  `pay.actions.ts` (HTTP 409 or a duplicate/idempotency hint in the body) is
+  still defensive rather than confirmed against a real Xendit replay, though it
+  now matters far less since a duplicate on a per-attempt key would indicate a
+  bug rather than a normal retry; (2) the shape of Xendit's
+  `GET /v2/payouts?reference_id=` response is assumed to be either a bare array
+  or `{data: [...]}` and should be confirmed against a real call; (3) a payslip
+  still carries a rolled-up snapshot that is **mutated in place** on retry, so
+  the per-attempt history is authoritative and the payslip is a cache of the
+  latest attempt -- acceptable while data is disposable, and worth revisiting
+  against RA 10361's retention obligation before a real household is onboarded.
+
+### C38. Cutoff dates were derived in JS from local Date components and formatted as UTC, so client and server disagreed about "this cutoff"
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session B).
+  **Closed:** 2026-08-17 -- `supabase/add-household-timezone-and-cutoffs.sql`
+  applied by hand in the Supabase SQL editor by the maintainer.
+- **Root cause:** `src/features/pay/pay.utils.ts`'s `currentCutoffRange` built
+  a `Date` from **local** components (`getFullYear`/`getMonth`/`getDate`) and
+  then rendered it with `toISOString()` (**UTC**). Confirmed by running the
+  real function under three zones:
+
+  | `TZ` | `Aug 10 04:00Z` | `Aug 16 04:00Z` |
+  | --- | --- | --- |
+  | `UTC` | `08-01..08-15` ok | `08-16..08-31` ok |
+  | `Asia/Manila` | `07-31..08-14` **bad** | `08-15..08-30` **bad** |
+  | `America/Los_Angeles` | `08-01..08-15` ok | `08-01..08-15` **wrong half** |
+
+  The bug is **one-directional** -- only positive UTC offsets shift, because
+  local midnight renders to the *previous* day in UTC. `Asia/Manila` (UTC+8) is
+  exactly the broken case; negative offsets were correct by accident. (An
+  earlier draft of `PAYMENTS_REMEDIATION.md` claimed LA shifted too -- it does
+  not, and that has been corrected in place.)
+- **Two consequences beyond the off-by-one**, neither in the original writeup:
+  1. **Month-end was truncated.** In Manila, `16 -> EOM` on a 31-day August
+     produced `2026-08-15..2026-08-30`. **August 31 fell into no cutoff at
+     all** -- a day of work that no payslip could ever cover.
+  2. **The cutoff *bucket* flipped, not just the formatting** (the LA column
+     above selects the first half on the 16th, because the day-of-month
+     comparison driving the branch is itself timezone-dependent). So this could
+     never have been fixed by correcting `isoDate` alone.
+- **Why it mattered in practice:** the same function ran on **both** sides --
+  the server wrote `cutoff_start`/`cutoff_end`, the browser looked the current
+  cutoff up. Session 0 confirmed the server ran UTC (Vercel's Node default), so
+  stored dates were right *by accident* while the Manila browser searched for a
+  cutoff one day off, never matched, and therefore **kept showing "Pay via
+  GCash/Maya" immediately after a successful payout**. That is what invited the
+  second click that C36/C37 now prevent structurally. Verified against the real
+  data: the one payslip stored `2026-08-01..2026-08-15` for a payout requested
+  at `2026-08-14 20:59 +08`, which is what UTC produces and Manila does not.
+- **Fixed by** moving every persisted/compared calendar day onto Postgres's
+  clock, in an explicit household timezone -- the same frame as `server_now()`
+  (C32) rather than a second source of truth:
+  - **`households.timezone`**, defaulting to `'Asia/Manila'`. A real column
+    rather than a hardcoded constant: it cost nothing while there is one
+    household and no real payroll, and avoids a migration against live payroll
+    later. `household_timezone()` degrades to `'Asia/Manila'` on an
+    unrecognized IANA name rather than letting `AT TIME ZONE` raise, because on
+    this path a raise means payroll stops.
+  - **`household_today()`** -- the household's civil date, server-side.
+  - **`cutoff_bounds_for(day, interval)`** (IMMUTABLE, so it is directly
+    testable without mocking a clock) and **`household_cutoff(interval)`**.
+    Month lengths and leap Februaries come free from date arithmetic instead of
+    being hand-rolled.
+  - **`initiate_payslip` derives its own cutoff** from the helper's own
+    `payday_interval` and no longer accepts `p_cutoff_start`/`p_cutoff_end`.
+    Previously the double-pay guard was only as trustworthy as
+    `pay.actions.ts`'s (broken) arithmetic -- a caller computing the wrong
+    cutoff would have sailed straight past `payslips_one_per_cutoff` by
+    inserting under the wrong key.
+  - **`currentCutoffRange` deleted.** `pay.utils.ts` now holds display
+    formatting only, with a header explaining what not to reintroduce, and
+    `pay.utils.test.ts` asserts the module exports nothing else.
+    `useHouseholdCutoff` reads the RPC instead -- deliberately keyed on the
+    **selected** helper's interval rather than living beside `usePayslips` in
+    the provider, since `payday_interval` is per-helper and the Money tab has a
+    switcher (the `MULTI_HELPER_HANDLING.md` failure mode). While the cutoff is
+    unknown the Pay buttons stay hidden rather than rendering on a guess.
+  - **C32's remaining hole closed in the same pass:** `getServerNowFn` now also
+    returns `householdToday`, and `app-store-provider.tsx` uses it instead of
+    `toISODate(new Date(res.serverNowIso))` -- which took a trustworthy server
+    *instant* and rendered it to a day in the **browser's** timezone, so a
+    device with a right clock but a wrong timezone still derived the wrong day
+    from a correct answer.
+  - **Mirrored in `../LINARA_MOBILE`** (`services/api/cutoff.ts`, consumed by
+    `DigitalPayslip` via `app/(app)/pay.tsx`), which previously showed no cutoff
+    dates at all. It reads the same RPC rather than gaining a third independent
+    copy of the rule. Note this corrects the premise in
+    `PAYMENTS_REMEDIATION.md` that mobile "computes its own cutoff estimate" --
+    it computes its own *amount* estimate and had no date logic.
+- **Verified against a real Postgres**, same harness as C36/C37: all three
+  payments migrations applied in order to a throwaway `postgres:15-alpine`, the
+  new one re-applied for idempotency, then boundary tests. Every asserted
+  boundary exact (31-day month end, 30-day, 28-day Feb, **29-day leap Feb**,
+  and the 15th/16th split); **every one of 2026's 365 days and 2028's 366 days
+  falls inside its own cutoff for both intervals** (the check that would have
+  caught the orphaned Aug 31); consecutive cutoffs are contiguous across
+  2026-2028 with **zero gaps or overlaps**; the bogus-timezone fallback works;
+  and `initiate_payslip` derived `2026-08-16..2026-08-31` on its own, matching
+  `household_cutoff` exactly -- where the old JS would have produced
+  `08-15..08-30`.
+- **Known residual limitation:** `households.timezone` has no UI -- it is a
+  column with a default and no way for a manager to change it. Fine while every
+  household is in PH; needs a settings surface before that stops being true.
+
+### C39. Rest-owed hours were shown in the Pay Dial as pesos, never paid, and had no way to be taken as time either
+
+- **Found:** 2026-08-16, in the `PAYMENTS_REMEDIATION.md` audit (Session C).
+  **Closed:** 2026-08-17 -- `supabase/add-rest-off-requests.sql` applied by
+  hand in the Supabase SQL editor by the maintainer.
+- **Product decision that unblocked it (user, 2026-08-16):** after-hours work
+  is **time, not money**. "Live-in kasambahay are not paid hourly overtime the
+  way an office worker is... off-hours work is balanced by rest owed (time off
+  in lieu); the after-hours balance accrues in hours/minutes of rest, not
+  pesos." The kasambahay requests a date + time range, the manager approves,
+  and the minutes are debited. **Cash treatment of rest-day premium is
+  explicitly deferred** pending a separate policy decision.
+- **What was wrong:** `spend-and-payday.tsx` computed
+  `restOwedEarnings = (totalMin - premiumMin) / 60 * 120` and added it into
+  `netPay`. Three separate defects in one expression:
+  1. **It was never paid.** `initiate_payslip` does not read `ledger_entries`
+     at all, so the Pay Dial promised money no payout ever contained.
+     `../LINARA_MOBILE`'s `DigitalPayslip` omitted it, matching the real payout
+     — so the helper saw the accurate number and the manager an inflated one.
+  2. **The rate was invented.** `restOwedRate = 120` was a bare literal with no
+     relationship to anyone's wage, and **no hourly-rate derivation exists
+     anywhere in the codebase**. At the ₱6,000 regional minimum, the standard
+     PH divisors (÷26 ÷8) give ≈₱28.85/hr — so the dial overstated by roughly
+     **4x**.
+  3. **It was inverted.** It monetized the `rest_owed` minutes — exactly the
+     ones owed back as *time* — while silently dropping the `premium_pay`
+     minutes, which are the only ones any cash policy would ever have covered.
+- **Fixed by:**
+  - **Pay Dial de-monetized.** `netPay = base - statutory - vales`, matching
+    what `initiate_payslip` actually writes and what mobile shows. Rest owed is
+    rendered as **time** (`fmtHoursMinutes`), outside net pay.
+  - **`public.rest_off_requests`** — the redemption path that never existed.
+    Helper requests a `rest_date` + `[start_time, end_time)`; a manager
+    approves; approved minutes debit the balance. `minutes` is denormalized at
+    request time (same snapshot reasoning as `payslips.base_pay` / C10).
+    Partial unique index so only *approved* rows are unique per window — a
+    declined slot may be re-requested.
+  - **`rest_owed_balance_minutes(helper)`** — one definition of the balance,
+    read by the manager's dashboard, the helper's app, **and** the approval
+    guard, so the three cannot drift. That is the decision's "surfaced to both
+    sides as the same number" requirement made structural rather than
+    conventional.
+  - **`request_rest_off` / `decide_rest_off_request`** RPCs, manager-gated on
+    the decide side, with the balance re-checked at approval time.
+  - Manager UI: `RestOffRequests` on the Money tab. Helper UI:
+    `RestOffRequestForm` on the My Pay tab, plus `RestOwedCounter` switched to
+    show the **redeemable balance** rather than raw accrual, so it equals the
+    manager's figure.
+- **Judgement call worth revisiting when the cash policy lands:** both apps
+  previously excluded `premium_pay` entries from the rest-owed counter on the
+  assumption they would be paid in cash — but nothing has ever paid them, so
+  those minutes accrued to *nothing*. `rest_owed_balance_minutes` therefore
+  **counts them**, since otherwise rest-DAY work (the kind the decision calls
+  out as mattering most) would earn strictly less than ordinary off-shift work.
+  They stay tagged `premium_pay`, so a future cash policy converts only the
+  **unsettled** ones. Search `COUNT_PREMIUM_AS_REST` in the migration to change
+  this.
+- **Verified against a real Postgres**, same harness as C36-C38, and it
+  **caught two real bugs in the first draft**:
+  1. `request_rest_off`'s OUT parameter `minutes` collided with
+     `rest_off_requests.minutes`, so `SUM(minutes)` raised "column reference is
+     ambiguous" and the function failed *every* call. Renamed to
+     `requested_minutes` (and `status` → `resulting_status` on the decide side)
+     with every body query alias-qualified.
+  2. **The overdraw guard did not work.** The first draft locked the *request*
+     row (`FOR UPDATE OF r`), but two managers approving two *different*
+     requests lock different rows and never contend — so 240 minutes of balance
+     approved two 240-minute requests, and the `GREATEST(0, ...)` floor then
+     **hid** the overdraw by clamping the display to zero. Fixed by locking the
+     **helper** (`helper_profiles ... FOR UPDATE`), the actually-contended
+     resource. Re-tested: one approval succeeds, the other is refused with
+     "Not enough rest owed to approve: 0 minutes available, 240 requested",
+     exactly one approval lands, and the balance never goes negative.
+  Ten checks in total also cover: pending requests not debiting, over-requesting
+  refused, double-decide refused, decline recording its reason without touching
+  the balance, non-managers refused, zero-length and inverted windows refused,
+  and the balance flooring at zero under a large negative `adjust_minutes`.
+- **Known residual limitations:** the mobile request form takes date and time
+  as typed text (`YYYY-MM-DD` / `HH:MM`) rather than native pickers — it
+  validates shape and balance, but a picker would be kinder; `rest_date` is not
+  validated against the household timezone's today, so a helper can request a
+  past date; there is no cancel path for a pending request (the `cancelled`
+  status exists but nothing sets it); and nothing checks a requested window
+  against the helper's actual shift or an existing approved window on the same
+  day.
+- **All four resolved.** Three closed 2026-08-17/18 by
+  `supabase/add-rest-off-validation.sql` (Session E item E3a) — see **C47**. The
+  native-picker one closed 2026-08-18 (E3b) — see **C49**. The shift check was
+  deliberately **declined** rather than deferred; reasoning in C47.
+- **Open gap this exposed, NOT closed here:** `home-management-concept.md` says
+  "keep the resolution type flexible per worker: a live-out day helper leans
+  back toward an hourly/OT model, while a live-in accrues rest owed."
+  `helper_profiles.employment` ('live-in' / 'live-out') exists and is collected
+  at invite time, but the rest-vs-premium default is still
+  `useState<LedgerResolution>("rest")` in `use-ledger.ts` — **ephemeral client
+  state, household-wide, reset on reload, and not keyed to a helper at all**.
+  So the per-worker flexibility the concept describes is not real yet. Closing
+  it means persisting a default (most naturally a
+  `helper_profiles.default_resolution` column seeded from `employment`) and
+  having `recordLedgerEntryFn` read it per helper instead of taking whatever
+  the UI's shared toggle happens to be set to. Left open deliberately: it only
+  becomes load-bearing once the premium/cash path exists, which is itself
+  deferred — but it is worth doing in the same pass as that decision, not
+  after.
+
+### C40. Xendit's actual API and webhook behaviour had never been observed -- three parsing branches in the payout path were documented guesses, and one was based on a wrong reading
+
+- **Found:** 2026-08-16 as residual limitations of C35/C36/C37, gathered as
+  Session E item E1 in `PAYMENTS_REMEDIATION.md`. **Partially closed:**
+  2026-08-17 by running real payouts against the sandbox. Full evidence, with
+  raw request/response bodies, is in
+  [`E1_XENDIT_VERIFICATION.md`](E1_XENDIT_VERIFICATION.md); the maintainer's
+  captures are in [`E1_XENDIT_VERIFIED.md`](E1_XENDIT_VERIFIED.md).
+- **Why it mattered:** C35, C36 and C37 each shipped a defensive branch written
+  from documentation rather than observation, and each note said so. Defensive
+  code that has never met the thing it defends against is not a safety margin,
+  it is an untested path in the one part of the app that moves money.
+- **What was observed** (two ₱100 sandbox payouts, one settling, one forced to
+  fail with the `123456` test account number):
+  1. **`GET /v2/payouts?reference_id=` always returns an object**,
+     `{"has_more":false,"data":[…]}` — never a bare array. `lookupXenditPayout`
+     had accepted both; the array branch was dead code and is now gone.
+     An **unknown** reference returns **HTTP 200 with an empty `data`**, not a
+     404, so a miss arrives as `rows.length === 0` rather than through the
+     `!res.ok` guard — which is what makes it resolve to `ambiguous` ->
+     `needs_review` as designed.
+  2. **A replayed `Idempotency-key` behaves conditionally on the payload:**
+     identical payload -> **HTTP 200 carrying the ORIGINAL payout object with
+     its CURRENT status**; different payload -> **HTTP 409,
+     `error_code: "DUPLICATE_ERROR"`**. **This contradicted our own Session 0
+     Q6 finding**, which recorded the 409 case unconditionally and is now
+     corrected in place in `PAYMENTS_REMEDIATION.md`. The practical consequence
+     is the opposite of what that note implied: a network retry resolves
+     through the ordinary 2xx path and the duplicate branch is only ever a bug
+     signal, exactly as C37 predicted it would become once keys went
+     per-attempt.
+  3. **`pay.actions.ts`'s duplicate test was correct as written** — really 409,
+     really a matching `DUPLICATE_ERROR` string. Kept unchanged, with the
+     comment promoted from guess to verified. Deliberately still a
+     `409 OR substring` test, not an equality check: Xendit's payouts guide
+     documents the same condition under the name `DUPLICATE_PAYOUT_ERROR`, so
+     the literal is not stable across their own surfaces.
+  4. **The webhook envelope matches what `xendit-payout-webhook` parses**, field
+     for field: top-level `event` (`payout.succeeded` / `payout.failed`),
+     `data.reference_id`, `data.id`, and `data.failure_code` present on failure
+     only. No parser change needed. Also noted: the top-level `created` is the
+     *event's* timestamp while `data.created` is the *payout's* — 80s apart on
+     the success, 3.5 min on the failure. Nothing reads them today; E5's
+     reconciliation view will need the right one.
+  5. **Test mode settles in ~80 seconds**, not at the advertised
+     `estimated_arrival_time` (+15 min), and **simulated failures are
+     asynchronous** — `account_number: "123456"` returns `200 ACCEPTED`,
+     indistinguishable from a good payout, and only becomes
+     `FAILED`/`TEMPORARY_TRANSFER_ERROR` minutes later via webhook.
+- **One behaviour change this justified, not just comments:** on a 2xx,
+  `pay.actions.ts` now adopts the response body's own `status` through
+  `attemptStatusFromXendit` instead of unconditionally recording `accepted`.
+  Normally identical (ACCEPTED/REQUESTED -> `accepted`), it matters on a replay
+  of an already-settled payout, which would otherwise park the payslip in
+  `processing` waiting for a webhook that had already been and gone.
+- **Cross-repo:** none required. `../LINARA_MOBILE` contains no Xendit request
+  or response parsing at all — it reads `payslips` rows only. Checked, not
+  assumed (the C33 lesson).
+- **The headline item of C35 was NOT closed by this — and then was, later the
+  same day.** Both probes here deliberately used a reference id with no
+  `payout_attempts` row, so they exercised delivery and parsing but not the
+  rollup. Running the real payout (runbook step 2) is what found C44, the stale
+  deployment; after that redeploy two real payouts completed end to end and C35
+  is closed. See C35's own closing note for the figures.
+- **Still unobserved, and carried forward:** `payout.reversed` /
+  `payout.cancelled` (neither fires in a normal flow — C37's cancel → `failed`
+  → retryable path is Docker-verified only); `pay.actions.ts`'s
+  synchronous-rejection branch, which no simulation account number reaches
+  (it needs an outright refusal such as insufficient balance); and **Xendit's
+  idempotency retention window**, still undocumented and unanswered by support.
+  None of these block the payout path; all three are defensive branches that
+  work by construction rather than by observation.
+- **All three probed 2026-08-18** — runbook steps 5–7 in
+  `E1_XENDIT_VERIFICATION.md`. Two are now answered further than "unobserved",
+  and one guess above is **wrong**:
+  1. **`payout.cancelled` is not reachable in the sandbox at all.** Cancel was
+     refused **1.2s** after creation with
+     `CANCELLATION_NOT_ALLOWED — already been processed by Xendit`. The window
+     is effectively zero, not "short" — the 3.5 min in observation 5 above is
+     how long the *failure* takes to surface, not how long the payout stays
+     cancellable. So this branch can only ever be exercised by a **synthetic
+     webhook replay** against our own endpoint until a real production
+     reversal occurs. That test is worth running, but it verifies **our
+     handler, not Xendit's envelope** — the same distinction that made C44
+     invisible, and it must be logged that way rather than closing this bullet.
+  2. **The synchronous-rejection trigger is found, and it is not insufficient
+     balance** — that guess above is wrong twice over: `GET /balance` returns
+     `REQUEST_FORBIDDEN_ERROR` on both sandbox keys, and ₱99,999,999 was
+     accepted, so test mode does not check balance. Three real HTTP 400s do
+     reach it: `CHANNEL_CODE_NOT_SUPPORTED_ERROR` (not app-reachable, the
+     channel is a UI enum), `MINIMUM_TRANSFER_LIMIT_ERROR` at `amount: 0`, and
+     `API_VALIDATION_ERROR` for an `account_number` failing `/^\d+$/` — the
+     last is app-reachable through `helper_profiles.phone` and is the route to
+     use. None is a 409, so `isDuplicate` cannot mis-catch them. **The app-side
+     run is still pending**; only Xendit's half is observed.
+  3. **The retention window is `> 25.13h`** — a replay at that age returned
+     HTTP 200 with the *original* payout id. Lower bound only; support still
+     unanswered. Two ladder keys were seeded 2026-08-18 to bracket it further.
+     Incidental but useful: a **reconstructed** request body was accepted as
+     identical, so only the reference id needs preserving, not the exact bytes.
+- **A fourth item, adjacent and also unrun:** step 3 of the runbook (the
+  failure rollup *through the app*) still has an empty `Observed` block. Both
+  post-redeploy payouts succeeded, so `failed` → vale release → retry has never
+  been exercised outside Docker either. Not part of C40's original three, but
+  the same class of gap and it shares step 6's setup — do them together.
+
+### C41. The Pay Dial, the helper's payslip and the real `net_pay` agreed only by construction -- nothing stopped a fourth term being added to one of them
+
+- **Found:** 2026-08-17, as Session E item E4 in `PAYMENTS_REMEDIATION.md`.
+  **Closed:** 2026-08-17, code and tests only — **no migration, nothing to
+  apply**.
+- **What was wrong:** C39's stated acceptance criterion was that the manager's
+  Pay Dial, `../LINARA_MOBILE`'s `DigitalPayslip`, and the `net_pay` written by
+  `initiate_payslip` agree for the same helper and cutoff. They did — but
+  because the peso line had been *deleted* from one of three independently
+  hand-written copies of the same expression. Nothing asserted the agreement,
+  and C39's own history is the argument for why that is not enough: the Pay
+  Dial had carried an invented ₱120/hr term for months while the other two did
+  not.
+- **Fixed by** `src/features/pay/net-pay.ts` — one definition of
+  `net = max(0, base - statutory employee share - unsettled approved vales)`,
+  consumed by both in-repo copies (`spend-and-payday.tsx` and
+  `pay.actions.ts`). The invariant is enforced by the **signature**: there is no
+  parameter through which a rest-owed total could be passed.
+- **The other two surfaces are in languages this suite cannot import**, so
+  `net-pay.test.ts` pins them by reading their source: `initiate_payslip`'s
+  `GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total)` and the
+  absence of any `ledger_entries` reference in it; the Pay Dial still rendering
+  rest owed through `fmtHoursMinutes` and never multiplying it by a rate; and
+  `DigitalPayslip`'s matching expression. Crude on purpose — a comment does not
+  fail a build.
+- **Two things the test itself caught, worth recording:** (1) the first run
+  failed on `spend-and-payday.tsx`'s *comment*, which deliberately quotes the
+  deleted `restOwedEarnings` expression as history — the guards now strip
+  comments before matching, so they fail on the code coming back, not on the
+  record of it having gone; (2) each guard was verified to actually match a
+  synthetic reintroduction, since a regression test that cannot fail is worse
+  than none.
+- **Known limitation:** the mobile assertion **skips** when
+  `../LINARA_MOBILE` is not checked out beside this repo — which is exactly the
+  case in CI. `LINARA_MOBILE` has **no test runner at all** (verified
+  2026-08-17: no jest/vitest, no test script, no `*.test.ts`), so today this is
+  the only place the check can live. Adding one there is a real decision with
+  its own scope, deliberately not taken unilaterally in this pass.
+
+### C42. The rest-vs-premium default was one household-wide toggle in React state, so in a two-helper household it classified the wrong worker's off-shift work
+
+- **Found:** 2026-08-16 as the open sub-item of C39; picked up as Session E
+  item E2. **Closed:** 2026-08-17 — `supabase/add-helper-default-resolution.sql`,
+  applied by hand in the Supabase SQL editor by the maintainer.
+- **REVISED hours later, and the revision is applied too:**
+  `supabase/fix-resolution-default-to-rest.sql`, run by the maintainer
+  **2026-08-18**. The first version derived `premium_pay` from
+  `employment = 'live-out'`; that mapping is gone, and every helper without an
+  explicit choice now defaults to `rest_owed`. Reasoning is under "Why the
+  employment mapping was removed" below. Both files must be run in order on a
+  database that only has the first; on a fresh one the revised original is
+  sufficient and the fixer is a no-op.
+- **What the concept doc promised:** `home-management-concept.md` —
+  *"keep the resolution type flexible per worker: a live-out day helper leans
+  back toward an hourly/OT model, while a live-in accrues rest owed."*
+- **What the code did:** `useState<LedgerResolution>("rest")` in `use-ledger.ts`,
+  surfaced as a **"House default"** toggle on the Money tab. Ephemeral (reset on
+  every reload), household-wide, and not keyed to a helper — while the card it
+  sat in was *already* filtered to one selected helper. In the sandbox's
+  two-helper household that meant a manager could look at Kuya Marito's ledger,
+  flip the toggle, and change how **Ate Marites'** next completion was
+  classified. `helper_profiles.employment` ('live-in'/'live-out') has existed
+  and been collected at invite time the whole while, unused for this.
+- **Fixed by:**
+  - **`helper_profiles.default_resolution`** — nullable. NULL is a real state
+    meaning *"follow this helper's employment"*, not a missing value.
+  - **`helper_profiles.effective_resolution`** — a STORED generated column,
+    `COALESCE(default_resolution, 'rest_owed')`. One definition, read by the
+    trigger, the manager's web app and the helper's app alike — the same posture
+    as `rest_owed_balance_minutes` (C39) and `household_cutoff` (C38).
+  - **A `BEFORE INSERT` trigger on `ledger_entries`** filling an omitted
+    `resolution_type` from that column, so the rule belongs to the database
+    rather than to one of two clients. `insertLedgerEntryFn` now omits the field
+    entirely; an explicitly-passed value still wins, which is the per-entry
+    override the manager already had on each row.
+  - **`set_helper_default_resolution`**, manager-gated inside the function.
+    Necessary, not ceremonial: `helper_profiles_isolation` is `FOR ALL` across
+    the household, so without an RPC a **helper** could rewrite her own terms of
+    employment by writing the table directly.
+  - The Money tab's toggle is now **"<Helper>'s default"**, persisted, and says
+    which of the two states it is in ("Following employment type" vs "Set for
+    this helper · tap again to follow employment").
+- **Why nullable rather than a seeded snapshot:** seeding would have frozen
+  whatever was true at migration time and required repeating for every new
+  helper via yet another trigger. A live derivation cannot drift.
+- **Why the employment mapping was removed, hours after it shipped**
+  (`supabase/fix-resolution-default-to-rest.sql`): the maintainer asked why
+  `premium_pay` featured at all, given rest-day premium is deferred. Following
+  that through: since C39 both tags behave **identically** — both accrue into
+  the redeemable rest balance and are taken as time off — so deriving
+  `premium_pay` from `employment` changed nothing today. What it did change is
+  tomorrow. `rest_owed_balance_minutes` is pool arithmetic,
+  `SUM(entries) - SUM(approved rest_off_requests.minutes)`, with **no per-entry
+  settlement marker**. Once minutes are redeemed as time off, the individual
+  entries still look untouched and still carry their tag. C39 anticipates a
+  future cash policy converting "only the unsettled `premium_pay` ones", but
+  *unsettled* is **not answerable per entry** — so auto-tagging grew the
+  ambiguous population from roughly nothing to every live-out helper's entire
+  history: minutes a later cash policy could pay for a second time, after they
+  had already been taken as days off. The default is now `rest_owed` for
+  everyone and the premium tag is only ever a human decision. "Flexible per
+  worker" is unchanged — it is simply never *implied*.
+- **Open sub-item this exposed, NOT closed:** there is **no per-entry
+  settlement** for rest owed. `rest_off_requests` debits a pool; nothing records
+  which `ledger_entries` those minutes came from. While everything resolves as
+  time this is harmless — the balance is correct either way. It becomes
+  load-bearing the moment any cash conversion exists, and it should be settled
+  *with* that policy rather than retrofitted after premium-tagged minutes have
+  accumulated. Related: `vales.settled_in_payslip_id` is the pattern to copy.
+- **Verified against a real Postgres**, same harness as C36–C39, and re-verified
+  after the revision along **both** paths that now exist: a fresh database
+  running only the revised original, and a database that ran the ORIGINAL and
+  then the fixer — which is the live project's path. On the latter the live-out
+  helper flipped `premium_pay` → `rest_owed` while an explicitly-set helper kept
+  her choice, the fixer was a no-op on re-run, and the trigger, the RPC and the
+  per-entry override all still worked after the generated column was dropped and
+  re-added (Postgres 15 cannot `ALTER` a generated expression). The fixture had a
+  live-in, a live-out, a NULL-employment helper and a pre-existing ledger row;
+  the migration was applied and **re-applied twice** (clean); **12 behavioural
+  checks**
+  covering per-helper defaulting, explicit override, history left untouched, the
+  manager gate, the helper refusal, unauthenticated refusal, a bogus value, a
+  cross-household write, employment-change behaviour, and no row left with a
+  NULL `resolution_type`. Plus an **overlapping-transaction check**: an insert
+  running while another session holds an uncommitted default change does **not
+  block** (278ms), reads the last committed value, and picks up the new one
+  after commit — correct READ COMMITTED behaviour rather than a lock stall.
+- **Cross-repo (this is the part that mattered):** `../LINARA_MOBILE`'s
+  `restOwedMinutes` **excluded** `premium_pay` entries, with a comment claiming
+  *"Premium-pay entries are paid in cash instead"* — which was never true and
+  which C39 explicitly reversed. Postgres's `rest_owed_balance_minutes` counts
+  them (`COUNT_PREMIUM_AS_REST`), so the two disagreed. It is used as the
+  fallback shown while the authoritative balance query is in flight, and **E2
+  would have made it systematically wrong**: a live-out helper's entries now
+  default to `premium_pay`, so she would have seen a flat zero rest owed before
+  the real number arrived. Fixed to count every entry, with the divergence that
+  remains (it does not subtract redeemed minutes) stated in the comment. Exactly
+  the C33 failure mode, caught in the same pass this time.
+- **Known limitations:** the toggle is only on the Money tab (there is no
+  per-helper settings surface in People yet); and `employment` itself has no UI
+  after invite time, so a live-in → live-out change still needs SQL.
+
+### C43. LINARA_MOBILE had no test runner, so a cross-repo invariant could only be checked from LINARA — where it skipped in CI
+
+- **Found:** 2026-08-17 while closing E4 (C41). **Closed:** 2026-08-17, by
+  maintainer decision to add one rather than leave the gap recorded.
+- **The problem:** C41's guard on the helper-facing payslip formula lived in
+  `LINARA`'s suite and read `../LINARA_MOBILE`'s source across the repo
+  boundary. That only works where both repos are checked out side by side —
+  it skipped in CI, which is precisely where a regression would land unnoticed.
+- **Fixed by** adding `vitest` to `../LINARA_MOBILE` (dev dependency, `test` and
+  `test:watch` scripts) and extracting `lib/net-pay.ts` — the same rule as
+  LINARA's `net-pay.ts`, pulled out of `digital-payslip.tsx` so it can be tested
+  without rendering React Native. `lib/net-pay.test.ts` asserts the arithmetic,
+  the zero floor, the cutoff division, and (by arity) that no ledger term can be
+  passed in. LINARA's cross-repo check remains as a second line of defence,
+  now also asserting the component still routes through the shared function.
+- **Deliberate omission, worth knowing:** the mobile suite does **not** read any
+  file from disk. Doing so needs `node:fs`, which needs `@types/node`, which
+  would put Node's globals into a React Native app's typecheck (where
+  `setTimeout` and friends have different types) for a test-only convenience.
+  The source-reading guards stay in LINARA, which already runs in Node.
+- **Was still true, closed 2026-08-18:** the two repos each hand-write
+  `computeStatutorySplit`, and nothing asserted the copies agreed — a divergence
+  would put the manager and the helper on different deductions for the same
+  wage, the same class of bug C41 closed one level up. Now pinned twice, because
+  the two guards catch different mistakes:
+  1. **A mirrored value table** in `people.utils.test.ts` and
+     `../LINARA_MOBILE/lib/statutory.test.ts`, including the ₱5,000 boundary
+     (₱5,000 exactly is *not* "under", which is the one place an off-by-one
+     hides). Catches a change made without updating that repo's own test.
+  2. **A direct comparison of the two function bodies**, comments stripped and
+     whitespace collapsed. Catches the likelier case — someone updates a rate
+     *and* the test beside it, and never opens the other repo.
+
+  Mobile's copy moved to `lib/statutory.ts` (re-exported from
+  `legal-contribution-split.tsx`, so nothing else changed) purely so it could be
+  tested without rendering React Native — same move as `lib/net-pay.ts` in C43.
+  **Both guards were mutation-tested**: raising the SSS employee rate on the
+  mobile side alone fails the body comparison here *and* mobile's own value
+  table. Note the body comparison skips when the sibling repo is absent, so CI
+  relies on the value tables; that is why both exist.
+
+### C44. The deployed `xendit-payout-webhook` was a pre-C37 build querying a dropped column, so every payout since 2026-08-16 would have hung in `processing` forever
+
+- **Found:** 2026-08-17, on the first real payout run through the app — Session E
+  item E1's step 2, the check C35 had been waiting on. **Closed 2026-08-17:**
+  the committed source was redeployed, after which two real payouts completed
+  end to end (figures in C35's closing note). The stuck payslip resolved about
+  two hours after its failed delivery, consistent with Xendit's own 24h retry
+  landing on the corrected build rather than needing a manual reconciliation.
+- **The evidence**, from the Supabase function log, on a payout Xendit had
+  already settled successfully:
+
+  ```
+  [xendit-payout-webhook] Lookup failed: column payslips.payout_reference_id does not exist
+  ```
+
+- **Root cause:** C37 (`add-payout-attempts.sql`, applied 2026-08-16) **dropped**
+  `payslips.payout_reference_id` and rewrote the webhook to resolve the incoming
+  `reference_id` against `public.payout_attempts` instead. The migration was
+  applied. The rewritten function was committed. **It was never deployed.** The
+  build serving the live URL was still the pre-C37 one, so every callback threw,
+  returned 500, and left the payslip in `processing` while Xendit's ledger said
+  `SUCCEEDED`.
+- **Why it stayed hidden for a day:** nothing else calls this function, and no
+  payslip had ever reached a terminal state — which C35 recorded as the open
+  question and E1 existed to answer. The Session 0 / E1 pre-flight confirmed the
+  *configuration* (URL correct, token set, `payout.succeeded`/`failed`/`reversed`
+  subscribed) and every one of those was right. **Configuration being correct
+  says nothing about which build is answering.** E1's step 1E — read the function
+  logs after a probe — was the check that would have caught it a day earlier,
+  and it was the one part of step 1 that was skipped; the two probe deliveries
+  had thrown this same error unnoticed.
+- **Fixed by** redeploying the committed source:
+  `supabase functions deploy xendit-payout-webhook --project-ref <ref> --no-verify-jwt`.
+  The stuck payslip is resolved either by a Xendit retry (they retry an
+  unacknowledged webhook for 24h, so the 500'd delivery is still queued) or by
+  calling `record_payout_attempt_result` by hand — deliberately the same
+  function the webhook calls, so a manual reconciliation cannot produce a
+  different result from an automatic one.
+- **`--no-verify-jwt` is not optional and is now written down.** Supabase's
+  gateway verifies a Supabase JWT by default; Xendit sends none, authenticating
+  instead with `X-CALLBACK-TOKEN`. A redeploy without the flag would have
+  rejected every callback with a 401 **before** the function ran — no function
+  log at all, indistinguishable from "Xendit never called". There was no
+  `supabase/config.toml` in the repo, so this requirement lived nowhere;
+  `supabase/config.toml` now pins `verify_jwt = false` for this function.
+
+### C45. Nothing tracks which Edge Function build is actually deployed, and there is no deploy step in the workflow
+
+- **Found:** 2026-08-17, generalizing from C44 — that bug is one instance of a
+  category. **Open.**
+- **What's missing:** migrations have a documented, deliberate hand-run process
+  (AGENTS.md, PAYMENTS_REMEDIATION.md's working agreement) and every applied one
+  is recorded in this file with a date. Edge Functions have **no equivalent** —
+  no deploy step in any story or checklist, no record of what was last pushed,
+  and no way to compare `supabase/functions/*` against what is live. Code can
+  therefore be written, reviewed, committed, and never reach production, with
+  nothing failing loudly. C44 is exactly that, and it sat live for a day on the
+  path that moves money.
+- **Blast radius:** seven functions — `xendit-payout-webhook`, `generate-sop`,
+  `simplify-sop`, `route-utos`, `parse-scheduler`, `transcribe-notes`,
+  `promote-voice-task`. **Only the webhook has been verified as current
+  (2026-08-17).** The other six are of unknown vintage; any that changed since
+  their last deploy are silently stale in the same way. Their per-function
+  `verify_jwt` state is likewise unrecorded — `config.toml` currently pins only
+  the webhook, because that is the only one whose correct value is known.
+- **Partially addressed 2026-08-17** — the repo side is built, the operational
+  side still needs one run:
+  - `supabase/config.toml` now pins `verify_jwt` for **all seven** functions,
+    not just the webhook. The six client-called ones read an `Authorization`
+    header and serve CORS (verified by inspection), so `true` is right for them;
+    the webhook authenticates its caller with `X-CALLBACK-TOKEN` and must stay
+    `false`. Written out explicitly even where it matches the CLI default,
+    because C44 happened when a deployment detail lived in someone's memory.
+  - `npm run deploy:functions` deploys **all** functions with those settings, so
+    nobody has to remember `--no-verify-jwt` — passing it by hand is now the
+    wrong thing to do.
+  - `supabase/DEPLOYMENTS.md` is the missing counterpart to how migrations are
+    recorded here: how to deploy, what to verify afterwards, which secrets exist,
+    and a log of what was deployed when.
+- **Still open:** the other six functions have **never been deployed from a
+  known commit** and remain of unknown vintage. Redeploy all seven once and log
+  it, so "committed" and "deployed" are known equal on a date. Better still,
+  deploy from CI on merge, which removes the human step that failed here
+  entirely.
+- **Related:** C21 recorded the webhook's *configuration* as the open question
+  and treated it as settled once the dashboard was right. C44 shows that was
+  never the whole question.
+
+### C46. Statutory contributions are deducted from every payslip and remitted to nobody -- the app has no remittance path at all
+
+- **Found:** 2026-08-17, answering "who does the money go to?" after the first
+  real payouts (C35). **Open**, and deliberately so — see the decision below.
+- **What the code does:** `computeStatutorySplit` derives the SSS / PhilHealth /
+  Pag-IBIG employee and employer shares per RA 10361 (employer covers 100% under
+  ₱5,000/mo; split above it). `initiate_payslip` subtracts the **employee share**
+  from `net_pay`, and `payslips.statutory_employee_share` snapshots it. The
+  kasambahay is therefore paid less by exactly that amount, on every cutoff.
+- **What no code does:** send it anywhere. There is **no remittance path in
+  either repo** — no agency integration, no payable, no record that a
+  contribution was ever forwarded, and no way for a kasambahay to see whether it
+  was. The employer share is computed for display only and never leaves the
+  screen. Grep for "remit" across both repos: the only hit is an aspiration in
+  `home-management-concept.md`'s fintech roadmap.
+- **Why the gap is easy to miss:** `ARCHITECTURE.md` 5.2 calls this the
+  "Statutory Contribution Matrix" and says it "automates SSS, PhilHealth, and
+  Pag-IBIG monthly calculations", which is true and reads as more than it is.
+  Calculating a deduction and discharging the obligation it represents are
+  different things, and only the first is built.
+- **Decision (user, 2026-08-17): the manager remits outside the app, and that is
+  the intended model for now.** LINARA is not becoming a remittance processor.
+  This entry stays open as a *disclosure* gap rather than a payments one.
+- **Proposed closure, not yet built — proof of remittance, visible to the
+  kasambahay.** An entry on the manager's payment surface accepting evidence
+  that the contributions were paid (reference number, period covered, an
+  uploaded receipt), surfaced in the helper's own app so she can see her
+  government deductibles are genuinely being remitted rather than simply
+  withheld. That is the point of it: today the deduction is visible to her and
+  its destination is not, which is precisely the trust asymmetry this product
+  exists to remove. Cross-repo when built — a table here, a manager-facing
+  upload in this app, a read-only view in `../LINARA_MOBILE`'s My Pay, and
+  Storage rules for the receipt file.
+- **Why it matters before a real household, not after:** withholding an
+  employee's statutory share and failing to remit it is the *employer's*
+  liability under RA 10361, and the app is the thing telling them the amount was
+  handled. Sandbox data today, so nothing is exposed — but the moment a real
+  kasambahay is onboarded, every cutoff creates a real obligation whose
+  discharge this system neither performs nor records. **Related:** C42's
+  per-entry settlement gap and this one are both "we computed it, we did not
+  track what happened to it".
+
+### C47. Rest-off requests accepted past dates and overlapping windows, and the `cancelled` status existed with nothing able to set it
+
+- **Found:** 2026-08-16 as C39's residual limitations. **Closed:** written
+  2026-08-17 as Session E item E3a; `supabase/add-rest-off-validation.sql`
+  applied by hand in the Supabase SQL editor by the maintainer **2026-08-18**.
+- **What was wrong:**
+  1. **Past dates were requestable.** `request_rest_off` never compared
+     `rest_date` to anything, so a helper could ask for a day off that had
+     already happened — and a manager could approve it, debiting real minutes
+     for time that could not be taken.
+  2. **Overlapping windows were accepted.** The only guard was
+     `rest_off_one_approved_per_window`, a unique index on
+     `(helper, date, start, end)` for approved rows, which stops an *exact*
+     duplicate and nothing else. `08:00-12:00` and `09:00-13:00` on one day both
+     passed, double-debiting the hours they share.
+  3. **`cancelled` was unreachable.** The status was in the table's CHECK
+     constraint from the start and no code path ever set it, so a mistyped date
+     could only be undone by asking a manager to *decline* — recording a refusal
+     in the history where there had only been a typo.
+- **Fixed by:**
+  - `rest_date < household_today()` refused, on the Postgres clock in the
+    household's timezone (C38) so a device with a wrong date cannot defeat it.
+    **Today itself stays requestable** — asking at 08:00 for 14:00 is ordinary.
+  - A half-open overlap check against both `pending` and `approved` rows for
+    that helper and date. Half-open matters: `08:00-12:00` and `12:00-16:00` are
+    adjacent, not clashing, or nobody could book consecutive slots. Pending is
+    included because two overlapping pending requests would otherwise both be
+    approvable, and the second approval would silently take hours the first
+    already had.
+  - `cancel_rest_off_request` — the kasambahay who asked, or a manager, may
+    withdraw a **pending** request. An **approved** one cannot be cancelled here:
+    the balance is already debited and a day may have been arranged around it,
+    which is a conversation rather than a button.
+  - **`request_rest_off` now locks the HELPER row** (`FOR UPDATE`), not the
+    request rows — the contended resource is her balance and her day, and two
+    requests that do not exist yet cannot be locked. Without it, two concurrent
+    overlapping requests both pass the check and both insert. This is precisely
+    the mistake C39's first draft made on the *approval* side, where locking the
+    request meant two managers approving different requests never contended.
+- **Deliberately NOT enforced: the shift check.** C39 lists "nothing checks a
+  requested window against the helper's actual shift". Left open on purpose —
+  the rule is not obvious, and a live-in asking for a whole day, or for hours
+  straddling her shift boundary, is an ordinary request. Enforcing a guess would
+  be this app telling a household how to arrange its own time. It stays with the
+  manager's approval, which is a human reading a request.
+- **Verified against a real Postgres**, same harness as C36–C42: fixture with a
+  linked helper user (so the "her own request" branch is genuinely exercised),
+  migration applied twice for idempotency, then **11 behavioural checks** —
+  past date refused, today and future accepted, overlap refused against pending
+  *and* approved, adjacent windows allowed, a cancelled window becoming
+  re-requestable, double-cancel refused, approved-cancel refused, the owning
+  helper allowed, a *different* helper refused, and the balance untouched by
+  cancelling a pending request. Plus an **overlapping-transaction test**: with
+  one session holding an open request transaction, a concurrent overlapping
+  request for the same helper blocked on the helper lock, then correctly refused
+  once the first committed — exactly one row landed.
+- **Cross-repo:** `../LINARA_MOBILE` gained `cancelRestOffRequest`, a
+  Kanselahin button on pending rows only, and an advisory past-date warning fed
+  by `household_today()` from the cutoff RPC — never the device's clock. The
+  overlap check is deliberately *not* mirrored client-side: it would need every
+  existing window for that date, and a stale client refusing a legitimate
+  request is worse than the server refusing an illegitimate one with a message
+  that says which window clashed.
+
+### C48. A payout that stopped moving looked exactly like one that was merely slow, and nothing but hand-written SQL could unstick it
+
+- **Found:** 2026-08-18, opening Session E item E5 (what remained of Session D).
+  C21 had recorded the `pending_send` half and accepted it when nothing had ever
+  really paid out. **Closed:** 2026-08-18, code only — **no migration**.
+- **What was wrong:** `pending_send` and `processing` rendered as "Sending…" and
+  "Processing" *indefinitely*. Two different failures hid behind that:
+  - **`pending_send`** means `initiate_payslip` wrote the row and the Xendit call
+    never resolved — the server function died between the two (its own doc
+    comment predicted this). Nothing else can ever move that row.
+  - **`processing`** means Xendit accepted it and the webhook never came. **C44
+    is that case exactly**: a stale deployment 500'd every callback, and both
+    payouts would have sat in `processing` forever. The fix then was a hand-run
+    `record_payout_attempt_result` in the SQL editor, because the app offered
+    nothing.
+- **Fixed by** `src/features/pay/payout-staleness.ts` (pure, 12 tests) plus a
+  `reconcilePayoutFn` server action surfaced as a **"Check with Xendit"** button
+  that appears only once a payout is actually stale:
+  - **Different fuses for different failures.** `pending_send` is stale after
+    **2 minutes** (Xendit answers in seconds; past that it is abandoned, not
+    slow). `processing` after **60 minutes** — sandbox settles in ~80s and real
+    e-wallet payouts in minutes, but Xendit's own `estimated_arrival_time` has
+    been observed at +15 min, so the threshold is generous on purpose. A false
+    "stuck" badge teaches a manager to ignore the badge, which costs more than
+    the waiting it saves.
+  - **The advice is "check", never "retry".** `pending_send` may already have
+    reached Xendit, so assuming it did not is precisely how a cutoff gets paid
+    twice. A test asserts the wording, because this is the one place a
+    well-meaning edit could invert the safety property.
+  - **Reconciliation resolves through `record_payout_attempt_result`** — the
+    same function the webhook calls — so a manual reconciliation and an
+    automatic one cannot reach different conclusions.
+- **The judgement call worth knowing about:** `lookupXenditPayout` now returns a
+  discriminated `{ok:true, payout}` / `{ok:false}` instead of a bare null,
+  because **"Xendit has no such payout" and "we could not ask Xendit" are
+  different facts** and conflating them is how a reconciliation double-pays.
+  E1's probe 1F is what makes the distinction usable: an unknown reference
+  returns HTTP 200 with an empty `data` array, not an error. So:
+  - reconcile + clean "no such payout" → attempt `failed`, vales released,
+    cutoff payable again. Safe **only because minutes have passed** — the button
+    is not offered on a fresh payout.
+  - reconcile + failed lookup → **throws and records nothing.** An unanswered
+    question is not an answer.
+  - The *send* path deliberately keeps its old, more conservative reading: it
+    runs milliseconds after the request, where Xendit legitimately may not have
+    recorded it yet, so "not found" stays `ambiguous` there.
+- **Also in this pass:** `usePayslips` polls every 15s **while and only while**
+  something is `pending_send`/`processing`. A payout's terminal status arrives by
+  webhook minutes after the click, and nothing refetched — so even a perfectly
+  healthy payout kept reading "sending" until the manager reloaded. Polled rather
+  than subscribed on purpose: Realtime would need `payslips` added to the
+  publication, a migration widening what is broadcast on a money table, to save a
+  query that only runs during a payout.
+- **Still open from E5:** the *bulk* reconciliation view (our
+  `payslips`/`payout_attempts` against Xendit's whole ledger, which would catch
+  orphans and amount drift like C35's ₱3,562.50-vs-₱356,250 without anyone
+  suspecting a specific row), and `households.timezone` still has no UI (C38).
+
+### C49. The kasambahay typed dates and times by hand on a phone, and a picker is the easiest place to reintroduce C38
+
+- **Found:** 2026-08-16 as C39's fourth residual. **Closed:** 2026-08-18,
+  Session E item E3b — `../LINARA_MOBILE` only, no migration.
+- **What was wrong:** the rest-off request form took `YYYY-MM-DD` and `HH:MM` as
+  free text. It validated the shape, so a typo became an error message rather
+  than bad data — but every typo was still a round trip through failure, on a
+  phone keyboard, for the user with the least reason to tolerate one.
+- **Fixed by** `components/ui/date-time-field.tsx`, wrapping
+  `@react-native-community/datetimepicker` (installed via `expo install`, so the
+  version matches the SDK) in a field styled to match `TextField`. **The value
+  stays a wire string** — `YYYY-MM-DD` / `HH:MM` — so the RPCs, the advisory
+  past-date check and the balance preview are all untouched.
+- **The real risk here was not the UI, it was the conversion.** A picker hands
+  back a `Date`, which is an *instant*; the RPCs take a *civil* date and time.
+  Rendering that instant with `toISOString()` converts to UTC first, so in
+  Asia/Manila anything before 08:00 lands on the **previous day** — which is
+  C38, the bug that had client and server disagreeing about cutoffs for weeks.
+  `lib/datetime-fields.ts` therefore reads local components only and never
+  touches UTC in either direction (`new Date("2026-08-20")` is UTC midnight by
+  spec, so parsing is built from parts too). **26 tests**, run under `UTC`,
+  `Asia/Manila` and `America/Los_Angeles` — the same three zones ../LINARA's
+  suite uses, including the positive offset that actually broke.
+- **A subtlety the tests caught in their own first draft:** they built a `Date`
+  inside the timezone wrapper and asserted on it *outside*, which fails for a
+  correct implementation — a `Date` is an instant, so local midnight in Manila
+  really is the previous day when read back in another zone. The assertions now
+  live inside the wrapper. Worth knowing before writing the next timezone test:
+  it is easy to write one that tests the harness instead of the code.
+- **Other behaviour worth recording:** the picker's `minimumDate` is fed from
+  `household_today()` (the same server-derived date the advisory warning uses,
+  never the device clock), so a past date cannot be offered in the first place —
+  the server still refuses one regardless. And an Android dialog dismissal
+  reports `event.type === "dismissed"`, which must not be written as a value, or
+  cancelling silently selects whatever the wheel was showing.
+
+### C50. A helper who lost her session could not sign back in, and neither app had a password reset (former Open Gap O3)
+
+- **Found:** 2026-09-30, launch-readiness review. **Fixed:** 2026-09-30.
+- **Was:** `LINARA_MOBILE`'s `(auth)` stack had only the invite-code path, and that code is single-use. A reinstall, a new phone or an expired refresh token locked the helper out for good. There was no sign-out, and no password reset in either app.
+- **Fix (`LINARA_MOBILE`):** `app/(auth)/sign-in.tsx` plus `services/api/auth.ts`. `signInHelper` signs in and then requires a `helper_profiles` row; a manager account is signed straight back out with a pointer to the web dashboard. `welcome.tsx` now links to sign-in. `(app)/_layout.tsx` sends a lost session to sign-in rather than the invite screen. A two-tap Sign out (`components/features/account/sign-out-button.tsx`) sits at the bottom of My Pay. It refuses while `offline_sync_queue` still has rows: the queue isn't scoped to a user, so those rows would otherwise replay under whoever signs in next on the phone, private notes included. It clears the React Query cache on the way out.
+- **Fix (`LINARA`, shared reset):** one `/reset-password` page (`password-reset-flow.tsx`) serves both apps. Without a recovery fragment it requests a link (`requestPasswordResetFn`); arriving from the link it sets the new password (`completePasswordResetFn`, using a per-request client so the recovery session can't linger in the shared `supabaseClient`). The manager `/login` has a "Forgot password?" link. Both apps' Supabase clients use the default implicit flow, so a reset started on the phone completes fine in a browser. The landing page forwards `#type=recovery` links to `/reset-password` for resets sent without a redirect.
+- **Manual setup still required (Supabase dashboard, not code):** add `<web origin>/reset-password` to Auth → URL Configuration → Redirect URLs, or Supabase silently falls back to the Site URL. Set `EXPO_PUBLIC_WEB_APP_URL` in `LINARA_MOBILE`'s env/EAS secrets; it's optional, and without it the Site URL plus the landing-page forward still works.
+- **Not verified on a device:** `LINARA_MOBILE` has no `react-native-web`, so the new screens were typechecked and linted but not rendered. The web half was checked in a production build.
+
+### C51. Landing page claimed "on-chain" validation, Batas Kasambahay compliance, training modules and OFW mode (former Open Gap O6)
+
+- **Found:** 2026-09-30, launch-readiness review. **Fixed:** 2026-09-30.
+- **Was:** `src/routes/index.tsx` said rates were "validated on-chain" (no blockchain exists), "Batas Kasambahay Compliant" (C46: contributions are deducted, never remitted), mentioned "completed training modules" (no such feature) and a portable portfolio (O4), and pitched OFW management (O2).
+- **Fix:** the copy now says only what ships. "Built around Batas Kasambahay": wages checked against the regional minimum, and the SSS/PhilHealth/Pag-IBIG split worked out on every payslip. "Her login, her pay record": she sets her own password; payslips, vale balance and rest owed show the same numbers on both sides. "Built for busy parents who can't watch the house all day" replaces the OFW line.
+- **Put these back when:** "compliant" once remittance exists (C46), OFW once O2 closes, and portable record once O4 closes.
+- **Same pass (brand assets, not a gap):** replaced the placeholder `favicon.ico`-for-every-size PWA icons and Expo's default mobile icons with an interim logomark (the brand doc's "i"-dot as a roofline with a check tick), added `og-image.png` plus `og:image`/`twitter:image` meta (made absolute via the new `SITE_URL` build var, falling back to Vercel's production URL), renamed the mobile app from `LINARA_MOBILE` to `Linara`, and made the iOS icon opaque. The mark is a stand-in until a designer produces the real one.
+
+### C52. A missed routine instance couldn't be cleared from Needs You (former Open Gap O10)
+
+- **Found:** 2026-09-30, adding past-due tasks to Needs You. **Fixed:** 2026-09-30.
+- **Was:** Unfinished tickets carry over across days and "Start new day" respawns every routine, so a missed routine instance sat past due indefinitely. The first cut offered only "Move to next workday", and not for routines (moving one would duplicate the next spawn).
+- **Fix:** Past-due items in Needs You now have **Edit** (title, note, date, time; `edit-task-modal.tsx`, which warns when the new time falls outside the helper's shift) and **Cancel task** (with an inline confirm). Move was dropped: the user's call was that an overdue task is often no longer needed, so changing or removing it fits better than pushing it forward. Cancel deletes the row (`deleteTicketFn`): `tickets.status` has no `cancelled` value, and a ticket still `todo` carries no work or ledger entry (`ledger_entries.associated_ticket_id` is `ON DELETE SET NULL` regardless), so nothing of the helper's record is lost. For a routine instance, cancelling is effectively "skip this one".
+- **Deliberately not in Edit:** reassigning to another helper. That is a new ask to a different person and should go through New task and its send gate (`use-send-gate.ts`). Remote admins see past-due items but get neither action, since schedules stay with on-site managers.
+- **Revisit if:** a real `cancelled` status is added (concept §8's state machine has one). Then cancel should set it instead of deleting, so the Pass can show "cancelled" rather than the task silently vanishing from the helper's app.
+
+### C53. A helper couldn't say "not now" -- no Blocked path in the mobile app (former Open Gap O11)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` branch `jamesDev-worker-station` (`81bd16a`).
+- **Was:** the concept doc keeps Blocked on purpose ("the ability to say 'not now' is what separates a colleague from a subordinate") and the web Pass shows blocked tasks in Needs You, but nothing in the mobile app wrote `status = 'blocked'` or `block_reason`.
+- **Fix:** "Hindi ko magagawa ngayon" on the focus card: three one-tap reasons or her own words, no approval step. `blockTicket` uses the existing columns (RLS already allowed the update), with a new `block_ticket` offline-queue action. While on hold the card shows her reason; `pickFocus` moves her to the next task, and the manager's Reschedule in Needs You puts it back.
+
+### C54. No completion photo -- the Done "plated dish" was never captured (former Open Gap O12)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `f0b2960`.
+- **Was:** `plan.md` and the concept doc describe Start -> do -> photo -> Done, and the web's OFW glance is built from Done photos, but `today.tsx` completed tickets with no photo (roadmap Story 7 omitted the step).
+- **Fix:** an optional "Ipakita ang natapos mo" photo before Done, reusing the palengke receipt path (compressed upload to `household-evidence`, `<household>/tickets/...`; offline it queues with the local file). A failed upload leaves the task in progress rather than completing it without the photo. Never required.
+
+### C55. The Worker's Station had no close (former Open Gap O13)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `50016ca`.
+- **Was:** mobile never read `households.board_closed`, showed no day summary, and offered the next task after her shift.
+- **Fix:** `DayCloseCard` ("Great work today — 8 of 8, tapos!", a rest line, what's left, what's on hold) replaces the focus card when the board is closed (polled each minute; there is no realtime channel on `households`), on her rest day, overnight (22:00-06:00) or after her shift, unless she has opted in as Available. A task already in progress, or one sent off-hours through the override/emergency path, still shows under it. Greeting follows the hour.
+- **Residual:** board-closed reaches the phone within a minute, not instantly. A realtime subscription on `households` would fix that if it matters.
+
+### C56. The helper's focus card showed unapproved suggestions, queued tasks and later-dated tasks
+
+- **Found / fixed:** 2026-10-01, `LINARA_MOBILE` `47da6ce`.
+- **Was:** `getFocusTask` took her earliest unfinished ticket with no other filter, so her Station could show a remote admin's suggestion still awaiting on-site approval (`suggested`), a ticket held off the board until the manager reopens it (`queued`), or a ticket scheduled for a later day. The first two contradict the concept doc's remote-admin rule and "the board closes for the night"; the web Pass hides all three.
+- **Fix:** the query filters `suggested = false` and `queued = false`, and applies the same day-by-day rule as the web Pass (`isLaterThanToday`, in `lib/today.ts` with tests). It also stopped re-reading her finished history on every fetch.
+
+### C57. Helpers' flags on their terms never reached the manager
+
+- **Found / fixed:** 2026-10-01, `LINARA` `456d2dd`, while adding My Record's "May mali?" in `LINARA_MOBILE` (`8e95906`).
+- **Was:** the web never read `invite_flags`. `use-invites.ts` mapped every helper with `flags: []`, so a flag a kasambahay raised while claiming (`flag_invite`, "the wage is wrong") was stored and shown to no one, and Needs You's "Mark resolved" only hid a flag in the current tab. The review-terms promise that she can flag anything wrong had no manager side.
+- **Fix:** `listInviteFlagsFn` loads the household's flags (a separate query, since `invite_flags.invite_id` has no declared foreign key to embed on) and `use-invites` attaches them per helper; `resolveInviteFlagFn` deletes on "Mark resolved", with rollback and a toast on failure. The invite-time minimum-wage check now writes `field = 'wage_below_minimum'` and shows as a "Compliance check" instead of as the helper flagging her wage. `LINARA_MOBILE` My Record lets a claimed helper raise a flag any time; `flag_invite` only accepts unclaimed invites, so she writes the row directly under the household-scoped `invite_flags_isolation` policy.
+- **Residual:** wage-check rows written before this change carry `field = 'wage'` and still read as helper flags (sandbox data only).
 
 ---
 

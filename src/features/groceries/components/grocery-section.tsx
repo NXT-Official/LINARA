@@ -27,7 +27,7 @@ export function GrocerySection() {
     setUnit("pcs");
   };
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -40,7 +40,7 @@ export function GrocerySection() {
             Auto-suggested from Pantry lows. Attached to the Palengke run.
           </p>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           {toBuy.length} to buy
         </span>
       </div>
@@ -48,10 +48,8 @@ export function GrocerySection() {
       {/* Petty cash / budget */}
       <div className="mt-4 rounded-2xl bg-background/60 p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Petty cash budget
-          </div>
-          <label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">Petty cash budget</div>
+          <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             ₱
             <input
               value={budgetDraft}
@@ -69,9 +67,9 @@ export function GrocerySection() {
         <BudgetBar compact />
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-2 divide-y divide-border/70">
         {toBuy.length === 0 && bought.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border bg-background/60 p-4 text-center text-xs text-muted-foreground">
+          <div className="py-4 text-center text-sm text-muted-foreground">
             Pantry is stocked — nothing suggested. Add manual items below.
           </div>
         )}
@@ -82,10 +80,10 @@ export function GrocerySection() {
 
       {bought.length > 0 && (
         <div className="mt-4">
-          <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="mb-2 px-1 text-xs font-semibold text-muted-foreground">
             Bought · {bought.length}
           </div>
-          <div className="space-y-1.5">
+          <div className="divide-y divide-border/70">
             {bought.map((g) => (
               <GroceryRow key={g.id} item={g} />
             ))}
@@ -95,18 +93,14 @@ export function GrocerySection() {
 
       {/* Receipt */}
       <div className="mt-4">
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Receipt
-        </div>
+        <div className="mb-2 text-xs font-semibold text-muted-foreground">Receipt</div>
         <ReceiptSlot />
       </div>
 
       {/* Add manual */}
       <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
-        <label className="min-w-0 flex-1">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Add item
-          </span>
+        <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Add item</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -118,9 +112,7 @@ export function GrocerySection() {
           />
         </label>
         <label className="w-16">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Qty
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
           <input
             value={qty}
             onChange={(e) => setQty(e.target.value)}
@@ -129,9 +121,7 @@ export function GrocerySection() {
           />
         </label>
         <label className="w-20">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Unit
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
@@ -140,7 +130,7 @@ export function GrocerySection() {
         </label>
         <button
           onClick={submit}
-          className="inline-flex items-center gap-1 rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
           <Plus className="h-3.5 w-3.5" /> Add
         </button>

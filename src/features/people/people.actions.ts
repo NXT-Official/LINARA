@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { supabaseClient, createAuthedClient } from "@/lib/supabase";
 
@@ -41,6 +42,12 @@ interface HelperProfileRow {
   phone: string | null;
   manual_status: "available" | "off" | null;
   manual_available_until: string | null;
+  /** Per-helper rest/premium default (Session E / E2). `default_resolution` is
+   * the manager's explicit choice, NULL meaning "follow employment";
+   * `effective_resolution` is the generated column that resolves the two and is
+   * what callers should read. supabase/add-helper-default-resolution.sql. */
+  default_resolution: "rest_owed" | "premium_pay" | null;
+  effective_resolution: "rest_owed" | "premium_pay" | null;
   created_at: string;
 }
 
@@ -151,7 +158,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       // Log warning in invite_flags for manager transparency audit
       const { error: wageFlagError } = await authedClient.from("invite_flags").insert({
         invite_id: helperProfile.id,
-        field: "wage",
+        // Its own field so Needs You can tell this system check from a
+        // helper flagging her wage ("wage").
+        field: "wage_below_minimum",
         note: `Base wage of ₱${monthlyRate} is below the regional minimum wage limit of ₱${minWage}.`,
       });
       if (wageFlagError) {
@@ -408,6 +417,49 @@ export const listHelperProfilesFn = createServerFn({ method: "POST" })
     return (rows ?? []) as HelperProfileRow[];
   });
 
+export type InviteFlagRow = {
+  id: string;
+  invite_id: string;
+  field: string;
+  note: string | null;
+  created_at: string;
+};
+
+/**
+ * Every flag on this household's helpers: ones a helper raised while
+ * claiming (flag_invite), ones she raises later from My Record in
+ * LINARA_MOBILE, and the invite-time minimum-wage check. A separate query
+ * rather than an embed because invite_flags.invite_id carries no declared
+ * foreign key. RLS (invite_flags_isolation) scopes it to the household.
+ */
+export const listInviteFlagsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: rows, error } = await authedClient
+      .from("invite_flags")
+      .select("id, invite_id, field, note, created_at")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return (rows ?? []) as InviteFlagRow[];
+  });
+
+/** "Mark resolved" in Needs You: removes the flag for good, not just from this tab. */
+export const resolveInviteFlagFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; flagId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.from("invite_flags").delete().eq("id", data.flagId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { flagId: data.flagId };
+  });
+
 /**
  * 10. Cancel Invite Endpoint (Server Function)
  * Deletes a still-pending invite. Restricted to PENDING_CLAIM so a manager
@@ -523,4 +575,58 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
     }
 
     return { helperId, monthlyRate };
+  });
+
+/**
+ * 13. Request Password Reset Endpoint (Server Function)
+ * Shared by managers (web /login) and helpers (LINARA_MOBILE sign-in, which
+ * calls Supabase directly with the same redirect). Supabase only sends mail
+ * to redirect URLs on the project's Auth allow-list, and never reveals
+ * whether the address has an account -- neither does this.
+ */
+export const requestPasswordResetFn = createServerFn({ method: "POST" })
+  .validator((data: { email: string; redirectTo: string }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(data.email.trim(), {
+      redirectTo: data.redirectTo,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { sent: true };
+  });
+
+/**
+ * 14. Complete Password Reset Endpoint (Server Function)
+ * Takes the recovery session from the emailed link's URL fragment and sets
+ * the new password. Uses a throwaway client rather than the shared
+ * `supabaseClient`, so the recovery session never lingers in a module-level
+ * client that later requests reuse.
+ */
+export const completePasswordResetFn = createServerFn({ method: "POST" })
+  .validator((data: { accessToken: string; refreshToken: string; password: string }) => data)
+  .handler(async ({ data }) => {
+    if (data.password.length < 6) {
+      throw new Error("Dapat may kahit anim (6) na characters ang password.");
+    }
+    const client = createClient(
+      process.env.SUPABASE_URL || "",
+      process.env.SUPABASE_ANON_KEY || "",
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
+    const { error: sessionError } = await client.auth.setSession({
+      access_token: data.accessToken,
+      refresh_token: data.refreshToken,
+    });
+    if (sessionError) {
+      throw new Error("Expired na ang reset link. Humingi ng bago.");
+    }
+    const { error } = await client.auth.updateUser({ password: data.password });
+    if (error) {
+      throw new Error(error.message);
+    }
+    await client.auth.signOut({ scope: "local" });
+    return { updated: true };
   });

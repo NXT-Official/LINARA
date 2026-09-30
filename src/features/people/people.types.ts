@@ -1,5 +1,7 @@
 // People in the household: helpers on stations, admins who manage, and pending invites.
 
+import type { LedgerResolution } from "@/features/ledger/ledger.types";
+
 export type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
 
 export type PaydayInterval = "semi_monthly" | "monthly";
@@ -15,6 +17,19 @@ export type Helper = {
   monthlyRate: number;
   paydayInterval: PaydayInterval;
   phone: string;
+  /**
+   * How this helper's off-shift work is classified by default -- the
+   * "flexible per worker" resolution type from home-management-concept.md.
+   *
+   * `defaultResolution` is the manager's EXPLICIT choice, or null meaning
+   * "follow employment". `effectiveResolution` is the answer that actually
+   * gets used, derived in Postgres (helper_profiles.effective_resolution, a
+   * generated column -- see supabase/add-helper-default-resolution.sql).
+   * Read `effectiveResolution`; never re-derive it from employment here, or
+   * this becomes a second definition that can drift.
+   */
+  defaultResolution: LedgerResolution | null;
+  effectiveResolution: LedgerResolution;
 };
 
 export type AdminType = "primary" | "co" | "remote";

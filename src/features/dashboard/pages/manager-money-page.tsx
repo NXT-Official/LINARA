@@ -1,14 +1,17 @@
 import { useState } from "react";
 
+import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
+import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
+import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, payslips } = useAppStores();
+  const { ledger, helper, helpers, activeHelpers, invites, payslips, session } = useAppStores();
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
   // explicitly switched. Local to this page: unlike the Quick Utos
@@ -19,19 +22,34 @@ export function ManagerMoneyPage() {
   const selectedHelper = helpers.find((h) => h.id === selectedHelperId) ?? helper ?? null;
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === selectedHelper?.id);
 
+  // Keyed on the SELECTED helper's interval, not the household default -- see
+  // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
+  const cutoff = useHouseholdCutoff({
+    token: session.token,
+    ready: session.status === "authed",
+    paydayInterval: selectedHelper?.paydayInterval,
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="sr-only">Money</h1>
+        {/* Every figure below this line is about ONE helper, and which one is
+            a decision the manager has to be able to see they are making --
+            these are wage, vale and payout numbers, and mistaking whose they
+            are is the MULTI_HELPER_HANDLING.md failure mode. The old version
+            was a muted "Viewing" label beside an unstyled select, quiet enough
+            to miss entirely; the maintainer did miss it. Now it reads as a
+            control, names the person, and carries the avatar. */}
         {activeHelpers.length > 1 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Viewing
-            </span>
+          <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
+            <span className="text-xs font-bold text-primary">Showing</span>
+            <Avatar initials={selectedHelper?.initials ?? "??"} />
             <select
               value={selectedHelperId ?? ""}
               onChange={(e) => setPickedPayHelperId(e.target.value)}
-              className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
+              aria-label="Whose money to show"
+              className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
             >
               {activeHelpers.map((h) => (
                 <option key={h.id} value={h.id}>
@@ -46,15 +64,32 @@ export function ManagerMoneyPage() {
       <PayslipHistory
         helper={selectedHelper}
         payslips={payslips.payslips}
+        cutoff={cutoff}
         onPayNow={payslips.payNow}
+        onReconcile={payslips.reconcile}
+      />
+      <RestOffRequests
+        helper={selectedHelper}
+        token={session.token}
+        ready={session.status === "authed"}
       />
       <AfterHoursLedger
         entries={helperLedgerEntries}
-        ledgerDefault={ledger.resolutionDefault}
-        onSetDefault={ledger.setResolutionDefault}
+        // Per-helper now, not household-wide (Session E / E2). The old props
+        // read a useState in useLedger that applied to every helper at once
+        // and reset on reload.
+        ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
+        isExplicitDefault={selectedHelper?.defaultResolution != null}
+        onSetDefault={async (resolution) => {
+          if (!selectedHelper) return;
+          await ledger.setHelperDefault(selectedHelper.id, resolution);
+          // effective_resolution is a generated column, so the new value has to
+          // come back from Postgres rather than be assumed here.
+          await invites.refresh();
+        }}
         onUpdateEntry={ledger.updateEntry}
         audience="manager"
-        helperName={selectedHelper?.name ?? "your helper"}
+        helperName={selectedHelper?.short ?? "your helper"}
       />
     </div>
   );

@@ -1,11 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, Clock, Receipt, Sparkles, Shield } from "lucide-react";
+import { BookOpen, Clock, Receipt, Shield } from "lucide-react";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
 function LandingPage() {
+  // Password-reset emails land here when the sender passed no redirect (the
+  // Supabase Site URL default, e.g. from a LINARA_MOBILE build without
+  // EXPO_PUBLIC_WEB_APP_URL). Hand the recovery fragment to the reset page.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery") || hash.includes("error_code=otp_expired")) {
+      window.location.replace(`/reset-password${hash}`);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
       {/* 1. Wordmark Header */}
@@ -15,7 +26,7 @@ function LandingPage() {
       >
         <div className="flex items-center gap-1.5 select-none">
           {/* Logo combining text dot into soft check and roofline */}
-          <span className="font-display text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5">
+          <span className="font-wordmark text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5">
             l
             <span className="relative inline-block">
               i<span className="absolute -top-1 left-0 h-1.5 w-1.5 rounded-full bg-accent"></span>
@@ -25,7 +36,7 @@ function LandingPage() {
         </div>
         <Link
           to="/manager/pass"
-          className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
+          className="rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
         >
           Open Manager Pass
         </Link>
@@ -37,7 +48,6 @@ function LandingPage() {
         aria-labelledby="hero-title"
       >
         <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-          <Sparkles className="h-3.5 w-3.5 text-accent" />
           <span>Home, made clear.</span>
         </div>
 
@@ -46,7 +56,7 @@ function LandingPage() {
           className="mt-8 font-display text-5xl font-semibold tracking-tight text-primary sm:text-6xl lg:text-7xl leading-[1.1]"
         >
           Clarity over control. <br />
-          <span className="text-accent font-medium">Dignity by design.</span>
+          <span className="text-terracotta-ink font-medium">Dignity by design.</span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -57,7 +67,7 @@ function LandingPage() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             to="/manager/pass"
-            className="w-full rounded-full bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
+            className="w-full rounded-lg bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
           >
             Start Household Pass
           </Link>
@@ -71,12 +81,9 @@ function LandingPage() {
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-              The Concept
-            </span>
             <h2
               id="kitchen-title"
-              className="mt-2 font-display text-3xl font-semibold text-primary sm:text-4xl"
+              className="font-display text-3xl font-semibold text-primary sm:text-4xl"
             >
               A restaurant kitchen for the home
             </h2>
@@ -150,10 +157,10 @@ function LandingPage() {
                   1
                 </div>
                 <div>
-                  <h4 className="font-semibold text-primary">The Manager's Pass</h4>
+                  <h3 className="font-sans font-semibold text-primary">The Manager's Pass</h3>
                   <p className="text-sm text-muted-foreground">
                     A read-mostly, at-a-glance dashboard showing status bars, active boards, and
-                    money dials. Perfect for busy parents or OFW families managing from abroad.
+                    money dials. Built for busy parents who can't watch the house all day.
                   </p>
                 </div>
               </div>
@@ -163,7 +170,7 @@ function LandingPage() {
                   2
                 </div>
                 <div>
-                  <h4 className="font-semibold text-primary">The Worker's Station</h4>
+                  <h3 className="font-sans font-semibold text-primary">The Worker's Station</h3>
                   <p className="text-sm text-muted-foreground">
                     A high-contrast mobile screen displaying a single focal card. No open chat
                     channels—instead, work is tracked as secure, silent tickets.
@@ -176,24 +183,27 @@ function LandingPage() {
           <div className="rounded-3xl border border-border/50 bg-card p-8 shadow-lift relative overflow-hidden">
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
             <div className="relative">
-              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-primary">
-                Portable Records
+              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                Her Own Account
               </span>
               <h3 className="mt-3 font-display text-xl font-semibold text-primary">
-                Her work history is hers to keep
+                Her login, her pay record
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                In Linara, the helper owns her credentials and history. Her logs, verified payslips,
-                and completed training modules form a portable portfolio she can present to banks,
-                agencies, or future employers.
+                The helper sets her own password — the household never holds it. Her payslips, vale
+                balance, and rest owed live in her own app, showing the same numbers the family
+                sees.
               </p>
               <div className="mt-6 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">Batas Kasambahay Compliant</span>{" "}
-                  · Regional rates and statutory splits checked and validated on-chain.
+                  <span className="font-semibold text-foreground">
+                    Built around Batas Kasambahay
+                  </span>{" "}
+                  · Wages checked against the regional minimum, with the SSS, PhilHealth, and
+                  Pag-IBIG split worked out on every payslip.
                 </div>
               </div>
             </div>

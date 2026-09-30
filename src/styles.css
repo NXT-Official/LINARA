@@ -12,7 +12,18 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  /* Text floor: nothing in the app goes below 13px. text-xs is the smallest
+     size, raised from Tailwind's 12px; arbitrary text-[9-11px] sizes were
+     folded into it. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  /* Brand doc: warm serif display + humanist sans body. Literata over the
+     overused Fraunces; its optical sizes keep small in-app headings sturdy.
+     The concept doc (§15) wants one sans family instead -- see the note there
+     for the two-line flip back. */
+  --font-display: "Literata", ui-serif, Georgia, serif;
+  /* The "linara" logotype only. */
+  --font-wordmark: "Fraunces", ui-serif, Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -36,6 +47,7 @@
   --color-sand-deep: var(--sand-deep);
   --color-terracotta: var(--terracotta);
   --color-terracotta-soft: var(--terracotta-soft);
+  --color-terracotta-ink: var(--terracotta-ink);
   --color-pine: var(--pine);
   --color-pine-deep: var(--pine-deep);
   --color-pine-teal: var(--pine-teal);
@@ -43,13 +55,16 @@
   --color-terracotta-gold: var(--terracotta-gold);
   --color-ink: var(--ink);
   --shadow-soft:
-    0 1px 2px oklch(0.35 0.05 170 / 0.04), 0 8px 24px -12px oklch(0.35 0.05 170 / 0.12);
+    0 2px 8px -2px oklch(0.2 0.05 170 / 0.05), 0 1px 3px 0 oklch(0.2 0.05 170 / 0.02),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.8), inset 0 0 0 1px oklch(0 0 0 / 0.02);
   --shadow-lift:
-    0 2px 6px oklch(0.35 0.05 170 / 0.06), 0 20px 40px -20px oklch(0.35 0.05 170 / 0.18);
+    0 12px 32px -8px oklch(0.2 0.05 170 / 0.08), 0 4px 12px -3px oklch(0.2 0.05 170 / 0.05),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.8), inset 0 0 0 1px oklch(0 0 0 / 0.02);
 }
 
 :root {
-  --radius: 1rem;
+  /* 12px base: sections 24, inputs 16, buttons 12. Soft, not bubbly. */
+  --radius: 0.75rem;
 
   /* Brand & PWA/Visual Polishing Custom Tokens */
   --sand: oklch(0.965 0.018 82); /* #F7F3EC bg */
@@ -58,6 +73,9 @@
   --pine-deep: oklch(0.32 0.05 180);
   --terracotta: oklch(0.73 0.11 55); /* ~#D99A6C */
   --terracotta-soft: oklch(0.88 0.055 60);
+  /* Terracotta dark enough for text on sand/card (≥5:1). Plain terracotta is
+     2.2:1 there — use it for fills, dots and strokes, never for words. */
+  --terracotta-ink: oklch(0.52 0.12 48);
   --ink: oklch(0.22 0.015 180);
 
   --pine-teal: var(--pine);
@@ -77,8 +95,10 @@
   --muted: var(--sand-deep);
   --muted-foreground: oklch(0.5 0.02 180);
   --accent: var(--terracotta);
-  --accent-foreground: oklch(0.99 0.005 82);
-  --destructive: oklch(0.6 0.18 27);
+  /* Dark, not white: white on terracotta is 2.4:1 and vanishes on the
+     bg-accent/10–20 tints; this is ~6:1 on solid and ~12:1 on tints. */
+  --accent-foreground: oklch(0.28 0.045 50);
+  --destructive: oklch(0.55 0.18 27); /* 5.2:1 both as text on card and under white text */
   --destructive-foreground: oklch(0.99 0.005 82);
   --border: oklch(0.88 0.02 82);
   --input: oklch(0.9 0.02 82);

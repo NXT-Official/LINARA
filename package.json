@@ -13,7 +13,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:functions": "supabase functions deploy --project-ref tueckhlrrupmnzhblewy",
+    "deploy:functions:check": "supabase functions list --project-ref tueckhlrrupmnzhblewy"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -86,6 +88,7 @@
     "jsdom": "^29.1.1",
     "nitro": "3.0.260603-beta",
     "prettier": "^3.7.3",
+    "supabase": "^2.114.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16",

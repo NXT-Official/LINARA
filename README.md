@@ -341,6 +341,7 @@ Set these in the Vercel project's **Settings → Environment Variables**.
 | `SUPABASE_URL` | [vite.config.ts](vite.config.ts) `define` block — baked into the client bundle at **build time** | Always |
 | `SUPABASE_ANON_KEY` | same `define` block, build time | Always |
 | `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see [KNOWN_GAPS.md](KNOWN_GAPS.md) O1) |
+| `SITE_URL` | same `define` block, build time — absolute origin for `og:image`/`og:url` in [`__root.tsx`](src/routes/__root.tsx) | Optional — falls back to Vercel's `VERCEL_PROJECT_PRODUCTION_URL`; set it once a custom domain (e.g. linara.ph) is live so link previews use that domain |
 | `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled |
 | `XENDIT_API_URL` | same file | Optional — defaults to `https://api.xendit.co` |
 | `REGIONAL_MINIMUM_WAGE` | [people.actions.ts](src/features/people/people.actions.ts) — server-only, runtime | Required (defaults to `6000.00` if unset) |

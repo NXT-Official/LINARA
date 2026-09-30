@@ -72,6 +72,16 @@ tmp/
 temp/
 *.tmp
 logs/
+
+# Supabase CLI scratch state. supabase/.temp/linked-project.json records which
+# project the CLI is pointed at, including the owner's email in the project
+# name -- machine-local, and not something to commit.
+supabase/.temp/
+
+# Claude Code's per-machine permission allowlist. `.claude/settings.json` IS
+# tracked (it is the shared project config); the `.local` one accumulates
+# whatever a given machine happened to approve and belongs to nobody else.
+.claude/settings.local.json
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -84,3 +94,6 @@ terminal_log.log
 # 8. LOCAL AI TOOL SETTINGS
 # ========================================================================
 .claude/settings.local.json
+
+# Impeccable engine binary: platform-specific (~17 MB); the launcher downloads it on first run.
+.claude/skills/impeccable/scripts/bin/

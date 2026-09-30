@@ -11,6 +11,7 @@ import {
   insertLedgerEntryFn,
   listLedgerEntriesFn,
   RESOLUTION_TYPE_TO_RESOLUTION,
+  setHelperDefaultResolutionFn,
   SOURCE_TYPE_TO_REASON,
   updateLedgerEntryFn,
   type LedgerEntryRow,
@@ -63,7 +64,6 @@ export function useLedger({
   ready: boolean;
 }) {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
-  const [resolutionDefault, setResolutionDefault] = useState<LedgerResolution>("rest");
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -101,6 +101,11 @@ export function useLedger({
 
     if (!isOffShift && !isExplicitAfterHours) return;
 
+    // `resolution` is deliberately NOT passed: Postgres classifies the entry
+    // from this helper's own default (Session E / E2). It used to come from a
+    // household-wide useState in this hook, so the last person to touch a
+    // shared toggle decided how a DIFFERENT helper's off-shift work was
+    // recorded. See supabase/add-helper-default-resolution.sql.
     insertLedgerEntryFn({
       data: {
         token,
@@ -108,7 +113,6 @@ export function useLedger({
         title: completion.title,
         kind: completion.kind,
         reason: classify(completion.doneTs, completion.emergency),
-        resolution: resolutionDefault,
         autoMinutes: completion.autoMinutes,
         doneTsIso: new Date(completion.doneTs).toISOString(),
       },
@@ -140,12 +144,27 @@ export function useLedger({
       });
   };
 
+  /**
+   * Sets the SELECTED helper's own default. Returns the effective value so the
+   * caller can refresh its helper list -- the derived answer lives in Postgres
+   * (a generated column), so the client must be told it rather than compute it.
+   */
+  const setHelperDefault = async (helperId: string, resolution: LedgerResolution | null) => {
+    if (!token) return null;
+    try {
+      return await setHelperDefaultResolutionFn({ data: { token, helperId, resolution } });
+    } catch (err) {
+      console.error("[useLedger] Failed to set the helper's resolution default:", err);
+      toast.error("Hindi na-save ang default para sa helper na ito.");
+      return null;
+    }
+  };
+
   return {
     entries,
-    resolutionDefault,
-    setResolutionDefault,
     record,
     updateEntry,
+    setHelperDefault,
     refresh,
   };
 }

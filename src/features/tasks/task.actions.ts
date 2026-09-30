@@ -416,6 +416,9 @@ export interface TicketPatch {
   queued?: boolean;
   suggested?: boolean;
   actualStart?: string | null;
+  scheduledStartIso?: string;
+  title?: string;
+  notes?: string | null;
 }
 
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
@@ -432,6 +435,9 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.queued !== undefined) dbPatch.queued = patch.queued;
     if (patch.suggested !== undefined) dbPatch.suggested = patch.suggested;
     if (patch.actualStart !== undefined) dbPatch.actual_start = patch.actualStart;
+    if (patch.scheduledStartIso !== undefined) dbPatch.scheduled_start = patch.scheduledStartIso;
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.notes !== undefined) dbPatch.notes = patch.notes;
 
     const authedClient = createAuthedClient(token);
     const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);
@@ -636,6 +642,15 @@ export const setBoardDateFn = createServerFn({ method: "POST" })
  * before its auto-rollover effect actually fires a destructive rollover, to
  * confirm a wrong device clock (or misconfigured timezone) isn't the only
  * thing that thinks the day has moved on.
+ *
+ * Also returns `householdToday` (Session B): C32 returned only the server
+ * INSTANT, and the caller then rendered it to a calendar day with `toISODate`
+ * in the BROWSER's timezone -- so a device with a correct clock but a
+ * misconfigured timezone still derived the wrong day from a correct answer,
+ * leaving the cross-check only partly server-authoritative. `household_today()`
+ * resolves the day in `households.timezone` server side, so there is nothing
+ * left for the client to get wrong. `serverNowIso` is kept for the
+ * plausibility-gap arithmetic, which needs an instant, not a day.
  */
 export const getServerNowFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
@@ -658,5 +673,14 @@ export const getServerNowFn = createServerFn({ method: "POST" })
       throw new Error(error?.message || "Failed to read the server clock");
     }
 
-    return { serverNowIso: serverNow as string };
+    const { data: householdToday, error: todayError } = await authedClient.rpc("household_today");
+
+    if (todayError || !householdToday) {
+      throw new Error(todayError?.message || "Failed to read the household's civil date");
+    }
+
+    return {
+      serverNowIso: serverNow as string,
+      householdToday: householdToday as string,
+    };
   });

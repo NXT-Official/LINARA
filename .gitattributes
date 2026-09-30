@@ -1,0 +1,26 @@
+# Line endings are LF everywhere, in the repository AND in the working tree.
+#
+# Why this file exists: `core.autocrlf=true` on a Windows checkout writes CRLF
+# into the working tree while git stores LF. Prettier reads the working tree, so
+# `npm run lint` failed with hundreds of `Delete ␍` errors on files nobody had
+# touched -- 158 of 282 tracked files. That is worse than noise: it buried
+# whether a real change was clean, so the only way to review one's own lint
+# output was to grep the CRLF errors away and hope nothing real was hiding
+# behind them.
+#
+# `eol=lf` overrides autocrlf per-repo, so this holds regardless of anyone's
+# global git config or which machine they clone onto.
+* text=auto eol=lf
+
+# Binary files must not be touched by any of the above.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary

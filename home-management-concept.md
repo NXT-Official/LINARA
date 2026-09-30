@@ -361,6 +361,76 @@ The line that must never soften: Available means "you may disturb me," never "th
 
 break work is flagged distinctly because it matters most.
 
+> **Implementation status of the two paragraphs above — as of 2026-08-17.**
+> This section is the product intent; here is how much of it the code actually
+> backs, so nobody reads it as a description of what ships today. Full detail in
+> [`KNOWN_GAPS.md`](KNOWN_GAPS.md) C39 and
+> [`PAYMENTS_REMEDIATION.md`](PAYMENTS_REMEDIATION.md) Session C.
+>
+> - **Built.** Rest owed accrues in minutes and is now *redeemable*: the
+>   kasambahay requests a date and a time range from her own app, a manager
+>   approves it, and the minutes are debited. Before this, "owed" was a word
+>   with no mechanism behind it — the balance only ever went up.
+> - **Built.** "Surfaced to both sides as the same number" is enforced
+>   structurally, not by convention: the Manager's Money tab, My Pay, and the
+>   server-side approval guard all read one Postgres function
+>   (`rest_owed_balance_minutes`), so they cannot drift apart.
+> - **Built.** Rest-day and rest-break work stay flagged distinctly —
+>   `ledger_entries.reason` already carries `rest_day` / `rest_break`
+>   separately from `available` / `override` / `emergency`.
+> - **Fixed, and it had been backwards.** The Manager's Pay Dial used to show
+>   rest owed as *pesos* at a hardcoded ₱120/hr and add it into net pay —
+>   money no payout ever contained (`initiate_payslip` never read the ledger),
+>   at roughly 4x any wage-derived rate, and inverted: it monetized the
+>   rest-owed minutes while silently dropping the premium ones. It now shows
+>   time, outside net pay.
+> - **Decided 2026-08-17: rest-day premium is NOT paid in cash.** Rest-day work
+>   resolves the same way as any other off-hours work — as time the kasambahay
+>   redeems by requesting a day off that a manager approves. So *every* path
+>   through this section now ends in the same mechanism, and there is no peso
+>   path anywhere in the payout code. `resolution_type = 'premium_pay'` still
+>   exists in the data and rest-day work is still tagged distinctly (it does
+>   matter, and the tag is what a future policy would key off), but it changes
+>   nothing about what the kasambahay receives today.
+> - **Which makes the balance rule the intended behaviour, not a stopgap.**
+>   `premium_pay` minutes count into the redeemable rest balance. Before this,
+>   they were excluded from the counter *and* never paid — so rest-day work,
+>   the kind this section calls out as mattering most, accrued to nothing at
+>   all. Counting them is now simply what the decision says.
+> - **If cash is ever revisited**, two things need settling before any number
+>   is encoded: whether Batas Kasambahay's premium applies to a kasambahay the
+>   way the Labor Code's does to a regular employee (RA 10361 is a special law
+>   and carries no overtime schedule of its own), and if so at what rate —
+>   +25% is the Labor Code's *ordinary-day* overtime figure while the
+>   *rest-day* figure is +30%, and this paragraph ties premium to rest-day
+>   work. Confirm against current DOLE guidance rather than either figure being
+>   assumed. Minutes already redeemed as time are settled and must not convert.
+> - **Built 2026-08-17 — this was the last gap against this section.** "Keep the
+>   resolution type flexible per worker" is now real. `helper_profiles` carries
+>   a per-helper `default_resolution` (nullable — NULL means "follow this
+>   helper's `employment`") plus a generated `effective_resolution` that
+>   resolves the two, and a `BEFORE INSERT` trigger on `ledger_entries` applies
+>   it per helper. A manager sets it per worker (Money tab) or per entry (the
+>   ledger row's own toggle). Before this it was one `useState` in
+>   `use-ledger.ts` — household-wide, reset on reload, and in a two-helper
+>   household capable of classifying the *other* worker's off-shift work. See
+>   [`KNOWN_GAPS.md`](KNOWN_GAPS.md) C42.
+> - **But the "live-out leans toward hourly/OT" half is deliberately NOT
+>   automatic.** The first cut of that migration derived `premium_pay` from
+>   `employment = 'live-out'`, reading this paragraph literally. It was removed
+>   the same day. Since rest-day premium is not paid in cash (bullet above),
+>   both tags behave identically — both accrue redeemable rest minutes — so the
+>   mapping changed nothing today, while quietly creating a large population of
+>   premium-tagged minutes that a future cash policy could not distinguish from
+>   ones already taken as time off (the rest balance is pool arithmetic with no
+>   per-entry settlement). Everyone now defaults to `rest_owed`; a manager can
+>   still put any worker on `premium_pay` explicitly. So this sentence describes
+>   a lever that exists and a default that stays conservative until the cash
+>   question is actually decided.
+> - **Still not built:** `employment` has no UI after invite time; and rest owed
+>   has no per-entry settlement, which is the thing to fix *with* any cash
+>   policy rather than after it.
+
 ### — The override deliberate friction
 
 #### The confirmation fires only when reaching an Off helper:
@@ -509,6 +579,25 @@ Logomark. The "i" dot becomes a small rising — checkmark whose upstroke lifts 
 Color. A deep, calm pine-teal anchor (order, trust, — home pointedly not fintech-blue), on a warm sand / off-white daylight base, with one soft terracotta-gold accent for hearth warmth. Calm and trustworthy, but Filipino-warm rather than clinical.
 
 — Type. One humanist sans family, used simply clean and legible with a little warmth in the letterforms; never techy-sharp.
+
+> **Type as shipped differs from this line — decided 2026-09-30.**
+> The brand & GTM doc (`Resources/LINARA Brand/linara-brand-and-gtm.pdf`,
+> "Visual identity") says the opposite: *a warm serif display (headings) paired
+> with a humanist sans (body)*, and so does the wordmark in practice (a serif,
+> not the sans this section describes). The two docs were never reconciled; the
+> web app follows the **brand doc**, and the user reviewed and kept it:
+>
+> - Headings: **Literata** (warm serif; replaced Fraunces, which the Impeccable
+>   design audit flags as an AI-generated-UI default).
+> - Body: **Nunito Sans** (humanist sans), unchanged.
+> - Wordmark: **Fraunces**, logotype only.
+>
+> **To flip back to this section's single sans family:** in `src/styles.css` set
+> `--font-display` to the sans stack (`"Nunito Sans", ui-sans-serif, system-ui,
+> sans-serif`) and remove Literata from the Google Fonts URL in
+> `src/routes/__root.tsx`. Nothing else references the face directly. The
+> wordmark stays on `--font-wordmark` either way. `../LINARA_MOBILE` still uses
+> Fraunces for headings (`lib/theme.ts`) and was not changed.
 
 — Voice calm, clear, kind. Verbs of ease ("handled," "sorted," "set," "ready"), never verbs of command ("assign," "monitor," "enforce"). Taglish welcome in-
 

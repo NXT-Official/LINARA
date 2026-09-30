@@ -40,9 +40,9 @@ export function QuickUtosLauncher({
   };
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div>
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           <Zap className="h-3.5 w-3.5 text-accent" /> Quick utos
         </div>
         {activeHelpers.length > 1 ? (
@@ -73,7 +73,7 @@ export function QuickUtosLauncher({
           <button
             key={preset}
             onClick={() => onSend(preset)}
-            className="rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-soft transition hover:border-primary/40 hover:bg-secondary"
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-soft transition hover:border-primary/40 hover:bg-secondary"
           >
             {preset}
           </button>
@@ -94,7 +94,7 @@ export function QuickUtosLauncher({
         <button
           onClick={sendCustom}
           disabled={!draft.trim()}
-          className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" /> Send
         </button>
@@ -123,7 +123,7 @@ export function QuickUtosLauncher({
               setHolding(false);
             }
           }}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-soft transition ${
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-soft transition ${
             holding
               ? "border-accent bg-accent text-accent-foreground"
               : "border-border bg-background text-foreground hover:border-accent/50"

@@ -44,21 +44,16 @@ export function SuggestionsInbox({
       <div className="space-y-4">
         {[...groups.entries()].map(([who, items]) => (
           <div key={who}>
-            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-pine-deep">
-              From {who}
-            </div>
-            <div className="space-y-2">
+            <div className="mb-2 px-1 text-xs font-semibold text-pine-deep">From {who}</div>
+            <div className="divide-y divide-border/70">
               {items.map((t) => {
                 const helper = findHelper(t.helperId, helpers);
                 return (
-                  <div
-                    key={t.id}
-                    className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
-                  >
+                  <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                           <Avatar initials={helper.initials} />
                           <span className="font-semibold text-foreground">{helper.short}</span>
                           <span>·</span>
@@ -67,7 +62,7 @@ export function SuggestionsInbox({
                         {t.note && <p className="mt-1.5 text-xs text-muted-foreground">{t.note}</p>}
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                       >
                         {t.station}
                       </span>
@@ -75,13 +70,13 @@ export function SuggestionsInbox({
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => onApprove(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
                         <Check className="h-3.5 w-3.5" /> Approve to board
                       </button>
                       <button
                         onClick={() => onDismiss(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-3.5 w-3.5" /> Dismiss
                       </button>

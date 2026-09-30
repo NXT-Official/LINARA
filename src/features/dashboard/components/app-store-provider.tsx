@@ -20,7 +20,7 @@ import { useUtos } from "@/features/utos/hooks/use-utos";
 import { clearAllUtosForHelpersFn, listUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
-import { toISODate } from "@/lib/time";
+import { parseISODate, toISODate } from "@/lib/time";
 import { toast } from "sonner";
 
 import { AppStoreContext, type AppStores } from "../app-store-context";
@@ -156,7 +156,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const pantryRef = useRef(pantry);
   pantryRef.current = pantry;
 
+  // Bumped to rebuild both channels after one closes unexpectedly. A closed
+  // channel is removed from the socket and can't be subscribed again.
+  const [realtimeEpoch, setRealtimeEpoch] = useState(0);
+
   useEffect(() => {
+    // Set by this effect's own cleanup. removeChannel() reports CLOSED too, and
+    // treating that as an outage used to resubscribe the removed channel 5s
+    // later -- "tried to join multiple times", plus a stray listener.
+    let disposed = false;
+    // A fresh topic per run: removeChannel() below is async, and channel(name)
+    // hands back any not-yet-removed channel with that name -- already joined,
+    // so a quick re-run would stack a second set of listeners on it and join
+    // it twice.
+    const run = crypto.randomUUID();
+    // CHANNEL_ERROR / TIMED_OUT: the client's own rejoin timer retries, so
+    // calling subscribe() again would double-join. Only an unexpected CLOSED
+    // needs us: rebuild fresh channels.
+    const rebuildIfClosed = (status: string) => {
+      if (status !== "CLOSED" || disposed) return;
+      setTimeout(() => {
+        if (!disposed) setRealtimeEpoch((e) => e + 1);
+      }, 5000);
+    };
+
     // 1. household-board-channel -- as of Closed Gap C12, tickets is real, so
     // any change (INSERT/UPDATE/DELETE, from this device or another) just
     // triggers a refetch, same "refetch on any change" pattern as
@@ -165,7 +188,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     // now that writes are real, Postgres Realtime alone covers every case
     // that broadcast used to (including tab-to-tab), so keeping both would
     // risk the same edit being applied twice under two different local copies.
-    const boardChannel = supabaseClient.channel("household-board-channel");
+    const boardChannel = supabaseClient.channel(`household-board-channel:${run}`);
 
     // Only the signed-in manager's session carries a real household_id
     // (see use-session.ts -- a helper's own session isn't tracked here).
@@ -228,12 +251,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         .subscribe((status, err) => {
           console.log(`[Realtime] household-board-channel status: ${status}`, err || "");
           setBoardChannelStatus(status);
-          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-            setTimeout(() => {
-              console.log("[Realtime] Attempting to reconnect household-board-channel...");
-              boardChannel.subscribe();
-            }, 5000);
-          }
+          rebuildIfClosed(status);
         });
     }
 
@@ -243,7 +261,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     // just triggers a refetch rather than hand-reconstructing the row --
     // simpler, and avoids the sender's own optimistic copy and the
     // realtime-delivered copy ever coexisting under different ids.
-    const utosChannel = supabaseClient.channel("quick-utos-channel");
+    const utosChannel = supabaseClient.channel(`quick-utos-channel:${run}`);
 
     if (utosRecipientId) {
       utosChannel
@@ -266,20 +284,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         .subscribe((status, err) => {
           console.log(`[Realtime] quick-utos-channel status: ${status}`, err || "");
           setUtosChannelStatus(status);
-          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-            setTimeout(() => {
-              console.log("[Realtime] Attempting to reconnect quick-utos-channel...");
-              utosChannel.subscribe();
-            }, 5000);
-          }
+          rebuildIfClosed(status);
         });
     }
 
     return () => {
+      disposed = true;
       supabaseClient.removeChannel(boardChannel);
       supabaseClient.removeChannel(utosChannel);
     };
-  }, [utosRecipientId, session.householdId]);
+  }, [utosRecipientId, session.householdId, realtimeEpoch]);
 
   // Background Sync Daemon
   const syncOfflineQueue = async () => {
@@ -301,7 +315,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await removeFromQueue(item.id);
       }
 
-      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa. 📶");
+      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa.");
     } catch (err) {
       console.error("[Offline Sync] Sync failed:", err);
     }
@@ -392,22 +406,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     rollingOverRef.current = true;
     getServerNowFn({ data: { token: session.token! } })
       .then((res) => {
-        const serverToday = new Date(res.serverNowIso);
+        // Session B: use the server's own civil date rather than rendering
+        // res.serverNowIso to a day in the BROWSER's timezone. That
+        // `toISODate(new Date(serverNowIso))` was C32's remaining hole -- a
+        // device with a right clock but a wrong timezone still derived the
+        // wrong day from a correct server answer. household_today() resolves
+        // it in households.timezone, server side.
+        const serverTodayIso = res.householdToday;
+        // Local midnight of the server's civil day. Only used for the
+        // day-count arithmetic and for runDayRollover's target, both of which
+        // want a Date; the day itself is never re-derived from it.
+        const serverToday = parseISODate(serverTodayIso);
 
-        if (toISODate(serverToday) <= toISODate(board.simDate)) {
+        if (serverTodayIso <= toISODate(board.simDate)) {
           // Server disagrees the day has moved -- the device's clock was
           // wrong. Expected false-positive path, not an error.
           console.warn(
-            `[AppStoreProvider] Auto rollover skipped: device thinks it's ${targetDay}, server says ${toISODate(serverToday)}.`,
+            `[AppStoreProvider] Auto rollover skipped: device thinks it's ${targetDay}, server says ${serverTodayIso}.`,
           );
           rejectedRolloverDayRef.current = targetDay;
           board.dismissRollover();
           return;
         }
 
-        const daysDiff = Math.round(
-          (serverToday.getTime() - board.simDate.getTime()) / 86_400_000,
-        );
+        const daysDiff = Math.round((serverToday.getTime() - board.simDate.getTime()) / 86_400_000);
         if (daysDiff > MAX_PLAUSIBLE_ROLLOVER_DAYS) {
           // Server-confirmed, but an implausibly large jump -- leave
           // rolloverNeededFor set (not cleared) so this doesn't retry every

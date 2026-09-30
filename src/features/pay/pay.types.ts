@@ -2,7 +2,15 @@
 // supabase/add-payslips-table.sql for the schema decisions.
 
 export type PayoutChannelCode = "PH_GCASH" | "PH_PAYMAYA";
-export type PayoutStatus = "pending_send" | "processing" | "succeeded" | "failed";
+export type PayoutStatus =
+  | "pending_send"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  // Ambiguous payout the manager must reconcile against Xendit before it can
+  // move again -- see supabase/add-payslip-double-pay-guards.sql and
+  // src/features/pay/pay.actions.ts's failure taxonomy.
+  | "needs_review";
 
 export type Payslip = {
   id: string;

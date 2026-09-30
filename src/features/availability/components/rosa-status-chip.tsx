@@ -9,7 +9,7 @@ export function RosaStatusChip({ status, helperName }: { status: RosaStatus; hel
   const meta = statusMeta(mounted ? status.status : "off");
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${meta.cls}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.cls}`}
       title={`${helperName}'s live status`}
       suppressHydrationWarning
     >
