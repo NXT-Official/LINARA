@@ -109,6 +109,30 @@ the bottom.
 - **Current workaround:** The helper (or manager) marks it done or blocked.
 - **To close:** A product decision on what a missed routine *is* (a `skipped` status is the obvious candidate, and needs a schema change shared with `../LINARA_MOBILE`). Owned by `LINARA`.
 
+### O11. A helper can't say "not now" -- no Blocked path in the mobile app
+
+- **Found:** 2026-09-30, mobile functional review.
+- **What's missing:** The concept doc (§8 request state machine) keeps Blocked "deliberately -- the ability to say 'not now' is what separates a colleague from a subordinate". The web Pass renders blocked tickets in Needs You with a Reschedule action, but `../LINARA_MOBILE` has no code that writes `status = 'blocked'` or `block_reason` (`active-focus-card.tsx` only shows the label, and its header comment points at a web modal that lives in neither app). So Needs You's blocked group can never fill from real use.
+- **Blocks:** The dignity half of the task loop; the manager's main Needs You signal.
+- **Current workaround:** None.
+- **To close:** A "Can't now" action on the focus card with reason presets plus free text. No schema change: `tickets.block_reason` exists and `tickets_isolation` already lets the helper update her household's tickets. Owned by `LINARA_MOBILE`.
+
+### O12. No completion photo -- the Done "plated dish" is never captured
+
+- **Found:** 2026-09-30, same review.
+- **What's missing:** `plan.md` (both repos) and the concept doc §6 describe Start -> do -> photo -> Done, and OFW mode's presence feed is built on Done photos (`remote-glance.tsx`). Mobile `today.tsx` calls `completeTicket(ticketId)` with no photo; only the Palengke receipt uses the camera. `LINARA_MOBILE/roadmap/Story_7` never included the step, which is how it fell through.
+- **Blocks:** OFW mode's "feeling of presence" (the remote glance always shows its empty state).
+- **Current workaround:** None.
+- **To close:** An optional photo step before Done, reusing `uploadEvidenceImage` and the offline queue's existing `complete_ticket` photo path. Owned by `LINARA_MOBILE`.
+
+### O13. The Worker's Station has no close -- the board closing for the night never reaches her
+
+- **Found:** 2026-09-30, same review.
+- **What's missing:** Concept §6: "Bottom -- the close. 'Great work today -- 8 of 8 done,' then the board closes for the night." Mobile never reads `households.board_closed`, shows no day summary, and after her shift the focus card keeps offering the next task. Its empty state ("Walang task ngayon") reads the same at 10 AM and 10 PM.
+- **Blocks:** The "no pings after hours" promise as she experiences it.
+- **Current workaround:** None.
+- **To close:** Read `board_closed` plus her shift end; show the day's done count and a rest state instead of the focus card. Owned by `LINARA_MOBILE`.
+
 ---
 
 ## Closed Gaps
