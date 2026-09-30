@@ -38,7 +38,8 @@ export type ManagerPassTabProps = {
   canStartNewDay: boolean;
   onStartNewDay: () => void;
   onReschedule: (id: string) => void;
-  onMoveTask: (id: string, scheduledStartIso: string) => void;
+  onEditTask: (task: Task) => void;
+  onCancelTask: (id: string) => void;
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   onResolveFlag: (inviteId: string, flagId: string) => void;
   onApproveSuggestion: (id: string) => void;
@@ -73,7 +74,8 @@ export function ManagerPassTab({
   canStartNewDay,
   onStartNewDay,
   onReschedule,
-  onMoveTask,
+  onEditTask,
+  onCancelTask,
   onDecideVale,
   onResolveFlag,
   onApproveSuggestion,
@@ -211,7 +213,8 @@ export function ManagerPassTab({
       <NeedsYou
         blocked={blocked}
         pastDue={pastDue}
-        onMove={isRemote ? undefined : onMoveTask}
+        onEditTask={isRemote ? undefined : onEditTask}
+        onCancelTask={isRemote ? undefined : onCancelTask}
         pendingVales={pendingVales}
         helpers={helpers}
         onReschedule={onReschedule}

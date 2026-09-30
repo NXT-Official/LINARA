@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Task } from "./task.types";
-import { isPastDue, nextWorkdayStart } from "./task.utils";
+import { isPastDue } from "./task.utils";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -40,26 +40,5 @@ describe("isPastDue", () => {
     const now = at("2026-09-30T15:00:00Z");
     expect(isPastDue(task({ scheduledStart: undefined }), now)).toBe(false);
     expect(isPastDue(task({ scheduledStart: "not a date" }), now)).toBe(false);
-  });
-});
-
-describe("nextWorkdayStart", () => {
-  // Built from local dates so the test holds in any time zone.
-  const wed = new Date(2026, 8, 30, 21, 0).getTime();
-
-  it("skips the helper's rest day", () => {
-    // Rest day Thursday (4) -> Friday.
-    const next = nextWorkdayStart(task(), wed, {
-      shiftStart: "08:00",
-      shiftEnd: "20:00",
-      weeklyRestDay: 4,
-    });
-    expect(next.weekday).toBe("Fri");
-    const d = new Date(next.iso);
-    expect([d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2, 19, 30]);
-  });
-
-  it("falls back to tomorrow without a schedule", () => {
-    expect(nextWorkdayStart(task(), wed, undefined).weekday).toBe("Thu");
   });
 });

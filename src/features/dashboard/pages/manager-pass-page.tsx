@@ -2,8 +2,10 @@ import { useState } from "react";
 
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
+import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
-import { isPastDue, nextWorkdayStart } from "@/features/tasks/task.utils";
+import type { Task } from "@/features/tasks/task.types";
+import { isPastDue } from "@/features/tasks/task.utils";
 import { toISODate, weekdayOf } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
@@ -42,7 +44,8 @@ export function ManagerPassPage({
     simDate,
     addTask,
     rescheduleTask,
-    moveTask,
+    editTask,
+    cancelTask,
     approveSuggestion,
     dismissSuggestion,
   } = board;
@@ -54,6 +57,7 @@ export function ManagerPassPage({
   const rosaStatus = availability.status;
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
   const [confirmingNewDay, setConfirmingNewDay] = useState(false);
   const [newDayPreview, setNewDayPreview] = useState<{
     pendingUtos: number;
@@ -88,11 +92,9 @@ export function ManagerPassPage({
     .filter((t) => isPastDue(t, clock.nowTs))
     .map((t) => {
       const planned = new Date(t.scheduledStart!);
-      const next = nextWorkdayStart(t, clock.nowTs, schedules.scheduleFor(t.helperId));
       return {
         task: t,
         plannedLabel: toISODate(planned) === today ? t.time : `${weekdayOf(planned)} ${t.time}`,
-        moveTo: { iso: next.iso, label: `${next.weekday} ${t.time}` },
       };
     });
   const gate = useSendGate({
@@ -130,7 +132,8 @@ export function ManagerPassPage({
         canStartNewDay={canStartNewDay}
         onStartNewDay={openNewDayConfirm}
         onReschedule={rescheduleTask}
-        onMoveTask={moveTask}
+        onEditTask={setEditing}
+        onCancelTask={cancelTask}
         onDecideVale={vales.decide}
         onResolveFlag={inviteStore.resolveFlag}
         onApproveSuggestion={approveSuggestion}
@@ -148,6 +151,18 @@ export function ManagerPassPage({
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
             setOpen(false);
+          }}
+        />
+      )}
+      {editing && (
+        <EditTaskModal
+          task={editing}
+          helperName={helpers.find((h) => h.id === editing.helperId)?.name ?? "your helper"}
+          schedule={schedules.scheduleFor(editing.helperId)}
+          onClose={() => setEditing(null)}
+          onSave={(edit) => {
+            editTask(editing.id, edit);
+            setEditing(null);
           }}
         />
       )}

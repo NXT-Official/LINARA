@@ -1,10 +1,11 @@
 import {
   AlertCircle,
-  CalendarClock,
   Check,
   Coins,
   MessageCircle,
+  Pencil,
   RotateCcw,
+  Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -16,19 +17,18 @@ import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 
-/** A task whose planned time has gone by, with where "move it" would put it. */
+/** A task whose planned time has gone by. */
 export type PastDueItem = {
   task: Task;
   /** When it was meant to happen, e.g. "7:30 PM" or "Tue 7:30 PM" if carried over. */
   plannedLabel: string;
-  /** Same time on the helper's next working day. */
-  moveTo: { iso: string; label: string };
 };
 
 export function NeedsYou({
   blocked,
   pastDue,
-  onMove,
+  onEditTask,
+  onCancelTask,
   pendingVales,
   helpers,
   onReschedule,
@@ -38,8 +38,9 @@ export function NeedsYou({
 }: {
   blocked: Task[];
   pastDue: PastDueItem[];
-  /** Omitted for remote admins -- schedules stay with the on-site managers. */
-  onMove?: (taskId: string, scheduledStartIso: string) => void;
+  /** Both omitted for remote admins -- schedules stay with the on-site managers. */
+  onEditTask?: (task: Task) => void;
+  onCancelTask?: (taskId: string) => void;
   pendingVales: ValeRequest[];
   helpers: Helper[];
   onReschedule: (id: string) => void;
@@ -49,6 +50,7 @@ export function NeedsYou({
 }) {
   const [replyId, setReplyId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
   const total = blocked.length + pastDue.length + pendingVales.length + flagsCount;
 
@@ -145,7 +147,7 @@ export function NeedsYou({
             </div>
           );
         })}
-        {pastDue.map(({ task: t, plannedLabel, moveTo }) => {
+        {pastDue.map(({ task: t, plannedLabel }) => {
           const helper = findHelper(t.helperId, helpers);
           return (
             <div key={t.id} className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
@@ -159,10 +161,8 @@ export function NeedsYou({
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t.routineId
-                      ? "Not started. It's part of a routine, so the next one is added when a new day starts."
-                      : onMove
-                        ? `Not started yet. If something came up, move it to ${helper.short}'s next workday.`
-                        : "Not started yet."}
+                      ? "Not started. Part of a routine, so cancelling skips just this one."
+                      : "Not started yet. Change it, or cancel it if it's no longer needed."}
                   </p>
                 </div>
                 <span
@@ -171,14 +171,45 @@ export function NeedsYou({
                   {t.station}
                 </span>
               </div>
-              {!t.routineId && onMove && (
+              {onEditTask && onCancelTask && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => onMove(t.id, moveTo.iso)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                  >
-                    <CalendarClock className="h-3.5 w-3.5" /> Move to {moveTo.label}
-                  </button>
+                  {confirmCancelId === t.id ? (
+                    <>
+                      <span className="text-xs text-foreground">
+                        Remove it from {helper.short}'s list?
+                      </span>
+                      <button
+                        onClick={() => setConfirmCancelId(null)}
+                        className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        Keep it
+                      </button>
+                      <button
+                        onClick={() => {
+                          onCancelTask(t.id);
+                          setConfirmCancelId(null);
+                        }}
+                        className="rounded-full bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+                      >
+                        Yes, cancel it
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onEditTask(t)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => setConfirmCancelId(t.id)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Cancel task
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -101,14 +101,6 @@ the bottom.
 - **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
-### O10. A missed routine instance can't be cleared from Needs You
-
-- **Found:** 2026-09-30, same change.
-- **What's missing:** Unfinished tickets carry over across days (`listTicketsFn`, gap #4's closure), and "Start new day" respawns every routine. A missed routine instance therefore sits past due indefinitely, next to that day's fresh copy. Needs You shows it but deliberately offers no "Move" for routines (moving would duplicate tomorrow's instance), and there is no "skip" status. Deleting the row would erase the helper's work record.
-- **Blocks:** A clean Needs You for households that use routines.
-- **Current workaround:** The helper (or manager) marks it done or blocked.
-- **To close:** A product decision on what a missed routine *is* (a `skipped` status is the obvious candidate, and needs a schema change shared with `../LINARA_MOBILE`). Owned by `LINARA`.
-
 ### O11. A helper can't say "not now" -- no Blocked path in the mobile app
 
 - **Found:** 2026-09-30, mobile functional review.
@@ -2969,6 +2961,14 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** the copy now says only what ships. "Built around Batas Kasambahay": wages checked against the regional minimum, and the SSS/PhilHealth/Pag-IBIG split worked out on every payslip. "Her login, her pay record": she sets her own password; payslips, vale balance and rest owed show the same numbers on both sides. "Built for busy parents who can't watch the house all day" replaces the OFW line.
 - **Put these back when:** "compliant" once remittance exists (C46), OFW once O2 closes, and portable record once O4 closes.
 - **Same pass (brand assets, not a gap):** replaced the placeholder `favicon.ico`-for-every-size PWA icons and Expo's default mobile icons with an interim logomark (the brand doc's "i"-dot as a roofline with a check tick), added `og-image.png` plus `og:image`/`twitter:image` meta (made absolute via the new `SITE_URL` build var, falling back to Vercel's production URL), renamed the mobile app from `LINARA_MOBILE` to `Linara`, and made the iOS icon opaque. The mark is a stand-in until a designer produces the real one.
+
+### C52. A missed routine instance couldn't be cleared from Needs You (former Open Gap O10)
+
+- **Found:** 2026-09-30, adding past-due tasks to Needs You. **Fixed:** 2026-09-30.
+- **Was:** Unfinished tickets carry over across days and "Start new day" respawns every routine, so a missed routine instance sat past due indefinitely. The first cut offered only "Move to next workday", and not for routines (moving one would duplicate the next spawn).
+- **Fix:** Past-due items in Needs You now have **Edit** (title, note, date, time; `edit-task-modal.tsx`, which warns when the new time falls outside the helper's shift) and **Cancel task** (with an inline confirm). Move was dropped: the user's call was that an overdue task is often no longer needed, so changing or removing it fits better than pushing it forward. Cancel deletes the row (`deleteTicketFn`): `tickets.status` has no `cancelled` value, and a ticket still `todo` carries no work or ledger entry (`ledger_entries.associated_ticket_id` is `ON DELETE SET NULL` regardless), so nothing of the helper's record is lost. For a routine instance, cancelling is effectively "skip this one".
+- **Deliberately not in Edit:** reassigning to another helper. That is a new ask to a different person and should go through New task and its send gate (`use-send-gate.ts`). Remote admins see past-due items but get neither action, since schedules stay with on-site managers.
+- **Revisit if:** a real `cancelled` status is added (concept §8's state machine has one). Then cancel should set it instead of deleting, so the Pass can show "cancelled" rather than the task silently vanishing from the helper's app.
 
 ---
 

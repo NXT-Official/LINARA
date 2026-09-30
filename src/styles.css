@@ -13,7 +13,9 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
   /* Brand doc: warm serif display + humanist sans body. Literata over the
-     overused Fraunces; its optical sizes keep small in-app headings sturdy. */
+     overused Fraunces; its optical sizes keep small in-app headings sturdy.
+     The concept doc (§15) wants one sans family instead -- see the note there
+     for the two-line flip back. */
   --font-display: "Literata", ui-serif, Georgia, serif;
   /* The "linara" logotype only. */
   --font-wordmark: "Fraunces", ui-serif, Georgia, serif;
@@ -90,7 +92,7 @@
   /* Dark, not white: white on terracotta is 2.4:1 and vanishes on the
      bg-accent/10–20 tints; this is ~6:1 on solid and ~12:1 on tints. */
   --accent-foreground: oklch(0.28 0.045 50);
-  --destructive: oklch(0.6 0.18 27);
+  --destructive: oklch(0.55 0.18 27); /* 5.2:1 both as text on card and under white text */
   --destructive-foreground: oklch(0.99 0.005 82);
   --border: oklch(0.88 0.02 82);
   --input: oklch(0.9 0.02 82);

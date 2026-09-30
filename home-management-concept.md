@@ -580,6 +580,25 @@ Color. A deep, calm pine-teal anchor (order, trust, — home pointedly not finte
 
 — Type. One humanist sans family, used simply clean and legible with a little warmth in the letterforms; never techy-sharp.
 
+> **Type as shipped differs from this line — decided 2026-09-30.**
+> The brand & GTM doc (`Resources/LINARA Brand/linara-brand-and-gtm.pdf`,
+> "Visual identity") says the opposite: *a warm serif display (headings) paired
+> with a humanist sans (body)*, and so does the wordmark in practice (a serif,
+> not the sans this section describes). The two docs were never reconciled; the
+> web app follows the **brand doc**, and the user reviewed and kept it:
+>
+> - Headings: **Literata** (warm serif; replaced Fraunces, which the Impeccable
+>   design audit flags as an AI-generated-UI default).
+> - Body: **Nunito Sans** (humanist sans), unchanged.
+> - Wordmark: **Fraunces**, logotype only.
+>
+> **To flip back to this section's single sans family:** in `src/styles.css` set
+> `--font-display` to the sans stack (`"Nunito Sans", ui-sans-serif, system-ui,
+> sans-serif`) and remove Literata from the Google Fonts URL in
+> `src/routes/__root.tsx`. Nothing else references the face directly. The
+> wordmark stays on `--font-wordmark` either way. `../LINARA_MOBILE` still uses
+> Fraunces for headings (`lib/theme.ts`) and was not changed.
+
 — Voice calm, clear, kind. Verbs of ease ("handled," "sorted," "set," "ready"), never verbs of command ("assign," "monitor," "enforce"). Taglish welcome in-
 
 — product ("Linara 8 of 8, tapos"). The same warm register on both screens: the helper's side is never colder or more clipped than the family's.

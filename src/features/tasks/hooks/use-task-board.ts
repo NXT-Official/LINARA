@@ -342,14 +342,42 @@ export function useTaskBoard({
       });
   };
 
-  /** Moves a task to a new start time, e.g. a past-due one to the helper's next workday. */
-  const moveTask = (id: string, scheduledStartIso: string) => {
+  /** Changes a task's title, note, and start time -- the manager's Edit. */
+  const editTask = (
+    id: string,
+    edit: { title: string; note?: string; scheduledStartIso: string },
+  ) => {
     if (!token) return;
-    updateTicketFn({ data: { token, ticketId: id, patch: { scheduledStartIso } } })
+    updateTicketFn({
+      data: {
+        token,
+        ticketId: id,
+        patch: {
+          title: edit.title,
+          notes: edit.note ?? null,
+          scheduledStartIso: edit.scheduledStartIso,
+        },
+      },
+    })
       .then(() => refresh())
       .catch((err) => {
-        console.error("[useTaskBoard] Failed to move task:", err);
-        toast.error("Hindi nailipat ang task.");
+        console.error("[useTaskBoard] Failed to edit task:", err);
+        toast.error("Hindi na-save ang pagbabago sa task.");
+      });
+  };
+
+  /**
+   * Removes a task that was never started. There is no cancelled status, and a
+   * not-started ticket carries no work or ledger entry, so deleting loses
+   * nothing of the helper's record.
+   */
+  const cancelTask = (id: string) => {
+    if (!token) return;
+    deleteTicketFn({ data: { token, ticketId: id } })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useTaskBoard] Failed to cancel task:", err);
+        toast.error("Hindi na-cancel ang task.");
       });
   };
 
@@ -476,7 +504,8 @@ export function useTaskBoard({
     updateStatus,
     blockTask,
     rescheduleTask,
-    moveTask,
+    editTask,
+    cancelTask,
     approveSuggestion,
     dismissSuggestion,
     setClosed,
