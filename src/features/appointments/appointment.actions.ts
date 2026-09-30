@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
-import { isoToDisplayTime, isoToISODate } from "@/lib/time";
+import { pushToHelper } from "@/features/notifications/push";
 
 export interface ParsedSchedule {
   appointment: {
@@ -254,19 +254,33 @@ export const createAppointmentFn = createServerFn({ method: "POST" })
  * time actually moved -- a title-only edit doesn't get one, and omitting the
  * key (not passing null) for an unmoved ticket lets the RPC's COALESCE
  * preserve whatever notice was already there. Manager-only, enforced inside
- * the RPC. */
+ * the RPC.
+ *
+ * The notice stores the old *instant* (oldStartIso), not a formatted time:
+ * this runs on the server, whose time zone isn't the household's, so a
+ * string formatted here came out hours off (KNOWN_GAPS.md O14). Each device
+ * formats it for display.
+ *
+ * Helpers whose tasks moved get a push, but only those the manager's app
+ * reports as reachable right now (reachableHelperIds): an off-shift helper
+ * isn't pinged, and sees the heads-up on Today when she next opens the app. */
 export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
   .validator(
-    (data: { token: string; appointmentId: string; title: string; scheduledTimeIso: string }) =>
-      data,
+    (data: {
+      token: string;
+      appointmentId: string;
+      title: string;
+      scheduledTimeIso: string;
+      reachableHelperIds?: string[];
+    }) => data,
   )
   .handler(async ({ data }) => {
-    const { token, appointmentId, title, scheduledTimeIso } = data;
+    const { token, appointmentId, title, scheduledTimeIso, reachableHelperIds = [] } = data;
 
     const authedClient = createAuthedClient(token);
     const { data: rows, error: fetchError } = await authedClient
       .from("tickets")
-      .select("id, scheduled_start, lead_minutes")
+      .select("id, helper_id, status, scheduled_start, lead_minutes")
       .eq("appointment_id", appointmentId);
 
     if (fetchError) {
@@ -274,21 +288,22 @@ export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
     }
 
     const newApptTime = new Date(scheduledTimeIso).getTime();
+    const movedHelperIds = new Set<string>();
     const ticketUpdates = (rows ?? []).map((r) => {
       const leadMs = (r.lead_minutes ?? 0) * 60_000;
       const newScheduledStartIso = new Date(newApptTime - leadMs).toISOString();
-      const timeMoved = newScheduledStartIso !== r.scheduled_start;
+      const timeMoved =
+        new Date(newScheduledStartIso).getTime() !== new Date(r.scheduled_start).getTime();
       const base = { id: r.id, scheduled_start: newScheduledStartIso };
-      return timeMoved
-        ? {
-            ...base,
-            reschedule_notice: {
-              oldTime: isoToDisplayTime(r.scheduled_start),
-              oldDate: isoToISODate(r.scheduled_start),
-              appointmentTitle: title,
-            },
-          }
-        : base;
+      if (!timeMoved) return base;
+      if (r.helper_id && r.status !== "done") movedHelperIds.add(r.helper_id);
+      return {
+        ...base,
+        reschedule_notice: {
+          oldStartIso: new Date(r.scheduled_start).toISOString(),
+          appointmentTitle: title,
+        },
+      };
     });
 
     const { error } = await authedClient.rpc("reschedule_appointment_with_preps", {
@@ -301,6 +316,19 @@ export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
     if (error) {
       throw new Error(error.message);
     }
+
+    const reachable = new Set(reachableHelperIds);
+    await Promise.all(
+      [...movedHelperIds]
+        .filter((id) => reachable.has(id))
+        .map((helperId) =>
+          pushToHelper(authedClient, helperId, {
+            title: "May binago sa schedule mo",
+            body: `Inilipat ang ${title}, kaya gumalaw din ang oras ng task mo. Tingnan sa Today.`,
+            url: "/today",
+          }),
+        ),
+    );
   });
 
 /** Deletes an appointment; ON DELETE CASCADE (see the migration) takes care

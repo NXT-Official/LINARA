@@ -97,10 +97,25 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ready: session.status === "authed",
   });
 
+  // Helpers who may be pinged right now (statusFor() != "off"). An appointment
+  // move pushes to these only; the rest see the heads-up when they next open
+  // the app (the concept doc's "no pings after hours").
+  const reachableHelperIds = useMemo(
+    () =>
+      activeHelpers
+        .filter((h) => {
+          const row = invites.helperProfiles.find((p) => p.id === h.id);
+          return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
+        })
+        .map((h) => h.id),
+    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs],
+  );
+
   const appointments = useAppointments({
     token: session.token,
     ready: session.status === "authed",
     refreshTasks: board.refresh,
+    reachableHelperIds,
   });
 
   // Who the next Quick Utos goes to -- defaults to whichever active helper is
@@ -111,13 +126,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // resolved eagerly, so a not-yet-loaded currentHelperId doesn't get baked
   // in as a stale default.
   const [pickedUtosHelperId, setPickedUtosHelperId] = useState<string | null>(null);
-  const defaultUtosRecipientId = useMemo(() => {
-    const reachable = activeHelpers.find((h) => {
-      const row = invites.helperProfiles.find((p) => p.id === h.id);
-      return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
-    });
-    return reachable?.id ?? currentHelperId;
-  }, [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, currentHelperId]);
+  const defaultUtosRecipientId = reachableHelperIds[0] ?? currentHelperId;
   const utosRecipientId = pickedUtosHelperId ?? defaultUtosRecipientId;
   const utosRecipientName =
     activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper";

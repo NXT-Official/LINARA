@@ -22,7 +22,7 @@ export type Task = {
   appointmentTitle?: string;
   scheduledDate?: string; // YYYY-MM-DD, for appointment prep tasks
   leadMinutes?: number; // lead offset before the appointment, in minutes
-  rescheduleNotice?: { oldTime: string; oldDate?: string; appointmentTitle: string };
+  rescheduleNotice?: { oldTime: string; appointmentTitle: string };
   afterHours?: boolean;
   emergency?: boolean;
   queuedForShift?: boolean; // waiting for Rosa's next working period

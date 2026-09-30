@@ -87,7 +87,16 @@ function toTask(row: TicketRow, helpers: Helper[]): Task {
     // day than today" concept -- see supabase/add-ticket-board-columns.sql.
     scheduledDate: row.appointment_id ? isoToISODate(row.scheduled_start) : undefined,
     leadMinutes: row.lead_minutes ?? undefined,
-    rescheduleNotice: row.reschedule_notice ?? undefined,
+    rescheduleNotice: row.reschedule_notice
+      ? {
+          // Formatted here, on the viewer's device (O14); legacy rows fall back
+          // to the string the server stored.
+          oldTime: row.reschedule_notice.oldStartIso
+            ? isoToDisplayTime(row.reschedule_notice.oldStartIso)
+            : (row.reschedule_notice.oldTime ?? ""),
+          appointmentTitle: row.reschedule_notice.appointmentTitle,
+        }
+      : undefined,
     afterHours: row.is_after_hours || undefined,
     emergency: row.emergency || undefined,
     queuedForShift: row.queued_for_shift || undefined,

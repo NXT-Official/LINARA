@@ -42,10 +42,13 @@ export function useAppointments({
   token,
   ready,
   refreshTasks,
+  reachableHelperIds,
 }: {
   token: string | null;
   ready: boolean;
   refreshTasks: () => void | Promise<void>;
+  /** Helpers who aren't off right now; only these get a push when a move shifts their tasks. */
+  reachableHelperIds: string[];
 }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
@@ -107,6 +110,7 @@ export function useAppointments({
         appointmentId: id,
         title: patch.title,
         scheduledTimeIso: combineDateAndTime(patch.date, patch.time),
+        reachableHelperIds,
       },
     })
       .then(() => Promise.all([refresh(), refreshTasks()]))

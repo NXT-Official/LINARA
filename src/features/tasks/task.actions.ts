@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
+import { pushToHelper } from "@/features/notifications/push";
 
 export interface HouseStandardSOP {
   title: string;
@@ -234,7 +235,13 @@ export interface TicketRow {
   appointment_id: string | null;
   appointment_title: string | null;
   lead_minutes: number | null;
-  reschedule_notice: { oldTime: string; oldDate?: string; appointmentTitle: string } | null;
+  /** oldStartIso since O14; older rows carry a server-formatted oldTime instead. */
+  reschedule_notice: {
+    oldStartIso?: string;
+    oldTime?: string;
+    oldDate?: string;
+    appointmentTitle: string;
+  } | null;
   scheduled_start: string;
   actual_start: string | null;
   actual_end: string | null;
@@ -373,7 +380,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
 
     const { data: profile, error: profileError } = await authedClient
       .from("user_profiles")
-      .select("household_id")
+      .select("household_id, full_name")
       .eq("id", user.id)
       .single();
 
@@ -404,6 +411,18 @@ export const insertTicketFn = createServerFn({ method: "POST" })
 
     if (error || !row) {
       throw new Error(error?.message || "Failed to create task");
+    }
+
+    // Overridden or emergency task for a helper who is off: the manager chose to
+    // reach her. A queued, waiting or suggested task stays silent.
+    if (isAfterHours && !queuedForShift && !queued && !suggested) {
+      const from = profile.full_name ? ` mula kay ${profile.full_name}` : "";
+      await pushToHelper(authedClient, helperId, {
+        title: emergency ? `Emergency task${from}` : `Bagong task${from}`,
+        body: title,
+        url: "/today",
+        urgent: true,
+      });
     }
 
     return { id: row.id as string };
