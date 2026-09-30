@@ -11,7 +11,7 @@ import { ViewAsSwitcher } from "./view-as-switcher";
 
 /** Brand, persona switcher, and (for on-site admins) the end-of-day toggle. */
 export function TopBar() {
-  const { session, board, isOfflineSimulated, setOfflineSimulated } = useAppStores();
+  const { session, board, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
   const { currentAdminId, setCurrentAdminId, admins, adminType, status, logOut } = session;
   const navigate = useNavigate();
   const { boardClosed, setClosed: onBoardClosedChange } = board;
@@ -48,27 +48,40 @@ export function TopBar() {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => setOfflineSimulated(!isOfflineSimulated)}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-soft transition sm:text-xs cursor-pointer ${
-              isOfflineSimulated
-                ? "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20"
-                : "border-border bg-card text-muted-foreground hover:bg-secondary/40"
-            }`}
-            title={isOfflineSimulated ? "Simulate Online" : "Simulate Offline"}
-          >
-            {isOfflineSimulated ? (
-              <>
-                <WifiOff className="h-3.5 w-3.5" />
-                <span>OFFLINE</span>
-              </>
-            ) : (
-              <>
-                <Wifi className="h-3.5 w-3.5 text-emerald-600" />
-                <span>ONLINE</span>
-              </>
-            )}
-          </button>
+          {/* Being online is the normal case and says nothing; only a real
+              drop earns header space. The simulate switch is a test aid. */}
+          {!import.meta.env.DEV && !isOnline && (
+            <span
+              role="status"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
+            >
+              <WifiOff className="h-3.5 w-3.5" />
+              Offline
+            </span>
+          )}
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => setOfflineSimulated(!isOfflineSimulated)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-soft transition sm:text-xs cursor-pointer ${
+                isOfflineSimulated
+                  ? "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary/40"
+              }`}
+              title={isOfflineSimulated ? "Simulate Online" : "Simulate Offline"}
+            >
+              {isOfflineSimulated ? (
+                <>
+                  <WifiOff className="h-3.5 w-3.5" />
+                  <span>OFFLINE</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>ONLINE</span>
+                </>
+              )}
+            </button>
+          )}
           {/* DISABLED 2026-08-15 -- see use-sim-clock.ts. */}
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
           {canEndDay && <EndOfDayToggle closed={boardClosed} onChange={onBoardClosedChange} />}

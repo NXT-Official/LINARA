@@ -209,7 +209,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums text-accent">
+            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums text-terracotta-ink">
               {payPct}%
             </div>
           </div>
@@ -247,7 +247,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               // redeemed as time off, not added to the payout. The figure is
               // rest_owed_balance_minutes, the same number the rest-off card
               // and the helper's own app show, so the three cannot disagree.
-              <span className="text-accent inline-flex items-center gap-0.5">
+              <span className="text-terracotta-ink inline-flex items-center gap-0.5">
                 {fmtHoursMinutes(restOwedMin)} rest owed
               </span>
             )}

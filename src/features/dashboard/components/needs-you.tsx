@@ -64,10 +64,7 @@ export function NeedsYou({
           const helper = findHelper(t.helperId, helpers);
           const isReplying = replyId === t.id;
           return (
-            <div
-              key={t.id}
-              className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
-            >
+            <div key={t.id} className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -129,10 +126,7 @@ export function NeedsYou({
         {pendingVales.map((v) => {
           const helper = findHelper(v.helperId, helpers);
           return (
-            <div
-              key={v.id}
-              className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
-            >
+            <div key={v.id} className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">

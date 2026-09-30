@@ -105,6 +105,15 @@ export function ManagerPassTab({
     }),
     [active],
   );
+  // Only say something the counts above don't already say. Anything waiting
+  // on a decision is Needs You's job, directly below.
+  const dayNote = boardClosed
+    ? "The day is done. New tasks are being queued for tomorrow."
+    : active.length === 0
+      ? "Nothing on today's board yet."
+      : counts.done === active.length
+        ? "Everything on today's board is done."
+        : null;
 
   return (
     <>
@@ -189,11 +198,7 @@ export function ManagerPassTab({
             <RosaStatusChip status={rosaStatus} helperName={helperName} />
           </span>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {boardClosed
-            ? "The day is done. New tasks are being queued for tomorrow."
-            : `${weekdayOf(simDate) === "Sun" ? "Sunday" : "A calm"} morning. Everyone is at their station.`}
-        </p>
+        {dayNote && <p className="mt-2 text-sm text-muted-foreground">{dayNote}</p>}
       </section>
 
       {/* Needs you */}

@@ -34,7 +34,7 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
         ? "text-destructive bg-destructive/10"
         : status === "needs_review"
           ? "text-amber-600 bg-amber-500/10"
-          : "text-accent bg-accent/10";
+          : "text-terracotta-ink bg-accent/10";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}

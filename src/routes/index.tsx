@@ -57,7 +57,7 @@ function LandingPage() {
           className="mt-8 font-display text-5xl font-semibold tracking-tight text-primary sm:text-6xl lg:text-7xl leading-[1.1]"
         >
           Clarity over control. <br />
-          <span className="text-accent font-medium">Dignity by design.</span>
+          <span className="text-terracotta-ink font-medium">Dignity by design.</span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -82,12 +82,9 @@ function LandingPage() {
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-              The Concept
-            </span>
             <h2
               id="kitchen-title"
-              className="mt-2 font-display text-3xl font-semibold text-primary sm:text-4xl"
+              className="font-display text-3xl font-semibold text-primary sm:text-4xl"
             >
               A restaurant kitchen for the home
             </h2>
@@ -161,7 +158,7 @@ function LandingPage() {
                   1
                 </div>
                 <div>
-                  <h4 className="font-semibold text-primary">The Manager's Pass</h4>
+                  <h3 className="font-sans font-semibold text-primary">The Manager's Pass</h3>
                   <p className="text-sm text-muted-foreground">
                     A read-mostly, at-a-glance dashboard showing status bars, active boards, and
                     money dials. Built for busy parents who can't watch the house all day.
@@ -174,7 +171,7 @@ function LandingPage() {
                   2
                 </div>
                 <div>
-                  <h4 className="font-semibold text-primary">The Worker's Station</h4>
+                  <h3 className="font-sans font-semibold text-primary">The Worker's Station</h3>
                   <p className="text-sm text-muted-foreground">
                     A high-contrast mobile screen displaying a single focal card. No open chat
                     channels—instead, work is tracked as secure, silent tickets.

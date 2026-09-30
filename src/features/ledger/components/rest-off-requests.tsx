@@ -14,7 +14,7 @@ import {
 import { fmtHoursMinutes } from "../ledger.utils";
 
 const STATUS_TONE: Record<RestOffRequestRow["status"], string> = {
-  pending: "bg-accent/10 text-accent",
+  pending: "bg-accent/10 text-terracotta-ink",
   approved: "bg-emerald/10 text-emerald",
   declined: "bg-destructive/10 text-destructive",
   cancelled: "bg-secondary text-muted-foreground",

@@ -24,7 +24,11 @@ export function RemoteGlance({
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine-deep/80">
             Your OFW view · {adminName}
           </div>
-          <h2 className="mt-0.5 font-display text-lg text-foreground">Home is holding steady.</h2>
+          <h2 className="mt-0.5 font-display text-lg text-foreground">
+            {active.length === 0
+              ? "Nothing on today's board yet."
+              : `${doneToday.length} of ${active.length} done today.`}
+          </h2>
           <p className="mt-1 text-xs text-muted-foreground">
             You're watching from afar — schedules and off-hours reaches stay with the on-site
             managers. What you see here is the day, the money, and anything waiting on your yes.
