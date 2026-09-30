@@ -56,6 +56,8 @@ export function PayslipHistory({
   helper,
   payslips,
   cutoff,
+  label = "Current cutoff",
+  estimate,
   onPayNow,
   onReconcile,
 }: {
@@ -67,7 +69,11 @@ export function PayslipHistory({
    * because without it we cannot tell whether this cutoff was already paid,
    * and showing "Pay via GCash" on a guess is exactly the bug Session B fixes.
    */
-  cutoff: HouseholdCutoff | null;
+  cutoff: Pick<HouseholdCutoff, "cutoffStart" | "cutoffEnd"> | null;
+  /** "Final pay" for a helper who has left; her cutoff ends on her last day. */
+  label?: string;
+  /** What the Pay buttons would send, when the caller knows it (final pay). */
+  estimate?: number;
   onPayNow: (
     helperId: string,
     channelCode: PayoutChannelCode,
@@ -142,10 +148,16 @@ export function PayslipHistory({
     <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-muted-foreground block">Current cutoff</span>
+          <span className="text-xs font-bold text-muted-foreground block">{label}</span>
           <h3 className="font-display text-lg text-foreground">
             {cutoff ? formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd) : "…"}
           </h3>
+          {estimate !== undefined && !currentCutoffPayslip && (
+            <span className="text-xs text-muted-foreground">
+              About <span className="font-semibold text-foreground">{fmtPeso(estimate)}</span> to
+              send
+            </span>
+          )}
         </div>
         {!cutoff ? (
           <span className="text-xs text-muted-foreground">Loading cutoff…</span>

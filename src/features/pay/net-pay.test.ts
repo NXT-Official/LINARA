@@ -3,7 +3,12 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { netPayForCutoff, payComponentsForCutoff } from "./net-pay";
+import {
+  netPayForCutoff,
+  payComponentsForCutoff,
+  thirteenthMonthEstimate,
+  workedShareOfCutoff,
+} from "./net-pay";
 
 /**
  * Session E / E4 (PAYMENTS_REMEDIATION.md): the regression test Session C
@@ -98,13 +103,11 @@ describe("netPayForCutoff -- the shared rule", () => {
 
 describe("the other surfaces still implement the same rule", () => {
   it("initiate_payslip computes net_pay from exactly base - statutory - vales", () => {
-    const sql = readFileSync(
-      resolve(REPO_ROOT, "supabase/add-household-timezone-and-cutoffs.sql"),
-      "utf8",
-    );
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-employment-end.sql"), "utf8");
 
-    // The current definition of initiate_payslip lives in the Session B
-    // migration (C38 rewrote it there). If a later migration redefines the
+    // The current definition of initiate_payslip lives in the employment-end
+    // migration (O4 rewrote it there to pay a final, shortened cutoff; C38
+    // before that). If a later migration redefines the
     // function, this test must be repointed at that file -- which is itself a
     // useful forcing function, since a redefinition is exactly when the
     // formula could drift.
@@ -115,10 +118,7 @@ describe("the other surfaces still implement the same rule", () => {
   });
 
   it("initiate_payslip never reads ledger_entries", () => {
-    const sql = readFileSync(
-      resolve(REPO_ROOT, "supabase/add-household-timezone-and-cutoffs.sql"),
-      "utf8",
-    );
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-employment-end.sql"), "utf8");
     const body = sqlCodeOnly(sql.slice(sql.indexOf("CREATE FUNCTION public.initiate_payslip(")));
 
     // C39's first defect: the Pay Dial promised money the payout never
@@ -204,5 +204,29 @@ describe("the other surfaces still implement the same rule", () => {
     const componentSrc = codeOnly(readFileSync(component, "utf8"));
     expect(componentSrc).toContain("netPayForCutoff(");
     expect(componentSrc).not.toMatch(/ledger|restOwed|rest_owed/i);
+  });
+});
+
+describe("final, shortened cutoffs", () => {
+  it("counts the share of a cutoff worked by calendar days", () => {
+    expect(workedShareOfCutoff("2026-10-01", "2026-10-15", "2026-10-15")).toBe(1);
+    expect(workedShareOfCutoff("2026-10-01", "2026-10-03", "2026-10-15")).toBeCloseTo(3 / 15);
+    expect(workedShareOfCutoff("2026-10-16", "2026-10-31", "2026-10-31")).toBe(1);
+    expect(workedShareOfCutoff("2026-02-16", "2026-02-20", "2026-02-28")).toBeCloseTo(5 / 13);
+  });
+
+  it("scales base and statutory with it, rounded to centavos", () => {
+    const full = payComponentsForCutoff(8000, "semi_monthly");
+    expect(full).toEqual({ basePay: 4000, statutoryEmployeeShare: 187.5 });
+    expect(payComponentsForCutoff(8000, "semi_monthly", 3 / 15)).toEqual({
+      basePay: 800,
+      statutoryEmployeeShare: 37.5,
+    });
+    expect(payComponentsForCutoff(8000, "semi_monthly", 1 / 3).basePay).toBe(1333.33);
+  });
+
+  it("estimates 13th-month pay as a twelfth of the year's basic pay", () => {
+    expect(thirteenthMonthEstimate(24000)).toBe(2000);
+    expect(thirteenthMonthEstimate(0)).toBe(0);
   });
 });

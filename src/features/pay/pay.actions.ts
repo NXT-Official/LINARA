@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createAuthedClient } from "@/lib/supabase";
 import type { PaydayInterval } from "@/features/people/people.types";
 
-import { payComponentsForCutoff } from "./net-pay";
+import { payComponentsForCutoff, workedShareOfCutoff } from "./net-pay";
 
 import type { PayoutChannelCode } from "./pay.types";
 
@@ -185,6 +185,41 @@ export const getHouseholdCutoffFn = createServerFn({ method: "POST" })
     } satisfies HouseholdCutoff;
   });
 
+export interface HelperPayCutoff {
+  cutoffStart: string;
+  cutoffEnd: string;
+  /** Where the cutoff normally ends; later than cutoffEnd only for a final one. */
+  fullCutoffEnd: string;
+  /** True once her employment has ended: this is her final pay. */
+  isFinal: boolean;
+}
+
+/**
+ * The cutoff a helper is paid for: the household's current one while she is
+ * employed, or her final one -- ending on her last day -- once she has left
+ * (supabase/add-employment-end.sql's helper_pay_cutoff, the same function
+ * initiate_payslip derives its cutoff from).
+ */
+async function readHelperPayCutoff(
+  client: ReturnType<typeof createAuthedClient>,
+  helperId: string,
+): Promise<HelperPayCutoff> {
+  const { data: rows, error } = await client.rpc("helper_pay_cutoff", { p_helper_id: helperId });
+  if (error || !rows?.[0]) {
+    throw new Error(error?.message || "Failed to read the helper's cutoff");
+  }
+  return {
+    cutoffStart: rows[0].cutoff_start as string,
+    cutoffEnd: rows[0].cutoff_end as string,
+    fullCutoffEnd: rows[0].full_cutoff_end as string,
+    isFinal: Boolean(rows[0].is_final),
+  };
+}
+
+export const getHelperPayCutoffFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string }) => data)
+  .handler(async ({ data }) => readHelperPayCutoff(createAuthedClient(data.token), data.helperId));
+
 interface XenditPayoutResponse {
   id?: string;
   /** Present on 2xx. On a replayed Idempotency-key this is the payout's
@@ -266,9 +301,17 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     // vale total, which it reads under a row lock.
     const paydayInterval = helperRow.payday_interval as PaydayInterval;
     const monthlyRate = Number(helperRow.monthly_rate);
+    // A final cutoff (her employment ended mid-period) pays only the days she
+    // worked. Before add-employment-end.sql is applied the RPC doesn't exist
+    // and every cutoff is a full one, as it always was.
+    const payCutoff = await readHelperPayCutoff(authedClient, helperId).catch(() => null);
+    const workedShare = payCutoff
+      ? workedShareOfCutoff(payCutoff.cutoffStart, payCutoff.cutoffEnd, payCutoff.fullCutoffEnd)
+      : 1;
     const { basePay, statutoryEmployeeShare: statutoryShare } = payComponentsForCutoff(
       monthlyRate,
       paydayInterval,
+      workedShare,
     );
 
     // The cutoff is NOT passed in any more -- initiate_payslip derives it from
@@ -334,7 +377,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
           // conversion; do not "simplify" the /100 away.
           amount: Math.round(netPay * 100) / 100,
           currency: "PHP",
-          description: `LINARA payout ${cutoffStart} to ${cutoffEnd}`,
+          description: `LINARA ${payCutoff?.isFinal ? "final pay" : "payout"} ${cutoffStart} to ${cutoffEnd}`,
         }),
       });
     } catch (networkErr) {
