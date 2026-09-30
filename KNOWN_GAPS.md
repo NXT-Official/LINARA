@@ -101,30 +101,6 @@ the bottom.
 - **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
-### O11. A helper can't say "not now" -- no Blocked path in the mobile app
-
-- **Found:** 2026-09-30, mobile functional review.
-- **What's missing:** The concept doc (§8 request state machine) keeps Blocked "deliberately -- the ability to say 'not now' is what separates a colleague from a subordinate". The web Pass renders blocked tickets in Needs You with a Reschedule action, but `../LINARA_MOBILE` has no code that writes `status = 'blocked'` or `block_reason` (`active-focus-card.tsx` only shows the label, and its header comment points at a web modal that lives in neither app). So Needs You's blocked group can never fill from real use.
-- **Blocks:** The dignity half of the task loop; the manager's main Needs You signal.
-- **Current workaround:** None.
-- **To close:** A "Can't now" action on the focus card with reason presets plus free text. No schema change: `tickets.block_reason` exists and `tickets_isolation` already lets the helper update her household's tickets. Owned by `LINARA_MOBILE`.
-
-### O12. No completion photo -- the Done "plated dish" is never captured
-
-- **Found:** 2026-09-30, same review.
-- **What's missing:** `plan.md` (both repos) and the concept doc §6 describe Start -> do -> photo -> Done, and OFW mode's presence feed is built on Done photos (`remote-glance.tsx`). Mobile `today.tsx` calls `completeTicket(ticketId)` with no photo; only the Palengke receipt uses the camera. `LINARA_MOBILE/roadmap/Story_7` never included the step, which is how it fell through.
-- **Blocks:** OFW mode's "feeling of presence" (the remote glance always shows its empty state).
-- **Current workaround:** None.
-- **To close:** An optional photo step before Done, reusing `uploadEvidenceImage` and the offline queue's existing `complete_ticket` photo path. Owned by `LINARA_MOBILE`.
-
-### O13. The Worker's Station has no close -- the board closing for the night never reaches her
-
-- **Found:** 2026-09-30, same review.
-- **What's missing:** Concept §6: "Bottom -- the close. 'Great work today -- 8 of 8 done,' then the board closes for the night." Mobile never reads `households.board_closed`, shows no day summary, and after her shift the focus card keeps offering the next task. Its empty state ("Walang task ngayon") reads the same at 10 AM and 10 PM.
-- **Blocks:** The "no pings after hours" promise as she experiences it.
-- **Current workaround:** None.
-- **To close:** Read `board_closed` plus her shift end; show the day's done count and a rest state instead of the focus card. Owned by `LINARA_MOBILE`.
-
 ---
 
 ## Closed Gaps
@@ -2969,6 +2945,31 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** Past-due items in Needs You now have **Edit** (title, note, date, time; `edit-task-modal.tsx`, which warns when the new time falls outside the helper's shift) and **Cancel task** (with an inline confirm). Move was dropped: the user's call was that an overdue task is often no longer needed, so changing or removing it fits better than pushing it forward. Cancel deletes the row (`deleteTicketFn`): `tickets.status` has no `cancelled` value, and a ticket still `todo` carries no work or ledger entry (`ledger_entries.associated_ticket_id` is `ON DELETE SET NULL` regardless), so nothing of the helper's record is lost. For a routine instance, cancelling is effectively "skip this one".
 - **Deliberately not in Edit:** reassigning to another helper. That is a new ask to a different person and should go through New task and its send gate (`use-send-gate.ts`). Remote admins see past-due items but get neither action, since schedules stay with on-site managers.
 - **Revisit if:** a real `cancelled` status is added (concept §8's state machine has one). Then cancel should set it instead of deleting, so the Pass can show "cancelled" rather than the task silently vanishing from the helper's app.
+
+### C53. A helper couldn't say "not now" -- no Blocked path in the mobile app (former Open Gap O11)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` branch `jamesDev-worker-station` (`81bd16a`).
+- **Was:** the concept doc keeps Blocked on purpose ("the ability to say 'not now' is what separates a colleague from a subordinate") and the web Pass shows blocked tasks in Needs You, but nothing in the mobile app wrote `status = 'blocked'` or `block_reason`.
+- **Fix:** "Hindi ko magagawa ngayon" on the focus card: three one-tap reasons or her own words, no approval step. `blockTicket` uses the existing columns (RLS already allowed the update), with a new `block_ticket` offline-queue action. While on hold the card shows her reason; `pickFocus` moves her to the next task, and the manager's Reschedule in Needs You puts it back.
+
+### C54. No completion photo -- the Done "plated dish" was never captured (former Open Gap O12)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `f0b2960`.
+- **Was:** `plan.md` and the concept doc describe Start -> do -> photo -> Done, and the web's OFW glance is built from Done photos, but `today.tsx` completed tickets with no photo (roadmap Story 7 omitted the step).
+- **Fix:** an optional "Ipakita ang natapos mo" photo before Done, reusing the palengke receipt path (compressed upload to `household-evidence`, `<household>/tickets/...`; offline it queues with the local file). A failed upload leaves the task in progress rather than completing it without the photo. Never required.
+
+### C55. The Worker's Station had no close (former Open Gap O13)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `50016ca`.
+- **Was:** mobile never read `households.board_closed`, showed no day summary, and offered the next task after her shift.
+- **Fix:** `DayCloseCard` ("Great work today — 8 of 8, tapos!", a rest line, what's left, what's on hold) replaces the focus card when the board is closed (polled each minute; there is no realtime channel on `households`), on her rest day, overnight (22:00-06:00) or after her shift, unless she has opted in as Available. A task already in progress, or one sent off-hours through the override/emergency path, still shows under it. Greeting follows the hour.
+- **Residual:** board-closed reaches the phone within a minute, not instantly. A realtime subscription on `households` would fix that if it matters.
+
+### C56. The helper's focus card showed unapproved suggestions, queued tasks and later-dated tasks
+
+- **Found / fixed:** 2026-10-01, `LINARA_MOBILE` `47da6ce`.
+- **Was:** `getFocusTask` took her earliest unfinished ticket with no other filter, so her Station could show a remote admin's suggestion still awaiting on-site approval (`suggested`), a ticket held off the board until the manager reopens it (`queued`), or a ticket scheduled for a later day. The first two contradict the concept doc's remote-admin rule and "the board closes for the night"; the web Pass hides all three.
+- **Fix:** the query filters `suggested = false` and `queued = false`, and applies the same day-by-day rule as the web Pass (`isLaterThanToday`, in `lib/today.ts` with tests). It also stopped re-reading her finished history on every fetch.
 
 ---
 
