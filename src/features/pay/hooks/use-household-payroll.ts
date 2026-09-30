@@ -4,9 +4,10 @@ import { getRestOwedBalanceFn } from "@/features/ledger/rest-off.actions";
 import type { Helper, PaydayInterval } from "@/features/people/people.types";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 
-import { netPayForCutoff } from "../net-pay";
+import { netPayForCutoff, workedShareOfCutoff } from "../net-pay";
 import { getHouseholdCutoffFn, type HouseholdCutoff } from "../pay.actions";
-import type { Payslip } from "../pay.types";
+import type { PayPeriod, Payslip } from "../pay.types";
+import { payslipCovering } from "../payslip-match";
 
 /**
  * What this cutoff owes, per helper and for the household as a whole.
@@ -111,6 +112,7 @@ export function useHouseholdPayroll({
   helpers,
   vales,
   payslips,
+  payPeriods = {},
 }: {
   token: string | null;
   ready: boolean;
@@ -118,6 +120,9 @@ export function useHouseholdPayroll({
   helpers: Helper[];
   vales: ValeRequest[];
   payslips: Payslip[];
+  /** Each helper's pay periods (usePayPeriods), so a first cutoff she started
+   * partway through shows the pro-rated amount the payout will send. */
+  payPeriods?: Record<string, PayPeriod[]>;
 }): HouseholdPayroll {
   const [cutoffs, setCutoffs] = useState<Partial<Record<PaydayInterval, HouseholdCutoff>>>({});
   const [restOwed, setRestOwed] = useState<Record<string, number>>({});
@@ -212,15 +217,20 @@ export function useHouseholdPayroll({
         .reduce((sum, v) => sum + v.amount, 0);
 
       // Matched on the helper's OWN cutoff window, so a monthly helper is never
-      // compared against a semi-monthly one's dates.
+      // compared against a semi-monthly one's dates -- and by overlap, since a
+      // first cutoff is stored with the days she worked (add-pay-periods.sql).
       const payslip = cutoff
-        ? (payslips.find(
-            (p) =>
-              p.helperId === helper.id &&
-              p.cutoffStart === cutoff.cutoffStart &&
-              p.cutoffEnd === cutoff.cutoffEnd,
-          ) ?? null)
+        ? (payslipCovering(payslips, helper.id, cutoff.cutoffStart, cutoff.cutoffEnd) ?? null)
         : null;
+      const period = (payPeriods[helper.id] ?? []).find((p) => p.isCurrent);
+      const workedShare = period
+        ? workedShareOfCutoff(
+            period.workedStart,
+            period.workedEnd,
+            period.fullStart,
+            period.fullEnd,
+          )
+        : 1;
 
       const state = stateFor(payslip);
 
@@ -229,7 +239,12 @@ export function useHouseholdPayroll({
         cutoff,
         netPay:
           state === "due"
-            ? netPayForCutoff(helper.monthlyRate, helper.paydayInterval, unsettledVales)
+            ? netPayForCutoff(
+                helper.monthlyRate,
+                helper.paydayInterval,
+                unsettledVales,
+                workedShare,
+              )
             : (payslip?.netPay ?? 0),
         valeDeductions: state === "due" ? unsettledVales : (payslip?.valeDeductions ?? 0),
         restOwedMinutes: restOwed[helper.id] ?? 0,
@@ -250,5 +265,5 @@ export function useHouseholdPayroll({
       restOwedMinutesTotal: rows.reduce((sum, r) => sum + r.restOwedMinutes, 0),
       loading: rows.some((r) => r.cutoff === null),
     };
-  }, [helpers, vales, payslips, cutoffs, restOwed]);
+  }, [helpers, vales, payslips, cutoffs, restOwed, payPeriods]);
 }

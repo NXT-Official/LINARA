@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
 import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
+import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
+import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 
@@ -11,7 +13,9 @@ import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, invites, payslips, session } = useAppStores();
+  const { ledger, helper, helpers, activeHelpers, invites, payslips, payPeriods, vales, session } =
+    useAppStores();
+  const canPay = session.adminType === "primary" || session.adminType === "co";
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
   // explicitly switched. Local to this page: unlike the Quick Utos
@@ -21,6 +25,14 @@ export function ManagerMoneyPage() {
   const selectedHelperId = pickedPayHelperId ?? helper?.id ?? null;
   const selectedHelper = helpers.find((h) => h.id === selectedHelperId) ?? helper ?? null;
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === selectedHelper?.id);
+  const periods = selectedHelper ? (payPeriods.byHelper[selectedHelper.id] ?? []) : [];
+  const currentPeriod = periods.find((p) => p.isCurrent);
+  const unsettledVales = vales.vales
+    .filter(
+      (v) => v.helperId === selectedHelper?.id && v.status === "approved" && !v.settledInPayslipId,
+    )
+    .reduce((sum, v) => sum + v.amount, 0);
+  const payslipsVersion = payslips.payslips.map((p) => `${p.id}:${p.payoutStatus}`).join(",");
 
   // Keyed on the SELECTED helper's interval, not the household default -- see
   // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
@@ -65,9 +77,28 @@ export function ManagerMoneyPage() {
         helper={selectedHelper}
         payslips={payslips.payslips}
         cutoff={cutoff}
+        estimate={
+          selectedHelper && currentPeriod
+            ? Math.max(0, periodEstimate(selectedHelper, currentPeriod) - unsettledVales)
+            : undefined
+        }
         onPayNow={payslips.payNow}
         onReconcile={payslips.reconcile}
+        onRecordOffApp={canPay ? (id, payment) => payslips.recordOffApp(id, payment) : undefined}
+        onWithdrawOffApp={canPay ? payslips.withdrawOffApp : undefined}
       />
+      {selectedHelper && (
+        <MissedPeriodsCard
+          helper={selectedHelper}
+          missed={payPeriods.missed(selectedHelper.id)}
+          token={session.token}
+          payslipsVersion={payslipsVersion}
+          unsettledVales={unsettledVales}
+          canPay={canPay}
+          onPayNow={payslips.payNow}
+          onRecordOffApp={payslips.recordOffApp}
+        />
+      )}
       <RestOffRequests
         helper={selectedHelper}
         token={session.token}

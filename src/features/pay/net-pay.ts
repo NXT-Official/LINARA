@@ -76,19 +76,25 @@ function daysInclusive(start: string, end: string): number {
 
 /**
  * How much of a cutoff was worked: 1 for an ordinary cutoff, less for the
- * final one of an employment that ended mid-period (helper_pay_cutoff returns
- * it ending on her last day, alongside where it would normally have ended).
- * Pro-rated by calendar days, the same way the monthly rate is spread over a
- * cutoff in the first place.
+ * first one (she started mid-period) or the final one (she left mid-period).
+ * helper_pay_periods / helper_pay_cutoff give both the days she worked and
+ * the cutoff's normal bounds. Pro-rated by calendar days, the same way the
+ * monthly rate is spread over a cutoff in the first place.
  */
 export function workedShareOfCutoff(
-  cutoffStart: string,
-  cutoffEnd: string,
-  fullCutoffEnd: string,
+  workedStart: string,
+  workedEnd: string,
+  fullStart: string,
+  fullEnd: string,
 ): number {
-  const full = daysInclusive(cutoffStart, fullCutoffEnd);
+  const full = daysInclusive(fullStart, fullEnd);
   if (full <= 0) return 1;
-  return Math.min(1, Math.max(0, daysInclusive(cutoffStart, cutoffEnd) / full));
+  return Math.min(1, Math.max(0, daysInclusive(workedStart, workedEnd) / full));
+}
+
+/** Days worked in a period, for display ("3 days worked"). */
+export function daysWorked(workedStart: string, workedEnd: string): number {
+  return Math.max(0, daysInclusive(workedStart, workedEnd));
 }
 
 /**
@@ -116,7 +122,13 @@ export function netPayForCutoff(
   monthlyRate: number,
   paydayInterval: PaydayInterval,
   unsettledValeTotal: number,
+  /** Share of the cutoff worked, for a first or final one (workedShareOfCutoff). */
+  workedShare = 1,
 ): number {
-  const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(monthlyRate, paydayInterval);
+  const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(
+    monthlyRate,
+    paydayInterval,
+    workedShare,
+  );
   return Math.max(0, basePay - statutoryEmployeeShare - unsettledValeTotal);
 }

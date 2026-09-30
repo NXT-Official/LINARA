@@ -7,6 +7,7 @@ import { GroceryProvider } from "@/features/groceries/components/grocery-provide
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
 import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
+import { usePayPeriods } from "@/features/pay/hooks/use-pay-periods";
 import { usePayslips } from "@/features/pay/hooks/use-payslips";
 import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
@@ -62,6 +63,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   });
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
+  const claimedHelperIds = useMemo(
+    () => invites.helperProfiles.filter((p) => p.status !== "PENDING_CLAIM").map((p) => p.id),
+    [invites.helperProfiles],
+  );
+  const payPeriods = usePayPeriods({
+    token: session.token,
+    ready: session.status === "authed",
+    helperIds: claimedHelperIds,
+    payslipsVersion: payslips.payslips
+      .map((p) => `${p.id}:${p.payoutStatus}:${p.helperAck}`)
+      .join(","),
+  });
   const clock = useSimClock();
   const availability = useAvailability({
     nowTs: clock.nowTs,
@@ -479,6 +492,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     schedules,
     vales,
     payslips,
+    payPeriods,
     clock,
     availability,
     ledger,

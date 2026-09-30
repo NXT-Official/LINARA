@@ -1,14 +1,42 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Smartphone, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Banknote,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  Smartphone,
+  Undo2,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import type { Helper } from "@/features/people/people.types";
 
 import type { HouseholdCutoff } from "../pay.actions";
-import type { Payslip, PayoutChannelCode } from "../pay.types";
+import {
+  METHOD_LABEL,
+  type OffAppMethod,
+  type Payslip,
+  type PayoutChannelCode,
+} from "../pay.types";
 import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
+import { payslipCovering } from "../payslip-match";
+import { RecordPaymentModal } from "./record-payment-modal";
+
+/** Where an outside-Linara payment stands with her. */
+export function AckChip({ payslip }: { payslip: Payslip }) {
+  if (payslip.payoutProvider !== "manual" || !payslip.helperAck) return null;
+  const { label, tone } =
+    payslip.helperAck === "confirmed"
+      ? { label: "She confirmed", tone: "bg-primary/10 text-primary" }
+      : payslip.helperAck === "disputed"
+        ? { label: "She says not received", tone: "bg-destructive/10 text-destructive" }
+        : { label: "Awaiting her confirmation", tone: "bg-accent/15 text-terracotta-ink" };
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
+}
 
 const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = {
   pending_send: "Sending…",
@@ -60,6 +88,8 @@ export function PayslipHistory({
   estimate,
   onPayNow,
   onReconcile,
+  onRecordOffApp,
+  onWithdrawOffApp,
 }: {
   helper: Helper | null;
   payslips: Payslip[];
@@ -82,21 +112,39 @@ export function PayslipHistory({
    *  back. Offered only once `payoutStaleness` says the row has stopped
    *  moving -- see that module for why the two states get different fuses. */
   onReconcile: (payslipId: string) => Promise<{ status: string; changed: boolean }>;
+  /** Records this cutoff as paid outside Linara (cash, bank, other). */
+  onRecordOffApp?: (
+    helperId: string,
+    payment: { method: OffAppMethod; paidOn: string; note?: string },
+  ) => Promise<unknown>;
+  /** Takes back an outside-Linara record she hasn't confirmed. */
+  onWithdrawOffApp?: (payslipId: string) => Promise<void>;
 }) {
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
   const [reconciling, setReconciling] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
   if (!helper) return null;
 
   const helperPayslips = payslips.filter((p) => p.helperId === helper.id);
+  // By overlap: a first or final cutoff is stored with the days she worked.
   const currentCutoffPayslip = cutoff
-    ? helperPayslips.find(
-        (p) =>
-          p.cutoffStart === cutoff.cutoffStart &&
-          p.cutoffEnd === cutoff.cutoffEnd &&
-          p.payoutStatus !== "failed",
-      )
+    ? payslipCovering(helperPayslips, helper.id, cutoff.cutoffStart, cutoff.cutoffEnd)
     : undefined;
+
+  const withdraw = async (payslipId: string) => {
+    if (!onWithdrawOffApp) return;
+    setWithdrawing(payslipId);
+    try {
+      await onWithdrawOffApp(payslipId);
+      toast.success("Record withdrawn. The period is unpaid again.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't withdraw it.");
+    } finally {
+      setWithdrawing(null);
+    }
+  };
 
   // Recomputed on every render, which is enough: usePayslips polls every 15s
   // while anything is in flight, so the age refreshes with it rather than
@@ -208,24 +256,71 @@ export function PayslipHistory({
               <Smartphone className="h-3.5 w-3.5 text-accent" />
               {paying === "PH_PAYMAYA" ? "Sending…" : "Pay via Maya"}
             </button>
+            {onRecordOffApp && (
+              <button
+                onClick={() => setRecording(true)}
+                disabled={paying !== null}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+              >
+                <Banknote className="h-3.5 w-3.5" /> Paid outside Linara
+              </button>
+            )}
           </div>
         )}
       </div>
+      {recording && cutoff && onRecordOffApp && (
+        <RecordPaymentModal
+          helperName={helper.short}
+          periodLabel={formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd)}
+          estimate={estimate ?? 0}
+          onClose={() => setRecording(false)}
+          onSubmit={async (payment) => {
+            await onRecordOffApp(helper.id, payment);
+            toast.success(`Recorded. ${helper.short} will be asked to confirm it.`);
+          }}
+        />
+      )}
 
       {helperPayslips.length > 0 && (
         <div className="mt-4 divide-y divide-border/70 border-t border-border/40 pt-1.5">
-          {helperPayslips.map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-2.5 text-xs">
-              <div>
-                <span className="font-semibold text-foreground">{fmtPeso(p.netPay)}</span>
-                <span className="ml-2 text-muted-foreground">
-                  {formatCutoffRange(p.cutoffStart, p.cutoffEnd)} ·{" "}
-                  {p.payoutChannelCode === "PH_GCASH" ? "GCash" : "Maya"}
-                </span>
+          {helperPayslips.map((p) => {
+            const manual = p.payoutProvider === "manual";
+            return (
+              <div key={p.id} className="py-2.5 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-semibold text-foreground">{fmtPeso(p.netPay)}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {p.kind === "thirteenth_month"
+                        ? `13th-month pay ${p.cutoffEnd.slice(0, 4)}`
+                        : formatCutoffRange(p.cutoffStart, p.cutoffEnd)}{" "}
+                      · {METHOD_LABEL[p.payoutChannelCode] ?? p.payoutChannelCode}
+                      {manual ? " (outside Linara)" : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {manual ? <AckChip payslip={p} /> : <StatusBadge status={p.payoutStatus} />}
+                    {manual && p.helperAck !== "confirmed" && onWithdrawOffApp && (
+                      <button
+                        onClick={() => withdraw(p.id)}
+                        disabled={withdrawing === p.id}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-60"
+                      >
+                        <Undo2 className="h-3 w-3" /> Withdraw
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {manual && (p.manualNote || p.helperAckNote) && (
+                  <p className="mt-1 text-muted-foreground">
+                    {p.manualNote ? `Your note: ${p.manualNote}` : ""}
+                    {p.manualNote && p.helperAckNote ? " · " : ""}
+                    {p.helperAckNote ? `She says: "${p.helperAckNote}"` : ""}
+                  </p>
+                )}
               </div>
-              <StatusBadge status={p.payoutStatus} />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import type { Availability } from "@/features/availability/hooks/use-availabilit
 import type { LedgerStore } from "@/features/ledger/hooks/use-ledger";
 import type { ValeStore } from "@/features/ledger/hooks/use-vales";
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import type { PayslipStore } from "@/features/pay/hooks/use-payslips";
 import type { InviteStore } from "@/features/people/hooks/use-invites";
 import type { Session } from "@/features/people/hooks/use-session";
@@ -38,6 +39,8 @@ export type AppStores = {
   schedules: ScheduleStore;
   vales: ValeStore;
   payslips: PayslipStore;
+  /** Every claimed helper's pay periods and which are unpaid (add-pay-periods.sql). */
+  payPeriods: PayPeriodStore;
   clock: SimClock;
   availability: Availability;
   ledger: LedgerStore;

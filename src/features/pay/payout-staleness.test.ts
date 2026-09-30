@@ -20,11 +20,17 @@ function payslip(status: PayoutStatus, minutesAgo: number): Payslip {
     statutoryEmployeeShare: 187.5,
     valeDeductions: 0,
     netPay: 5812.5,
+    kind: "regular",
+    payoutProvider: "xendit",
     payoutChannelCode: "PH_GCASH",
     payoutStatus: status,
     failureReason: null,
     requestedAt: new Date(NOW - minutesAgo * 60_000).toISOString(),
     confirmedAt: null,
+    paidOn: null,
+    manualNote: null,
+    helperAck: null,
+    helperAckNote: null,
   };
 }
 

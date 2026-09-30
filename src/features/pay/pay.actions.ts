@@ -5,7 +5,16 @@ import type { PaydayInterval } from "@/features/people/people.types";
 
 import { payComponentsForCutoff, workedShareOfCutoff } from "./net-pay";
 
-import type { PayoutChannelCode } from "./pay.types";
+import type {
+  HelperAck,
+  OffAppMethod,
+  PaymentMethod,
+  PayoutChannelCode,
+  PayoutStatus,
+  PayPeriod,
+  PayslipKind,
+  ThirteenthMonth,
+} from "./pay.types";
 
 export interface PayslipRow {
   id: string;
@@ -16,11 +25,18 @@ export interface PayslipRow {
   statutory_employee_share: number;
   vale_deductions: number;
   net_pay: number;
-  payout_channel_code: PayoutChannelCode;
+  /** Columns from supabase/add-pay-periods.sql; absent before it is applied. */
+  kind?: PayslipKind;
+  payout_provider?: string;
+  payout_channel_code: PaymentMethod;
   payout_status: "pending_send" | "processing" | "succeeded" | "failed" | "needs_review";
   failure_reason: string | null;
   requested_at: string;
   confirmed_at: string | null;
+  paid_on?: string | null;
+  manual_note?: string | null;
+  helper_ack?: HelperAck | null;
+  helper_ack_note?: string | null;
 }
 
 type AuthedClient = ReturnType<typeof createAuthedClient>;
@@ -186,9 +202,11 @@ export const getHouseholdCutoffFn = createServerFn({ method: "POST" })
   });
 
 export interface HelperPayCutoff {
+  /** The days she worked in it (a first or final cutoff can be shorter). */
   cutoffStart: string;
   cutoffEnd: string;
-  /** Where the cutoff normally ends; later than cutoffEnd only for a final one. */
+  /** The cutoff's normal bounds, for pro-rating. */
+  fullCutoffStart: string;
   fullCutoffEnd: string;
   /** True once her employment has ended: this is her final pay. */
   isFinal: boolean;
@@ -203,14 +221,22 @@ export interface HelperPayCutoff {
 async function readHelperPayCutoff(
   client: ReturnType<typeof createAuthedClient>,
   helperId: string,
+  cutoffStart?: string,
 ): Promise<HelperPayCutoff> {
-  const { data: rows, error } = await client.rpc("helper_pay_cutoff", { p_helper_id: helperId });
+  const { data: rows, error } = await client.rpc("helper_pay_cutoff", {
+    p_helper_id: helperId,
+    ...(cutoffStart ? { p_cutoff_start: cutoffStart } : {}),
+  });
   if (error || !rows?.[0]) {
     throw new Error(error?.message || "Failed to read the helper's cutoff");
   }
+  const start = rows[0].cutoff_start as string;
   return {
-    cutoffStart: rows[0].cutoff_start as string,
+    cutoffStart: start,
     cutoffEnd: rows[0].cutoff_end as string,
+    // Before add-pay-periods.sql the RPC had no full start; the worked start
+    // was always the cutoff's own then.
+    fullCutoffStart: (rows[0].full_cutoff_start as string | undefined) ?? start,
     fullCutoffEnd: rows[0].full_cutoff_end as string,
     isFinal: Boolean(rows[0].is_final),
   };
@@ -219,6 +245,171 @@ async function readHelperPayCutoff(
 export const getHelperPayCutoffFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string }) => data)
   .handler(async ({ data }) => readHelperPayCutoff(createAuthedClient(data.token), data.helperId));
+
+/**
+ * Every pay period of one employment, oldest first, with the payment that
+ * settled each (supabase/add-pay-periods.sql's helper_pay_periods). Empty
+ * before that migration is applied.
+ */
+export const listPayPeriodsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string }) => data)
+  .handler(async ({ data }): Promise<PayPeriod[]> => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client.rpc("helper_pay_periods", {
+      p_helper_id: data.helperId,
+    });
+    if (error) {
+      if (/could not find the function|does not exist/i.test(error.message)) return [];
+      throw new Error(error.message);
+    }
+    return ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+      fullStart: r.full_start as string,
+      fullEnd: r.full_end as string,
+      workedStart: r.worked_start as string,
+      workedEnd: r.worked_end as string,
+      isCurrent: Boolean(r.is_current),
+      isFinal: Boolean(r.is_final),
+      payslipId: (r.payslip_id as string | null) ?? null,
+      payslipStatus: (r.payslip_status as PayoutStatus | null) ?? null,
+      payslipProvider: (r.payslip_provider as string | null) ?? null,
+      payslipAck: (r.payslip_ack as HelperAck | null) ?? null,
+    }));
+  });
+
+/** 13th-month pay for one employment, this year (or the year she left). */
+export const getThirteenthMonthFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string }) => data)
+  .handler(async ({ data }): Promise<ThirteenthMonth | null> => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client.rpc("thirteenth_month_due", {
+      p_helper_id: data.helperId,
+    });
+    if (error) {
+      if (/could not find the function|does not exist/i.test(error.message)) return null;
+      throw new Error(error.message);
+    }
+    const r = (rows as Record<string, unknown>[] | null)?.[0];
+    if (!r) return null;
+    return {
+      year: Number(r.year),
+      periodStart: r.period_start as string,
+      periodEnd: r.period_end as string,
+      basicEarned: Number(r.basic_earned),
+      amount: Number(r.amount),
+      payslipId: (r.payslip_id as string | null) ?? null,
+      payslipStatus: (r.payslip_status as PayoutStatus | null) ?? null,
+      payable: Boolean(r.payable),
+      payableFrom: r.payable_from as string,
+      dueBy: r.due_by as string,
+    };
+  });
+
+/**
+ * Base pay and contributions for the period a payment is for, on the shared
+ * rule (net-pay.ts): pro-rated when she started or left mid-period. For
+ * 13th-month pay Postgres computes the amount itself and takes nothing out,
+ * so these are only placeholders it overrides.
+ */
+async function componentsForPayment(
+  client: ReturnType<typeof createAuthedClient>,
+  helperId: string,
+  kind: PayslipKind,
+  cutoffStart?: string,
+) {
+  const { data: helperRow, error } = await client
+    .from("helper_profiles")
+    .select("name, phone, monthly_rate, payday_interval")
+    .eq("id", helperId)
+    .single();
+  if (error || !helperRow) {
+    throw new Error("Helper not found");
+  }
+  if (kind === "thirteenth_month") {
+    return { helperRow, basePay: 0, statutoryShare: 0, isFinal: false };
+  }
+  // Before add-employment-end.sql the RPC doesn't exist and every cutoff is a
+  // full one, as it always was.
+  const payCutoff = await readHelperPayCutoff(client, helperId, cutoffStart).catch((err) => {
+    if (cutoffStart) throw err;
+    return null;
+  });
+  const workedShare = payCutoff
+    ? workedShareOfCutoff(
+        payCutoff.cutoffStart,
+        payCutoff.cutoffEnd,
+        payCutoff.fullCutoffStart,
+        payCutoff.fullCutoffEnd,
+      )
+    : 1;
+  const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(
+    Number(helperRow.monthly_rate),
+    helperRow.payday_interval as PaydayInterval,
+    workedShare,
+  );
+  return {
+    helperRow,
+    basePay,
+    statutoryShare: statutoryEmployeeShare,
+    isFinal: payCutoff?.isFinal ?? false,
+  };
+}
+
+/**
+ * A payment made outside Linara -- cash, a bank transfer, anything else --
+ * recorded so the period is settled on both sides' records. She confirms it
+ * (or says it didn't arrive) in her app; until she confirms, the manager can
+ * withdraw it. Same figures and vale settlement as a Xendit payout.
+ */
+export const recordOffAppPaymentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      helperId: string;
+      method: OffAppMethod;
+      paidOn: string;
+      note?: string;
+      cutoffStart?: string;
+      kind?: PayslipKind;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const kind = data.kind ?? "regular";
+    const { basePay, statutoryShare } = await componentsForPayment(
+      client,
+      data.helperId,
+      kind,
+      data.cutoffStart,
+    );
+    const { data: rows, error } = await client.rpc("record_offapp_payslip", {
+      p_helper_id: data.helperId,
+      p_base_pay: basePay,
+      p_statutory_employee_share: statutoryShare,
+      p_method: data.method,
+      p_paid_on: data.paidOn,
+      p_note: data.note ?? null,
+      p_cutoff_start: data.cutoffStart ?? null,
+      p_kind: kind,
+    });
+    if (error || !rows?.[0]) {
+      throw new Error(error?.message || "Couldn't record the payment");
+    }
+    return { payslipId: rows[0].payslip_id as string, netPay: Number(rows[0].net_pay) };
+  });
+
+/** Takes back a payment recorded outside Linara that she hasn't confirmed. */
+export const withdrawOffAppPaymentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; payslipId: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { error } = await client.rpc("withdraw_offapp_payslip", {
+      p_payslip_id: data.payslipId,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { payslipId: data.payslipId };
+  });
 
 interface XenditPayoutResponse {
   id?: string;
@@ -277,55 +468,53 @@ interface XenditPayoutResponse {
  * throws for a genuine failure (the UI toasts the thrown message).
  */
 export const initiatePayoutFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; helperId: string; channelCode: PayoutChannelCode }) => data)
+  .validator(
+    (data: {
+      token: string;
+      helperId: string;
+      channelCode: PayoutChannelCode;
+      /** A missed period's start; omitted means the current (or final) one. */
+      cutoffStart?: string;
+      kind?: PayslipKind;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { token, helperId, channelCode } = data;
+    const kind = data.kind ?? "regular";
     const authedClient = createAuthedClient(token);
-
-    const { data: helperRow, error: helperError } = await authedClient
-      .from("helper_profiles")
-      .select("name, phone, monthly_rate, payday_interval")
-      .eq("id", helperId)
-      .single();
-
-    if (helperError || !helperRow) {
-      throw new Error("Helper not found");
-    }
-    if (!helperRow.phone) {
-      throw new Error("This helper has no phone number on file -- add one before paying out.");
-    }
 
     // Same shared rule the Pay Dial reads, so the manager's estimate and the
     // figures Postgres snapshots cannot drift apart (Session E / E4). Postgres
     // still derives net_pay itself from these two -- it is the authority on the
-    // vale total, which it reads under a row lock.
-    const paydayInterval = helperRow.payday_interval as PaydayInterval;
-    const monthlyRate = Number(helperRow.monthly_rate);
-    // A final cutoff (her employment ended mid-period) pays only the days she
-    // worked. Before add-employment-end.sql is applied the RPC doesn't exist
-    // and every cutoff is a full one, as it always was.
-    const payCutoff = await readHelperPayCutoff(authedClient, helperId).catch(() => null);
-    const workedShare = payCutoff
-      ? workedShareOfCutoff(payCutoff.cutoffStart, payCutoff.cutoffEnd, payCutoff.fullCutoffEnd)
-      : 1;
-    const { basePay, statutoryEmployeeShare: statutoryShare } = payComponentsForCutoff(
-      monthlyRate,
-      paydayInterval,
-      workedShare,
+    // vale total, which it reads under a row lock -- and for 13th-month pay it
+    // computes the amount outright.
+    const { helperRow, basePay, statutoryShare, isFinal } = await componentsForPayment(
+      authedClient,
+      helperId,
+      kind,
+      data.cutoffStart,
     );
 
-    // The cutoff is NOT passed in any more -- initiate_payslip derives it from
+    if (!helperRow.phone) {
+      throw new Error("This helper has no phone number on file -- add one before paying out.");
+    }
+
+    // The cutoff is NOT computed here -- initiate_payslip derives it from
     // the helper's own payday_interval on the Postgres clock, in the
     // household's timezone. Previously the caller computed it here and the
     // double-pay guard was therefore only as trustworthy as this file's
     // arithmetic -- which was timezone-broken, so a wrong cutoff would have
     // sailed straight past payslips_one_per_cutoff under the wrong key. See
     // supabase/add-household-timezone-and-cutoffs.sql.
+    // A missed period is named by its start date and checked (and pro-rated)
+    // in Postgres the same way; 13th-month goes through the same function.
     const { data: rpcRows, error: rpcError } = await authedClient.rpc("initiate_payslip", {
       p_helper_id: helperId,
       p_base_pay: basePay,
       p_statutory_employee_share: statutoryShare,
       p_channel_code: channelCode,
+      ...(data.cutoffStart ? { p_cutoff_start: data.cutoffStart } : {}),
+      ...(kind !== "regular" ? { p_kind: kind } : {}),
     });
 
     if (rpcError || !rpcRows?.[0]) {
@@ -377,7 +566,10 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
           // conversion; do not "simplify" the /100 away.
           amount: Math.round(netPay * 100) / 100,
           currency: "PHP",
-          description: `LINARA ${payCutoff?.isFinal ? "final pay" : "payout"} ${cutoffStart} to ${cutoffEnd}`,
+          description:
+            kind === "thirteenth_month"
+              ? `LINARA 13th-month pay ${cutoffEnd.slice(0, 4)}`
+              : `LINARA ${isFinal ? "final pay" : "payout"} ${cutoffStart} to ${cutoffEnd}`,
         }),
       });
     } catch (networkErr) {

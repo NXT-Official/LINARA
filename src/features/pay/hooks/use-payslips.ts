@@ -5,9 +5,15 @@ import {
   initiatePayoutFn,
   listPayslipsFn,
   reconcilePayoutFn,
+  recordOffAppPaymentFn,
+  withdrawOffAppPaymentFn,
   type PayslipRow,
 } from "../pay.actions";
-import type { Payslip, PayoutChannelCode } from "../pay.types";
+import type { OffAppMethod, Payslip, PayoutChannelCode, PayslipKind } from "../pay.types";
+
+/** Which payment: a missed period by its start, or 13th-month pay. Omitted
+ * means the current cutoff (or, for someone who has left, the final one). */
+export type PaymentTarget = { cutoffStart?: string; kind?: PayslipKind };
 
 export type PayslipStore = ReturnType<typeof usePayslips>;
 
@@ -21,11 +27,17 @@ function toPayslip(row: PayslipRow): Payslip {
     statutoryEmployeeShare: Number(row.statutory_employee_share),
     valeDeductions: Number(row.vale_deductions),
     netPay: Number(row.net_pay),
+    kind: row.kind ?? "regular",
+    payoutProvider: row.payout_provider ?? "xendit",
     payoutChannelCode: row.payout_channel_code,
     payoutStatus: row.payout_status,
     failureReason: row.failure_reason,
     requestedAt: row.requested_at,
     confirmedAt: row.confirmed_at,
+    paidOn: row.paid_on ?? null,
+    manualNote: row.manual_note ?? null,
+    helperAck: row.helper_ack ?? null,
+    helperAckNote: row.helper_ack_note ?? null,
   };
 }
 
@@ -87,13 +99,17 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     return () => clearInterval(id);
   }, [ready, token, hasInFlight, refresh]);
 
-  const payNow = async (helperId: string, channelCode: PayoutChannelCode) => {
+  const payNow = async (
+    helperId: string,
+    channelCode: PayoutChannelCode,
+    target: PaymentTarget = {},
+  ) => {
     if (!token) {
       toast.error("Hindi ka naka-sign in — hindi ma-initiate ang payout.");
       throw new Error("Not authenticated");
     }
     try {
-      const result = await initiatePayoutFn({ data: { token, helperId, channelCode } });
+      const result = await initiatePayoutFn({ data: { token, helperId, channelCode, ...target } });
       await refresh();
       return result;
     } catch (err) {
@@ -119,5 +135,29 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     }
   };
 
-  return { payslips, refresh, payNow, reconcile };
+  /** A payment made outside Linara, for her to confirm in her app. */
+  const recordOffApp = async (
+    helperId: string,
+    payment: { method: OffAppMethod; paidOn: string; note?: string },
+    target: PaymentTarget = {},
+  ) => {
+    if (!token) throw new Error("Not authenticated");
+    try {
+      return await recordOffAppPaymentFn({ data: { token, helperId, ...payment, ...target } });
+    } finally {
+      await refresh();
+    }
+  };
+
+  /** Takes back an outside-Linara record she hasn't confirmed. */
+  const withdrawOffApp = async (payslipId: string) => {
+    if (!token) throw new Error("Not authenticated");
+    try {
+      await withdrawOffAppPaymentFn({ data: { token, payslipId } });
+    } finally {
+      await refresh();
+    }
+  };
+
+  return { payslips, refresh, payNow, reconcile, recordOffApp, withdrawOffApp };
 }

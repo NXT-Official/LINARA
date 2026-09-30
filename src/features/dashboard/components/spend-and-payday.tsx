@@ -28,7 +28,7 @@ import type { Helper } from "@/features/people/people.types";
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
   const { spent, budget, remaining } = useGrocery();
-  const { vales, payslips, activeHelpers, session } = useAppStores();
+  const { vales, payslips, payPeriods, activeHelpers, session } = useAppStores();
 
   const scoped = helperOverride ? [helperOverride] : activeHelpers;
   const payroll = useHouseholdPayroll({
@@ -37,6 +37,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
     helpers: scoped,
     vales: vales.vales,
     payslips: payslips.payslips,
+    payPeriods: payPeriods.byHelper,
   });
   const isHouseholdView = !helperOverride;
 

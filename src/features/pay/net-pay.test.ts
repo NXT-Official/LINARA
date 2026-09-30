@@ -103,11 +103,11 @@ describe("netPayForCutoff -- the shared rule", () => {
 
 describe("the other surfaces still implement the same rule", () => {
   it("initiate_payslip computes net_pay from exactly base - statutory - vales", () => {
-    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-employment-end.sql"), "utf8");
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-pay-periods.sql"), "utf8");
 
-    // The current definition of initiate_payslip lives in the employment-end
-    // migration (O4 rewrote it there to pay a final, shortened cutoff; C38
-    // before that). If a later migration redefines the
+    // The current definition of initiate_payslip lives in the pay-periods
+    // migration (O15/O16: missed periods and 13th-month; before that O4's final
+    // cutoff, and C38). If a later migration redefines the
     // function, this test must be repointed at that file -- which is itself a
     // useful forcing function, since a redefinition is exactly when the
     // formula could drift.
@@ -118,7 +118,7 @@ describe("the other surfaces still implement the same rule", () => {
   });
 
   it("initiate_payslip never reads ledger_entries", () => {
-    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-employment-end.sql"), "utf8");
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-pay-periods.sql"), "utf8");
     const body = sqlCodeOnly(sql.slice(sql.indexOf("CREATE FUNCTION public.initiate_payslip(")));
 
     // C39's first defect: the Pay Dial promised money the payout never
@@ -209,10 +209,19 @@ describe("the other surfaces still implement the same rule", () => {
 
 describe("final, shortened cutoffs", () => {
   it("counts the share of a cutoff worked by calendar days", () => {
-    expect(workedShareOfCutoff("2026-10-01", "2026-10-15", "2026-10-15")).toBe(1);
-    expect(workedShareOfCutoff("2026-10-01", "2026-10-03", "2026-10-15")).toBeCloseTo(3 / 15);
-    expect(workedShareOfCutoff("2026-10-16", "2026-10-31", "2026-10-31")).toBe(1);
-    expect(workedShareOfCutoff("2026-02-16", "2026-02-20", "2026-02-28")).toBeCloseTo(5 / 13);
+    expect(workedShareOfCutoff("2026-10-01", "2026-10-15", "2026-10-01", "2026-10-15")).toBe(1);
+    // Final: left on the 3rd.
+    expect(workedShareOfCutoff("2026-10-01", "2026-10-03", "2026-10-01", "2026-10-15")).toBeCloseTo(
+      3 / 15,
+    );
+    // First: started on the 10th of Aug 1-15.
+    expect(workedShareOfCutoff("2026-08-10", "2026-08-15", "2026-08-01", "2026-08-15")).toBeCloseTo(
+      6 / 15,
+    );
+    expect(workedShareOfCutoff("2026-10-16", "2026-10-31", "2026-10-16", "2026-10-31")).toBe(1);
+    expect(workedShareOfCutoff("2026-02-16", "2026-02-20", "2026-02-16", "2026-02-28")).toBeCloseTo(
+      5 / 13,
+    );
   });
 
   it("scales base and statutory with it, rounded to centavos", () => {
