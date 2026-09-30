@@ -16,7 +16,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
   const restDay = invite?.restDay ?? helper.restDay;
   const wage = invite?.wagePHP ? `₱${invite.wagePHP.toLocaleString()} / month` : "Not on file yet";
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

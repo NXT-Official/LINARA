@@ -37,7 +37,7 @@ export function ShiftsSection({
   }, [helpers, byHelper]);
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-foreground">Shifts</h2>
@@ -73,7 +73,7 @@ export function ShiftsSection({
           if (!sched) return null;
           const isEditing = editingId === h.id;
           return (
-            <div key={h.id} className="rounded-2xl border border-border/70 bg-background/40 p-3.5">
+            <div key={h.id} className="rounded-2xl ring-1 ring-border/20 bg-background/40 p-3.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <Avatar initials={initialsOf(h.name)} />

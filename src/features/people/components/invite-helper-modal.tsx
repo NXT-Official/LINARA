@@ -63,7 +63,7 @@ export function InviteHelperModal({
           on any short window -- unreachable without zooming the browser out,
           since the page behind a `fixed inset-0` overlay cannot scroll it into
           view. dvh rather than vh so mobile browser chrome is accounted for. */}
-      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col rounded-[2rem] border border-border bg-card p-5 shadow-lift sm:p-6">
         <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-display text-xl text-foreground">Invite a helper</h3>

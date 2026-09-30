@@ -5,7 +5,7 @@ import { RecurrenceBadge } from "./recurrence-badge";
 
 export function RoutineRow({ routine, onRemove }: { routine: Routine; onRemove: () => void }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft">
+    <div className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

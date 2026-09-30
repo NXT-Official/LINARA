@@ -87,7 +87,7 @@ export function RestOffRequests({
   const decided = requests.filter((r) => r.status !== "pending");
 
   return (
-    <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+    <div className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">

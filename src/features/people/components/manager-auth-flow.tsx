@@ -118,7 +118,7 @@ export function ManagerAuthFlow() {
   if (session.status === "needs_bootstrap") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
-        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
+        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Sparkles className="h-5 w-5" />
           </div>
@@ -166,7 +166,7 @@ export function ManagerAuthFlow() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
+      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Sparkles className="h-5 w-5" />
         </div>

@@ -19,7 +19,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
   })).filter((g) => g.items.length > 0);
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

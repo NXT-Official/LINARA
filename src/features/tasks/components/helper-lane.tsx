@@ -48,7 +48,7 @@ export function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] })
 
   return (
     <section
-      className="overflow-hidden rounded-3xl border bg-card shadow-soft"
+      className="overflow-hidden rounded-[2rem] border bg-card shadow-soft"
       style={{ borderColor: `${color.solid}55` }}
     >
       <button

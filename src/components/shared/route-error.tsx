@@ -11,7 +11,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   return (
     <section
       role="alert"
-      className="rounded-3xl border border-border/70 bg-card p-6 text-center shadow-soft sm:p-8"
+      className="rounded-[2rem] ring-1 ring-border/20 bg-card p-6 text-center shadow-soft sm:p-8"
     >
       <h1 className="font-display text-xl text-foreground">This page didn't load</h1>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">

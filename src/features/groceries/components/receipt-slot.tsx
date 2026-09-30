@@ -27,7 +27,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
     <>
       <button
         onClick={() => setPreview(true)}
-        className={`flex w-full items-center gap-2 rounded-2xl border border-border/70 bg-background/60 p-2 text-left ${compact ? "" : "sm:p-3"}`}
+        className={`flex w-full items-center gap-2 rounded-2xl ring-1 ring-border/20 bg-background/60 p-2 text-left ${compact ? "" : "sm:p-3"}`}
       >
         <span className="shrink-0 overflow-hidden rounded-xl">
           <img src={ctx.receiptPhoto} alt="Receipt" className="h-12 w-12 object-cover" />

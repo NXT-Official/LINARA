@@ -123,7 +123,7 @@ export function NewRoutineModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
+      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-5 shadow-lift sm:p-6">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-display text-xl text-foreground">New routine</h3>

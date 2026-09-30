@@ -85,7 +85,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {/* 📈 Spend Dial Card */}
-      <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft hover:shadow-md transition duration-200">
+      <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
@@ -149,7 +149,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
       </div>
 
       {/* 📉 Pay Dial Card */}
-      <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft hover:shadow-md transition duration-200">
+      <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">

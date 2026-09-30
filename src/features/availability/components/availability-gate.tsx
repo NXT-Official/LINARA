@@ -39,7 +39,7 @@ export function AvailabilityGate({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded-3xl bg-card p-5 shadow-lift sm:p-6">
+      <div className="w-full max-w-md rounded-[2rem] bg-card p-5 shadow-lift sm:p-6">
         <div className="flex items-start gap-3">
           <div
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${hard ? "bg-[oklch(0.95_0.06_35)] text-[oklch(0.42_0.15_35)]" : "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]"}`}
@@ -52,7 +52,7 @@ export function AvailabilityGate({
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-border/70 bg-secondary/40 p-3">
+        <div className="mt-4 rounded-2xl ring-1 ring-border/20 bg-secondary/40 p-3">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Sending {kindLabel}
           </div>

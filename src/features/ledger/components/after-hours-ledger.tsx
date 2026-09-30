@@ -60,7 +60,7 @@ export function AfterHoursLedger({
   if (!mounted) {
     return (
       <section
-        className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft"
+        className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft"
         suppressHydrationWarning
       >
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -72,7 +72,7 @@ export function AfterHoursLedger({
   }
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -160,7 +160,7 @@ export function AfterHoursLedger({
                 const meta = reasonLabel(e.reason);
                 const mins = ledgerEntryMinutes(e);
                 return (
-                  <li key={e.id} className="rounded-2xl border border-border/70 bg-background p-3">
+                  <li key={e.id} className="rounded-2xl ring-1 ring-border/20 bg-background p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">

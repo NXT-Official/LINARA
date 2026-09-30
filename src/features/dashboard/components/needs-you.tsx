@@ -32,7 +32,7 @@ export function NeedsYou({
 
   if (total === 0) {
     return (
-      <section className="rounded-3xl border border-dashed border-border bg-card/40 p-4 sm:p-5">
+      <section className="rounded-[2rem] border border-dashed border-border bg-card/40 p-4 sm:p-5">
         <div className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
             <Check className="h-4 w-4" />
@@ -47,7 +47,7 @@ export function NeedsYou({
   }
 
   return (
-    <section className="rounded-3xl border border-terracotta/40 bg-terracotta-soft/40 p-4 shadow-soft sm:p-5">
+    <section className="rounded-[2rem] border border-terracotta/40 bg-terracotta-soft/40 p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <div className="grid h-8 w-8 place-items-center rounded-full bg-accent text-accent-foreground">
           <AlertCircle className="h-4 w-4" />
@@ -66,7 +66,7 @@ export function NeedsYou({
           return (
             <div
               key={t.id}
-              className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
+              className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -131,7 +131,7 @@ export function NeedsYou({
           return (
             <div
               key={v.id}
-              className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
+              className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -174,7 +174,7 @@ export function NeedsYou({
             return (
               <div
                 key={f.id}
-                className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
+                className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

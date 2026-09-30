@@ -95,7 +95,7 @@ export function NewAppointmentModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
+      <div className="w-full max-w-lg rounded-[2rem] border border-border bg-card p-5 shadow-lift sm:p-6">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl text-foreground">New appointment</h3>
           <button
@@ -175,7 +175,7 @@ export function NewAppointmentModal({
             </Field>
           </div>
 
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
+          <div className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Prep tasks
@@ -190,7 +190,7 @@ export function NewAppointmentModal({
             </div>
             <div className="space-y-3">
               {preps.map((p, i) => (
-                <div key={i} className="rounded-xl border border-border/70 bg-card p-2.5">
+                <div key={i} className="rounded-xl ring-1 ring-border/20 bg-card p-2.5">
                   <div className="flex items-start gap-2">
                     <input
                       value={p.title}

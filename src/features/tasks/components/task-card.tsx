@@ -14,7 +14,7 @@ import { RecurrenceBadge } from "./recurrence-badge";
 export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
   const helper = findHelper(task.helperId, helpers);
   return (
-    <article className="group rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft transition hover:shadow-lift">
+    <article className="group rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft transition hover:shadow-lift">
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-semibold leading-snug text-foreground">{task.title}</h4>
         <span

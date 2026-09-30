@@ -21,7 +21,7 @@ export function MySuggestions({
   const others = suggestions.filter((t) => (t.createdBy ?? "") !== adminName);
   if (mine.length === 0 && others.length === 0) return null;
   return (
-    <section className="rounded-3xl border border-border/70 bg-card/70 p-4 shadow-soft sm:p-5">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card/70 p-4 shadow-soft sm:p-5">
       <div className="mb-2 flex items-center gap-2">
         <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
           <HelpCircle className="h-4 w-4" />
@@ -44,7 +44,7 @@ export function MySuggestions({
         {mine.map((t) => {
           const helper = findHelper(t.helperId, helpers);
           return (
-            <div key={t.id} className="rounded-2xl border border-border/70 bg-background/60 p-3">
+            <div key={t.id} className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>

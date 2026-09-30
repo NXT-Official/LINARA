@@ -55,7 +55,7 @@ export function NewTaskModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-6">
+      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-5 shadow-lift sm:p-6">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl text-foreground">
             {isRemote ? "Suggest a task" : "New task"}
@@ -164,7 +164,7 @@ export function NewTaskModal({
           </Field>
         </div>
         {isRemote && (
-          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border/70 bg-background/60 p-3">
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-2xl ring-1 ring-border/20 bg-background/60 p-3">
             <input
               type="checkbox"
               checked={sendLive}

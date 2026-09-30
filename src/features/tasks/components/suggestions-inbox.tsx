@@ -27,7 +27,7 @@ export function SuggestionsInbox({
     groups.get(key)!.push(t);
   }
   return (
-    <section className="rounded-3xl border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
+    <section className="rounded-[2rem] border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta/20 text-[oklch(0.42_0.15_60)]">
           <HelpCircle className="h-4 w-4" />
@@ -53,7 +53,7 @@ export function SuggestionsInbox({
                 return (
                   <div
                     key={t.id}
-                    className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-soft"
+                    className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

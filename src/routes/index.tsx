@@ -98,7 +98,7 @@ function LandingPage() {
           </div>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
+            <div className="rounded-[2rem] border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <BookOpen className="h-5 w-5" aria-hidden="true" />
               </div>
@@ -111,7 +111,7 @@ function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
+            <div className="rounded-[2rem] border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Clock className="h-5 w-5" aria-hidden="true" />
               </div>
@@ -124,7 +124,7 @@ function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
+            <div className="rounded-[2rem] border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Receipt className="h-5 w-5" aria-hidden="true" />
               </div>
@@ -184,7 +184,7 @@ function LandingPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border/50 bg-card p-8 shadow-lift relative overflow-hidden">
+          <div className="rounded-[2rem] border border-border/50 bg-card p-8 shadow-lift relative overflow-hidden">
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
             <div className="relative">
               <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-primary">

@@ -30,7 +30,7 @@ export function RoutinesView({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-7">
+      <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -54,7 +54,7 @@ export function RoutinesView({
       </section>
 
       {routines.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center">
+        <div className="rounded-[2rem] border border-dashed border-border bg-card/40 p-10 text-center">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-pine-deep">
             <Repeat className="h-5 w-5" />
           </div>
@@ -69,7 +69,7 @@ export function RoutinesView({
             return (
               <section
                 key={helper.id}
-                className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5"
+                className="rounded-[2rem] ring-1 ring-border/20 bg-card/60 p-4 sm:p-5"
               >
                 <div className="mb-3 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2.5">

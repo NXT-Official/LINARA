@@ -40,7 +40,7 @@ export function PeopleSection({
   const [editingWage, setEditingWage] = useState<Invite | null>(null);
   return (
     <div className="space-y-6 pb-4">
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+      <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-foreground">Admins</h2>
@@ -56,7 +56,7 @@ export function PeopleSection({
             return (
               <div
                 key={a.id}
-                className="flex flex-wrap items-start gap-3 rounded-2xl border border-border/70 bg-background/40 p-3.5"
+                className="flex flex-wrap items-start gap-3 rounded-2xl ring-1 ring-border/20 bg-background/40 p-3.5"
               >
                 <Avatar initials={a.initials} />
                 <div className="min-w-0 flex-1">
@@ -90,7 +90,7 @@ export function PeopleSection({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-6">
+      <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-foreground">Helpers</h2>
@@ -120,7 +120,7 @@ export function PeopleSection({
                 key={inv.id}
                 className={`flex flex-wrap items-start gap-3 rounded-2xl p-3.5 ${
                   isActive
-                    ? "border border-border/70 bg-background/40"
+                    ? "ring-1 ring-border/20 bg-background/40"
                     : "border border-dashed border-terracotta/50 bg-terracotta-soft/30"
                 }`}
               >

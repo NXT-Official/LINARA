@@ -101,7 +101,7 @@ export function AppointmentsSection({
     );
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-4 shadow-soft sm:p-5">
+    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
@@ -168,7 +168,7 @@ export function AppointmentsSection({
                   parseTimeToMinutes(x.time) - parseTimeToMinutes(y.time),
               );
             return (
-              <li key={a.id} className="rounded-2xl border border-border/70 bg-background/60 p-3.5">
+              <li key={a.id} className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">

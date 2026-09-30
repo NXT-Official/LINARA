@@ -16,7 +16,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
+      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -34,7 +34,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
           </button>
         </div>
 
-        <div className="mt-5 rounded-3xl border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
+        <div className="mt-5 rounded-[2rem] border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
           <div className="font-display text-4xl font-semibold tracking-[0.15em] text-primary">
             {invite.code}
           </div>

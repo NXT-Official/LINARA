@@ -28,7 +28,7 @@ export function BoardTaskCard({
   const isDone = task.status === "done";
   return (
     <article
-      className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft"
+      className="overflow-hidden rounded-2xl ring-1 ring-border/20 bg-card shadow-soft"
       style={{ borderLeft: `4px solid ${color.solid}` }}
     >
       <div className="flex items-start gap-2.5 p-3">

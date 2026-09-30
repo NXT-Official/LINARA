@@ -140,7 +140,7 @@ export function ManagerPassTab({
       </div>
 
       {/* Status line */}
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft sm:p-7">
+      <section className="rounded-[2rem] bg-card p-5 shadow-soft sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">

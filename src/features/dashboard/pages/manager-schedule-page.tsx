@@ -52,7 +52,7 @@ export function ManagerSchedulePage() {
     <div className="space-y-6">
       <h1 className="sr-only">Schedule</h1>
       {isRemote && (
-        <div className="rounded-3xl border border-dashed border-border/70 bg-card/60 p-4 text-xs text-muted-foreground">
+        <div className="rounded-[2rem] border border-dashed border-border/70 bg-card/60 p-4 text-xs text-muted-foreground">
           <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-pine-deep">
             Remote view
           </div>
@@ -83,7 +83,7 @@ export function ManagerSchedulePage() {
         activeHelpers={activeHelpers}
       />
       {queued.length > 0 && (
-        <section className="rounded-3xl border border-border/70 bg-card/60 p-4 sm:p-5">
+        <section className="rounded-[2rem] ring-1 ring-border/20 bg-card/60 p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
