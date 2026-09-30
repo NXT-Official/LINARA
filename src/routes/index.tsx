@@ -26,7 +26,7 @@ function LandingPage() {
       >
         <div className="flex items-center gap-1.5 select-none">
           {/* Logo combining text dot into soft check and roofline */}
-          <span className="font-display text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5">
+          <span className="font-wordmark text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5">
             l
             <span className="relative inline-block">
               i<span className="absolute -top-1 left-0 h-1.5 w-1.5 rounded-full bg-accent"></span>

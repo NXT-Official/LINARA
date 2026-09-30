@@ -29,7 +29,7 @@ export function TopBar() {
             <Sparkles className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block font-display text-2xl font-semibold leading-none tracking-tight text-primary">
+            <span className="block font-wordmark text-2xl font-semibold leading-none tracking-tight text-primary">
               linara
             </span>
             <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
