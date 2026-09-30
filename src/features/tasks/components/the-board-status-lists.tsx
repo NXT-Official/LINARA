@@ -4,11 +4,20 @@ import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
+import { isPastDue } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
 /** The Board layout: today's tasks by status, in time order, with a 'now' marker. */
-export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers: Helper[] }) {
+export function TheBoardStatusLists({
+  tasks,
+  helpers,
+  nowTs,
+}: {
+  tasks: Task[];
+  helpers: Helper[];
+  nowTs: number;
+}) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
   const sorted = useMemo(
     () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
@@ -17,9 +26,9 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
   const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const doing = sorted.filter((t) => t.status === "in_progress");
   const done = sorted.filter((t) => t.status === "done");
-  const nowMin = doing.length > 0 ? parseTimeToMinutes(doing[0].time) : null;
-  const overdueId = (t: Task) =>
-    t.status === "blocked" || (nowMin !== null && parseTimeToMinutes(t.time) < nowMin);
+  const now = new Date(nowTs);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const overdueId = (t: Task) => t.status === "blocked" || isPastDue(t, nowTs);
 
   const tabs = [
     { key: "todo" as const, label: "To-do", count: todo.length, list: todo },
@@ -31,7 +40,7 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
   // Insertion index for the "now" marker in the To-do timeline:
   // place it before the first todo whose time >= the current in-progress time.
   let nowMarkerIdx = -1;
-  if (tab === "todo" && nowMin !== null) {
+  if (tab === "todo") {
     nowMarkerIdx = todo.findIndex((t) => parseTimeToMinutes(t.time) >= nowMin);
     if (nowMarkerIdx === -1) nowMarkerIdx = todo.length; // all overdue → marker at the end
   }

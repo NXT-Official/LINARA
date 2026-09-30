@@ -3,9 +3,12 @@ import { useState } from "react";
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
+import { isPastDue, nextWorkdayStart } from "@/features/tasks/task.utils";
+import { toISODate, weekdayOf } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
+import type { PastDueItem } from "../components/needs-you";
 import { StartNewDayModal } from "../components/start-new-day-modal";
 
 /** Today at a glance: what needs a decision, then the day itself. */
@@ -39,6 +42,7 @@ export function ManagerPassPage({
     simDate,
     addTask,
     rescheduleTask,
+    moveTask,
     approveSuggestion,
     dismissSuggestion,
   } = board;
@@ -79,6 +83,18 @@ export function ManagerPassPage({
   };
 
   const active = tasks.filter((t) => !t.queued && !t.suggested);
+  const today = toISODate(new Date(clock.nowTs));
+  const pastDue: PastDueItem[] = active
+    .filter((t) => isPastDue(t, clock.nowTs))
+    .map((t) => {
+      const planned = new Date(t.scheduledStart!);
+      const next = nextWorkdayStart(t, clock.nowTs, schedules.scheduleFor(t.helperId));
+      return {
+        task: t,
+        plannedLabel: toISODate(planned) === today ? t.time : `${weekdayOf(planned)} ${t.time}`,
+        moveTo: { iso: next.iso, label: `${next.weekday} ${t.time}` },
+      };
+    });
   const gate = useSendGate({
     authorName,
     isRemote,
@@ -99,6 +115,8 @@ export function ManagerPassPage({
         active={active}
         suggestions={tasks.filter((t) => t.suggested)}
         blocked={active.filter((t) => t.status === "blocked")}
+        pastDue={pastDue}
+        nowTs={clock.nowTs}
         pendingVales={vales.vales.filter((v) => v.status === "pending")}
         flaggedInvites={inviteStore.invites.filter((i) => i.flags.length > 0)}
         helpers={helpers}
@@ -112,6 +130,7 @@ export function ManagerPassPage({
         canStartNewDay={canStartNewDay}
         onStartNewDay={openNewDayConfirm}
         onReschedule={rescheduleTask}
+        onMoveTask={moveTask}
         onDecideVale={vales.decide}
         onResolveFlag={inviteStore.resolveFlag}
         onApproveSuggestion={approveSuggestion}

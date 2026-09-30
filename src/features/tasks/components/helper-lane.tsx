@@ -5,9 +5,18 @@ import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
+import { isPastDue } from "../task.utils";
 import { LaneNowRow } from "./lane-now-row";
 
-export function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] }) {
+export function HelperLane({
+  helper,
+  tasks,
+  nowTs,
+}: {
+  helper: Helper;
+  tasks: Task[];
+  nowTs: number;
+}) {
   const [open, setOpen] = useState(false);
   const color = STATION_HEX[helper.station];
   const sorted = useMemo(
@@ -19,22 +28,15 @@ export function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] })
   const upcoming = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const nowTask = inProg ?? upcoming[0];
   const nextTask = upcoming.find((t) => t.id !== nowTask?.id);
-  const nowMin = inProg ? parseTimeToMinutes(inProg.time) : Number.POSITIVE_INFINITY;
+  // Same rule as Needs You: blocked, or past its planned time on the clock.
   const overdueSet = new Set(
-    sorted
-      .filter(
-        (t) =>
-          t.id !== inProg?.id &&
-          (t.status === "todo" || t.status === "blocked") &&
-          (t.status === "blocked" || parseTimeToMinutes(t.time) < nowMin),
-      )
-      .map((t) => t.id),
+    sorted.filter((t) => t.status === "blocked" || isPastDue(t, nowTs)).map((t) => t.id),
   );
 
   const pill =
     overdueSet.size > 0
       ? {
-          text: `⚠ ${overdueSet.size} overdue`,
+          text: `${overdueSet.size} ${overdueSet.size === 1 ? "needs" : "need"} you`,
           cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
         }
       : inProg
@@ -42,7 +44,9 @@ export function HelperLane({ helper, tasks }: { helper: Helper; tasks: Task[] })
             text: `Now: ${inProg.title}`,
             cls: "bg-[oklch(0.93_0.08_75)] text-[oklch(0.4_0.13_75)]",
           }
-        : { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
+        : sorted.length === 0
+          ? { text: "Nothing today", cls: "bg-secondary text-muted-foreground" }
+          : { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
 
   const pct = sorted.length === 0 ? 0 : Math.round((doneCount / sorted.length) * 100);
 

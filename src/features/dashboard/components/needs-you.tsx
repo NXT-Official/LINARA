@@ -1,4 +1,12 @@
-import { AlertCircle, Check, Coins, MessageCircle, RotateCcw, X } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarClock,
+  Check,
+  Coins,
+  MessageCircle,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
@@ -8,8 +16,19 @@ import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 
+/** A task whose planned time has gone by, with where "move it" would put it. */
+export type PastDueItem = {
+  task: Task;
+  /** When it was meant to happen, e.g. "7:30 PM" or "Tue 7:30 PM" if carried over. */
+  plannedLabel: string;
+  /** Same time on the helper's next working day. */
+  moveTo: { iso: string; label: string };
+};
+
 export function NeedsYou({
   blocked,
+  pastDue,
+  onMove,
   pendingVales,
   helpers,
   onReschedule,
@@ -18,6 +37,9 @@ export function NeedsYou({
   onResolveFlag,
 }: {
   blocked: Task[];
+  pastDue: PastDueItem[];
+  /** Omitted for remote admins -- schedules stay with the on-site managers. */
+  onMove?: (taskId: string, scheduledStartIso: string) => void;
   pendingVales: ValeRequest[];
   helpers: Helper[];
   onReschedule: (id: string) => void;
@@ -28,7 +50,7 @@ export function NeedsYou({
   const [replyId, setReplyId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
-  const total = blocked.length + pendingVales.length + flagsCount;
+  const total = blocked.length + pastDue.length + pendingVales.length + flagsCount;
 
   if (total === 0) {
     return (
@@ -55,7 +77,7 @@ export function NeedsYou({
         <div>
           <div className="text-sm font-semibold text-foreground">Needs you · {total}</div>
           <div className="text-xs text-muted-foreground">
-            Blocked tasks, vale requests, and flagged details.
+            Stuck or past-due tasks, vale requests, and flagged details.
           </div>
         </div>
       </div>
@@ -123,6 +145,46 @@ export function NeedsYou({
             </div>
           );
         })}
+        {pastDue.map(({ task: t, plannedLabel, moveTo }) => {
+          const helper = findHelper(t.helperId, helpers);
+          return (
+            <div key={t.id} className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Avatar initials={helper.initials} />
+                    <span className="text-xs font-semibold text-foreground">{helper.short}</span>
+                    <span className="text-xs text-muted-foreground">· planned {plannedLabel}</span>
+                  </div>
+                  <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t.routineId
+                      ? "Not started. It's part of a routine, so the next one is added when a new day starts."
+                      : onMove
+                        ? `Not started yet. If something came up, move it to ${helper.short}'s next workday.`
+                        : "Not started yet."}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
+                >
+                  {t.station}
+                </span>
+              </div>
+              {!t.routineId && onMove && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => onMove(t.id, moveTo.iso)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" /> Move to {moveTo.label}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         {pendingVales.map((v) => {
           const helper = findHelper(v.helperId, helpers);
           return (

@@ -93,6 +93,22 @@ the bottom.
 - **Current workaround:** None (fine while everything is sandbox-only, per the Closed Gaps environment note).
 - **To close:** Policy/terms pages on the web app (linked from landing, `/login`, and the mobile claim screen), plus an account-deletion request path. Deletion has to be reconciled with RA 10361 payslip retention, so "delete my account" can't mean "delete my payslips". Needs a legal review before publishing, not just a template.
 
+### O9. Task times render in the viewer's device time zone, not the household's
+
+- **Found:** 2026-09-30, while adding past-due tasks to Needs You.
+- **What's missing:** `isoToDisplayTime` / `combineDateAndTime` (`src/lib/time.ts`) read and write `tickets.scheduled_start` in the **browser's** time zone. An OFW admin in Dubai would see a 7:30 PM Manila task as 3:30 PM, and a task they create for "7:30 PM" lands at 11:30 PM in the house. C38 fixed the same class of bug for pay cutoffs with `households.timezone`; tickets never got that treatment.
+- **Blocks:** Nothing today (O2: a remote admin can't join yet). Becomes real the moment OFW mode ships, which is the brand doc's stated wedge.
+- **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
+- **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
+
+### O10. A missed routine instance can't be cleared from Needs You
+
+- **Found:** 2026-09-30, same change.
+- **What's missing:** Unfinished tickets carry over across days (`listTicketsFn`, gap #4's closure), and "Start new day" respawns every routine. A missed routine instance therefore sits past due indefinitely, next to that day's fresh copy. Needs You shows it but deliberately offers no "Move" for routines (moving would duplicate tomorrow's instance), and there is no "skip" status. Deleting the row would erase the helper's work record.
+- **Blocks:** A clean Needs You for households that use routines.
+- **Current workaround:** The helper (or manager) marks it done or blocked.
+- **To close:** A product decision on what a missed routine *is* (a `skipped` status is the obvious candidate, and needs a schema change shared with `../LINARA_MOBILE`). Owned by `LINARA`.
+
 ---
 
 ## Closed Gaps

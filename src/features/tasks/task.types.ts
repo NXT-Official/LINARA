@@ -9,6 +9,7 @@ export type Task = {
   title: string;
   note?: string;
   time: string;
+  scheduledStart?: string; // ISO, tickets.scheduled_start -- the real instant behind `time`
   helperId: string;
   station: Station;
   status: Status;

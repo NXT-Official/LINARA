@@ -72,6 +72,7 @@ function toTask(row: TicketRow, helpers: Helper[]): Task {
     title: row.title,
     note: row.notes ?? undefined,
     time: isoToDisplayTime(row.scheduled_start),
+    scheduledStart: row.scheduled_start,
     helperId: row.helper_id,
     station: helper.station,
     status: row.status,
@@ -341,6 +342,17 @@ export function useTaskBoard({
       });
   };
 
+  /** Moves a task to a new start time, e.g. a past-due one to the helper's next workday. */
+  const moveTask = (id: string, scheduledStartIso: string) => {
+    if (!token) return;
+    updateTicketFn({ data: { token, ticketId: id, patch: { scheduledStartIso } } })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useTaskBoard] Failed to move task:", err);
+        toast.error("Hindi nailipat ang task.");
+      });
+  };
+
   const approveSuggestion = (id: string) => {
     if (!token) return;
     updateTicketFn({ data: { token, ticketId: id, patch: { suggested: false } } })
@@ -464,6 +476,7 @@ export function useTaskBoard({
     updateStatus,
     blockTask,
     rescheduleTask,
+    moveTask,
     approveSuggestion,
     dismissSuggestion,
     setClosed,

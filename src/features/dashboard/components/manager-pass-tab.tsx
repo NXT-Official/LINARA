@@ -12,7 +12,7 @@ import { TheBoardStatusLists } from "@/features/tasks/components/the-board-statu
 import type { Task } from "@/features/tasks/task.types";
 import { formatSimDate, weekdayOf } from "@/lib/time";
 
-import { NeedsYou } from "./needs-you";
+import { NeedsYou, type PastDueItem } from "./needs-you";
 import { RemoteGlance } from "./remote-glance";
 import { SpendAndPayday } from "./spend-and-payday";
 
@@ -23,6 +23,8 @@ export type ManagerPassTabProps = {
   active: Task[];
   suggestions: Task[];
   blocked: Task[];
+  pastDue: PastDueItem[];
+  nowTs: number;
   pendingVales: ValeRequest[];
   flaggedInvites: Invite[];
   helpers: Helper[];
@@ -36,6 +38,7 @@ export type ManagerPassTabProps = {
   canStartNewDay: boolean;
   onStartNewDay: () => void;
   onReschedule: (id: string) => void;
+  onMoveTask: (id: string, scheduledStartIso: string) => void;
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   onResolveFlag: (inviteId: string, flagId: string) => void;
   onApproveSuggestion: (id: string) => void;
@@ -55,6 +58,8 @@ export function ManagerPassTab({
   active,
   suggestions,
   blocked,
+  pastDue,
+  nowTs,
   pendingVales,
   flaggedInvites,
   helpers,
@@ -68,6 +73,7 @@ export function ManagerPassTab({
   canStartNewDay,
   onStartNewDay,
   onReschedule,
+  onMoveTask,
   onDecideVale,
   onResolveFlag,
   onApproveSuggestion,
@@ -204,6 +210,8 @@ export function ManagerPassTab({
       {/* Needs you */}
       <NeedsYou
         blocked={blocked}
+        pastDue={pastDue}
+        onMove={isRemote ? undefined : onMoveTask}
         pendingVales={pendingVales}
         helpers={helpers}
         onReschedule={onReschedule}
@@ -265,12 +273,13 @@ export function ManagerPassTab({
                   key={h.id}
                   helper={h}
                   tasks={active.filter((t) => t.helperId === h.id)}
+                  nowTs={nowTs}
                 />
               ))
             )}
           </div>
         ) : (
-          <TheBoardStatusLists tasks={active} helpers={helpers} />
+          <TheBoardStatusLists tasks={active} helpers={helpers} nowTs={nowTs} />
         )}
       </section>
 
