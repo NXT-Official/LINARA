@@ -1,4 +1,4 @@
-import { CalendarClock, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { CalendarClock, CalendarPlus, Loader2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -145,7 +145,7 @@ export function AppointmentsSection({
               </>
             ) : (
               <>
-                <Sparkles className="h-3 w-3" />
+                <CalendarPlus className="h-3 w-3" />
                 Schedule
               </>
             )}

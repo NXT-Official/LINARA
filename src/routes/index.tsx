@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, Clock, Receipt, Sparkles, Shield } from "lucide-react";
+import { BookOpen, Clock, Receipt, Shield } from "lucide-react";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({
@@ -48,7 +48,6 @@ function LandingPage() {
         aria-labelledby="hero-title"
       >
         <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-          <Sparkles className="h-3.5 w-3.5 text-accent" />
           <span>Home, made clear.</span>
         </div>
 

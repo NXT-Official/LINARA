@@ -1,4 +1,4 @@
-import { Columns3, Moon, Plus, Sparkles, Users } from "lucide-react";
+import { Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
@@ -183,7 +183,7 @@ export function ManagerPassTab({
                 onClick={onStartNewDay}
                 className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
               >
-                <Sparkles className="h-3.5 w-3.5" /> Start new day
+                <Sunrise className="h-3.5 w-3.5" /> Start new day
               </button>
             )}
           </div>

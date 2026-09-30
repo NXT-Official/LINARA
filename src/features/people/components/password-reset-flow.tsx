@@ -105,7 +105,7 @@ export function PasswordResetFlow() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           {mode === "done" ? (

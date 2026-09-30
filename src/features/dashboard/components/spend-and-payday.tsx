@@ -1,4 +1,4 @@
-import { CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, CheckCircle2 } from "lucide-react";
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
@@ -256,7 +256,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               valeDeductionsTotal === 0 &&
               restOwedMin === 0 && (
                 <span className="text-muted-foreground inline-flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-accent" /> Normal cutoff cycle
+                  Normal cutoff cycle
                 </span>
               )}
           </div>

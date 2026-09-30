@@ -1,4 +1,4 @@
-import { BookmarkPlus, Check, Loader2, Sparkles, X } from "lucide-react";
+import { BookOpen, BookmarkPlus, Check, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -193,7 +193,7 @@ export function NewRoutineModal({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <BookOpen className="h-3.5 w-3.5" />
                   Generate SOP with AI
                 </>
               )}

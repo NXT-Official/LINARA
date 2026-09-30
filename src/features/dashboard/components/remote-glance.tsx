@@ -1,4 +1,4 @@
-import { Check, Sparkles } from "lucide-react";
+import { Check, Images } from "lucide-react";
 
 import type { Task } from "@/features/tasks/task.types";
 
@@ -18,7 +18,7 @@ export function RemoteGlance({
     <section className="rounded-[2rem] border border-primary/20 bg-secondary/40 p-5 shadow-soft sm:p-6">
       <div className="flex items-start gap-3">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <Sparkles className="h-4 w-4" />
+          <Images className="h-4 w-4" />
         </div>
         <div className="min-w-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine-deep/80">

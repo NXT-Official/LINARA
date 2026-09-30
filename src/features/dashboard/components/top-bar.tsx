@@ -1,5 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { LogOut, Wifi, WifiOff } from "lucide-react";
+
+import { LogoMark } from "@/components/shared/logo";
 
 import { useAppStores } from "../app-store-context";
 import { EndOfDayToggle } from "./end-of-day-toggle";
@@ -22,30 +24,31 @@ export function TopBar() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2.5 px-4 py-2.5 sm:px-6 sm:py-3">
         <Link
           to="/"
-          className="group flex min-w-0 items-center gap-2.5 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label="Linara — home"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-soft transition group-hover:shadow-lift">
-            <Sparkles className="h-4 w-4" />
-          </span>
+          <LogoMark className="h-9 w-9 shrink-0" />
           <span className="min-w-0">
             <span className="block font-wordmark text-2xl font-semibold leading-none tracking-tight text-primary">
               linara
             </span>
-            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+            <span className="mt-0.5 hidden truncate text-xs text-muted-foreground md:block">
               Home, made clear.
             </span>
           </span>
         </Link>
 
-        {/* On a phone the switcher drops to its own full-width row. */}
-        <div className="order-last w-full sm:order-none sm:w-auto">
-          <ViewAsSwitcher
-            admins={admins}
-            currentAdminId={currentAdminId}
-            onSelectAdmin={setCurrentAdminId}
-          />
-        </div>
+        {/* Only a household with more than one admin has anyone to switch to.
+            On a phone it takes its own full-width row. */}
+        {admins.length > 1 && (
+          <div className="order-last w-full sm:order-none sm:w-auto">
+            <ViewAsSwitcher
+              admins={admins}
+              currentAdminId={currentAdminId}
+              onSelectAdmin={setCurrentAdminId}
+            />
+          </div>
+        )}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Being online is the normal case and says nothing; only a real
@@ -62,7 +65,8 @@ export function TopBar() {
           {import.meta.env.DEV && (
             <button
               onClick={() => setOfflineSimulated(!isOfflineSimulated)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-soft transition sm:text-xs cursor-pointer ${
+              aria-label={isOfflineSimulated ? "Simulate online" : "Simulate offline"}
+              className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2 py-1.5 text-xs font-semibold transition sm:px-2.5 ${
                 isOfflineSimulated
                   ? "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20"
                   : "border-border bg-card text-muted-foreground hover:bg-secondary/40"
@@ -72,12 +76,12 @@ export function TopBar() {
               {isOfflineSimulated ? (
                 <>
                   <WifiOff className="h-3.5 w-3.5" />
-                  <span>OFFLINE</span>
+                  <span className="hidden sm:inline">Dev: offline</span>
                 </>
               ) : (
                 <>
                   <Wifi className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>ONLINE</span>
+                  <span className="hidden sm:inline">Dev: online</span>
                 </>
               )}
             </button>
@@ -93,7 +97,7 @@ export function TopBar() {
               }}
               title="Log out"
               aria-label="Log out"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-soft transition hover:bg-secondary/40 hover:text-foreground"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Log out</span>
