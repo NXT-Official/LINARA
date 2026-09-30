@@ -77,14 +77,6 @@ the bottom.
 - **Current workaround:** Relies on the manager opening the app daily.
 - **To close:** A scheduled server-side purge (`pg_cron` job or a scheduled Edge Function) that deletes `quick_utos` rows older than the household's civil day, using `households.timezone` from C38. Owned by `LINARA`.
 
-### O7. No push notifications -- an override "high-priority alert" only reaches a helper whose app is open
-
-- **Found:** 2026-09-30, launch-readiness review.
-- **What's missing:** `plan.md` §2.4 step 4 ("The helper receives a high-priority alert") and §2.2 step 5 (appointment-moved heads-up). `LINARA_MOBILE` has no `expo-notifications` dependency and there are no device-token columns in the schema. Tickets and utos arrive over Realtime (C23), which only delivers while the app is foregrounded.
-- **Blocks:** The emergency-override story, and anything marketed as "she gets notified". Note this interacts with the concept doc's "no pings after hours" rule: pushes must respect availability the same way the friction wall does, not bypass it.
-- **Current workaround:** The helper sees items the next time she opens the app.
-- **To close:** `expo-notifications` plus a token table (schema: `LINARA`) and a server-side sender triggered on override/emergency sends and appointment reschedules only.
-
 ### O8. No privacy policy or terms of service, in either app or on the site
 
 - **Found:** 2026-09-30, launch-readiness review.
@@ -102,13 +94,6 @@ the bottom.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
 
-### O14. `reschedule_notice.oldTime` is rendered in the web server's time zone
-
-- **Found:** 2026-10-01, building the mobile appointment-move heads-up.
-- **What's missing:** `rescheduleAppointmentFn` (`src/features/appointments/appointment.actions.ts`) is a server function, and it builds the notice's `oldTime`/`oldDate` with `isoToDisplayTime`/`isoToISODate`, which format in the *runtime's* time zone. On Vercel that is UTC, so a Manila household's "was 8:00 PM" would be stored as "12:00 PM". Same family as O9 and the C38 cutoff bug.
-- **Blocks:** Showing "was X, now Y" anywhere.
-- **Current workaround:** `LINARA_MOBILE`'s `MovedTasksBanner` shows only the new time (from the real `scheduled_start` instant) and the appointment's title, never `oldTime`.
-- **To close:** Store the old instant (`oldStartIso`) in the notice instead of a pre-formatted string, and format it on the device, or in `households.timezone`. Owned by `LINARA`.
 ---
 
 ## Closed Gaps
@@ -2985,6 +2970,37 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Was:** the web never read `invite_flags`. `use-invites.ts` mapped every helper with `flags: []`, so a flag a kasambahay raised while claiming (`flag_invite`, "the wage is wrong") was stored and shown to no one, and Needs You's "Mark resolved" only hid a flag in the current tab. The review-terms promise that she can flag anything wrong had no manager side.
 - **Fix:** `listInviteFlagsFn` loads the household's flags (a separate query, since `invite_flags.invite_id` has no declared foreign key to embed on) and `use-invites` attaches them per helper; `resolveInviteFlagFn` deletes on "Mark resolved", with rollback and a toast on failure. The invite-time minimum-wage check now writes `field = 'wage_below_minimum'` and shows as a "Compliance check" instead of as the helper flagging her wage. `LINARA_MOBILE` My Record lets a claimed helper raise a flag any time; `flag_invite` only accepts unclaimed invites, so she writes the row directly under the household-scoped `invite_flags_isolation` policy.
 - **Residual:** wage-check rows written before this change carry `field = 'wage'` and still read as helper flags (sandbox data only).
+
+### C58. No push notifications: an override only reached a helper whose app was open (former Open Gap O7)
+
+- **Found / fixed:** found 2026-09-30 (launch-readiness review); fixed 2026-10-01, `LINARA` `20a895e` `74f6dbf` `d1c1c9e`, `LINARA_MOBILE` `b7144f4`.
+- **Was:** `plan.md` §2.4 step 4 ("the helper receives a high-priority alert") and §2.2 step 5 (appointment-moved heads-up) had nothing behind them. There was no `expo-notifications` and no token storage, and Realtime only delivers while the app is open.
+- **Fix:**
+  - **Schema** (`supabase/add-push-tokens.sql`): a `push_tokens` table (one row per phone, private to its owner by RLS). `register_push_token` / `unregister_push_token` handle a shared phone changing hands. `helper_push_tokens(helper_id)` lets a primary or co-manager read an active helper's tokens in their own household.
+  - **Web** (`src/features/notifications/push.ts`): sends through Expo's push service from inside the server functions, after the write has succeeded. A failed push never fails the write.
+  - **When it pushes** follows the concept doc's "no pings after hours" rule:
+    - utos or tasks the manager sent through the friction wall as **override or emergency**;
+    - an **appointment move**, only to helpers whose tasks moved and whom the manager's app sees as reachable now.
+  - **When it stays silent:**
+    - "let it wait", queued and suggested items;
+    - ordinary sends while she's on shift, which Realtime already delivers.
+  - **Mobile** (`lib/notifications.ts`, `hooks/use-push-notifications.ts`):
+    - registers after sign-in and drops the token on sign-out;
+    - uses an Android "alerts" channel;
+    - a tap opens Today and refetches.
+- **Residual:**
+  - `add-push-tokens.sql` has to be applied by hand.
+  - Expo Go on Android has no remote push (SDK 53+), so testing on Android needs a development build (`eas build --profile development`). iOS Expo Go works.
+  - Tokens Expo reports as `DeviceNotRegistered` are not pruned: a manager can't delete a helper's rows, so pruning needs a server-side job.
+  - `EXPO_ACCESS_TOKEN` (optional, Vercel) is only needed if the Expo project turns on enhanced push security.
+  - Reachability for appointment moves is the manager's app's view (`statusFor` on the sim clock), not a server-side check.
+
+### C59. `reschedule_notice.oldTime` was rendered in the web server's time zone (former Open Gap O14)
+
+- **Found / fixed:** found 2026-10-01 building the mobile heads-up; fixed the same day, `LINARA` `d1c1c9e`, `LINARA_MOBILE` `2ad7f58`.
+- **Was:** `rescheduleAppointmentFn` (a server function) formatted the old time with `isoToDisplayTime`, in the runtime's zone (UTC on Vercel), so a Manila "was 8:00 PM" was stored as "12:00 PM". Separately, its "did the time move" check compared strings, and Postgres's `+00:00` never equals `toISOString()`'s `Z`, so every edit (even title-only) stamped a notice.
+- **Fix:** the notice stores `oldStartIso` (an instant) and each device formats it. The web maps it in `use-task-board.ts`, and the mobile heads-up now reads "… na ngayon (dati Huwebes, 6:00 PM)". The move check compares instants.
+- **Residual:** notices written before the fix carry only the wrong-zone string. The web falls back to it; mobile shows the new time alone. The web's `RescheduleNotice` component is not rendered anywhere, so the manager side never shows the notice at all (not a regression, just unused).
 
 ---
 
