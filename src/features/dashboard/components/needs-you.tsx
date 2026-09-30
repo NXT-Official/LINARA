@@ -18,6 +18,17 @@ import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { taskWhen } from "@/features/tasks/task.utils";
 
+/** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
+const FLAG_LABEL: Record<string, string> = {
+  wage: "Wage",
+  shift: "Shift hours",
+  restDay: "Rest day",
+  station: "Role / station",
+  employment: "Live-in / live-out",
+  other: "Something else",
+  wage_below_minimum: "Below the regional minimum wage",
+};
+
 export function NeedsYou({
   blocked,
   pastDue,
@@ -257,6 +268,7 @@ export function NeedsYou({
           inv.flags.map((f) => {
             const displayName = inv.claimedName || inv.name;
             const initials = initialsOf(displayName);
+            const isSystemCheck = f.field === "wage_below_minimum";
             return (
               <div key={f.id} className="py-3.5 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-2">
@@ -265,17 +277,27 @@ export function NeedsYou({
                       <Avatar initials={initials} />
                       <span className="text-xs font-semibold text-foreground">{displayName}</span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-                        <AlertCircle className="h-3 w-3" /> Flagged a detail
+                        <AlertCircle className="h-3 w-3" />{" "}
+                        {isSystemCheck ? "Compliance check" : "Flagged a detail"}
                       </span>
                     </div>
-                    <h4 className="mt-1.5 text-sm font-semibold text-foreground">{f.field}</h4>
+                    <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                      {FLAG_LABEL[f.field] ?? f.field}
+                    </h4>
                     {f.note && (
                       <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
                         "{f.note}"
                       </p>
                     )}
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Raised during claim · code {inv.code}
+                      {isSystemCheck
+                        ? "Checked when the invite was created"
+                        : `Raised by ${displayName}`}{" "}
+                      ·{" "}
+                      {new Date(f.at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </p>
                   </div>
                 </div>

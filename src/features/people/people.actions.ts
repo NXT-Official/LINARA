@@ -158,7 +158,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       // Log warning in invite_flags for manager transparency audit
       const { error: wageFlagError } = await authedClient.from("invite_flags").insert({
         invite_id: helperProfile.id,
-        field: "wage",
+        // Its own field so Needs You can tell this system check from a
+        // helper flagging her wage ("wage").
+        field: "wage_below_minimum",
         note: `Base wage of ₱${monthlyRate} is below the regional minimum wage limit of ₱${minWage}.`,
       });
       if (wageFlagError) {
@@ -413,6 +415,49 @@ export const listHelperProfilesFn = createServerFn({ method: "POST" })
     }
 
     return (rows ?? []) as HelperProfileRow[];
+  });
+
+export type InviteFlagRow = {
+  id: string;
+  invite_id: string;
+  field: string;
+  note: string | null;
+  created_at: string;
+};
+
+/**
+ * Every flag on this household's helpers: ones a helper raised while
+ * claiming (flag_invite), ones she raises later from My Record in
+ * LINARA_MOBILE, and the invite-time minimum-wage check. A separate query
+ * rather than an embed because invite_flags.invite_id carries no declared
+ * foreign key. RLS (invite_flags_isolation) scopes it to the household.
+ */
+export const listInviteFlagsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: rows, error } = await authedClient
+      .from("invite_flags")
+      .select("id, invite_id, field, note, created_at")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return (rows ?? []) as InviteFlagRow[];
+  });
+
+/** "Mark resolved" in Needs You: removes the flag for good, not just from this tab. */
+export const resolveInviteFlagFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; flagId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.from("invite_flags").delete().eq("id", data.flagId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { flagId: data.flagId };
   });
 
 /**

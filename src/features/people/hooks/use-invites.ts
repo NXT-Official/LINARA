@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { fmtHM12 } from "@/lib/time";
 
@@ -6,10 +7,13 @@ import {
   cancelInviteFn,
   inviteHelperFn,
   listHelperProfilesFn,
+  listInviteFlagsFn,
+  resolveInviteFlagFn,
   updateHelperWageFn,
+  type InviteFlagRow,
 } from "../people.actions";
 import { WEEKLY_REST_DAY_NAMES } from "../people.constants";
-import type { Invite, Station } from "../people.types";
+import type { Invite, InviteFlag, Station } from "../people.types";
 
 export type InviteStore = ReturnType<typeof useInvites>;
 
@@ -42,7 +46,16 @@ export interface HelperProfileRow {
   created_at: string;
 }
 
-function toInvite(row: HelperProfileRow): Invite {
+function toFlag(row: InviteFlagRow): InviteFlag {
+  return {
+    id: row.id,
+    field: row.field,
+    note: row.note ?? undefined,
+    at: new Date(row.created_at).getTime(),
+  };
+}
+
+function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
   return {
     id: row.id,
     code: row.invite_code ?? "",
@@ -58,7 +71,7 @@ function toInvite(row: HelperProfileRow): Invite {
     createdAt: new Date(row.created_at).getTime(),
     createdBy: "Manager",
     status: row.status === "ACTIVE" ? "active" : "pending",
-    flags: [],
+    flags,
   };
 }
 
@@ -80,9 +93,16 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
 
   const refresh = useCallback(async () => {
     if (!token) return;
-    const rows = (await listHelperProfilesFn({ data: { token } })) as HelperProfileRow[];
+    const [rows, flagRows] = await Promise.all([
+      listHelperProfilesFn({ data: { token } }) as Promise<HelperProfileRow[]>,
+      listInviteFlagsFn({ data: { token } }),
+    ]);
+    const flagsByHelper = new Map<string, InviteFlag[]>();
+    for (const f of flagRows) {
+      flagsByHelper.set(f.invite_id, [...(flagsByHelper.get(f.invite_id) ?? []), toFlag(f)]);
+    }
     setHelperProfiles(rows);
-    setInvites(rows.map(toInvite));
+    setInvites(rows.map((r) => toInvite(r, flagsByHelper.get(r.id))));
   }, [token]);
 
   useEffect(() => {
@@ -176,7 +196,16 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     create,
     cancel,
     updateWage,
-    resolveFlag: (inviteId: string, flagId: string) =>
-      patch(inviteId, (i) => ({ ...i, flags: i.flags.filter((f) => f.id !== flagId) })),
+    resolveFlag: (inviteId: string, flagId: string) => {
+      if (!token) return;
+      // Hide it at once; put it back if the delete didn't go through.
+      const before = invites.find((i) => i.id === inviteId)?.flags ?? [];
+      patch(inviteId, (i) => ({ ...i, flags: i.flags.filter((f) => f.id !== flagId) }));
+      resolveInviteFlagFn({ data: { token, flagId } }).catch((err) => {
+        console.error("[useInvites] Failed to resolve flag:", err);
+        patch(inviteId, (i) => ({ ...i, flags: before }));
+        toast.error("Hindi na-resolve ang flag.");
+      });
+    },
   };
 }
