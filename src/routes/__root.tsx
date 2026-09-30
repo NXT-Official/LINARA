@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
+import { Toaster } from "@/components/ui/sonner";
+
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -138,6 +140,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Every toast.* call in the app renders here -- none showed before this
+          was mounted. Top-centre so it never collides with the bottom nav;
+          sonner's own layer sits above modals. */}
+      <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>
   );
 }

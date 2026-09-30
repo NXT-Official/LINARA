@@ -1,6 +1,8 @@
 import { Camera } from "lucide-react";
 import { useState } from "react";
 
+import { Modal } from "@/components/shared/modal";
+
 import { useGrocery } from "../grocery-context";
 
 /**
@@ -38,16 +40,15 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
         </span>
       </button>
       {preview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
-          onClick={() => setPreview(false)}
-        >
-          <img
-            src={ctx.receiptPhoto}
-            alt="Receipt"
-            className="max-h-[85vh] rounded-2xl shadow-lift"
-          />
-        </div>
+        <Modal onClose={() => setPreview(false)} bare closeOnBackdrop>
+          <button type="button" onClick={() => setPreview(false)} aria-label="Close receipt">
+            <img
+              src={ctx.receiptPhoto}
+              alt="Receipt"
+              className="max-h-[85dvh] rounded-2xl shadow-lift"
+            />
+          </button>
+        </Modal>
       )}
     </>
   );

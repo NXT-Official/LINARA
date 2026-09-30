@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from "lucide-react";
 import { useState } from "react";
 
+import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
@@ -63,73 +64,71 @@ export function EditTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-xl text-foreground">Edit task</h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">For {helperName}.</p>
-        <div className="mt-4 space-y-3">
-          <Field label="Title">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-xl text-foreground">Edit task</h3>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">For {helperName}.</p>
+      <div className="mt-4 space-y-3">
+        <Field label="Title">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Date">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={inputCls}
+            />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Date">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-          </div>
-          {outsideShift && (
-            <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-              That's outside {helperName}'s shift. Doing it then counts as after-hours work and adds
-              to rest owed.
-            </p>
-          )}
-          <Field label="House-standard note (optional)">
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              className={`${inputCls} resize-none`}
+          <Field label="Time">
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className={inputCls}
             />
           </Field>
         </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!canSave}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-          >
-            Save
-          </button>
-        </div>
+        {outsideShift && (
+          <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
+            That's outside {helperName}'s shift. Doing it then counts as after-hours work and adds
+            to rest owed.
+          </p>
+        )}
+        <Field label="House-standard note (optional)">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className={`${inputCls} resize-none`}
+          />
+        </Field>
       </div>
-    </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          disabled={!canSave}
+          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+        >
+          Save
+        </button>
+      </div>
+    </Modal>
   );
 }
