@@ -60,24 +60,22 @@ export function AfterHoursLedger({
   if (!mounted) {
     return (
       <section
-        className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft"
+        className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft"
         suppressHydrationWarning
       >
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {heading}
-        </div>
+        <div className="text-xs font-semibold text-muted-foreground">{heading}</div>
         <div className="mt-1 font-display text-2xl text-foreground">—</div>
       </section>
     );
   }
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
+      {/* Stacks on a phone: side by side, the toggle squeezed the explanation
+          into a one-word-per-line column. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {heading}
-          </div>
+          <div className="text-xs font-semibold text-muted-foreground">{heading}</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="font-display text-2xl text-foreground">
               {fmtHoursMinutes(restMin)}
@@ -87,17 +85,17 @@ export function AfterHoursLedger({
               {premiumMin > 0 && <> · {fmtHoursMinutes(premiumMin)} at rest-day premium</>}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Same numbers on both sides. On-shift work never lands here — every off-shift completion
             does.
           </p>
         </div>
         {audience === "manager" && onSetDefault && (
-          <div className="shrink-0 text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="shrink-0 sm:text-right">
+            <div className="text-xs font-semibold text-muted-foreground">
               {helperName ? `${helperName}'s default` : "Default"}
             </div>
-            <div className="mt-1 inline-flex rounded-full border border-border bg-background p-0.5">
+            <div className="mt-1 inline-flex rounded-xl border border-border bg-background p-0.5">
               {(["rest", "premium"] as const).map((k) => (
                 <button
                   key={k}
@@ -114,7 +112,7 @@ export function AfterHoursLedger({
                   }}
                   aria-pressed={ledgerDefault === k}
                   disabled={savingDefault}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:opacity-60 ${
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-60 ${
                     ledgerDefault === k
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -130,7 +128,7 @@ export function AfterHoursLedger({
                 premium is not paid in cash both tags are taken as time off, so
                 a helper should only carry the premium tag because a manager
                 decided it. Tapping the selected option clears it back to here. */}
-            <p className="mt-1 text-[10px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {isExplicitDefault
                 ? "Set for this helper · tap again to clear"
                 : "Not set · defaults to banked rest"}
@@ -148,35 +146,35 @@ export function AfterHoursLedger({
         <>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-semibold text-foreground shadow-soft transition hover:border-primary/40"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft transition hover:border-primary/40"
           >
             {open
               ? "Hide entries"
               : `Show ${monthEntries.length} ${monthEntries.length === 1 ? "entry" : "entries"}`}
           </button>
           {open && (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 divide-y divide-border/70">
               {monthEntries.map((e) => {
                 const meta = reasonLabel(e.reason);
                 const mins = ledgerEntryMinutes(e);
                 return (
-                  <li key={e.id} className="rounded-2xl border border-border/70 bg-background p-3">
+                  <li key={e.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">
                           {e.title}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                           <span>
                             {formatTimeOfDay(e.startTs)} → {formatTimeOfDay(e.doneTs)}
                           </span>
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${meta.cls}`}
+                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${meta.cls}`}
                           >
                             {meta.label}
                           </span>
                           {e.kind === "utos" && (
-                            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-pine-deep">
+                            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold text-pine-deep">
                               utos
                             </span>
                           )}
@@ -186,13 +184,13 @@ export function AfterHoursLedger({
                         <div className="font-display text-base text-foreground tabular-nums">
                           {fmtHoursMinutes(mins)}
                         </div>
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           {e.resolution === "premium" ? "rest-day premium" : "banked rest"}
                         </div>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <label className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                         Adjust
                         <input
                           type="number"
@@ -200,17 +198,17 @@ export function AfterHoursLedger({
                           onChange={(ev) =>
                             onUpdateEntry(e.id, { adjustMinutes: Number(ev.target.value) || 0 })
                           }
-                          className="w-16 rounded-lg border border-border bg-card px-2 py-1 text-right text-[11px] font-semibold text-foreground focus:border-primary/50 focus:outline-none"
+                          className="w-16 rounded-lg border border-border bg-card px-2 py-1 text-right text-xs font-semibold text-foreground focus:border-primary/50 focus:outline-none"
                         />
                         <span>min</span>
                       </label>
-                      <div className="inline-flex rounded-full border border-border bg-card p-0.5">
+                      <div className="inline-flex rounded-xl border border-border bg-card p-0.5">
                         {(["rest", "premium"] as const).map((k) => (
                           <button
                             key={k}
                             onClick={() => onUpdateEntry(e.id, { resolution: k })}
                             aria-pressed={e.resolution === k}
-                            className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
+                            className={`rounded-lg px-2.5 py-0.5 text-xs font-semibold ${
                               e.resolution === k
                                 ? "bg-primary text-primary-foreground"
                                 : "text-muted-foreground hover:text-foreground"
@@ -229,10 +227,10 @@ export function AfterHoursLedger({
         </>
       )}
 
-      <p className="mt-3 text-[10.5px] italic text-muted-foreground">
+      <p className="mt-3 text-xs italic text-muted-foreground">
         Being Available doesn't waive rest — voluntarily reachable still counts.
       </p>
-      <p className="mt-1 text-[10.5px] text-muted-foreground">
+      <p className="mt-1 text-xs text-muted-foreground">
         Rest-day premium rates follow local law (placeholder, configurable).
       </p>
     </section>

@@ -9,7 +9,7 @@ export function RescheduleNotice({
 }) {
   if (!notice) return null;
   return (
-    <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-[11px] leading-snug text-pine-deep">
+    <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-xs leading-snug text-pine-deep">
       <span className="mt-0.5">⏱</span>
       <span>
         <span className="font-semibold">Rescheduled:</span> {notice.oldTime} → {newTime} because{" "}

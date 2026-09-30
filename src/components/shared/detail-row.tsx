@@ -14,9 +14,7 @@ export function Row({ label, value, muted }: { label: string; value: string; mut
 export function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
       <span className="text-right text-sm font-semibold text-foreground">{value}</span>
     </div>
   );

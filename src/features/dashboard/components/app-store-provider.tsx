@@ -156,7 +156,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const pantryRef = useRef(pantry);
   pantryRef.current = pantry;
 
+  // Bumped to rebuild both channels after one closes unexpectedly. A closed
+  // channel is removed from the socket and can't be subscribed again.
+  const [realtimeEpoch, setRealtimeEpoch] = useState(0);
+
   useEffect(() => {
+    // Set by this effect's own cleanup. removeChannel() reports CLOSED too, and
+    // treating that as an outage used to resubscribe the removed channel 5s
+    // later -- "tried to join multiple times", plus a stray listener.
+    let disposed = false;
+    // A fresh topic per run: removeChannel() below is async, and channel(name)
+    // hands back any not-yet-removed channel with that name -- already joined,
+    // so a quick re-run would stack a second set of listeners on it and join
+    // it twice.
+    const run = crypto.randomUUID();
+    // CHANNEL_ERROR / TIMED_OUT: the client's own rejoin timer retries, so
+    // calling subscribe() again would double-join. Only an unexpected CLOSED
+    // needs us: rebuild fresh channels.
+    const rebuildIfClosed = (status: string) => {
+      if (status !== "CLOSED" || disposed) return;
+      setTimeout(() => {
+        if (!disposed) setRealtimeEpoch((e) => e + 1);
+      }, 5000);
+    };
+
     // 1. household-board-channel -- as of Closed Gap C12, tickets is real, so
     // any change (INSERT/UPDATE/DELETE, from this device or another) just
     // triggers a refetch, same "refetch on any change" pattern as
@@ -165,7 +188,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     // now that writes are real, Postgres Realtime alone covers every case
     // that broadcast used to (including tab-to-tab), so keeping both would
     // risk the same edit being applied twice under two different local copies.
-    const boardChannel = supabaseClient.channel("household-board-channel");
+    const boardChannel = supabaseClient.channel(`household-board-channel:${run}`);
 
     // Only the signed-in manager's session carries a real household_id
     // (see use-session.ts -- a helper's own session isn't tracked here).
@@ -228,12 +251,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         .subscribe((status, err) => {
           console.log(`[Realtime] household-board-channel status: ${status}`, err || "");
           setBoardChannelStatus(status);
-          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-            setTimeout(() => {
-              console.log("[Realtime] Attempting to reconnect household-board-channel...");
-              boardChannel.subscribe();
-            }, 5000);
-          }
+          rebuildIfClosed(status);
         });
     }
 
@@ -243,7 +261,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     // just triggers a refetch rather than hand-reconstructing the row --
     // simpler, and avoids the sender's own optimistic copy and the
     // realtime-delivered copy ever coexisting under different ids.
-    const utosChannel = supabaseClient.channel("quick-utos-channel");
+    const utosChannel = supabaseClient.channel(`quick-utos-channel:${run}`);
 
     if (utosRecipientId) {
       utosChannel
@@ -266,20 +284,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         .subscribe((status, err) => {
           console.log(`[Realtime] quick-utos-channel status: ${status}`, err || "");
           setUtosChannelStatus(status);
-          if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-            setTimeout(() => {
-              console.log("[Realtime] Attempting to reconnect quick-utos-channel...");
-              utosChannel.subscribe();
-            }, 5000);
-          }
+          rebuildIfClosed(status);
         });
     }
 
     return () => {
+      disposed = true;
       supabaseClient.removeChannel(boardChannel);
       supabaseClient.removeChannel(utosChannel);
     };
-  }, [utosRecipientId, session.householdId]);
+  }, [utosRecipientId, session.householdId, realtimeEpoch]);
 
   // Background Sync Daemon
   const syncOfflineQueue = async () => {
@@ -301,7 +315,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await removeFromQueue(item.id);
       }
 
-      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa. 📶");
+      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa.");
     } catch (err) {
       console.error("[Offline Sync] Sync failed:", err);
     }

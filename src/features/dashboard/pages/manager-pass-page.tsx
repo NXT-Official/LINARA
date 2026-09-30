@@ -2,7 +2,10 @@ import { useState } from "react";
 
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
+import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
+import type { Task } from "@/features/tasks/task.types";
+import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
@@ -39,6 +42,8 @@ export function ManagerPassPage({
     simDate,
     addTask,
     rescheduleTask,
+    editTask,
+    cancelTask,
     approveSuggestion,
     dismissSuggestion,
   } = board;
@@ -50,6 +55,7 @@ export function ManagerPassPage({
   const rosaStatus = availability.status;
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
   const [confirmingNewDay, setConfirmingNewDay] = useState(false);
   const [newDayPreview, setNewDayPreview] = useState<{
     pendingUtos: number;
@@ -78,7 +84,12 @@ export function ManagerPassPage({
     }
   };
 
-  const active = tasks.filter((t) => !t.queued && !t.suggested);
+  // The Pass is day-by-day: anything scheduled for a later day sits in
+  // "Coming up" and counts toward none of today's numbers.
+  const onBoard = tasks.filter((t) => !t.queued && !t.suggested);
+  const active = onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs));
+  const upcoming = onBoard.filter((t) => isLaterThanToday(t, clock.nowTs));
+  const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
   const gate = useSendGate({
     authorName,
     isRemote,
@@ -97,8 +108,11 @@ export function ManagerPassPage({
       <h1 className="sr-only">The Pass</h1>
       <ManagerPassTab
         active={active}
+        upcoming={upcoming}
         suggestions={tasks.filter((t) => t.suggested)}
-        blocked={active.filter((t) => t.status === "blocked")}
+        blocked={onBoard.filter((t) => t.status === "blocked")}
+        pastDue={pastDue}
+        nowTs={clock.nowTs}
         pendingVales={vales.vales.filter((v) => v.status === "pending")}
         flaggedInvites={inviteStore.invites.filter((i) => i.flags.length > 0)}
         helpers={helpers}
@@ -112,6 +126,8 @@ export function ManagerPassPage({
         canStartNewDay={canStartNewDay}
         onStartNewDay={openNewDayConfirm}
         onReschedule={rescheduleTask}
+        onEditTask={setEditing}
+        onCancelTask={cancelTask}
         onDecideVale={vales.decide}
         onResolveFlag={inviteStore.resolveFlag}
         onApproveSuggestion={approveSuggestion}
@@ -129,6 +145,18 @@ export function ManagerPassPage({
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
             setOpen(false);
+          }}
+        />
+      )}
+      {editing && (
+        <EditTaskModal
+          task={editing}
+          helperName={helpers.find((h) => h.id === editing.helperId)?.name ?? "your helper"}
+          schedule={schedules.scheduleFor(editing.helperId)}
+          onClose={() => setEditing(null)}
+          onSave={(edit) => {
+            editTask(editing.id, edit);
+            setEditing(null);
           }}
         />
       )}

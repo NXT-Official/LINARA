@@ -1,0 +1,16 @@
+{
+  "detector": {
+    "ignoreRules": [
+      "cream-palette"
+    ],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "fraunces",
+        "createdAt": "2026-09-30T14:07:54.838Z",
+        "reason": "Wordmark logotype only; headings use Literata"
+      }
+    ]
+  }
+}

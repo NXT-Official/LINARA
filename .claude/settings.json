@@ -11,7 +11,15 @@
       "PowerShell(npm run deploy:functions:check 2>&1)",
       "PowerShell(npm run deploy:functions 2>&1)",
       "PowerShell(npm exec -- supabase secrets list --project-ref tueckhlrrupmnzhblewy 2>&1)",
-      "PowerShell(Write-Output \"local now: $\\(Get-Date -Format 'u'\\)  tz: $\\(\\(Get-TimeZone\\).Id\\)\"; Write-Output \"utc now:   $\\([datetime]::UtcNow.ToString\\('u'\\)\\)\"; Write-Output \"--- independent clock: Supabase server timestamp from the deploy I just ran ---\"; $epoch=[datetimeoffset]::FromUnixTimeMilliseconds\\(1786991944015\\).UtcDateTime; Write-Output \"deploy updated_at \\(server\\): $\\($epoch.ToString\\('u'\\)\\)\"; $created=[datetime]::Parse\\('2026-08-17T04:33:38Z'\\).ToUniversalTime\\(\\); Write-Output \"key age vs server clock: $\\([math]::Round\\(\\($epoch-$created\\).TotalHours,1\\)\\) h\")"
+      "PowerShell(Write-Output \"local now: $\\(Get-Date -Format 'u'\\)  tz: $\\(\\(Get-TimeZone\\).Id\\)\"; Write-Output \"utc now:   $\\([datetime]::UtcNow.ToString\\('u'\\)\\)\"; Write-Output \"--- independent clock: Supabase server timestamp from the deploy I just ran ---\"; $epoch=[datetimeoffset]::FromUnixTimeMilliseconds\\(1786991944015\\).UtcDateTime; Write-Output \"deploy updated_at \\(server\\): $\\($epoch.ToString\\('u'\\)\\)\"; $created=[datetime]::Parse\\('2026-08-17T04:33:38Z'\\).ToUniversalTime\\(\\); Write-Output \"key age vs server clock: $\\([math]::Round\\(\\($epoch-$created\\).TotalHours,1\\)\\) h\")",
+      "Bash(git checkout-index *)",
+      "Bash(xargs -0 file)",
+      "Bash(git rm *)",
+      "Bash(git reset *)",
+      "Bash(git ls-tree *)",
+      "Bash(python -)",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('expo:',p.dependencies.expo\\);console.log\\('rn:',p.dependencies['react-native']\\);console.log\\('picker present:',!!p.dependencies['@react-native-community/datetimepicker']\\)\")",
+      "Bash(grep -rElim1 'openai|langchain_openai|google.generativeai|mistralai|cohere|ollama' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' .)"
     ]
   }
 }

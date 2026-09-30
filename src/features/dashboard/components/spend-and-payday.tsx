@@ -1,4 +1,4 @@
-import { CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
@@ -85,16 +85,14 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {/* 📈 Spend Dial Card */}
-      <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft hover:shadow-md transition duration-200">
+      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
-              Petty Cash Spend
-            </span>
+            <span className="text-xs font-bold text-muted-foreground block">Petty cash spend</span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly
               target
             </p>
@@ -123,14 +121,14 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums">
+            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums">
               {Math.round(spendPct)}%
             </div>
           </div>
         </div>
 
         {/* Micro status details */}
-        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <span
             className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
           >
@@ -144,16 +142,15 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               </>
             )}
           </span>
-          <span className="text-muted-foreground/80 font-mono text-[10px]">PALENGKE LIMIT</span>
         </div>
       </div>
 
       {/* 📉 Pay Dial Card */}
-      <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft hover:shadow-md transition duration-200">
+      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
-              {isHouseholdView ? "Payroll Due This Cutoff" : "Due This Cutoff"}
+            <span className="text-xs font-bold text-muted-foreground block">
+              {isHouseholdView ? "Payroll due this cutoff" : "Due this cutoff"}
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {/* While the cutoff is unknown, show nothing rather than a
@@ -161,7 +158,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                   has not confirmed is what Session B removed from this app. */}
               {payroll.loading ? "—" : fmtPeso(dueTotal)}
             </h3>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {payroll.loading ? (
                 "Checking this cutoff…"
               ) : allSettled ? (
@@ -209,14 +206,14 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums text-accent">
+            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums text-terracotta-ink">
               {payPct}%
             </div>
           </div>
         </div>
 
         {/* Breakdown details */}
-        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <div className="flex flex-wrap items-center gap-1 text-muted-foreground font-medium">
             {/* needs_review first: it is the only state a manager must ACT on
                 rather than wait out, and it means a payout whose outcome we
@@ -247,7 +244,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               // redeemed as time off, not added to the payout. The figure is
               // rest_owed_balance_minutes, the same number the rest-off card
               // and the helper's own app show, so the three cannot disagree.
-              <span className="text-accent inline-flex items-center gap-0.5">
+              <span className="text-terracotta-ink inline-flex items-center gap-0.5">
                 {fmtHoursMinutes(restOwedMin)} rest owed
               </span>
             )}
@@ -256,13 +253,10 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               valeDeductionsTotal === 0 &&
               restOwedMin === 0 && (
                 <span className="text-muted-foreground inline-flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-accent" /> Normal cutoff cycle
+                  Normal cutoff cycle
                 </span>
               )}
           </div>
-          <span className="text-muted-foreground/80 inline-flex items-center gap-1 font-mono text-[10px]">
-            <CalendarClock className="h-3 w-3" /> PAYDAY GAUGE
-          </span>
         </div>
       </div>
     </div>

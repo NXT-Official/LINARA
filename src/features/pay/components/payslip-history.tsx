@@ -34,10 +34,10 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
         ? "text-destructive bg-destructive/10"
         : status === "needs_review"
           ? "text-amber-600 bg-amber-500/10"
-          : "text-accent bg-accent/10";
+          : "text-terracotta-ink bg-accent/10";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}
     >
       <Icon className="h-3 w-3" /> {STATUS_LABEL[status]}
     </span>
@@ -139,23 +139,21 @@ export function PayslipHistory({
   };
 
   return (
-    <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+    <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
-            Current cutoff
-          </span>
+          <span className="text-xs font-bold text-muted-foreground block">Current cutoff</span>
           <h3 className="font-display text-lg text-foreground">
             {cutoff ? formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd) : "…"}
           </h3>
         </div>
         {!cutoff ? (
-          <span className="text-[11px] text-muted-foreground">Loading cutoff…</span>
+          <span className="text-xs text-muted-foreground">Loading cutoff…</span>
         ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={currentCutoffPayslip.payoutStatus} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
-              <span className="text-[10px] text-amber-600 text-right max-w-[11rem]">
+              <span className="text-xs text-amber-600 text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
               </span>
             )}
@@ -166,13 +164,13 @@ export function PayslipHistory({
                 assuming otherwise is how a cutoff gets paid twice. */}
             {staleness.isStale && (
               <div className="flex flex-col items-end gap-1">
-                <span className="text-[10px] text-amber-600 text-right max-w-[13rem]">
+                <span className="text-xs text-amber-600 text-right max-w-[13rem]">
                   Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
                 </span>
                 <button
                   onClick={reconcile}
                   disabled={reconciling}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
                 >
                   <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
                   {reconciling ? "Checking…" : "Check with Xendit"}
@@ -185,7 +183,7 @@ export function PayslipHistory({
             <button
               onClick={() => pay("PH_GCASH")}
               disabled={paying !== null}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
             >
               <Smartphone className="h-3.5 w-3.5" />
               {paying === "PH_GCASH" ? "Sending…" : "Pay via GCash"}
@@ -193,7 +191,7 @@ export function PayslipHistory({
             <button
               onClick={() => pay("PH_PAYMAYA")}
               disabled={paying !== null}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
             >
               <Smartphone className="h-3.5 w-3.5 text-accent" />
               {paying === "PH_PAYMAYA" ? "Sending…" : "Pay via Maya"}
@@ -203,12 +201,9 @@ export function PayslipHistory({
       </div>
 
       {helperPayslips.length > 0 && (
-        <div className="mt-4 space-y-1.5 border-t border-border/40 pt-3.5">
+        <div className="mt-4 divide-y divide-border/70 border-t border-border/40 pt-1.5">
           {helperPayslips.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between rounded-xl border border-border/50 px-3 py-2 text-xs"
-            >
+            <div key={p.id} className="flex items-center justify-between py-2.5 text-xs">
               <div>
                 <span className="font-semibold text-foreground">{fmtPeso(p.netPay)}</span>
                 <span className="ml-2 text-muted-foreground">

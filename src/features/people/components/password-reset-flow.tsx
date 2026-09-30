@@ -105,7 +105,7 @@ export function PasswordResetFlow() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           {mode === "done" ? (
@@ -143,7 +143,7 @@ export function PasswordResetFlow() {
             <button
               onClick={sendLink}
               disabled={loading}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
             </button>
@@ -188,7 +188,7 @@ export function PasswordResetFlow() {
             <button
               onClick={savePassword}
               disabled={loading}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save new password"}
             </button>

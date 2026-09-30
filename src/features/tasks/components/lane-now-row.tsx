@@ -6,12 +6,15 @@ import { isPalengke } from "../task.utils";
 export function LaneNowRow({
   label,
   task,
+  when,
   color,
   late,
   muted,
 }: {
   label: string;
   task: Task;
+  /** Display time, with the day when it isn't today (taskWhen). */
+  when: string;
   color: { solid: string; soft: string };
   late: boolean;
   muted?: boolean;
@@ -25,14 +28,10 @@ export function LaneNowRow({
       }}
     >
       <div className="flex items-center gap-1.5">
-        <span className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-          {label}
-        </span>
-        <span className="text-[11px] font-semibold tabular-nums text-foreground">
-          · {task.time}
-        </span>
+        <span className="text-xs font-bold text-muted-foreground">{label}</span>
+        <span className="text-xs font-semibold tabular-nums text-foreground">· {when}</span>
         {late && (
-          <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
+          <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
             Late
           </span>
         )}

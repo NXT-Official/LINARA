@@ -33,12 +33,12 @@ export function PantryRow({
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
           {low && (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-1.5 py-0.5 text-xs font-bold text-white">
               Low
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">
+        <div className="mt-0.5 text-xs text-muted-foreground">
           par {item.par} {item.unit}
         </div>
       </div>
@@ -72,7 +72,7 @@ export function PantryRow({
             aria-label={`Edit ${item.name} quantity`}
           >
             {item.qty}{" "}
-            <span className="text-[11px] font-normal text-muted-foreground">{item.unit}</span>
+            <span className="text-xs font-normal text-muted-foreground">{item.unit}</span>
           </button>
         )}
         <button

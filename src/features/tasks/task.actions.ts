@@ -416,6 +416,9 @@ export interface TicketPatch {
   queued?: boolean;
   suggested?: boolean;
   actualStart?: string | null;
+  scheduledStartIso?: string;
+  title?: string;
+  notes?: string | null;
 }
 
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
@@ -432,6 +435,9 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.queued !== undefined) dbPatch.queued = patch.queued;
     if (patch.suggested !== undefined) dbPatch.suggested = patch.suggested;
     if (patch.actualStart !== undefined) dbPatch.actual_start = patch.actualStart;
+    if (patch.scheduledStartIso !== undefined) dbPatch.scheduled_start = patch.scheduledStartIso;
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.notes !== undefined) dbPatch.notes = patch.notes;
 
     const authedClient = createAuthedClient(token);
     const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);

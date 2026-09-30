@@ -10,8 +10,11 @@ our DB; steps 3–4 delete and rewrite sandbox rows (disposable by the
 environment note in `AGENTS.md` / `KNOWN_GAPS.md`), and step 3 temporarily
 edits one helper's phone number.
 
-**Status:** NOT RUN. Paste raw output into the `Observed` blocks — verbatim,
-including HTTP status lines. Redact only the API key.
+**Status:** steps 0–2 and 4 RUN; steps 5–7 added 2026-08-18 for C40's three
+carried-forward branches, with the raw-probe halves already run. Outstanding
+and needing a human: **step 3**, **step 5a**, **step 6's app run**, **step 7's
+schedule**. Paste raw output into the `Observed` blocks — verbatim, including
+HTTP status lines. Redact only the API key.
 
 ---
 
@@ -649,7 +652,226 @@ Not a same-day step, and nothing blocks on it.
    ~72h. First run that returns a **new** `id` bounds the window. Record the
    `$ref`, the original `id`, and the timestamp of each replay.
 
-> **Observed (step 4):**
+> **Observed (step 4) — 24h checkpoint RUN 2026-08-18T05:40Z. Window is
+> `> 25.13h` and the key is still live, so this is a lower bound, not the
+> answer.**
+>
+> Replay of `e1-probe-20260817-123338` (created `2026-08-17T04:33:38Z`) at
+> **25.13h**, identical payload:
+>
+> ```
+> HTTP/1.1 200 OK
+> {"id":"disb-acda3c97-57c1-4523-9d17-56ac6a550485",   <- SAME id as 1A
+>  "reference_id":"e1-probe-20260817-123338","status":"SUCCEEDED",
+>  "created":"2026-08-17T04:33:38.428Z","updated":"2026-08-17T04:34:58.816Z"}
+> ```
+>
+> **The key is retained for at least 25h.** No second payout was created.
+>
+> **A methodological worry this killed:** the original probe bodies were written
+> to `$env:TEMP` (see Cleanup, below) and were **gone within ~25h**, so this
+> replay used a body *reconstructed* from the recipe at the top of step 1. The
+> fear was that PowerShell's unordered `@{}` → `ConvertTo-Json` might emit a
+> different key order, which Xendit could read as a *different* payload and
+> answer 409 instead of 200. It returned **200 with the original object**, so
+> the reconstruction was accepted as identical. **Exact bytes do not need
+> preserving** — the recipe in step 1 is sufficient, and only the `reference_id`
+> has to be written down.
+>
+> **Why a 409 would not have been a failed measurement either.** All three
+> outcomes bound the window, which is what makes this step cheap to repeat:
+>
+> | Replay result | Reading |
+> | --- | --- |
+> | 200 + original `id` | key retained |
+> | 200 + **new** `id` | key expired — window is between the last good check and now |
+> | 409 `DUPLICATE_ERROR` | key **retained** (a duplicate can only be raised while the key is still on file) |
+>
+> Replaying is therefore **non-destructive while the key is retained** — the
+> same key can be re-probed at 48h, 96h, 168h until it flips.
+>
+> **Ladder seeded 2026-08-18T05:41:38Z** so the bracket does not depend on one
+> probe. Both `ACCEPTED` on creation, ₱100 each, no `payout_attempts` rows:
+>
+> | ref | payout id | created |
+> | --- | --- | --- |
+> | `e1-ret-L1-20260818134137` | `disb-552dcfab-1365-4148-806b-487864fb5f44` | `2026-08-18T05:41:38.391Z` |
+> | `e1-ret-L2-20260818134138` | `disb-c268b2d5-5469-42b1-a97a-6090fc9f7709` | `2026-08-18T05:41:38.798Z` |
+>
+> **Still open:** the upper bound. Support has not answered (C40). Keep
+> replaying the original key on the schedule in step 7.
+
+---
+
+## Step 5 — `payout.cancelled` / `payout.reversed`
+
+C40 carries these as unobserved. They are **two separate claims** and they do
+not have the same answer, so do not test them as one thing:
+
+- **5a — does our handler map them correctly?**
+  `xendit-payout-webhook/index.ts:135-138` → attempt `cancelled` →
+  `record_payout_attempt_result` → payslip `failed`, vale released, cutoff
+  retryable.
+- **5b — does Xendit ever emit them?**
+
+### 5b first, because its answer decides whether 5a is optional — **RUN 2026-08-18, and the answer is NO**
+
+The plan was to cancel inside the pre-settlement window, using a
+*failure-bound* payout (`account_number: "123456"`) on the theory that 1G's
+3.5-minute create→FAILED gap gave 2.6x more room than the ~80s success path.
+
+**That theory is wrong.** Cancel was refused **1.2 seconds** after creation:
+
+```
+POST /v2/payouts/disb-dade4fe7-597d-42ec-98b7-9d2d539db28f/cancel
+HTTP/1.1 400 Bad Request
+{"error_code":"CANCELLATION_NOT_ALLOWED",
+ "message":"Disbursement cannot be canceled because it has already been processed by Xendit"}
+```
+
+The 3.5 minutes is how long the *failure* takes to surface; the payout leaves
+the cancellable state **immediately**. The window is effectively zero.
+
+**Conclusion: `payout.cancelled` is not reachable through the sandbox API at
+all.** Not "hard to catch" — unreachable. `payout.reversed` is a
+post-settlement bank return and is not expected to be triggerable in test mode
+either; nothing here contradicts that.
+
+This **promotes 5a from a cheap first step to the only available method**, and
+it is a finding in its own right: the branch cannot be verified end to end
+until a real reversal happens in production. Record it that way rather than
+leaving it as "not yet done".
+
+### 5a — the synthetic replay (the only way in)
+
+The function is a public HTTPS receiver, you hold the verification token, and
+[`E1_XENDIT_VERIFIED.md`](E1_XENDIT_VERIFIED.md) has a real captured envelope.
+Take the verbatim `payout.succeeded` body, change `event` to
+`payout.cancelled`, point `data.reference_id` at a live attempt, and POST it.
+
+Get a non-terminal attempt **without calling Xendit**: `initiate_payslip`
+writes the payslip and the attempt row, and `pay.actions.ts` does the HTTP
+separately — so calling the RPC alone leaves an attempt at its
+`status DEFAULT 'sending'`
+([`add-payout-attempts.sql:77`](supabase/add-payout-attempts.sql#L77)). That is
+non-terminal, so the idempotent short-circuit at `index.ts:109-113` will not
+swallow the event. Use the impersonation pattern from step 0's optional block,
+but **commit** instead of rolling back.
+
+Give the helper an approved vale first, or the release path is not exercised.
+
+**Pass criteria:** attempt `cancelled`; payslip `failed`; the vale back to
+`settled_in_payslip_id is null`; the cutoff retryable.
+
+> **This proves our branch, not Xendit's behaviour.** It is exactly as good as
+> the envelope assumption, and the envelope is only *known* for
+> `payout.succeeded` / `payout.failed`. If a real cancelled event nests its
+> fields differently, this passes green and production still breaks. That is
+> **C44 in a different costume** — there, configuration was right and the
+> deployed build was wrong; here, the handler is right and the envelope is
+> assumed. Log it as **"handler verified, emission unverified"** and do not let
+> it close C40's bullet on its own.
+
+> **Observed (step 5a):**
+>
+> ```
+> (paste)
+> ```
+
+---
+
+## Step 6 — The synchronous-rejection branch
+
+`pay.actions.ts:426-430` — Xendit receives the request and says no, at POST
+time. 1G ruled out the simulation account numbers (they are asynchronous), so
+this needed a different trigger.
+
+### Trigger hunt — **RUN 2026-08-18, three found**
+
+Raw `POST /v2/payouts` probes, no DB involvement. Results:
+
+| Probe | HTTP | `error_code` | App-reachable? |
+| --- | --- | --- | --- |
+| `channel_code: "PH_NOTREAL"` | **400** | `CHANNEL_CODE_NOT_SUPPORTED_ERROR` | No — `channelCode` is a UI enum |
+| `amount: 0` | **400** | `MINIMUM_TRANSFER_LIMIT_ERROR` | Yes — `net_pay` can be 0 via `GREATEST(0, …)` |
+| `account_number: "abc"` | **400** | `API_VALIDATION_ERROR` (`fails to match the required pattern: /^\d+$/`) | **Yes — best route**, `helper_profiles.phone` goes straight through |
+| `amount: 1` | 200 | — | accepted, so the channel minimum is ≤ ₱1; only exactly `0` rejects |
+| `amount: 99999999` | 200 | — | accepted — **test mode does not check balance** |
+
+**Two dead ends worth not re-walking:** the insufficient-balance idea is out
+twice over — `GET /balance` returns `REQUEST_FORBIDDEN_ERROR` on *both* the
+read and write keys (the sandbox keys lack the scope), and ₱99,999,999 was
+accepted anyway. And none of the three rejections is a 409, so
+`pay.actions.ts:407`'s `isDuplicate` test cannot mis-catch them.
+
+### Running it through the app
+
+A curl probe proves Xendit rejects; it does **not** run line 426. Reproduce the
+`account_number` rejection through the UI — one column, same disposable-sandbox
+pattern as step 3's phone swap, and the same don't-skip-the-restore warning:
+
+```sql
+-- Kuya Marito. Real number is 09565563333 -- write it down before you change it.
+update public.helper_profiles set phone = 'abc'
+where id = '61c73ec7-9512-4805-8733-885d973be916';
+```
+
+`pay.actions.ts` only guards `!helperRow.phone`, so a non-empty non-numeric
+value passes that check and reaches Xendit, which rejects it synchronously.
+
+**Pass criteria:** attempt `failed` with Xendit's message in `failure_reason`;
+payslip `failed`; vales released (`settled_in_payslip_id is null`); cutoff
+retryable; and confirm it did **not** take the `isDuplicate` branch.
+
+**Then restore, exactly as step 3 warns:**
+
+```sql
+update public.helper_profiles set phone = '09565563333'
+where id = '61c73ec7-9512-4805-8733-885d973be916';
+select id, name, phone from public.helper_profiles order by created_at;
+```
+
+> **Expect a poor `failure_reason`, and check whether it is worth fixing.**
+> `pay.actions.ts:428` reads
+> `body.message || body.errors?.[0]?.message`. On `API_VALIDATION_ERROR`,
+> `body.message` is the generic *"There was an error with the format submitted
+> to the server."* while the useful detail (*which* field, *which* pattern)
+> sits in `body.errors[0].message`. The `||` therefore takes the useless half
+> and the specific half is discarded into `failure_reason`. Small, but this is
+> the string a manager sees on a failed payout.
+
+> **Observed (step 6):**
+>
+> ```
+> (paste)
+> ```
+
+---
+
+## Step 7 — Retention window, continued
+
+The measurement is a lower bound that only improves by being re-run. Replay is
+**non-destructive while the key is retained** (step 4's table), so this costs
+nothing until it flips.
+
+```powershell
+# Rebuild the body from step 1's recipe -- verified sufficient, see step 4.
+$ref = 'e1-probe-20260817-123338'   # or e1-ret-L1-… / e1-ret-L2-…
+```
+
+| When | Key | Looking for |
+| --- | --- | --- |
+| 48h (`2026-08-19T04:33Z`) | original | new `id` = expired |
+| 96h (`2026-08-21T04:33Z`) | original, then L1 | first flip bounds the window |
+| 168h (`2026-08-24T04:33Z`) | L1, L2 | narrows whatever 96h left open |
+
+**Lowest priority of the three, deliberately.** Keys are per-attempt and
+`UNIQUE` ([`add-payout-attempts.sql:68`](supabase/add-payout-attempts.sql#L68)),
+so one is never deliberately replayed. The window only decides whether the
+duplicate branch stays a pure bug signal — it is not on the money path. Step 6
+is, and step 6 had no verification of any kind behind it.
+
+> **Observed (step 7):**
 >
 > ```
 > (paste)
@@ -668,16 +890,26 @@ Fill in after the paste-back; this is the whole point of doing E1 before E2–E6
 | **1D** — 409 + `error_code: DUPLICATE_ERROR` | None. The existing `isDuplicate` test is correct as written — promote the comment from "guess" to "verified 2026-08-17". | confirmed, no change |
 | **1F** — unknown ref = 200 + `data:[]` | None. Confirms a miss yields `null` → `ambiguous` → `needs_review`, as designed. | confirmed, no change |
 | **1G** — simulated failures are async | None to code, but step 3's expectations change: the failure arrives by webhook, several minutes after the UI says `processing`. The synchronous rejection branch (line 367) remains unverified. | confirmed |
-| 1E — webhook delivery | Close C35's open sub-item if delivery is observed. | **pending** |
-| Step 2 pass | The end-to-end proof: webhook writes into `payslips`. | **pending** |
-| Step 4 window | Decide whether per-attempt keys stay sufficient (they should) and record the number in C36/C37. | **pending** |
+| 1E — webhook delivery | Close C35's open sub-item if delivery is observed. | confirmed |
+| Step 2 pass | The end-to-end proof: webhook writes into `payslips`. | confirmed |
+| **5b** — cancel refused at 1.2s, `CANCELLATION_NOT_ALLOWED` | None to code. Reclassify `payout.cancelled` from "not yet observed" to **not reachable in sandbox** — verifiable only by synthetic replay (5a) until a real production reversal. | confirmed |
+| **6** — three synchronous 400s found; `account_number` pattern is the app-reachable one | None yet. Run it through the app so `pay.actions.ts:426` actually executes. Separately consider the `body.message \|\| body.errors[0].message` ordering, which discards the specific error. | confirmed, app run pending |
+| **6** — `GET /balance` forbidden on both keys; ₱99,999,999 accepted | None. Records that the insufficient-balance trigger is unavailable *and* unnecessary. | confirmed, no change |
+| **Step 4** — key retained at 25.13h; reconstructed body accepted as identical | None. Lower bound only; keep replaying per step 7. Confirms per-attempt keys stay sufficient. | confirmed, upper bound open |
 
-**Not observed, and still guesses:** the exact webhook envelope (`event` name
-spelling, whether `data.failure_code` is present) — that needs 1E; and
-`pay.actions.ts`'s synchronous-rejection branch, which no simulation account
-number reaches.
+**Not observed, and still guesses:** `payout.reversed` (a post-settlement bank
+return — not expected to be triggerable in test mode at all); the real
+`payout.cancelled` **envelope**, which step 5a assumes matches the
+succeeded/failed shape; and the synchronous-rejection branch *as executed by
+`pay.actions.ts`* — step 6 has proven Xendit rejects, but not yet that our
+branch records it correctly.
 
 **Cleanup when done:** `Remove-Item $probeA, $probeB` and
 `Remove-Item Env:\XKEY`. Both probe files live in `$env:TEMP`, so nothing lands
-in the repo — but do keep `$ref` and 1A's payout `id` written down, step 4
-needs them days later.
+in the repo.
+
+**Do keep `$ref` and 1A's payout `id` written down** — step 7 needs them days
+later, and `$env:TEMP` does not hold: the original probe bodies were **gone
+within ~25h**. That turned out not to matter (step 4 proved a reconstructed
+body is accepted as identical), so the recipe above plus the reference id is
+the whole of what must survive. Record refs in this file, not on disk.

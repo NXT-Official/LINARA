@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
+import { LogoMark } from "@/components/shared/logo";
 
 import { useSession } from "../hooks/use-session";
 
@@ -117,11 +118,9 @@ export function ManagerAuthFlow() {
 
   if (session.status === "needs_bootstrap") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Sparkles className="h-5 w-5" />
-          </div>
+          <LogoMark className="h-10 w-10" />
           <h1 className="mt-4 font-display text-2xl text-foreground">Finish setting up</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Naka-confirm na ang email mo. Ilagay na lang ang pangalan mo at household name.
@@ -149,7 +148,7 @@ export function ManagerAuthFlow() {
           <button
             onClick={submitBootstrap}
             disabled={loading || !fullName.trim()}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -165,11 +164,9 @@ export function ManagerAuthFlow() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F3EC] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Sparkles className="h-5 w-5" />
-        </div>
+        <LogoMark className="h-10 w-10" />
         <h1 className="mt-4 font-display text-2xl text-foreground">
           {mode === "signup" ? "Set up your household" : "Welcome back"}
         </h1>
@@ -248,7 +245,7 @@ export function ManagerAuthFlow() {
         <button
           onClick={submit}
           disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? (
             <>

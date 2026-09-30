@@ -93,6 +93,22 @@ the bottom.
 - **Current workaround:** None (fine while everything is sandbox-only, per the Closed Gaps environment note).
 - **To close:** Policy/terms pages on the web app (linked from landing, `/login`, and the mobile claim screen), plus an account-deletion request path. Deletion has to be reconciled with RA 10361 payslip retention, so "delete my account" can't mean "delete my payslips". Needs a legal review before publishing, not just a template.
 
+### O9. Task times render in the viewer's device time zone, not the household's
+
+- **Found:** 2026-09-30, while adding past-due tasks to Needs You.
+- **What's missing:** `isoToDisplayTime` / `combineDateAndTime` (`src/lib/time.ts`) read and write `tickets.scheduled_start` in the **browser's** time zone. An OFW admin in Dubai would see a 7:30 PM Manila task as 3:30 PM, and a task they create for "7:30 PM" lands at 11:30 PM in the house. C38 fixed the same class of bug for pay cutoffs with `households.timezone`; tickets never got that treatment.
+- **Blocks:** Nothing today (O2: a remote admin can't join yet). Becomes real the moment OFW mode ships, which is the brand doc's stated wedge.
+- **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
+- **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
+
+
+### O14. `reschedule_notice.oldTime` is rendered in the web server's time zone
+
+- **Found:** 2026-10-01, building the mobile appointment-move heads-up.
+- **What's missing:** `rescheduleAppointmentFn` (`src/features/appointments/appointment.actions.ts`) is a server function, and it builds the notice's `oldTime`/`oldDate` with `isoToDisplayTime`/`isoToISODate`, which format in the *runtime's* time zone. On Vercel that is UTC, so a Manila household's "was 8:00 PM" would be stored as "12:00 PM". Same family as O9 and the C38 cutoff bug.
+- **Blocks:** Showing "was X, now Y" anywhere.
+- **Current workaround:** `LINARA_MOBILE`'s `MovedTasksBanner` shows only the new time (from the real `scheduled_start` instant) and the appointment's title, never `oldTime`.
+- **To close:** Store the old instant (`oldStartIso`) in the notice instead of a pre-formatted string, and format it on the device, or in `households.timezone`. Owned by `LINARA`.
 ---
 
 ## Closed Gaps
@@ -2929,6 +2945,46 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** the copy now says only what ships. "Built around Batas Kasambahay": wages checked against the regional minimum, and the SSS/PhilHealth/Pag-IBIG split worked out on every payslip. "Her login, her pay record": she sets her own password; payslips, vale balance and rest owed show the same numbers on both sides. "Built for busy parents who can't watch the house all day" replaces the OFW line.
 - **Put these back when:** "compliant" once remittance exists (C46), OFW once O2 closes, and portable record once O4 closes.
 - **Same pass (brand assets, not a gap):** replaced the placeholder `favicon.ico`-for-every-size PWA icons and Expo's default mobile icons with an interim logomark (the brand doc's "i"-dot as a roofline with a check tick), added `og-image.png` plus `og:image`/`twitter:image` meta (made absolute via the new `SITE_URL` build var, falling back to Vercel's production URL), renamed the mobile app from `LINARA_MOBILE` to `Linara`, and made the iOS icon opaque. The mark is a stand-in until a designer produces the real one.
+
+### C52. A missed routine instance couldn't be cleared from Needs You (former Open Gap O10)
+
+- **Found:** 2026-09-30, adding past-due tasks to Needs You. **Fixed:** 2026-09-30.
+- **Was:** Unfinished tickets carry over across days and "Start new day" respawns every routine, so a missed routine instance sat past due indefinitely. The first cut offered only "Move to next workday", and not for routines (moving one would duplicate the next spawn).
+- **Fix:** Past-due items in Needs You now have **Edit** (title, note, date, time; `edit-task-modal.tsx`, which warns when the new time falls outside the helper's shift) and **Cancel task** (with an inline confirm). Move was dropped: the user's call was that an overdue task is often no longer needed, so changing or removing it fits better than pushing it forward. Cancel deletes the row (`deleteTicketFn`): `tickets.status` has no `cancelled` value, and a ticket still `todo` carries no work or ledger entry (`ledger_entries.associated_ticket_id` is `ON DELETE SET NULL` regardless), so nothing of the helper's record is lost. For a routine instance, cancelling is effectively "skip this one".
+- **Deliberately not in Edit:** reassigning to another helper. That is a new ask to a different person and should go through New task and its send gate (`use-send-gate.ts`). Remote admins see past-due items but get neither action, since schedules stay with on-site managers.
+- **Revisit if:** a real `cancelled` status is added (concept §8's state machine has one). Then cancel should set it instead of deleting, so the Pass can show "cancelled" rather than the task silently vanishing from the helper's app.
+
+### C53. A helper couldn't say "not now" -- no Blocked path in the mobile app (former Open Gap O11)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` branch `jamesDev-worker-station` (`81bd16a`).
+- **Was:** the concept doc keeps Blocked on purpose ("the ability to say 'not now' is what separates a colleague from a subordinate") and the web Pass shows blocked tasks in Needs You, but nothing in the mobile app wrote `status = 'blocked'` or `block_reason`.
+- **Fix:** "Hindi ko magagawa ngayon" on the focus card: three one-tap reasons or her own words, no approval step. `blockTicket` uses the existing columns (RLS already allowed the update), with a new `block_ticket` offline-queue action. While on hold the card shows her reason; `pickFocus` moves her to the next task, and the manager's Reschedule in Needs You puts it back.
+
+### C54. No completion photo -- the Done "plated dish" was never captured (former Open Gap O12)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `f0b2960`.
+- **Was:** `plan.md` and the concept doc describe Start -> do -> photo -> Done, and the web's OFW glance is built from Done photos, but `today.tsx` completed tickets with no photo (roadmap Story 7 omitted the step).
+- **Fix:** an optional "Ipakita ang natapos mo" photo before Done, reusing the palengke receipt path (compressed upload to `household-evidence`, `<household>/tickets/...`; offline it queues with the local file). A failed upload leaves the task in progress rather than completing it without the photo. Never required.
+
+### C55. The Worker's Station had no close (former Open Gap O13)
+
+- **Found / fixed:** 2026-09-30 / 2026-10-01, `LINARA_MOBILE` `50016ca`.
+- **Was:** mobile never read `households.board_closed`, showed no day summary, and offered the next task after her shift.
+- **Fix:** `DayCloseCard` ("Great work today — 8 of 8, tapos!", a rest line, what's left, what's on hold) replaces the focus card when the board is closed (polled each minute; there is no realtime channel on `households`), on her rest day, overnight (22:00-06:00) or after her shift, unless she has opted in as Available. A task already in progress, or one sent off-hours through the override/emergency path, still shows under it. Greeting follows the hour.
+- **Residual:** board-closed reaches the phone within a minute, not instantly. A realtime subscription on `households` would fix that if it matters.
+
+### C56. The helper's focus card showed unapproved suggestions, queued tasks and later-dated tasks
+
+- **Found / fixed:** 2026-10-01, `LINARA_MOBILE` `47da6ce`.
+- **Was:** `getFocusTask` took her earliest unfinished ticket with no other filter, so her Station could show a remote admin's suggestion still awaiting on-site approval (`suggested`), a ticket held off the board until the manager reopens it (`queued`), or a ticket scheduled for a later day. The first two contradict the concept doc's remote-admin rule and "the board closes for the night"; the web Pass hides all three.
+- **Fix:** the query filters `suggested = false` and `queued = false`, and applies the same day-by-day rule as the web Pass (`isLaterThanToday`, in `lib/today.ts` with tests). It also stopped re-reading her finished history on every fetch.
+
+### C57. Helpers' flags on their terms never reached the manager
+
+- **Found / fixed:** 2026-10-01, `LINARA` `456d2dd`, while adding My Record's "May mali?" in `LINARA_MOBILE` (`8e95906`).
+- **Was:** the web never read `invite_flags`. `use-invites.ts` mapped every helper with `flags: []`, so a flag a kasambahay raised while claiming (`flag_invite`, "the wage is wrong") was stored and shown to no one, and Needs You's "Mark resolved" only hid a flag in the current tab. The review-terms promise that she can flag anything wrong had no manager side.
+- **Fix:** `listInviteFlagsFn` loads the household's flags (a separate query, since `invite_flags.invite_id` has no declared foreign key to embed on) and `use-invites` attaches them per helper; `resolveInviteFlagFn` deletes on "Mark resolved", with rollback and a toast on failure. The invite-time minimum-wage check now writes `field = 'wage_below_minimum'` and shows as a "Compliance check" instead of as the helper flagging her wage. `LINARA_MOBILE` My Record lets a claimed helper raise a flag any time; `flag_invite` only accepts unclaimed invites, so she writes the row directly under the household-scoped `invite_flags_isolation` policy.
+- **Residual:** wage-check rows written before this change carry `field = 'wage'` and still read as helper flags (sandbox data only).
 
 ---
 

@@ -4,22 +4,34 @@ import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
+import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
-/** The Board layout: today's tasks by status, in time order, with a 'now' marker. */
-export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers: Helper[] }) {
+/**
+ * The Board layout: today's tasks by status, in time order, with a 'now'
+ * marker; later days' tasks follow under "Coming up" and aren't counted.
+ */
+export function TheBoardStatusLists({
+  tasks,
+  upcoming,
+  helpers,
+  nowTs,
+}: {
+  tasks: Task[];
+  upcoming: Task[];
+  helpers: Helper[];
+  nowTs: number;
+}) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
-  const sorted = useMemo(
-    () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
-    [tasks],
-  );
+  const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
+  const later = useMemo(() => [...upcoming].sort(byStart), [upcoming]);
   const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const doing = sorted.filter((t) => t.status === "in_progress");
   const done = sorted.filter((t) => t.status === "done");
-  const nowMin = doing.length > 0 ? parseTimeToMinutes(doing[0].time) : null;
-  const overdueId = (t: Task) =>
-    t.status === "blocked" || (nowMin !== null && parseTimeToMinutes(t.time) < nowMin);
+  const now = new Date(nowTs);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const overdueId = (t: Task) => t.status === "blocked" || isPastDue(t, nowTs);
 
   const tabs = [
     { key: "todo" as const, label: "To-do", count: todo.length, list: todo },
@@ -29,23 +41,26 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
   const current = tabs.find((t) => t.key === tab)!;
 
   // Insertion index for the "now" marker in the To-do timeline:
-  // place it before the first todo whose time >= the current in-progress time.
+  // place it before the first todo that starts at or after the current moment.
   let nowMarkerIdx = -1;
-  if (tab === "todo" && nowMin !== null) {
-    nowMarkerIdx = todo.findIndex((t) => parseTimeToMinutes(t.time) >= nowMin);
+  if (tab === "todo") {
+    nowMarkerIdx = todo.findIndex((t) => {
+      const ms = t.scheduledStart ? Date.parse(t.scheduledStart) : Number.NaN;
+      return Number.isNaN(ms) ? parseTimeToMinutes(t.time) >= nowMin : ms >= nowTs;
+    });
     if (nowMarkerIdx === -1) nowMarkerIdx = todo.length; // all overdue → marker at the end
   }
 
   return (
     <section className="space-y-3">
-      <div className="inline-flex w-full rounded-full border border-border bg-card p-1 shadow-soft">
+      <div className="inline-flex w-full rounded-xl border border-border bg-card p-1 shadow-soft">
         {tabs.map((t) => {
           const active = t.key === tab;
           return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
                 active
                   ? "bg-primary text-primary-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground"
@@ -53,7 +68,7 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
             >
               {t.label}
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-pine-deep"}`}
+                className={`rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-pine-deep"}`}
               >
                 {t.count}
               </span>
@@ -65,7 +80,7 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
       <div className="space-y-2.5">
         {current.list.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            Nothing here.
+            {tab === "todo" ? "Nothing left for today." : "Nothing here."}
           </div>
         ) : (
           current.list.map((t, i) => (
@@ -73,6 +88,7 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
               {tab === "todo" && i === nowMarkerIdx && <NowMarker />}
               <BoardTaskCard
                 task={t}
+                when={taskWhen(t, nowTs)}
                 late={tab !== "done" && overdueId(t)}
                 isDoing={t.status === "in_progress"}
                 helpers={helpers}
@@ -82,6 +98,24 @@ export function TheBoardStatusLists({ tasks, helpers }: { tasks: Task[]; helpers
         )}
         {tab === "todo" && nowMarkerIdx === current.list.length && current.list.length > 0 && (
           <NowMarker />
+        )}
+        {tab === "todo" && later.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 px-1 pt-2">
+              <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            {later.map((t) => (
+              <BoardTaskCard
+                key={t.id}
+                task={t}
+                when={taskWhen(t, nowTs)}
+                late={false}
+                isDoing={false}
+                helpers={helpers}
+              />
+            ))}
+          </>
         )}
       </div>
     </section>

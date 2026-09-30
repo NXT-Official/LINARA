@@ -12,11 +12,14 @@ import { RecurrenceBadge } from "./recurrence-badge";
 
 export function BoardTaskCard({
   task,
+  when,
   late,
   isDoing,
   helpers,
 }: {
   task: Task;
+  /** Display time, with the day when it isn't today (taskWhen). */
+  when: string;
   late: boolean;
   isDoing: boolean;
   helpers: Helper[];
@@ -26,14 +29,16 @@ export function BoardTaskCard({
   const helper = findHelper(task.helperId, helpers);
   const color = STATION_HEX[task.station];
   const isDone = task.status === "done";
+  // "Thu 7:30 PM" -> "Thu" over "7:30 PM", so the narrow column never splits the time.
+  const day = when.endsWith(task.time)
+    ? when.slice(0, -task.time.length).replace(/,?\s*$/, "")
+    : "";
   return (
-    <article
-      className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft"
-      style={{ borderLeft: `4px solid ${color.solid}` }}
-    >
+    <article className="overflow-hidden rounded-2xl ring-1 ring-border/20 bg-card shadow-soft">
       <div className="flex items-start gap-2.5 p-3">
-        <span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {task.time}
+        <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold leading-tight tabular-nums text-muted-foreground">
+          {day && <span className="block">{day}</span>}
+          {day ? task.time : when}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -43,19 +48,19 @@ export function BoardTaskCard({
               {task.title}
             </h4>
             {isDoing && (
-              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent-foreground">
+              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">
                 Doing
               </span>
             )}
             {late && (
-              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
+              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
                 Late
               </span>
             )}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
               style={{ backgroundColor: color.soft, color: "var(--pine-deep)" }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color.solid }} />
@@ -63,14 +68,14 @@ export function BoardTaskCard({
             </span>
             <RecurrenceBadge recurrence={task.recurrence} />
             {task.appointmentTitle && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] font-medium text-pine-deep">
+              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-xs font-medium text-pine-deep">
                 <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
               </span>
             )}
             {task.note && (
               <button
                 onClick={() => setShowNote((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
               </button>
@@ -78,7 +83,7 @@ export function BoardTaskCard({
             {isDone && task.photo && (
               <button
                 onClick={() => setShowPhoto((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
               </button>
