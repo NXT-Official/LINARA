@@ -19,7 +19,7 @@ export function EndOfDayToggle({
       }`}
     >
       <Moon className="h-3.5 w-3.5" />
-      <span className="whitespace-nowrap">Simulate end of day</span>
+      <span className="whitespace-nowrap">Close board</span>
       <span
         className={`relative h-4 w-7 rounded-full transition ${closed ? "bg-primary" : "bg-muted"}`}
       >
