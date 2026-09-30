@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -273,6 +273,15 @@ export function ManagerAuthFlow() {
         >
           {mode === "signup" ? "Already have an account? Log in" : "New household? Set one up"}
         </button>
+
+        {mode === "login" && (
+          <Link
+            to="/reset-password"
+            className="mt-2 block text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Forgot password?
+          </Link>
+        )}
       </div>
     </div>
   );

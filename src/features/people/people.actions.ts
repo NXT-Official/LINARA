@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { supabaseClient, createAuthedClient } from "@/lib/supabase";
 
@@ -529,4 +530,58 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
     }
 
     return { helperId, monthlyRate };
+  });
+
+/**
+ * 13. Request Password Reset Endpoint (Server Function)
+ * Shared by managers (web /login) and helpers (LINARA_MOBILE sign-in, which
+ * calls Supabase directly with the same redirect). Supabase only sends mail
+ * to redirect URLs on the project's Auth allow-list, and never reveals
+ * whether the address has an account -- neither does this.
+ */
+export const requestPasswordResetFn = createServerFn({ method: "POST" })
+  .validator((data: { email: string; redirectTo: string }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(data.email.trim(), {
+      redirectTo: data.redirectTo,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { sent: true };
+  });
+
+/**
+ * 14. Complete Password Reset Endpoint (Server Function)
+ * Takes the recovery session from the emailed link's URL fragment and sets
+ * the new password. Uses a throwaway client rather than the shared
+ * `supabaseClient`, so the recovery session never lingers in a module-level
+ * client that later requests reuse.
+ */
+export const completePasswordResetFn = createServerFn({ method: "POST" })
+  .validator((data: { accessToken: string; refreshToken: string; password: string }) => data)
+  .handler(async ({ data }) => {
+    if (data.password.length < 6) {
+      throw new Error("Dapat may kahit anim (6) na characters ang password.");
+    }
+    const client = createClient(
+      process.env.SUPABASE_URL || "",
+      process.env.SUPABASE_ANON_KEY || "",
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
+    const { error: sessionError } = await client.auth.setSession({
+      access_token: data.accessToken,
+      refresh_token: data.refreshToken,
+    });
+    if (sessionError) {
+      throw new Error("Expired na ang reset link. Humingi ng bago.");
+    }
+    const { error } = await client.auth.updateUser({ password: data.password });
+    if (error) {
+      throw new Error(error.message);
+    }
+    await client.auth.signOut({ scope: "local" });
+    return { updated: true };
   });
