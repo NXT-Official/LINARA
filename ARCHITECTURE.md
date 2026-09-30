@@ -666,15 +666,25 @@ This database structure outlines the PostgreSQL relational mappings required to 
 
 ```sql
 -- 1. Profiles Table (Holds global users)
+--
+-- household_id is nullable since supabase/add-employment-end.sql: a helper
+-- between households (her employment ended, she hasn't joined another)
+-- belongs to none. Managers always have one.
 CREATE TABLE public.user_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    household_id UUID NOT NULL,
+    household_id UUID,
     full_name TEXT NOT NULL,
     user_type TEXT NOT NULL CHECK (user_type IN ('primary_manager', 'co_manager', 'remote_admin', 'helper')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- 2. Helper Profiles (Holds terms of employment)
+--
+-- One row is one EMPLOYMENT (one household, one set of terms), not one
+-- person: the person is user_id. end_helper_employment() (see
+-- supabase/add-employment-end.sql) sets status = 'INACTIVE' and ended_on
+-- without deleting anything; join_household_with_invite() lets the same
+-- account take a new invite. At most one ACTIVE row per user_id.
 CREATE TABLE public.helper_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
@@ -694,6 +704,9 @@ CREATE TABLE public.helper_profiles (
     employment TEXT CHECK (employment IN ('live-in', 'live-out')),
     phone TEXT,
     created_by UUID REFERENCES public.user_profiles(id),
+    ended_on DATE, -- her last working day, once the employment has ended
+    ended_at TIMESTAMP WITH TIME ZONE,
+    ended_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -1005,14 +1018,23 @@ CREATE POLICY grocery_items_isolation ON public.grocery_items
     FOR ALL USING (household_id = public.current_household_id());
 
 -- Helper Private Notes Policy (The Privacy Wall)
--- Prevents any non-owner (including managers) from reading/writing notes
+-- Prevents any non-owner (including managers) from reading/writing notes.
+-- Set-valued since supabase/add-employment-end.sql: the old scalar subquery
+-- errored once a helper had a second employment.
 CREATE POLICY helper_notes_privacy ON public.helper_notes
     FOR ALL USING (
-        helper_id = (
-            SELECT id FROM public.helper_profiles
-            WHERE user_id = auth.uid()
+        helper_id IN (
+            SELECT hp.id FROM public.helper_profiles hp
+            WHERE hp.user_id = auth.uid()
         )
     );
+
+-- Her own history, in every household she has worked for (read-only,
+-- supabase/add-employment-end.sql): user_profiles_self_read (id = auth.uid()),
+-- helper_profiles_own_read (user_id = auth.uid()), and payslips_own_read /
+-- rest_off_requests_own_read / tickets_own_read / households_own_history_read,
+-- each an EXISTS through helper_profiles.user_id = auth.uid(). Additive SELECT
+-- policies; every write still goes through the household-scoped ones.
 
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every
