@@ -61,15 +61,6 @@ the bottom.
 - **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
 - **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
 
-### O4. "Your record stays even if you change households" has no mechanism behind it
-
-- **Found:** 2026-09-30, launch-readiness review.
-- **What's missing:** `LINARA_MOBILE/app/(auth)/claim-account.tsx` tells the helper "Mananatili ang record mo kahit magpalit ka ng household". The landing page says her history forms "a portable portfolio she can present to banks, agencies, or future employers". The concept doc (§4 principle 4) calls this non-negotiable. In the code: nothing ever sets `helper_profiles.status = 'INACTIVE'` (no offboarding flow); `user_profiles.household_id` is a single `NOT NULL` column, so one account belongs to exactly one household; a second employer's invite can't be claimed by an existing account (the claim flow calls `auth.signUp`, which fails for an existing email); and there's no export, certificate, or "Record" tab (concept §11 lists `Today · Pantry · My Pay · Record`; mobile ships the first three).
-- **Blocks:** The portable-record pitch, and the future proof-of-income and fintech path (concept §12).
-- **Current workaround (2026-10-01):** part (3) below is done. `LINARA_MOBILE` has a My Record tab (`8e95906`), and its "I-download ang record ko (PDF)" (`585506b`) makes a work record on her phone. It covers her terms, a summary, every paid payslip and approved time off, and states that contributions were deducted (not that they were remitted) and that it isn't a certificate of employment. The file is hers, so it survives the household removing her. The claim screen now promises that download instead of a record that follows her to the next household (`db4f8a5`). The pitch can honestly say "she can download her record"; it still can't say "her record follows her".
-- **To close:** (1) An offboarding action on the web People page that sets the helper `INACTIVE` without deleting her rows. (2) A decision on how a helper's account relates to more than one household over time, which is a schema change (e.g. a helper↔household membership table instead of `user_profiles.household_id`) and RLS that keeps her read access to her own past payslips after she leaves. ~~(3) A helper-side record view or export.~~ Done, see above. Schema is `LINARA`'s call; the view is `LINARA_MOBILE`'s. RA 10361 payslip retention attaches here once real households exist.
-- **Later options discussed (2026-10-01):** a manager-issued certificate of employment generated from the same data (web), and a verification code on the PDF that a bank can check on a Linara page (the proof-of-income path, concept §12).
-
 ### O5. Quick Utos are deleted only when a manager opens the app, not nightly
 
 - **Found:** 2026-09-30, launch-readiness review.
@@ -94,6 +85,22 @@ the bottom.
 - **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
+
+### O15. 13th-month pay is neither computed nor paid
+
+- **Found:** 2026-10-01, building end-of-employment (O4, now C60).
+- **What's missing:** `plan.md` §1 and §4 promise "13th-month calculations" ("Automatic calculations for 13th-month pays"). RA 10361 Sec. 25 requires at least 1/12 of the basic salary earned in the calendar year, pro-rated on separation. Nothing in either app computes, shows or pays it, apart from the estimate the web's End employment dialog now shows (`thirteenthMonthEstimate`, from the basic pay on paid payslips).
+- **Blocks:** Any claim that Linara handles Kasambahay pay end to end, and a complete final pay.
+- **Current workaround:** The End employment dialog shows the estimate and tells the manager to settle it with her directly.
+- **To close:** A 13th-month payslip kind (a snapshot column on `payslips` first, per the net-pay invariant in `net-pay.ts`), paid in December and on separation, and shown on the helper's My Pay and record.
+
+### O16. A missed cutoff can never be paid through Linara
+
+- **Found:** 2026-10-01, building end-of-employment.
+- **What's missing:** `initiate_payslip` only pays the cutoff `helper_pay_cutoff` names: the current one, or an ended employment's final one. If a manager doesn't pay a cutoff before it closes, there is no path to pay it later, and her record shows the gap. End employment makes this visible, and warns when the cutoff before her final one has no payment.
+- **Blocks:** Accurate records whenever a payday is missed; final pay for someone who left right after an unpaid cutoff.
+- **Current workaround:** Pay outside Linara. The payslip then isn't on either side's record.
+- **To close:** Let `initiate_payslip` take an explicit past cutoff, bounded to cutoffs she was employed in and guarded by the same `payslips_one_per_cutoff` index.
 
 ---
 
@@ -3001,6 +3008,37 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Was:** `rescheduleAppointmentFn` (a server function) formatted the old time with `isoToDisplayTime`, in the runtime's zone (UTC on Vercel), so a Manila "was 8:00 PM" was stored as "12:00 PM". Separately, its "did the time move" check compared strings, and Postgres's `+00:00` never equals `toISOString()`'s `Z`, so every edit (even title-only) stamped a notice.
 - **Fix:** the notice stores `oldStartIso` (an instant) and each device formats it. The web maps it in `use-task-board.ts`, and the mobile heads-up now reads "… na ngayon (dati Huwebes, 6:00 PM)". The move check compares instants.
 - **Residual:** notices written before the fix carry only the wrong-zone string, so both apps say the task moved without the old time. Since `d9c80a8` the web shows the notice on board and schedule cards ("Moved from Thu 6:00 PM when … changed") until the task is done. Before that nothing rendered it after the helper views left the web app.
+
+### C60. A helper could never leave a household, and her record had nowhere to go (former Open Gap O4)
+
+- **Found / fixed:** found 2026-09-30 (launch-readiness review). The PDF export shipped 2026-10-01 (`LINARA_MOBILE` `585506b`, `db4f8a5`). Ending, past staff, final pay and rejoining shipped the same day: `LINARA` `4f962e5` `9dfcd33` `99867ee` `7138bb5`, `LINARA_MOBILE` `4a467a1` `b2767d2` `13a57e8` `b3a69a9`.
+- **Was:**
+  - Nothing ever set `helper_profiles.status = 'INACTIVE'`.
+  - `user_profiles.household_id` was `NOT NULL`, so an account belonged to one household forever.
+  - A second employer's invite couldn't be claimed by an existing account (`auth.signUp` fails).
+  - The claim screen promised "Mananatili ang record mo kahit magpalit ka ng household" with nothing behind it.
+- **Fix:** see `supabase/add-employment-end.sql`, which has to be applied by hand.
+  - **Model:** one `helper_profiles` row is one employment, not one person. `ARCHITECTURE.md` §8 now says so.
+  - **Ending (web, People → End employment):** `end_helper_employment` sets INACTIVE and `ended_on`.
+    - Her open tasks move to another active helper or are removed. Pending vale and rest-off requests are closed, and her utos are cleared.
+    - Her account is detached from the household (`household_id = NULL`), so the board, pantry and utos close to her.
+    - Nothing she did is deleted. Payslips stay for RA 10361 retention.
+    - It refuses a last day in the future, before she started, or inside a cutoff already paid.
+    - `employment_end_preview` shows all of that first: final pay, an unpaid earlier cutoff (O16), a 13th-month estimate (O15), and rest owed. Rest owed stays time, not money, per C39, so the dialog says to settle it with her.
+  - **Final pay:** `helper_pay_cutoff` gives an ended employment a final cutoff that stops on her last day. `initiate_payslip` pays it through the same guarded path. The web pro-rates base and contributions by days worked (`workedShareOfCutoff`) and deducts unsettled vales as usual.
+  - **Where the manager finds her:** a Past staff section on People, with the final pay (GCash/Maya) and payslip history, plus a Needs You item while final pay hasn't gone out. Ended helpers drop out of the roster, flags and routine respawn.
+  - **Her side:** read-only `*_own_read` policies keep her terms, payslips, time off, tasks and the household's name readable after she leaves.
+    - Sign-in checks the account type, not a current household.
+    - With no household, only My Record opens (the other tabs are greyed out). It lists every household she has worked for, each with its PDF, and takes an invite code.
+    - `join_household_with_invite` activates the new employment on her existing account. It is also used automatically when she "claims" with an existing email.
+    - Her private notes follow her. `helper_notes_privacy` is now set-valued, because the scalar version would have errored on her second employment.
+- **Residual:**
+  - Only a manager can end an employment; she can't record leaving herself.
+  - "Worked from" is the invite's creation date, not her first day.
+  - A manager can no longer read her `user_profiles` row once she's detached, so "from [name]" on tasks she created in the app falls back to no name.
+  - One active employment at a time (`current_household_id()` is single-valued), so part-time work in two households at once isn't supported.
+  - Offline actions still queued on her phone when she's detached will fail on replay.
+  - Not yet exercised against the live database or on a device.
 
 ---
 
