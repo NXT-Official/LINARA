@@ -1,11 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, Clock, Receipt, Sparkles, Shield } from "lucide-react";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
 function LandingPage() {
+  // Password-reset emails land here when the sender passed no redirect (the
+  // Supabase Site URL default, e.g. from a LINARA_MOBILE build without
+  // EXPO_PUBLIC_WEB_APP_URL). Hand the recovery fragment to the reset page.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery") || hash.includes("error_code=otp_expired")) {
+      window.location.replace(`/reset-password${hash}`);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
       {/* 1. Wordmark Header */}
@@ -153,7 +164,7 @@ function LandingPage() {
                   <h4 className="font-semibold text-primary">The Manager's Pass</h4>
                   <p className="text-sm text-muted-foreground">
                     A read-mostly, at-a-glance dashboard showing status bars, active boards, and
-                    money dials. Perfect for busy parents or OFW families managing from abroad.
+                    money dials. Built for busy parents who can't watch the house all day.
                   </p>
                 </div>
               </div>
@@ -177,23 +188,26 @@ function LandingPage() {
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
             <div className="relative">
               <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-primary">
-                Portable Records
+                Her Own Account
               </span>
               <h3 className="mt-3 font-display text-xl font-semibold text-primary">
-                Her work history is hers to keep
+                Her login, her pay record
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                In Linara, the helper owns her credentials and history. Her logs, verified payslips,
-                and completed training modules form a portable portfolio she can present to banks,
-                agencies, or future employers.
+                The helper sets her own password — the household never holds it. Her payslips, vale
+                balance, and rest owed live in her own app, showing the same numbers the family
+                sees.
               </p>
               <div className="mt-6 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">Batas Kasambahay Compliant</span>{" "}
-                  · Regional rates and statutory splits checked and validated on-chain.
+                  <span className="font-semibold text-foreground">
+                    Built around Batas Kasambahay
+                  </span>{" "}
+                  · Wages checked against the regional minimum, with the SSS, PhilHealth, and
+                  Pag-IBIG split worked out on every payslip.
                 </div>
               </div>
             </div>
