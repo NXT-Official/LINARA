@@ -12,7 +12,7 @@ export function EndOfDayToggle({
       onClick={() => onChange(!closed)}
       role="switch"
       aria-checked={closed}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-soft transition sm:text-xs ${
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-soft transition sm:text-xs ${
         closed
           ? "border-primary/40 bg-primary/10 text-primary"
           : "border-border bg-card text-muted-foreground"

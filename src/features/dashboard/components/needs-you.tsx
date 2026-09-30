@@ -91,9 +91,7 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={helper.initials} />
                     <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      · {taskWhen(t, nowTs)}
-                    </span>
+                    <span className="text-xs text-muted-foreground">· {taskWhen(t, nowTs)}</span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
                   <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
@@ -101,7 +99,7 @@ export function NeedsYou({
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                 >
                   {t.station}
                 </span>
@@ -133,10 +131,10 @@ export function NeedsYou({
                     className="w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-muted-foreground"
                   />
                   <div className="mt-1 flex items-center justify-between px-1">
-                    <span className="text-[10px] text-muted-foreground">Mock only · not sent</span>
+                    <span className="text-xs text-muted-foreground">Mock only · not sent</span>
                     <button
                       onClick={() => setReplyId(null)}
-                      className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      className="rounded-full px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
                     >
                       Close
                     </button>
@@ -167,7 +165,7 @@ export function NeedsYou({
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                 >
                   {t.station}
                 </span>
@@ -226,7 +224,7 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={helper.initials} />
                     <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                       <Coins className="h-3 w-3" /> Vale request
                     </span>
                   </div>
@@ -269,7 +267,7 @@ export function NeedsYou({
                     <div className="flex items-center gap-2">
                       <Avatar initials={initials} />
                       <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.38_0.09_60)]">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
                         <AlertCircle className="h-3 w-3" /> Flagged a detail
                       </span>
                     </div>
@@ -279,7 +277,7 @@ export function NeedsYou({
                         "{f.note}"
                       </p>
                     )}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Raised during claim · code {inv.code}
                     </p>
                   </div>
@@ -291,7 +289,7 @@ export function NeedsYou({
                   >
                     <Check className="h-3.5 w-3.5" /> Mark resolved
                   </button>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Update the household record in People → invite.
                   </span>
                 </div>

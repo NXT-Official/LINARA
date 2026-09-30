@@ -149,7 +149,7 @@ export function NewTaskModal({
                     type="button"
                     key={d}
                     onClick={() => toggleDay(d)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"

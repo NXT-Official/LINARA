@@ -32,9 +32,7 @@ export function AddPantryItemModal({
       </div>
       <div className="mt-4 space-y-3">
         <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Name
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -44,9 +42,7 @@ export function AddPantryItemModal({
         </label>
         <div className="grid grid-cols-3 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Qty
-            </span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
             <input
               value={qty}
               onChange={(e) => setQty(e.target.value)}
@@ -55,9 +51,7 @@ export function AddPantryItemModal({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Unit
-            </span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
             <input
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
@@ -66,9 +60,7 @@ export function AddPantryItemModal({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Par
-            </span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Par</span>
             <input
               value={par}
               onChange={(e) => setPar(e.target.value)}
@@ -78,9 +70,7 @@ export function AddPantryItemModal({
           </label>
         </div>
         <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Category
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Category</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as PantryCategory)}

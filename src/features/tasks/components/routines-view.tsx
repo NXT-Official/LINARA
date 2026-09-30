@@ -33,7 +33,7 @@ export function RoutinesView({
       <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
               Routines
             </div>
             <h2 className="mt-2 font-display text-2xl leading-tight text-foreground sm:text-[28px]">
@@ -76,13 +76,13 @@ export function RoutinesView({
                     <Avatar initials={helper.initials} />
                     <div>
                       <div className="text-sm font-semibold text-foreground">{helper.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {helper.station} · {helper.shift}
                       </div>
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[helper.station]}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[helper.station]}`}
                   >
                     {items.length} routine{items.length === 1 ? "" : "s"}
                   </span>

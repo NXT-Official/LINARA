@@ -21,7 +21,7 @@ export function RemoteGlance({
           <Images className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-pine-deep/80">
+          <div className="text-xs font-semibold tracking-[0.14em] text-pine-deep/80">
             Your OFW view · {adminName}
           </div>
           <h2 className="mt-0.5 font-display text-lg text-foreground">
@@ -38,10 +38,10 @@ export function RemoteGlance({
 
       <div className="mt-4 rounded-2xl ring-1 ring-border/20 bg-card p-4">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">
             Done today · {helperName} & team
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             <Check className="h-3 w-3" /> {doneToday.length}
           </span>
         </div>

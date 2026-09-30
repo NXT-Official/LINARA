@@ -42,7 +42,7 @@ export function QuickUtosLauncher({
   return (
     <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div>
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.14em] text-muted-foreground">
           <Zap className="h-3.5 w-3.5 text-accent" /> Quick utos
         </div>
         {activeHelpers.length > 1 ? (

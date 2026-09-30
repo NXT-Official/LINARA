@@ -24,7 +24,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
         aria-expanded={open}
       >
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
             On file with this household
           </div>
           <div className="mt-1 font-display text-lg text-foreground">
@@ -34,7 +34,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
             Read-only. Tap to {open ? "hide" : "review"} any time.
           </p>
         </div>
-        <span className="mt-1 shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+        <span className="mt-1 shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
           {open ? "Hide" : "Review"}
         </span>
       </button>
@@ -52,7 +52,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
 
           <LegalContributionSplitCard wagePHP={invite?.wagePHP ?? 16000} />
 
-          <p className="pt-2 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
             May mali? Sabihin mo sa manager mo — huwag muna pumirma kung hindi tugma sa usapan.
           </p>
         </div>

@@ -53,9 +53,7 @@ export function ManagerSchedulePage() {
       <h1 className="sr-only">Schedule</h1>
       {isRemote && (
         <div className="rounded-[2rem] border border-dashed border-border/70 bg-card/60 p-4 text-xs text-muted-foreground">
-          <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-pine-deep">
-            Remote view
-          </div>
+          <div className="mb-0.5 text-xs font-semibold text-pine-deep">Remote view</div>
           Shift editing and reaching a helper off-hours stay with the on-site managers. You can
           still look at the week and add appointments.
         </div>

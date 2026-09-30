@@ -68,7 +68,7 @@ export function TheBoardStatusLists({
             >
               {t.label}
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-pine-deep"}`}
+                className={`rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-pine-deep"}`}
               >
                 {t.count}
               </span>

@@ -12,12 +12,10 @@ export function RoutineRow({ routine, onRemove }: { routine: Routine; onRemove: 
             <h4 className="text-sm font-semibold text-foreground">{routine.title}</h4>
             <RecurrenceBadge recurrence={routine.recurrence} />
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">{routine.time}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{routine.time}</div>
           {routine.note && (
             <div className="mt-2 rounded-xl bg-terracotta-soft/40 px-2.5 py-1.5 text-xs leading-relaxed text-pine-deep">
-              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-pine-deep/70">
-                House standard ·
-              </span>
+              <span className="mr-1 text-xs font-semibold text-pine-deep/70">House standard ·</span>
               {routine.note}
             </div>
           )}

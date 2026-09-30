@@ -90,13 +90,13 @@ export function RestOffRequests({
     <div className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
+          <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
             Rest off requests
           </span>
           <h3 className="font-display text-lg text-foreground">
             {balanceMin === null ? "…" : fmtHoursMinutes(balanceMin)} rest owed
           </h3>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Time-off in lieu accrued from off-shift work — redeemed, not paid out.
           </p>
         </div>
@@ -118,7 +118,7 @@ export function RestOffRequests({
                   <p className="text-xs font-semibold text-foreground">
                     {r.rest_date} · {fmtHM12(r.start_time)}–{fmtHM12(r.end_time)}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     <Clock className="mr-0.5 inline h-3 w-3" />
                     {fmtHoursMinutes(r.minutes)}
                     {r.note ? ` · ${r.note}` : ""}
@@ -128,14 +128,14 @@ export function RestOffRequests({
                   <button
                     onClick={() => decide(r.id, "approved")}
                     disabled={deciding !== null}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground transition hover:bg-pine-deep disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-pine-deep disabled:opacity-60"
                   >
                     <Check className="h-3 w-3" /> Approve
                   </button>
                   <button
                     onClick={() => decide(r.id, "declined")}
                     disabled={deciding !== null}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
                   >
                     <X className="h-3 w-3" /> Decline
                   </button>
@@ -151,14 +151,14 @@ export function RestOffRequests({
           {decided.map((r) => (
             <div
               key={r.id}
-              className="flex items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-[11px]"
+              className="flex items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-xs"
             >
               <span className="text-muted-foreground">
                 {r.rest_date} · {fmtHoursMinutes(r.minutes)}
                 {r.decline_reason ? ` · ${r.decline_reason}` : ""}
               </span>
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_TONE[r.status]}`}
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_TONE[r.status]}`}
               >
                 {r.status}
               </span>

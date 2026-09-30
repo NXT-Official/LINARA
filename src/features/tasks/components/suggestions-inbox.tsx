@@ -44,9 +44,7 @@ export function SuggestionsInbox({
       <div className="space-y-4">
         {[...groups.entries()].map(([who, items]) => (
           <div key={who}>
-            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-pine-deep">
-              From {who}
-            </div>
+            <div className="mb-2 px-1 text-xs font-semibold text-pine-deep">From {who}</div>
             <div className="space-y-2">
               {items.map((t) => {
                 const helper = findHelper(t.helperId, helpers);
@@ -58,7 +56,7 @@ export function SuggestionsInbox({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                           <Avatar initials={helper.initials} />
                           <span className="font-semibold text-foreground">{helper.short}</span>
                           <span>·</span>
@@ -67,7 +65,7 @@ export function SuggestionsInbox({
                         {t.note && <p className="mt-1.5 text-xs text-muted-foreground">{t.note}</p>}
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[t.station]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                       >
                         {t.station}
                       </span>

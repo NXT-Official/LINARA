@@ -183,7 +183,7 @@ function LandingPage() {
           <div className="rounded-[2rem] border border-border/50 bg-card p-8 shadow-lift relative overflow-hidden">
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
             <div className="relative">
-              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
                 Her Own Account
               </span>
               <h3 className="mt-3 font-display text-xl font-semibold text-primary">

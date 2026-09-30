@@ -19,7 +19,7 @@ export function BudgetBar({ compact }: { compact?: boolean } = {}) {
           </span>
         </div>
         <span
-          className={`text-[11px] font-semibold tabular-nums ${over ? "text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
+          className={`text-xs font-semibold tabular-nums ${over ? "text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
         >
           {over ? `over by ${fmtPeso(ctx.spent - ctx.budget)}` : `${fmtPeso(ctx.remaining)} left`}
         </span>

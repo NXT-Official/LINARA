@@ -20,7 +20,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
             Invite created
           </div>
           <h3 className="mt-1 font-display text-2xl text-foreground">
@@ -41,7 +41,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
         </div>
         <button
           onClick={copy}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-foreground hover:border-primary"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
         >
           {copied ? (
             <>
@@ -66,7 +66,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
         {invite.phone && <div>Contact: {invite.phone}</div>}
       </div>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
         She'll set up and control her own account with this code — her record stays hers. Until then
         she'll appear as <span className="font-semibold text-foreground">Invited — pending</span> in
         your People list.

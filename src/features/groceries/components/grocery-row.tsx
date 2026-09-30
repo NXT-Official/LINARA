@@ -39,11 +39,11 @@ export function GroceryRow({
           <span className={`truncate font-medium ${item.bought ? "line-through" : ""}`}>
             {item.name}
           </span>
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             · {item.qty} {item.unit}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
           {suggested && !item.bought && (
             <span className="rounded-full bg-secondary px-1.5 py-0.5 font-semibold text-pine-deep">
               Suggested

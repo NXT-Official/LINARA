@@ -88,13 +88,13 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
       <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
+            <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
               Petty Cash Spend
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly
               target
             </p>
@@ -123,14 +123,14 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums">
+            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums">
               {Math.round(spendPct)}%
             </div>
           </div>
         </div>
 
         {/* Micro status details */}
-        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <span
             className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
           >
@@ -144,7 +144,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               </>
             )}
           </span>
-          <span className="text-muted-foreground/80 font-mono text-[10px]">PALENGKE LIMIT</span>
+          <span className="text-muted-foreground/80 font-mono text-xs">PALENGKE LIMIT</span>
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
       <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
+            <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
               {isHouseholdView ? "Payroll Due This Cutoff" : "Due This Cutoff"}
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
@@ -161,7 +161,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                   has not confirmed is what Session B removed from this app. */}
               {payroll.loading ? "—" : fmtPeso(dueTotal)}
             </h3>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {payroll.loading ? (
                 "Checking this cutoff…"
               ) : allSettled ? (
@@ -209,14 +209,14 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold tabular-nums text-terracotta-ink">
+            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums text-terracotta-ink">
               {payPct}%
             </div>
           </div>
         </div>
 
         {/* Breakdown details */}
-        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+        <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <div className="flex flex-wrap items-center gap-1 text-muted-foreground font-medium">
             {/* needs_review first: it is the only state a manager must ACT on
                 rather than wait out, and it means a payout whose outcome we
@@ -260,7 +260,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 </span>
               )}
           </div>
-          <span className="text-muted-foreground/80 inline-flex items-center gap-1 font-mono text-[10px]">
+          <span className="text-muted-foreground/80 inline-flex items-center gap-1 font-mono text-xs">
             <CalendarClock className="h-3 w-3" /> PAYDAY GAUGE
           </span>
         </div>

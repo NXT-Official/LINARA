@@ -36,7 +36,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-xs font-semibold text-foreground">Receipt attached</span>
-          <span className="block text-[11px] text-muted-foreground">Tap to view</span>
+          <span className="block text-xs text-muted-foreground">Tap to view</span>
         </span>
       </button>
       {preview && (

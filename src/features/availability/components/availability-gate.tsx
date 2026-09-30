@@ -50,9 +50,7 @@ export function AvailabilityGate({
       </div>
 
       <div className="mt-4 rounded-2xl ring-1 ring-border/20 bg-secondary/40 p-3">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Sending {kindLabel}
-        </div>
+        <div className="text-xs font-semibold text-muted-foreground">Sending {kindLabel}</div>
         <div className="mt-1 truncate text-sm font-semibold text-foreground">{preview}</div>
       </div>
 

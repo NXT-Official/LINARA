@@ -43,9 +43,7 @@ export function ManagerMoneyPage() {
             control, names the person, and carries the avatar. */}
         {activeHelpers.length > 1 && (
           <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
-              Showing
-            </span>
+            <span className="text-xs font-bold tracking-[0.14em] text-primary">Showing</span>
             <Avatar initials={selectedHelper?.initials ?? "??"} />
             <select
               value={selectedHelperId ?? ""}

@@ -75,7 +75,7 @@ export function HelperLane({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="font-display text-base text-foreground">{helper.short}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
               {helper.station}
             </span>
           </div>
@@ -86,13 +86,13 @@ export function HelperLane({
                 style={{ width: `${pct}%`, backgroundColor: color.solid }}
               />
             </div>
-            <span className="shrink-0 text-[11px] font-semibold text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
               {doneCount} of {sorted.length}
             </span>
           </div>
         </div>
         <span
-          className={`ml-1 max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-1 text-[10.5px] font-semibold ${pill.cls}`}
+          className={`ml-1 max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-1 text-xs font-semibold ${pill.cls}`}
         >
           {pill.text}
         </span>
@@ -132,7 +132,7 @@ export function HelperLane({
               return (
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotCls}`} />
-                  <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                  <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
                     {taskWhen(t, nowTs)}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -142,13 +142,13 @@ export function HelperLane({
                       {t.title}
                     </div>
                     {t.note && (
-                      <div className="mt-0.5 line-clamp-2 text-[11px] italic text-muted-foreground">
+                      <div className="mt-0.5 line-clamp-2 text-xs italic text-muted-foreground">
                         "{t.note}"
                       </div>
                     )}
                   </div>
                   {isLate && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
+                    <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
                       Late
                     </span>
                   )}
@@ -164,7 +164,7 @@ export function HelperLane({
               {later.map((t) => (
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-muted-foreground/40" />
-                  <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                  <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
                     {taskWhen(t, nowTs)}
                   </span>
                   <div className="min-w-0 flex-1 text-sm text-muted-foreground">{t.title}</div>

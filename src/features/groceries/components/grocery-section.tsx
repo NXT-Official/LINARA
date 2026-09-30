@@ -40,7 +40,7 @@ export function GrocerySection() {
             Auto-suggested from Pantry lows. Attached to the Palengke run.
           </p>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           {toBuy.length} to buy
         </span>
       </div>
@@ -48,10 +48,8 @@ export function GrocerySection() {
       {/* Petty cash / budget */}
       <div className="mt-4 rounded-2xl bg-background/60 p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Petty cash budget
-          </div>
-          <label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">Petty cash budget</div>
+          <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             ₱
             <input
               value={budgetDraft}
@@ -82,7 +80,7 @@ export function GrocerySection() {
 
       {bought.length > 0 && (
         <div className="mt-4">
-          <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="mb-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground">
             Bought · {bought.length}
           </div>
           <div className="space-y-1.5">
@@ -95,18 +93,14 @@ export function GrocerySection() {
 
       {/* Receipt */}
       <div className="mt-4">
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Receipt
-        </div>
+        <div className="mb-2 text-xs font-semibold text-muted-foreground">Receipt</div>
         <ReceiptSlot />
       </div>
 
       {/* Add manual */}
       <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
         <label className="min-w-0 flex-1">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Add item
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Add item</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -118,9 +112,7 @@ export function GrocerySection() {
           />
         </label>
         <label className="w-16">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Qty
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
           <input
             value={qty}
             onChange={(e) => setQty(e.target.value)}
@@ -129,9 +121,7 @@ export function GrocerySection() {
           />
         </label>
         <label className="w-20">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Unit
-          </span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}

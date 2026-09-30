@@ -212,7 +212,7 @@ export function NewRoutineModal({
           />
           {generatedSop && (
             <div className="flex items-center justify-between rounded-xl border border-dashed border-border bg-secondary/40 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {savedSopId
                   ? "Saved to the House Standards Library."
                   : token
@@ -279,7 +279,7 @@ export function NewRoutineModal({
                     type="button"
                     key={d}
                     onClick={() => toggleDay(d)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"

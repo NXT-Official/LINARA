@@ -37,7 +37,7 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
           : "text-terracotta-ink bg-accent/10";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}
     >
       <Icon className="h-3 w-3" /> {STATUS_LABEL[status]}
     </span>
@@ -142,7 +142,7 @@ export function PayslipHistory({
     <div className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground block">
+          <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
             Current cutoff
           </span>
           <h3 className="font-display text-lg text-foreground">
@@ -150,12 +150,12 @@ export function PayslipHistory({
           </h3>
         </div>
         {!cutoff ? (
-          <span className="text-[11px] text-muted-foreground">Loading cutoff…</span>
+          <span className="text-xs text-muted-foreground">Loading cutoff…</span>
         ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={currentCutoffPayslip.payoutStatus} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
-              <span className="text-[10px] text-amber-600 text-right max-w-[11rem]">
+              <span className="text-xs text-amber-600 text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
               </span>
             )}
@@ -166,13 +166,13 @@ export function PayslipHistory({
                 assuming otherwise is how a cutoff gets paid twice. */}
             {staleness.isStale && (
               <div className="flex flex-col items-end gap-1">
-                <span className="text-[10px] text-amber-600 text-right max-w-[13rem]">
+                <span className="text-xs text-amber-600 text-right max-w-[13rem]">
                   Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
                 </span>
                 <button
                   onClick={reconcile}
                   disabled={reconciling}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
                 >
                   <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
                   {reconciling ? "Checking…" : "Check with Xendit"}

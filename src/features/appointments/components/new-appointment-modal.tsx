@@ -108,14 +108,14 @@ export function NewAppointmentModal({
       <div className="mt-4 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-semibold text-muted-foreground">
               Start from a template
             </span>
             {templateId && (
               <button
                 type="button"
                 onClick={clearTemplate}
-                className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 Clear
               </button>
@@ -142,7 +142,7 @@ export function NewAppointmentModal({
             })}
           </div>
           {templateId && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               Prep loaded from template. House-standard notes come along — tweak below if needed,
               then set the date and time.
             </p>
@@ -177,13 +177,11 @@ export function NewAppointmentModal({
 
         <div className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Prep tasks
-            </span>
+            <span className="text-xs font-semibold text-muted-foreground">Prep tasks</span>
             <button
               type="button"
               onClick={addRow}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/5"
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
             >
               <Plus className="h-3 w-3" /> Add prep
             </button>
@@ -209,7 +207,7 @@ export function NewAppointmentModal({
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="mb-1 block text-xs font-semibold text-muted-foreground">
                       How long before
                     </span>
                     <div className="flex gap-1.5">
@@ -233,7 +231,7 @@ export function NewAppointmentModal({
                     </div>
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="mb-1 block text-xs font-semibold text-muted-foreground">
                       Assign to
                     </span>
                     <select

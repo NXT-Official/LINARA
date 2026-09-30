@@ -39,7 +39,7 @@ export function BoardTaskCard({
       style={{ borderLeft: `4px solid ${color.solid}` }}
     >
       <div className="flex items-start gap-2.5 p-3">
-        <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold leading-tight tabular-nums text-muted-foreground">
+        <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold leading-tight tabular-nums text-muted-foreground">
           {day && <span className="block">{day}</span>}
           {day ? task.time : when}
         </span>
@@ -51,19 +51,19 @@ export function BoardTaskCard({
               {task.title}
             </h4>
             {isDoing && (
-              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent-foreground">
+              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">
                 Doing
               </span>
             )}
             {late && (
-              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[oklch(0.42_0.15_35)]">
+              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
                 Late
               </span>
             )}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
               style={{ backgroundColor: color.soft, color: "var(--pine-deep)" }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color.solid }} />
@@ -71,14 +71,14 @@ export function BoardTaskCard({
             </span>
             <RecurrenceBadge recurrence={task.recurrence} />
             {task.appointmentTitle && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] font-medium text-pine-deep">
+              <span className="inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2 py-0.5 text-xs font-medium text-pine-deep">
                 <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
               </span>
             )}
             {task.note && (
               <button
                 onClick={() => setShowNote((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
               </button>
@@ -86,7 +86,7 @@ export function BoardTaskCard({
             {isDone && task.photo && (
               <button
                 onClick={() => setShowPhoto((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
               </button>

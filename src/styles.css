@@ -12,6 +12,11 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Text floor: nothing in the app goes below 13px. text-xs is the smallest
+     size, raised from Tailwind's 12px; arbitrary text-[9-11px] sizes were
+     folded into it. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
   /* Brand doc: warm serif display + humanist sans body. Literata over the
      overused Fraunces; its optical sizes keep small in-app headings sturdy.
      The concept doc (§15) wants one sans family instead -- see the note there

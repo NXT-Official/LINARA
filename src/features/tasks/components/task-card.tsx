@@ -18,7 +18,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-semibold leading-snug text-foreground">{task.title}</h4>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stationTone[task.station]}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[task.station]}`}
         >
           {task.station}
         </span>
@@ -27,14 +27,14 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <RecurrenceBadge recurrence={task.recurrence} />
           {task.appointmentTitle && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-[10px] font-medium text-[oklch(0.38_0.09_60)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-medium text-[oklch(0.38_0.09_60)]">
               <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
             </span>
           )}
         </div>
       )}
       {task.scheduledDate && (
-        <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mt-1 text-xs font-medium text-muted-foreground">
           {formatAppointmentDate(task.scheduledDate)}
         </div>
       )}
@@ -59,7 +59,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
         <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
       </div>
       {task.createdBy && (
-        <div className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mt-1.5 text-xs font-medium text-muted-foreground">
           from {task.createdBy}
         </div>
       )}

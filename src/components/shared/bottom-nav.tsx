@@ -24,7 +24,7 @@ export function BottomNav({ items }: { items: BottomNavItem[] }) {
           <Link
             key={to}
             to={to}
-            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-full px-2 py-2 text-[10px] font-semibold text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground sm:px-5 sm:text-[11px]"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-full px-2 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground sm:px-5 sm:text-xs"
             activeProps={{ className: "bg-secondary text-primary" }}
           >
             {({ isActive }) => (

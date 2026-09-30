@@ -164,17 +164,17 @@ export function ManagerPassTab({
       <section className="rounded-[2rem] bg-card p-5 shadow-soft sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
               The Pass · Today
             </div>
-            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
+            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               {formatSimDate(simDate)}
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             {boardClosed && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                 <Moon className="h-3 w-3" /> Board closed
               </span>
             )}

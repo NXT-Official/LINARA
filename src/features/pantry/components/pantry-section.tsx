@@ -34,11 +34,11 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           {lowCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-[11px] font-semibold text-[oklch(0.42_0.12_50)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-[oklch(0.42_0.12_50)]">
               <AlertCircle className="h-3 w-3" /> {lowCount} running low
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-pine-deep">
+            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
               <Check className="h-3 w-3" /> All stocked
             </span>
           )}
@@ -54,7 +54,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
       <div className="mt-4 space-y-4">
         {grouped.map((g) => (
           <div key={g.cat}>
-            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <div className="mb-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground">
               {g.cat}
             </div>
             <div className="space-y-2">
