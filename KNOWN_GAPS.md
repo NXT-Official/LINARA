@@ -2989,9 +2989,8 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
     - uses an Android "alerts" channel;
     - a tap opens Today and refetches.
 - **Residual:**
-  - `add-push-tokens.sql` has to be applied by hand.
   - Expo Go on Android has no remote push (SDK 53+), so testing on Android needs a development build (`eas build --profile development`). iOS Expo Go works.
-  - Tokens Expo reports as `DeviceNotRegistered` are not pruned: a manager can't delete a helper's rows, so pruning needs a server-side job.
+  - Dead tokens: pruned since `c38a7a9`/`6d6f0f7` (`supabase/add-push-token-pruning.sql`). Each send reads the previous send's receipts, deletes tokens Expo reports as `DeviceNotRegistered` there or in this send's tickets, and records the new ticket ids. The mobile app (`a4edc7a`) also drops its own old token when Expo issues a new one. A dead token whose receipt is more than 24 hours old is caught by the next send's ticket instead.
   - `EXPO_ACCESS_TOKEN` (optional, Vercel) is only needed if the Expo project turns on enhanced push security.
   - Reachability for appointment moves is the manager's app's view (`statusFor` on the sim clock), not a server-side check.
 
@@ -3000,7 +2999,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** found 2026-10-01 building the mobile heads-up; fixed the same day, `LINARA` `d1c1c9e`, `LINARA_MOBILE` `2ad7f58`.
 - **Was:** `rescheduleAppointmentFn` (a server function) formatted the old time with `isoToDisplayTime`, in the runtime's zone (UTC on Vercel), so a Manila "was 8:00 PM" was stored as "12:00 PM". Separately, its "did the time move" check compared strings, and Postgres's `+00:00` never equals `toISOString()`'s `Z`, so every edit (even title-only) stamped a notice.
 - **Fix:** the notice stores `oldStartIso` (an instant) and each device formats it. The web maps it in `use-task-board.ts`, and the mobile heads-up now reads "… na ngayon (dati Huwebes, 6:00 PM)". The move check compares instants.
-- **Residual:** notices written before the fix carry only the wrong-zone string. The web falls back to it; mobile shows the new time alone. The web's `RescheduleNotice` component is not rendered anywhere, so the manager side never shows the notice at all (not a regression, just unused).
+- **Residual:** notices written before the fix carry only the wrong-zone string, so both apps say the task moved without the old time. Since `d9c80a8` the web shows the notice on board and schedule cards ("Moved from Thu 6:00 PM when … changed") until the task is done. Before that nothing rendered it after the helper views left the web app.
 
 ---
 
