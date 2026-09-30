@@ -1,0 +1,408 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T15:52:33.314807+00:00",
+  "title": "Design System: Linara",
+  "extensions": {
+    "colorMeta": {
+      "pine": {
+        "role": "primary",
+        "displayName": "Pine",
+        "canonical": "oklch(0.42 0.055 180)",
+        "tonalRamp": [
+          "oklch(0.15 0.055 180.0)",
+          "oklch(0.264 0.055 180.0)",
+          "oklch(0.379 0.055 180.0)",
+          "oklch(0.493 0.055 180.0)",
+          "oklch(0.607 0.055 180.0)",
+          "oklch(0.721 0.055 180.0)",
+          "oklch(0.836 0.055 180.0)",
+          "oklch(0.95 0.055 180.0)"
+        ]
+      },
+      "pine-deep": {
+        "role": "primary",
+        "displayName": "Deep Pine",
+        "canonical": "oklch(0.32 0.05 180)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 180.0)",
+          "oklch(0.264 0.05 180.0)",
+          "oklch(0.379 0.05 180.0)",
+          "oklch(0.493 0.05 180.0)",
+          "oklch(0.607 0.05 180.0)",
+          "oklch(0.721 0.05 180.0)",
+          "oklch(0.836 0.05 180.0)",
+          "oklch(0.95 0.05 180.0)"
+        ]
+      },
+      "terracotta": {
+        "role": "secondary",
+        "displayName": "Terracotta",
+        "canonical": "oklch(0.73 0.11 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.11 55.0)",
+          "oklch(0.264 0.11 55.0)",
+          "oklch(0.379 0.11 55.0)",
+          "oklch(0.493 0.11 55.0)",
+          "oklch(0.607 0.11 55.0)",
+          "oklch(0.721 0.11 55.0)",
+          "oklch(0.836 0.11 55.0)",
+          "oklch(0.95 0.11 55.0)"
+        ]
+      },
+      "terracotta-soft": {
+        "role": "secondary",
+        "displayName": "Soft Terracotta",
+        "canonical": "oklch(0.88 0.055 60)",
+        "tonalRamp": [
+          "oklch(0.15 0.055 60.0)",
+          "oklch(0.264 0.055 60.0)",
+          "oklch(0.379 0.055 60.0)",
+          "oklch(0.493 0.055 60.0)",
+          "oklch(0.607 0.055 60.0)",
+          "oklch(0.721 0.055 60.0)",
+          "oklch(0.836 0.055 60.0)",
+          "oklch(0.95 0.055 60.0)"
+        ]
+      },
+      "terracotta-ink": {
+        "role": "secondary",
+        "displayName": "Terracotta Ink",
+        "canonical": "oklch(0.52 0.12 48)",
+        "tonalRamp": [
+          "oklch(0.15 0.12 48.0)",
+          "oklch(0.264 0.12 48.0)",
+          "oklch(0.379 0.12 48.0)",
+          "oklch(0.493 0.12 48.0)",
+          "oklch(0.607 0.12 48.0)",
+          "oklch(0.721 0.12 48.0)",
+          "oklch(0.836 0.12 48.0)",
+          "oklch(0.95 0.12 48.0)"
+        ]
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Morning Sand",
+        "canonical": "oklch(0.965 0.018 82)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 82.0)",
+          "oklch(0.264 0.018 82.0)",
+          "oklch(0.379 0.018 82.0)",
+          "oklch(0.493 0.018 82.0)",
+          "oklch(0.607 0.018 82.0)",
+          "oklch(0.721 0.018 82.0)",
+          "oklch(0.836 0.018 82.0)",
+          "oklch(0.95 0.018 82.0)"
+        ]
+      },
+      "sand-deep": {
+        "role": "neutral",
+        "displayName": "Deep Sand",
+        "canonical": "oklch(0.93 0.022 82)",
+        "tonalRamp": [
+          "oklch(0.15 0.022 82.0)",
+          "oklch(0.264 0.022 82.0)",
+          "oklch(0.379 0.022 82.0)",
+          "oklch(0.493 0.022 82.0)",
+          "oklch(0.607 0.022 82.0)",
+          "oklch(0.721 0.022 82.0)",
+          "oklch(0.836 0.022 82.0)",
+          "oklch(0.95 0.022 82.0)"
+        ]
+      },
+      "card-cream": {
+        "role": "neutral",
+        "displayName": "Cream",
+        "canonical": "oklch(0.99 0.008 82)",
+        "tonalRamp": [
+          "oklch(0.15 0.008 82.0)",
+          "oklch(0.264 0.008 82.0)",
+          "oklch(0.379 0.008 82.0)",
+          "oklch(0.493 0.008 82.0)",
+          "oklch(0.607 0.008 82.0)",
+          "oklch(0.721 0.008 82.0)",
+          "oklch(0.836 0.008 82.0)",
+          "oklch(0.95 0.008 82.0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.22 0.015 180)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 180.0)",
+          "oklch(0.264 0.015 180.0)",
+          "oklch(0.379 0.015 180.0)",
+          "oklch(0.493 0.015 180.0)",
+          "oklch(0.607 0.015 180.0)",
+          "oklch(0.721 0.015 180.0)",
+          "oklch(0.836 0.015 180.0)",
+          "oklch(0.95 0.015 180.0)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "oklch(0.5 0.02 180)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 180.0)",
+          "oklch(0.264 0.02 180.0)",
+          "oklch(0.379 0.02 180.0)",
+          "oklch(0.493 0.02 180.0)",
+          "oklch(0.607 0.02 180.0)",
+          "oklch(0.721 0.02 180.0)",
+          "oklch(0.836 0.02 180.0)",
+          "oklch(0.95 0.02 180.0)"
+        ]
+      },
+      "hearth-ink": {
+        "role": "secondary",
+        "displayName": "Hearth Ink",
+        "canonical": "oklch(0.28 0.045 50)",
+        "tonalRamp": [
+          "oklch(0.15 0.045 50.0)",
+          "oklch(0.264 0.045 50.0)",
+          "oklch(0.379 0.045 50.0)",
+          "oklch(0.493 0.045 50.0)",
+          "oklch(0.607 0.045 50.0)",
+          "oklch(0.721 0.045 50.0)",
+          "oklch(0.836 0.045 50.0)",
+          "oklch(0.95 0.045 50.0)"
+        ]
+      },
+      "border-warm": {
+        "role": "neutral",
+        "displayName": "Warm Border",
+        "canonical": "oklch(0.88 0.02 82)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 82.0)",
+          "oklch(0.264 0.02 82.0)",
+          "oklch(0.379 0.02 82.0)",
+          "oklch(0.493 0.02 82.0)",
+          "oklch(0.607 0.02 82.0)",
+          "oklch(0.721 0.02 82.0)",
+          "oklch(0.836 0.02 82.0)",
+          "oklch(0.95 0.02 82.0)"
+        ]
+      },
+      "input-warm": {
+        "role": "neutral",
+        "displayName": "Warm Input",
+        "canonical": "oklch(0.9 0.02 82)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 82.0)",
+          "oklch(0.264 0.02 82.0)",
+          "oklch(0.379 0.02 82.0)",
+          "oklch(0.493 0.02 82.0)",
+          "oklch(0.607 0.02 82.0)",
+          "oklch(0.721 0.02 82.0)",
+          "oklch(0.836 0.02 82.0)",
+          "oklch(0.95 0.02 82.0)"
+        ]
+      },
+      "destructive": {
+        "role": "error",
+        "displayName": "Destructive",
+        "canonical": "oklch(0.55 0.18 27)",
+        "tonalRamp": [
+          "oklch(0.15 0.18 27.0)",
+          "oklch(0.264 0.18 27.0)",
+          "oklch(0.379 0.18 27.0)",
+          "oklch(0.493 0.18 27.0)",
+          "oklch(0.607 0.18 27.0)",
+          "oklch(0.721 0.18 27.0)",
+          "oklch(0.836 0.18 27.0)",
+          "oklch(0.95 0.18 27.0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing hero only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The Pass date; page-level section heads."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section, card and modal headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Everything read: task titles, descriptions, notes."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field and stat labels, chips, nav, metadata. Sentence case. The 13px floor."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The 'linara' logotype only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "soft",
+        "value": "0 2px 8px -2px oklch(0.2 0.05 170 / 0.05), 0 1px 3px 0 oklch(0.2 0.05 170 / 0.02), inset 0 1px 0 0 oklch(1 0 0 / 0.8), inset 0 0 0 1px oklch(0 0 0 / 0.02)",
+        "purpose": "Every card at rest: a paper edge, not a lift."
+      },
+      {
+        "name": "lift",
+        "value": "0 12px 32px -8px oklch(0.2 0.05 170 / 0.08), 0 4px 12px -3px oklch(0.2 0.05 170 / 0.05), inset 0 1px 0 0 oklch(1 0 0 / 0.8), inset 0 0 0 1px oklch(0 0 0 / 0.02)",
+        "purpose": "Only what floats: modals, sheets, the wide-screen nav dock."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default transition on buttons and links."
+      },
+      {
+        "name": "press",
+        "value": "transform: scale(0.98)",
+        "purpose": "Active state on buttons and links."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action in an area: New task, Save, Edit.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>New task</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:6px; background:var(--pine); color:var(--card-cream); font:600 13px/18px 'Nunito Sans',system-ui,sans-serif; padding:8px 14px; border:none; border-radius:12px; cursor:pointer; transition:background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background:var(--pine-deep); } .ds-btn-primary:active { transform:scale(0.98); } .ds-btn-primary:focus-visible { outline:2px solid var(--pine); outline-offset:2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other action: Start new day, New appointment, Add item.",
+      "html": "<button class=\"ds-btn-secondary\">Start new day</button>",
+      "css": ".ds-btn-secondary { background:var(--card-cream); color:var(--pine); font:600 13px/18px 'Nunito Sans',system-ui,sans-serif; padding:6px 12px; border:1px solid oklch(0.42 0.055 180 / 0.3); border-radius:12px; cursor:pointer; transition:background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-secondary:hover { background:oklch(0.42 0.055 180 / 0.05); } .ds-btn-secondary:focus-visible { outline:2px solid var(--pine); outline-offset:2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Only the confirming step of an irreversible action (Yes, cancel it).",
+      "html": "<button class=\"ds-btn-danger\">Yes, cancel it</button>",
+      "css": ".ds-btn-danger { background:var(--destructive); color:var(--card-cream); font:600 13px/18px 'Nunito Sans',system-ui,sans-serif; padding:6px 12px; border:none; border-radius:12px; cursor:pointer; } .ds-btn-danger:hover { background:oklch(0.55 0.18 27 / 0.9); } .ds-btn-danger:focus-visible { outline:2px solid var(--pine); outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form input with its sentence-case label above.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Title</span><input class=\"ds-input\" placeholder=\"e.g. Fold laundry\"></label>",
+      "css": ".ds-field { display:block; font-family:'Nunito Sans',system-ui,sans-serif; } .ds-field-label { display:block; margin-bottom:6px; font-size:13px; line-height:18px; font-weight:600; color:var(--muted-foreground); } .ds-input { width:100%; background:var(--sand); color:var(--ink); font-size:14px; padding:10px 12px; border:1px solid var(--input); border-radius:16px; outline:none; transition:border-color 0.2s; } .ds-input::placeholder { color:var(--muted-foreground); } .ds-input:focus { border-color:var(--pine); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "States only (Active, Invited, 3 to buy). Never tappable.",
+      "html": "<span class=\"ds-chip\">Active</span> <span class=\"ds-chip ds-chip-warm\">Invited — pending</span>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; background:var(--sand-deep); color:var(--pine-deep); font:600 13px/18px 'Nunito Sans',system-ui,sans-serif; padding:2px 10px; border-radius:9999px; } .ds-chip-warm { background:var(--terracotta-soft); color:oklch(0.28 0.045 50); }"
+    },
+    {
+      "name": "Section Card with Rows",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "One surface per section; rows split by hairlines, never boxed.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Helpers</h2><p class=\"ds-card-sub\">Your household team, by station.</p><div class=\"ds-row\"><b>Kuya Marito</b><span>House · 9:00 AM – 10:00 PM</span></div><div class=\"ds-row\"><b>Ate Marites</b><span>Yaya · 6:00 AM – 7:00 PM</span></div></section>",
+      "css": ".ds-card { background:var(--card); color:var(--ink); border-radius:24px; padding:20px; box-shadow:0 2px 8px -2px oklch(0.2 0.05 170 / 0.05), 0 1px 3px 0 oklch(0.2 0.05 170 / 0.02), inset 0 1px 0 0 oklch(1 0 0 / 0.8); font-family:'Nunito Sans',system-ui,sans-serif; } .ds-card-title { margin:0; font:400 20px/1.4 Literata,Georgia,serif; letter-spacing:-0.01em; } .ds-card-sub { margin:2px 0 12px; font-size:13px; color:var(--muted-foreground); } .ds-row { display:flex; flex-direction:column; gap:2px; padding:14px 0; font-size:14px; } .ds-row + .ds-row { border-top:1px solid oklch(0.88 0.02 82 / 0.7); } .ds-row:last-child { padding-bottom:0; } .ds-row span { font-size:13px; color:var(--muted-foreground); }"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "nav-tab-active",
+      "description": "Phone tab bar: full width, flush to the bottom edge; active tab is tile + colour + weight.",
+      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab ds-tab-active\" href=\"#\">Pass</a><a class=\"ds-tab\" href=\"#\">Schedule</a><a class=\"ds-tab\" href=\"#\">Pantry</a><a class=\"ds-tab\" href=\"#\">Money</a><a class=\"ds-tab\" href=\"#\">People</a></nav>",
+      "css": ".ds-tabbar { display:flex; gap:4px; padding:6px 8px; background:oklch(0.99 0.008 82 / 0.95); border-top:1px solid var(--border); font-family:'Nunito Sans',system-ui,sans-serif; } .ds-tab { flex:1; text-align:center; padding:6px 4px; border-radius:12px; font-size:13px; font-weight:600; color:var(--muted-foreground); text-decoration:none; transition:color 0.2s; } .ds-tab:hover { color:var(--ink); } .ds-tab-active { background:var(--sand-deep); color:var(--pine); font-weight:800; } .ds-tab:focus-visible { outline:2px solid var(--pine); outline-offset:2px; }"
+    },
+    {
+      "name": "Logomark",
+      "kind": "custom",
+      "description": "Interim mark: the i-dot lifting into a check and roofline. Drawn from tokens.",
+      "html": "<svg class=\"ds-logomark\" viewBox=\"0 0 512 512\" role=\"img\" aria-label=\"Linara\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"var(--pine)\"/><polyline points=\"157,143 199,181 257,117 348,208\" fill=\"none\" stroke=\"var(--terracotta)\" stroke-width=\"42\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><rect x=\"221\" y=\"262\" width=\"69\" height=\"164\" rx=\"34.5\" fill=\"var(--card)\"/></svg>",
+      "css": ".ds-logomark { width:48px; height:48px; display:block; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Tidy Morning Home",
+    "overview": "Linara should feel like walking into a home at seven in the morning after someone has already tidied it: natural light on sand-coloured walls, everything in its place, nothing asking for attention unless it genuinely needs you. The brand doc says it plainly: a tidy, calm home, not a control panel. The manager opens the Pass between other things; the screen's job is to be read in a glance and put down again. The palette is warm daylight (sand and cream) anchored by one calm pine-teal and a single terracotta-gold accent for hearth warmth. Type pairs a warm serif for headings with a humanist sans for everything that is read or tapped. Depth is soft and quiet; shapes are soft-cornered but not bubbly. Density is moderate: one surface per section, divided rows inside it, generous space between sections. This is a refinement of the shipped app, recorded on 2026-09-30 after the Impeccable polish pass. It explicitly rejects the generated-UI look the app started from: sparkle icons as a logo, uppercase letter-spaced eyebrows above headings, cards nested inside cards, pills for every shape, a coloured stripe down one side of a card, and reassuring filler copy the data doesn't support.",
+    "keyCharacteristics": [
+      "Warm sand ground, cream surfaces, one pine anchor, one terracotta accent.",
+      "Literata headings, Nunito Sans body; nothing below 13px.",
+      "One surface per section; rows separated by hairlines, never cards in cards.",
+      "Soft ambient shadow at rest; real lift only for things floating above.",
+      "Soft rectangles for actions, pills only for status."
+    ],
+    "rules": [
+      {
+        "name": "The One Hearth Rule",
+        "body": "Terracotta is the only warm accent, and it marks attention or warmth, never decoration. If a screen has more terracotta than pine, something is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Accent Rule",
+        "body": "Plain terracotta never carries words. Text uses Terracotta Ink on light surfaces and Hearth Ink on terracotta.",
+        "section": "colors"
+      },
+      {
+        "name": "The 13px Floor",
+        "body": "Nothing in the app is smaller than 13px. The theme's smallest size (`text-xs`) is 13px, and arbitrary smaller sizes are not used.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Eyebrow Rule",
+        "body": "No uppercase, letter-spaced label above a heading. The heading carries its own weight. Labels are sentence case at label weight; the only tracked text is a code meant to be read out character by character (the invite code).",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper, Not Plastic Rule",
+        "body": "A card's shadow should be barely noticeable. If you can see the shadow before you see the card's content, it's too strong. Only floating layers lift.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pills-Mean-Status Rule",
+        "body": "If it's a pill, it tells you a state (Active, Invited, 3 to buy, Coming up). If you can tap it to do something, it's a soft rectangle.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** keep one surface per section, and split its rows with hairlines.",
+      "**Do** use Pine for the one primary action on a screen area, and Secondary buttons for everything else.",
+      "**Do** say only what the data supports: \"Nothing on today's board yet\", not \"A calm morning, everyone is at their station\".",
+      "**Do** name the helper in copy (\"Marites's next shift\"); never assume a pronoun.",
+      "**Do** check contrast: 4.5:1 for text, using Terracotta Ink or Hearth Ink whenever terracotta and words meet.",
+      "**Do** open every overlay through the shared Modal."
+    ],
+    "donts": [
+      "**Don't** use sparkles, or any emoji, as an icon or a logo.",
+      "**Don't** put an uppercase, letter-spaced eyebrow above a heading.",
+      "**Don't** nest a bordered or shadowed card inside another card.",
+      "**Don't** add a coloured stripe down one side of a card.",
+      "**Don't** make a tappable thing a pill, or a status a button.",
+      "**Don't** go below 13px, or use arbitrary text sizes.",
+      "**Don't** show progress rings or big numbers standing in for content. The money cards' 0% rings are a known holdover to fix."
+    ]
+  }
+}
