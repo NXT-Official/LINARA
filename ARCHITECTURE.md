@@ -704,6 +704,10 @@ CREATE TABLE public.helper_profiles (
     employment TEXT CHECK (employment IN ('live-in', 'live-out')),
     phone TEXT,
     created_by UUID REFERENCES public.user_profiles(id),
+    started_on DATE, -- her first working day; first pay period starts here (add-pay-periods.sql)
+    notice_last_day DATE, -- notice she gave from her app (give_notice)
+    notice_note TEXT,
+    notice_given_at TIMESTAMP WITH TIME ZONE,
     ended_on DATE, -- her last working day, once the employment has ended
     ended_at TIMESTAMP WITH TIME ZONE,
     ended_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
@@ -938,7 +942,10 @@ CREATE TABLE public.payslips (
     net_pay NUMERIC(10,2) NOT NULL,
     currency TEXT NOT NULL DEFAULT 'PHP',
     payout_provider TEXT NOT NULL DEFAULT 'xendit',
-    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA')),
+    kind TEXT NOT NULL DEFAULT 'regular' CHECK (kind IN ('regular', 'thirteenth_month')),
+    -- CASH/BANK_TRANSFER/OTHER: a payment recorded as made outside Linara
+    -- (payout_provider = 'manual'), see supabase/add-pay-periods.sql.
+    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA', 'CASH', 'BANK_TRANSFER', 'OTHER')),
     payout_reference_id TEXT NOT NULL UNIQUE,
     payout_external_id TEXT,
     payout_status TEXT NOT NULL CHECK (payout_status IN ('pending_send', 'processing', 'succeeded', 'failed')) DEFAULT 'pending_send',
@@ -946,6 +953,11 @@ CREATE TABLE public.payslips (
     requested_by UUID REFERENCES public.user_profiles(id),
     requested_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     confirmed_at TIMESTAMP WITH TIME ZONE,
+    paid_on DATE, -- manual payments: the day it was handed over
+    manual_note TEXT,
+    helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- her answer to a manual payment
+    helper_ack_at TIMESTAMP WITH TIME ZONE,
+    helper_ack_note TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

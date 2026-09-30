@@ -86,22 +86,6 @@ the bottom.
 - **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
 
 
-### O15. 13th-month pay is neither computed nor paid
-
-- **Found:** 2026-10-01, building end-of-employment (O4, now C60).
-- **What's missing:** `plan.md` §1 and §4 promise "13th-month calculations" ("Automatic calculations for 13th-month pays"). RA 10361 Sec. 25 requires at least 1/12 of the basic salary earned in the calendar year, pro-rated on separation. Nothing in either app computes, shows or pays it, apart from the estimate the web's End employment dialog now shows (`thirteenthMonthEstimate`, from the basic pay on paid payslips).
-- **Blocks:** Any claim that Linara handles Kasambahay pay end to end, and a complete final pay.
-- **Current workaround:** The End employment dialog shows the estimate and tells the manager to settle it with her directly.
-- **To close:** A 13th-month payslip kind (a snapshot column on `payslips` first, per the net-pay invariant in `net-pay.ts`), paid in December and on separation, and shown on the helper's My Pay and record.
-
-### O16. A missed cutoff can never be paid through Linara
-
-- **Found:** 2026-10-01, building end-of-employment.
-- **What's missing:** `initiate_payslip` only pays the cutoff `helper_pay_cutoff` names: the current one, or an ended employment's final one. If a manager doesn't pay a cutoff before it closes, there is no path to pay it later, and her record shows the gap. End employment makes this visible, and warns when the cutoff before her final one has no payment.
-- **Blocks:** Accurate records whenever a payday is missed; final pay for someone who left right after an unpaid cutoff.
-- **Current workaround:** Pay outside Linara. The payslip then isn't on either side's record.
-- **To close:** Let `initiate_payslip` take an explicit past cutoff, bounded to cutoffs she was employed in and guarded by the same `payslips_one_per_cutoff` index.
-
 ---
 
 ## Closed Gaps
@@ -3033,12 +3017,44 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
     - `join_household_with_invite` activates the new employment on her existing account. It is also used automatically when she "claims" with an existing email.
     - Her private notes follow her. `helper_notes_privacy` is now set-valued, because the scalar version would have errored on her second employment.
 - **Residual:**
-  - Only a manager can end an employment; she can't record leaving herself.
-  - "Worked from" is the invite's creation date, not her first day.
-  - A manager can no longer read her `user_profiles` row once she's detached, so "from [name]" on tasks she created in the app falls back to no name.
-  - One active employment at a time (`current_household_id()` is single-valued), so part-time work in two households at once isn't supported.
+  - Three follow-ups were fixed in C63: she couldn't record leaving herself, "worked from" was the invite date, and "from [name]" was lost after she left.
+  - One active employment at a time (`current_household_id()` is single-valued), so part-time work in two households at once isn't supported. Out of scope by decision (2026-10-01).
   - Offline actions still queued on her phone when she's detached will fail on replay.
   - Not yet exercised against the live database or on a device.
+
+### C61. A missed cutoff could never be paid, and money paid outside Linara left no record (former Open Gap O16)
+
+- **Found / fixed:** found 2026-10-01 building end-of-employment. Fixed the same day: `LINARA` `5a8bdef` `556117b` `a7cb414`, `LINARA_MOBILE` `ee735f7` `cce5f55`.
+- **Was:** `initiate_payslip` only ever paid the cutoff containing today (or, after C60, the final one), so a cutoff nobody paid on time stayed unpaid on the record forever. Money handed over in cash or by bank transfer had no place in Linara at all.
+- **Fix:** see `supabase/add-pay-periods.sql`, which has to be applied by hand after `add-employment-end.sql`.
+  - **One list of pay periods.** `helper_pay_periods()` lists every cutoff since Linara started tracking her, with the days she worked and the payment that settled it. The web's Pay Dial, Money, Past staff and Needs You read it, and so does mobile My Pay.
+  - **Paying a missed period.** `initiate_payslip` takes `p_cutoff_start` to pay a missed period. Money and Past staff list the unpaid periods, each payable by GCash or Maya.
+  - **Payments made outside Linara.** `record_offapp_payslip()` records "Paid outside Linara" (cash, bank transfer, other) as a `manual` payslip with `helper_ack = 'pending'`.
+    - She answers in the app. "Natanggap ko" means received; "Hindi ko natanggap" means not received, and goes to the manager's Needs You.
+    - Only confirmed manual payments count on her record and PDF.
+    - A record she hasn't confirmed can be withdrawn (`withdraw_offapp_payslip`), which frees its vales and the period.
+  - **Double-pay guard.** `pay_target()` matches by overlap, so a period can't be paid twice across Xendit and manual payments.
+  - **Tests.** `supabase/tests/pay-periods.test.mjs` (`npm run test:sql`) runs both migrations in PGlite and checks 40 scenarios.
+- **Residual:**
+  - Periods from before she was added to Linara aren't listed.
+  - A dispute is resolved by talking it through and withdrawing and re-paying. There is no in-app thread.
+
+### C62. 13th-month pay was neither computed nor paid (former Open Gap O15)
+
+- **Found / fixed:** found 2026-10-01; fixed the same day, same commits as C61.
+- **Was:** `plan.md` promises 13th-month calculations (RA 10361 Sec. 25), and nothing computed or paid them.
+- **Fix:** `thirteenth_month_due()` computes 1/12 of the basic pay on record for the calendar year: regular payslips that went out, less any she disputed.
+  - **When it's payable:** from December 1, or once her employment has ended (pro-rated to her last day). It's due by Dec 24, or with her final pay.
+  - **How it's paid:** as a `thirteenth_month` payslip, through the same GCash, Maya or outside-Linara options, with no contributions or vale deducted. Postgres computes the amount itself.
+  - **Where it shows:** web Money and Past staff; mobile payslip history and the PDF.
+- **Residual:** it's computed from basic pay paid through Linara, so it's only as complete as the pay record. Periods paid outside Linara count only once she confirms them.
+
+### C63. After C60: her notice, her real first day, and her name on old tasks
+
+- **Found / fixed:** C60's residuals, fixed 2026-10-01 with C61.
+- **Notice:** `give_notice()` and `withdraw_notice()` let her give her last day and a message from My Record. The manager sees it in Needs You and on People ("Leaving Oct 20"), and End employment opens on that day. A trigger clears the notice when the employment ends.
+- **First day:** `helper_profiles.started_on`, set on the invite form (backfilled from the invite date). It's used on her record and PDF, and it pro-rates a first cutoff she started partway through. That pro-rating shows on the Pay Dial and in the mobile estimate the same way the payout applies it.
+- **Names:** `user_profiles_former_staff_read` lets a manager keep reading the names of people who worked in their household.
 
 ---
 
