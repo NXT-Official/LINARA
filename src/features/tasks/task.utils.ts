@@ -1,4 +1,4 @@
-import type { Weekday } from "@/lib/time";
+import { parseTimeToMinutes, toISODate, weekdayOf, type Weekday } from "@/lib/time";
 import type { Recurrence, Routine, Task } from "./task.types";
 
 export function recurrenceLabel(r?: Recurrence): string | null {
@@ -29,4 +29,35 @@ export function isPastDue(t: Task, nowTs: number): boolean {
   const start = t.scheduledStart ? Date.parse(t.scheduledStart) : Number.NaN;
   if (Number.isNaN(start)) return false;
   return start + PAST_DUE_GRACE_MIN * 60_000 <= nowTs;
+}
+
+const startMs = (t: Task): number => {
+  const ms = t.scheduledStart ? Date.parse(t.scheduledStart) : Number.NaN;
+  return Number.isNaN(ms) ? Number.NaN : ms;
+};
+
+/**
+ * Orders tasks by their real start, so a carried-over task from Friday sorts
+ * before today's and Thursday's sorts after. Falls back to time of day.
+ */
+export const byStart = (a: Task, b: Task): number => {
+  const [x, y] = [startMs(a), startMs(b)];
+  if (!Number.isNaN(x) && !Number.isNaN(y)) return x - y;
+  return parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time);
+};
+
+/**
+ * "7:30 PM" for today, "Thu 7:30 PM" within a week either side, "Oct 12,
+ * 7:30 PM" beyond that. The board holds every unfinished task whatever its
+ * date, so a bare time is ambiguous for anything not today.
+ */
+export function taskWhen(t: Task, nowTs: number): string {
+  const ms = startMs(t);
+  if (Number.isNaN(ms)) return t.time;
+  const start = new Date(ms);
+  const now = new Date(nowTs);
+  if (toISODate(start) === toISODate(now)) return t.time;
+  const days = Math.abs(ms - nowTs) / 86_400_000;
+  if (days < 6.5) return `${weekdayOf(start)} ${t.time}`;
+  return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${t.time}`;
 }

@@ -12,7 +12,7 @@ import { TheBoardStatusLists } from "@/features/tasks/components/the-board-statu
 import type { Task } from "@/features/tasks/task.types";
 import { formatSimDate, weekdayOf } from "@/lib/time";
 
-import { NeedsYou, type PastDueItem } from "./needs-you";
+import { NeedsYou } from "./needs-you";
 import { RemoteGlance } from "./remote-glance";
 import { SpendAndPayday } from "./spend-and-payday";
 
@@ -23,7 +23,7 @@ export type ManagerPassTabProps = {
   active: Task[];
   suggestions: Task[];
   blocked: Task[];
-  pastDue: PastDueItem[];
+  pastDue: Task[];
   nowTs: number;
   pendingVales: ValeRequest[];
   flaggedInvites: Invite[];
@@ -213,6 +213,7 @@ export function ManagerPassTab({
       <NeedsYou
         blocked={blocked}
         pastDue={pastDue}
+        nowTs={nowTs}
         onEditTask={isRemote ? undefined : onEditTask}
         onCancelTask={isRemote ? undefined : onCancelTask}
         pendingVales={pendingVales}

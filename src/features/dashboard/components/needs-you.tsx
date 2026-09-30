@@ -16,17 +16,12 @@ import { stationTone } from "@/features/people/people.constants";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
-
-/** A task whose planned time has gone by. */
-export type PastDueItem = {
-  task: Task;
-  /** When it was meant to happen, e.g. "7:30 PM" or "Tue 7:30 PM" if carried over. */
-  plannedLabel: string;
-};
+import { taskWhen } from "@/features/tasks/task.utils";
 
 export function NeedsYou({
   blocked,
   pastDue,
+  nowTs,
   onEditTask,
   onCancelTask,
   pendingVales,
@@ -37,7 +32,9 @@ export function NeedsYou({
   onResolveFlag,
 }: {
   blocked: Task[];
-  pastDue: PastDueItem[];
+  /** Still To-do past their planned time (isPastDue). */
+  pastDue: Task[];
+  nowTs: number;
   /** Both omitted for remote admins -- schedules stay with the on-site managers. */
   onEditTask?: (task: Task) => void;
   onCancelTask?: (taskId: string) => void;
@@ -94,7 +91,9 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={helper.initials} />
                     <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="text-[11px] text-muted-foreground">· {t.time}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      · {taskWhen(t, nowTs)}
+                    </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
                   <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
@@ -147,7 +146,7 @@ export function NeedsYou({
             </div>
           );
         })}
-        {pastDue.map(({ task: t, plannedLabel }) => {
+        {pastDue.map((t) => {
           const helper = findHelper(t.helperId, helpers);
           return (
             <div key={t.id} className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft">
@@ -156,7 +155,9 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={helper.initials} />
                     <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="text-xs text-muted-foreground">· planned {plannedLabel}</span>
+                    <span className="text-xs text-muted-foreground">
+                      · planned {taskWhen(t, nowTs)}
+                    </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
                   <p className="mt-1 text-xs text-muted-foreground">

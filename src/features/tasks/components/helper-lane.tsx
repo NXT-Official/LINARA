@@ -2,10 +2,9 @@ import { useMemo, useState } from "react";
 
 import { STATION_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
-import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { isPastDue } from "../task.utils";
+import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { LaneNowRow } from "./lane-now-row";
 
 export function HelperLane({
@@ -19,10 +18,7 @@ export function HelperLane({
 }) {
   const [open, setOpen] = useState(false);
   const color = STATION_HEX[helper.station];
-  const sorted = useMemo(
-    () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
-    [tasks],
-  );
+  const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
   const doneCount = sorted.filter((t) => t.status === "done").length;
   const inProg = sorted.find((t) => t.status === "in_progress");
   const upcoming = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
@@ -97,6 +93,7 @@ export function HelperLane({
             <LaneNowRow
               label={inProg ? "Now" : "Next up"}
               task={nowTask}
+              when={taskWhen(nowTask, nowTs)}
               color={color}
               late={overdueSet.has(nowTask.id)}
             />
@@ -105,6 +102,7 @@ export function HelperLane({
             <LaneNowRow
               label="Next"
               task={nextTask}
+              when={taskWhen(nextTask, nowTs)}
               color={color}
               late={overdueSet.has(nextTask.id)}
               muted
@@ -132,7 +130,7 @@ export function HelperLane({
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotCls}`} />
                   <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                    {t.time}
+                    {taskWhen(t, nowTs)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div

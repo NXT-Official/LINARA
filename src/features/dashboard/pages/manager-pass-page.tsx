@@ -6,11 +6,9 @@ import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
 import { isPastDue } from "@/features/tasks/task.utils";
-import { toISODate, weekdayOf } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
-import type { PastDueItem } from "../components/needs-you";
 import { StartNewDayModal } from "../components/start-new-day-modal";
 
 /** Today at a glance: what needs a decision, then the day itself. */
@@ -87,16 +85,7 @@ export function ManagerPassPage({
   };
 
   const active = tasks.filter((t) => !t.queued && !t.suggested);
-  const today = toISODate(new Date(clock.nowTs));
-  const pastDue: PastDueItem[] = active
-    .filter((t) => isPastDue(t, clock.nowTs))
-    .map((t) => {
-      const planned = new Date(t.scheduledStart!);
-      return {
-        task: t,
-        plannedLabel: toISODate(planned) === today ? t.time : `${weekdayOf(planned)} ${t.time}`,
-      };
-    });
+  const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
   const gate = useSendGate({
     authorName,
     isRemote,

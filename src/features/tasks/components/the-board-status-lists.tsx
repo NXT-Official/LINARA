@@ -4,7 +4,7 @@ import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { isPastDue } from "../task.utils";
+import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
 
@@ -19,10 +19,7 @@ export function TheBoardStatusLists({
   nowTs: number;
 }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
-  const sorted = useMemo(
-    () => [...tasks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)),
-    [tasks],
-  );
+  const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
   const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const doing = sorted.filter((t) => t.status === "in_progress");
   const done = sorted.filter((t) => t.status === "done");
@@ -38,10 +35,13 @@ export function TheBoardStatusLists({
   const current = tabs.find((t) => t.key === tab)!;
 
   // Insertion index for the "now" marker in the To-do timeline:
-  // place it before the first todo whose time >= the current in-progress time.
+  // place it before the first todo that starts at or after the current moment.
   let nowMarkerIdx = -1;
   if (tab === "todo") {
-    nowMarkerIdx = todo.findIndex((t) => parseTimeToMinutes(t.time) >= nowMin);
+    nowMarkerIdx = todo.findIndex((t) => {
+      const ms = t.scheduledStart ? Date.parse(t.scheduledStart) : Number.NaN;
+      return Number.isNaN(ms) ? parseTimeToMinutes(t.time) >= nowMin : ms >= nowTs;
+    });
     if (nowMarkerIdx === -1) nowMarkerIdx = todo.length; // all overdue → marker at the end
   }
 
@@ -82,6 +82,7 @@ export function TheBoardStatusLists({
               {tab === "todo" && i === nowMarkerIdx && <NowMarker />}
               <BoardTaskCard
                 task={t}
+                when={taskWhen(t, nowTs)}
                 late={tab !== "done" && overdueId(t)}
                 isDoing={t.status === "in_progress"}
                 helpers={helpers}

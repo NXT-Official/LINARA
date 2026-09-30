@@ -12,11 +12,14 @@ import { RecurrenceBadge } from "./recurrence-badge";
 
 export function BoardTaskCard({
   task,
+  when,
   late,
   isDoing,
   helpers,
 }: {
   task: Task;
+  /** Display time, with the day when it isn't today (taskWhen). */
+  when: string;
   late: boolean;
   isDoing: boolean;
   helpers: Helper[];
@@ -26,14 +29,19 @@ export function BoardTaskCard({
   const helper = findHelper(task.helperId, helpers);
   const color = STATION_HEX[task.station];
   const isDone = task.status === "done";
+  // "Thu 7:30 PM" -> "Thu" over "7:30 PM", so the narrow column never splits the time.
+  const day = when.endsWith(task.time)
+    ? when.slice(0, -task.time.length).replace(/,?\s*$/, "")
+    : "";
   return (
     <article
       className="overflow-hidden rounded-2xl ring-1 ring-border/20 bg-card shadow-soft"
       style={{ borderLeft: `4px solid ${color.solid}` }}
     >
       <div className="flex items-start gap-2.5 p-3">
-        <span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {task.time}
+        <span className="w-16 shrink-0 pt-0.5 text-[11px] font-semibold leading-tight tabular-nums text-muted-foreground">
+          {day && <span className="block">{day}</span>}
+          {day ? task.time : when}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
