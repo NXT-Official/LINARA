@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
@@ -41,6 +42,7 @@ export function NeedsYou({
   onDecideVale,
   flaggedInvites,
   onResolveFlag,
+  finalPayDue = [],
 }: {
   blocked: Task[];
   /** Still To-do past their planned time (isPastDue). */
@@ -55,12 +57,15 @@ export function NeedsYou({
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   flaggedInvites: Invite[];
   onResolveFlag: (inviteId: string, flagId: string) => void;
+  /** Helpers who have left and haven't had their final pay sent yet. */
+  finalPayDue?: Invite[];
 }) {
   const [replyId, setReplyId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
-  const total = blocked.length + pastDue.length + pendingVales.length + flagsCount;
+  const total =
+    blocked.length + pastDue.length + pendingVales.length + flagsCount + finalPayDue.length;
 
   if (total === 0) {
     return (
@@ -87,7 +92,7 @@ export function NeedsYou({
         <div>
           <div className="text-sm font-semibold text-foreground">Needs you · {total}</div>
           <div className="text-xs text-muted-foreground">
-            Stuck or past-due tasks, vale requests, and flagged details.
+            Stuck or past-due tasks, vale requests, flagged details, and final pay.
           </div>
         </div>
       </div>
@@ -316,6 +321,38 @@ export function NeedsYou({
             );
           }),
         )}
+        {finalPayDue.map((inv) => {
+          const displayName = inv.claimedName || inv.name;
+          return (
+            <div key={`final-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-2">
+                <Avatar initials={initialsOf(displayName)} />
+                <span className="text-xs font-semibold text-foreground">{displayName}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                  <Coins className="h-3 w-3" /> Final pay due
+                </span>
+              </div>
+              <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                Her last day was{" "}
+                {inv.endedOn
+                  ? new Date(`${inv.endedOn}T00:00:00`).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "recently"}
+                . Her pay for the days since the last cutoff hasn't gone out.
+              </h4>
+              <div className="mt-3">
+                <Link
+                  to="/manager/people"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                >
+                  <Coins className="h-3.5 w-3.5" /> Pay from Past staff
+                </Link>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

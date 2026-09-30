@@ -132,11 +132,15 @@ export function useTaskBoard({
   isOnline = true,
   token,
   ready,
+  activeHelperIds,
 }: {
   nowTs: number;
   /** Real helper_profiles rows (any status), for resolving a task/routine's station
    * from its assigned helperId. */
   helpers: Helper[];
+  /** Helpers still employed here. A routine assigned to someone who has left
+   * (O4) stops respawning; omitted means every helper counts as active. */
+  activeHelperIds?: string[];
   onComplete: (record: CompletionRecord) => void;
   isOnline?: boolean;
   token: string | null;
@@ -448,7 +452,13 @@ export function useTaskBoard({
   const routinesToSpawn = (targetDate: Date): Routine[] => {
     const wd = weekdayOf(targetDate);
     const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
-    return routines.filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id));
+    const employed = activeHelperIds ? new Set(activeHelperIds) : null;
+    return routines.filter(
+      (r) =>
+        routineMatches(r, wd) &&
+        !liveRoutineIds.has(r.id) &&
+        (!employed || employed.has(r.helperId)),
+    );
   };
 
   /** How many routines would respawn if startNewDay(targetDate) ran right

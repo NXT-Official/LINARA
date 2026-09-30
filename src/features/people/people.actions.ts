@@ -485,6 +485,88 @@ export const cancelInviteFn = createServerFn({ method: "POST" })
     return { helperId };
   });
 
+/** What ending an employment on a given day would do -- see
+ * employment_end_preview in supabase/add-employment-end.sql. */
+export interface EmploymentEndPreview {
+  /** Why that day can't be her last one, or null if it can. */
+  problem: "not_active" | "future" | "before_start" | "already_paid_past" | null;
+  today: string;
+  startedOn: string;
+  latestPaidCutoffEnd: string | null;
+  finalCutoffStart: string;
+  finalCutoffEnd: string;
+  fullCutoffEnd: string;
+  finalCutoffPaid: boolean;
+  previousCutoffStart: string;
+  previousCutoffEnd: string;
+  previousCutoffUnpaid: boolean;
+  openTasks: number;
+  pendingVales: number;
+  unsettledValeTotal: number;
+  pendingRestOff: number;
+  futureRestOff: number;
+  restOwedMinutes: number;
+  basePaidThisYear: number;
+}
+
+export const employmentEndPreviewFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; lastDay: string }) => data)
+  .handler(async ({ data }): Promise<EmploymentEndPreview> => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: raw, error } = await authedClient.rpc("employment_end_preview", {
+      p_helper_id: data.helperId,
+      p_last_day: data.lastDay,
+    });
+    if (error || !raw) {
+      throw new Error(error?.message || "Failed to preview the end of employment");
+    }
+    const r = raw as Record<string, unknown>;
+    return {
+      problem: (r.problem as EmploymentEndPreview["problem"]) ?? null,
+      today: r.today as string,
+      startedOn: r.started_on as string,
+      latestPaidCutoffEnd: (r.latest_paid_cutoff_end as string | null) ?? null,
+      finalCutoffStart: r.final_cutoff_start as string,
+      finalCutoffEnd: r.final_cutoff_end as string,
+      fullCutoffEnd: r.full_cutoff_end as string,
+      finalCutoffPaid: Boolean(r.final_cutoff_paid),
+      previousCutoffStart: r.previous_cutoff_start as string,
+      previousCutoffEnd: r.previous_cutoff_end as string,
+      previousCutoffUnpaid: Boolean(r.previous_cutoff_unpaid),
+      openTasks: Number(r.open_tasks ?? 0),
+      pendingVales: Number(r.pending_vales ?? 0),
+      unsettledValeTotal: Number(r.unsettled_vale_total ?? 0),
+      pendingRestOff: Number(r.pending_rest_off ?? 0),
+      futureRestOff: Number(r.future_rest_off ?? 0),
+      restOwedMinutes: Number(r.rest_owed_minutes ?? 0),
+      basePaidThisYear: Number(r.base_paid_this_year ?? 0),
+    };
+  });
+
+/**
+ * Ends an employment (KNOWN_GAPS.md O4): the helper goes INACTIVE with her
+ * last day recorded, her open tasks move to `reassignTo` or are removed, and
+ * her account is detached from the household. Everything she did stays on
+ * record. Manager-only, enforced inside end_helper_employment.
+ */
+export const endEmploymentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; helperId: string; lastDay: string; reassignTo: string | null }) => data,
+  )
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: raw, error } = await authedClient.rpc("end_helper_employment", {
+      p_helper_id: data.helperId,
+      p_last_day: data.lastDay,
+      p_reassign_to: data.reassignTo,
+    });
+    if (error || !raw) {
+      throw new Error(error?.message || "Failed to end the employment");
+    }
+    const r = raw as Record<string, unknown>;
+    return { tasksMoved: Number(r.tasks_moved ?? 0), tasksRemoved: Number(r.tasks_removed ?? 0) };
+  });
+
 /**
  * 11. Update Helper Schedule Endpoint (Server Function)
  * Powers the Shifts editor. helper_profiles_isolation is household-scoped

@@ -1,13 +1,14 @@
-import { AlertCircle, Info, Pencil, Plus, Users } from "lucide-react";
+import { AlertCircle, Info, LogOut, Pencil, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 
 import { adminPermSummary, adminTypeLabel, REGIONAL_MINIMUM_WAGE } from "../people.constants";
-import type { Admin, Invite } from "../people.types";
-import { initialsOf } from "../people.utils";
+import type { Admin, Helper, Invite } from "../people.types";
+import { findHelper, initialsOf } from "../people.utils";
 import { EditWageModal } from "./edit-wage-modal";
+import { EndEmploymentModal } from "./end-employment-modal";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
@@ -21,9 +22,14 @@ export function PeopleSection({
   onInvite,
   onCancelInvite,
   onUpdateWage,
+  helpers,
+  activeHelpers,
+  token,
+  onEndEmployment,
 }: {
   admins: Admin[];
   currentAdmin: Admin | null;
+  /** Pending and current helpers; people who have left are in PastStaffSection. */
   invites: Invite[];
   canInvite: boolean;
   onInvite: (
@@ -33,11 +39,17 @@ export function PeopleSection({
   ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
   onUpdateWage: (id: string, wagePHP: number) => Promise<void>;
+  /** Every helper row, for the pay figures the end-employment preview needs. */
+  helpers: Helper[];
+  activeHelpers: Helper[];
+  token: string | null;
+  onEndEmployment: (id: string, lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issued, setIssued] = useState<Invite | null>(null);
   const [showContributions, setShowContributions] = useState<Record<string, boolean>>({});
   const [editingWage, setEditingWage] = useState<Invite | null>(null);
+  const [ending, setEnding] = useState<Invite | null>(null);
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
@@ -201,6 +213,15 @@ export function PeopleSection({
                         <Pencil className="h-3 w-3" /> Edit wage
                       </button>
                     )}
+                    {canInvite && isActive && (
+                      <button
+                        type="button"
+                        onClick={() => setEnding(inv)}
+                        className="ml-auto text-xs font-semibold text-muted-foreground hover:text-destructive flex items-center gap-1"
+                      >
+                        <LogOut className="h-3 w-3" /> End employment
+                      </button>
+                    )}
                   </div>
 
                   {showContributions[inv.id] && (
@@ -260,6 +281,18 @@ export function PeopleSection({
         />
       )}
       {issued && <InviteCodeScreen invite={issued} onClose={() => setIssued(null)} />}
+      {ending && token && (
+        <EndEmploymentModal
+          helper={findHelper(ending.id, helpers)}
+          otherHelpers={activeHelpers.filter((h) => h.id !== ending.id)}
+          token={token}
+          onClose={() => setEnding(null)}
+          onConfirm={async (lastDay, reassignTo) => {
+            await onEndEmployment(ending.id, lastDay, reassignTo);
+            toast.success(`${ending.claimedName || ending.name} is now in Past staff.`);
+          }}
+        />
+      )}
       {editingWage && (
         <EditWageModal
           name={editingWage.claimedName || editingWage.name}

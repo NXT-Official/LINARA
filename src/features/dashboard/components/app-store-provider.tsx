@@ -88,9 +88,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [_boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
+  const activeHelperIds = useMemo(() => activeHelpers.map((h) => h.id), [activeHelpers]);
   const board = useTaskBoard({
     nowTs: clock.nowTs,
     helpers,
+    activeHelperIds,
     onComplete: ledger.record,
     isOnline,
     token: session.token,

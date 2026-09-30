@@ -5,6 +5,7 @@ import { fmtHM12 } from "@/lib/time";
 
 import {
   cancelInviteFn,
+  endEmploymentFn,
   inviteHelperFn,
   listHelperProfilesFn,
   listInviteFlagsFn,
@@ -43,6 +44,8 @@ export interface HelperProfileRow {
    * active override. */
   manual_status: "available" | "off" | null;
   manual_available_until: string | null;
+  /** Her last working day once the employment has ended (add-employment-end.sql). */
+  ended_on?: string | null;
   created_at: string;
 }
 
@@ -70,7 +73,8 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
     phone: row.phone ?? "",
     createdAt: new Date(row.created_at).getTime(),
     createdBy: "Manager",
-    status: row.status === "ACTIVE" ? "active" : "pending",
+    status: row.status === "ACTIVE" ? "active" : row.status === "INACTIVE" ? "ended" : "pending",
+    endedOn: row.ended_on ?? undefined,
     flags,
   };
 }
@@ -176,6 +180,16 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     }
   };
 
+  /** Her last day, and where her open tasks go (another active helper, or
+   * null to remove them). Write-then-refresh: the roster, payroll and
+   * schedules all derive from this list. */
+  const endEmployment = async (id: string, lastDay: string, reassignTo: string | null) => {
+    if (!token) throw new Error("Not authenticated");
+    const result = await endEmploymentFn({ data: { token, helperId: id, lastDay, reassignTo } });
+    await refresh();
+    return result;
+  };
+
   const patch = (id: string, fn: (invite: Invite) => Invite) =>
     setInvites((prev) => prev.map((i) => (i.id === id ? fn(i) : i)));
 
@@ -195,6 +209,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     refresh,
     create,
     cancel,
+    endEmployment,
     updateWage,
     resolveFlag: (inviteId: string, flagId: string) => {
       if (!token) return;

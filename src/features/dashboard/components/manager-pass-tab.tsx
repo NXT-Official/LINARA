@@ -30,6 +30,7 @@ export type ManagerPassTabProps = {
   nowTs: number;
   pendingVales: ValeRequest[];
   flaggedInvites: Invite[];
+  finalPayDue: Invite[];
   helpers: Helper[];
   activeHelpers: Helper[];
   simDate: Date;
@@ -67,6 +68,7 @@ export function ManagerPassTab({
   nowTs,
   pendingVales,
   flaggedInvites,
+  finalPayDue,
   helpers,
   activeHelpers,
   simDate,
@@ -220,6 +222,7 @@ export function ManagerPassTab({
         onDecideVale={onDecideVale}
         flaggedInvites={flaggedInvites}
         onResolveFlag={onResolveFlag}
+        finalPayDue={finalPayDue}
       />
 
       {/* Remote-admin OFW glance */}

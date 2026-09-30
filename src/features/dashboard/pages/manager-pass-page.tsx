@@ -24,6 +24,7 @@ export function ManagerPassPage({
     board,
     schedules,
     vales,
+    payslips,
     invites: inviteStore,
     availability,
     helper,
@@ -114,7 +115,19 @@ export function ManagerPassPage({
         pastDue={pastDue}
         nowTs={clock.nowTs}
         pendingVales={vales.vales.filter((v) => v.status === "pending")}
-        flaggedInvites={inviteStore.invites.filter((i) => i.flags.length > 0)}
+        flaggedInvites={inviteStore.invites.filter(
+          (i) => i.status !== "ended" && i.flags.length > 0,
+        )}
+        // Her final payslip ends on her last day (helper_pay_cutoff), so a
+        // non-failed payslip ending that day means it has gone out.
+        finalPayDue={inviteStore.invites.filter(
+          (i) =>
+            i.status === "ended" &&
+            !payslips.payslips.some(
+              (p) =>
+                p.helperId === i.id && p.cutoffEnd === i.endedOn && p.payoutStatus !== "failed",
+            ),
+        )}
         helpers={helpers}
         activeHelpers={activeHelpers}
         simDate={simDate}

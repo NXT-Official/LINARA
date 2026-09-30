@@ -61,7 +61,10 @@ export type Invite = {
   phone: string;
   createdAt: number;
   createdBy: string;
-  status: "pending" | "active";
+  /** "ended": she worked here and has left (helper_profiles INACTIVE). */
+  status: "pending" | "active" | "ended";
+  /** Her last working day, for an ended employment ("YYYY-MM-DD"). */
+  endedOn?: string;
   claimedName?: string;
   claimedAt?: number;
   flags: InviteFlag[];
