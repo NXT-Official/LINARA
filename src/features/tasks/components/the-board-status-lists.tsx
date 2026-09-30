@@ -53,14 +53,14 @@ export function TheBoardStatusLists({
 
   return (
     <section className="space-y-3">
-      <div className="inline-flex w-full rounded-full border border-border bg-card p-1 shadow-soft">
+      <div className="inline-flex w-full rounded-xl border border-border bg-card p-1 shadow-soft">
         {tabs.map((t) => {
           const active = t.key === tab;
           return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
                 active
                   ? "bg-primary text-primary-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground"

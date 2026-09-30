@@ -27,7 +27,7 @@ export function SuggestionsInbox({
     groups.get(key)!.push(t);
   }
   return (
-    <section className="rounded-[2rem] border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
+    <section className="rounded-3xl border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta/20 text-[oklch(0.42_0.15_60)]">
           <HelpCircle className="h-4 w-4" />
@@ -45,14 +45,11 @@ export function SuggestionsInbox({
         {[...groups.entries()].map(([who, items]) => (
           <div key={who}>
             <div className="mb-2 px-1 text-xs font-semibold text-pine-deep">From {who}</div>
-            <div className="space-y-2">
+            <div className="divide-y divide-border/70">
               {items.map((t) => {
                 const helper = findHelper(t.helperId, helpers);
                 return (
-                  <div
-                    key={t.id}
-                    className="rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft"
-                  >
+                  <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
@@ -73,13 +70,13 @@ export function SuggestionsInbox({
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => onApprove(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
                         <Check className="h-3.5 w-3.5" /> Approve to board
                       </button>
                       <button
                         onClick={() => onDismiss(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-3.5 w-3.5" /> Dismiss
                       </button>

@@ -59,7 +59,7 @@ export function HelperLane({
 
   return (
     <section
-      className="overflow-hidden rounded-[2rem] border bg-card shadow-soft"
+      className="overflow-hidden rounded-3xl border bg-card shadow-soft"
       style={{ borderColor: `${color.solid}55` }}
     >
       <button
@@ -75,9 +75,7 @@ export function HelperLane({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="font-display text-base text-foreground">{helper.short}</span>
-            <span className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
-              {helper.station}
-            </span>
+            <span className="text-xs font-semibold text-muted-foreground">{helper.station}</span>
           </div>
           <div className="mt-1.5 flex items-center gap-2.5">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">

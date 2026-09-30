@@ -119,7 +119,7 @@ export function ManagerAuthFlow() {
   if (session.status === "needs_bootstrap") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
           <LogoMark className="h-10 w-10" />
           <h1 className="mt-4 font-display text-2xl text-foreground">Finish setting up</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -148,7 +148,7 @@ export function ManagerAuthFlow() {
           <button
             onClick={submitBootstrap}
             disabled={loading || !fullName.trim()}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -165,7 +165,7 @@ export function ManagerAuthFlow() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-lift">
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
         <LogoMark className="h-10 w-10" />
         <h1 className="mt-4 font-display text-2xl text-foreground">
           {mode === "signup" ? "Set up your household" : "Welcome back"}
@@ -245,7 +245,7 @@ export function ManagerAuthFlow() {
         <button
           onClick={submit}
           disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? (
             <>

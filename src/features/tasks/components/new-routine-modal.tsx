@@ -238,7 +238,7 @@ export function NewRoutineModal({
                 ) : (
                   <>
                     <BookmarkPlus className="h-3.5 w-3.5" />
-                    Save to Library
+                    Save to library
                   </>
                 )}
               </button>
@@ -279,7 +279,7 @@ export function NewRoutineModal({
                     type="button"
                     key={d}
                     onClick={() => toggleDay(d)}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -296,14 +296,14 @@ export function NewRoutineModal({
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           onClick={onClose}
-          className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={submit}
           disabled={!canSubmit}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           Save routine
         </button>

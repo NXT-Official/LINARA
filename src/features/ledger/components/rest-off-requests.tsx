@@ -87,12 +87,10 @@ export function RestOffRequests({
   const decided = requests.filter((r) => r.status !== "pending");
 
   return (
-    <div className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
+    <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
-            Rest off requests
-          </span>
+          <span className="text-xs font-bold text-muted-foreground block">Rest off requests</span>
           <h3 className="font-display text-lg text-foreground">
             {balanceMin === null ? "…" : fmtHoursMinutes(balanceMin)} rest owed
           </h3>
@@ -128,14 +126,14 @@ export function RestOffRequests({
                   <button
                     onClick={() => decide(r.id, "approved")}
                     disabled={deciding !== null}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-pine-deep disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-pine-deep disabled:opacity-60"
                   >
                     <Check className="h-3 w-3" /> Approve
                   </button>
                   <button
                     onClick={() => decide(r.id, "declined")}
                     disabled={deciding !== null}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
                   >
                     <X className="h-3 w-3" /> Decline
                   </button>

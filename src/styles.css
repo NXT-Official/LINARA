@@ -63,7 +63,8 @@
 }
 
 :root {
-  --radius: 1rem;
+  /* 12px base: sections 24, inputs 16, buttons 12. Soft, not bubbly. */
+  --radius: 0.75rem;
 
   /* Brand & PWA/Visual Polishing Custom Tokens */
   --sand: oklch(0.965 0.018 82); /* #F7F3EC bg */

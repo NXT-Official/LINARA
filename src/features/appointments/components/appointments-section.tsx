@@ -101,24 +101,19 @@ export function AppointmentsSection({
     );
 
   return (
-    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-4 shadow-soft sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-            <CalendarClock className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-foreground">
-              Appointments · {upcoming.length}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Fixed events. Prep tasks land on the board automatically.
-            </div>
-          </div>
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="whitespace-nowrap font-display text-xl text-foreground">
+            Appointments <span className="text-muted-foreground">· {upcoming.length}</span>
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Fixed events. Prep tasks land on the board automatically.
+          </p>
         </div>
         <button
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
         >
           <Plus className="h-3.5 w-3.5" /> New appointment
         </button>
@@ -130,7 +125,7 @@ export function AppointmentsSection({
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={isScheduling}
-            placeholder="✨ e.g., Flight on Friday at 8am, pack bags 12h before"
+            placeholder="e.g. Flight on Friday at 8am, pack bags 12h before"
             className="flex-1 bg-transparent px-3 py-2 text-xs outline-none text-foreground placeholder:text-muted-foreground/70"
           />
           <button
@@ -154,11 +149,11 @@ export function AppointmentsSection({
       </form>
 
       {upcoming.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
+        <p className="py-4 text-center text-sm text-muted-foreground">
           No upcoming appointments. Add one to schedule its prep automatically.
         </p>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="divide-y divide-border/70">
           {upcoming.map((a) => {
             const preps = tasks
               .filter((t) => t.appointmentId === a.id)
@@ -168,7 +163,7 @@ export function AppointmentsSection({
                   parseTimeToMinutes(x.time) - parseTimeToMinutes(y.time),
               );
             return (
-              <li key={a.id} className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3.5">
+              <li key={a.id} className="py-3.5 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
@@ -180,7 +175,7 @@ export function AppointmentsSection({
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       onClick={() => setEditing(a)}
-                      className="rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+                      className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
                     >
                       Edit
                     </button>

@@ -130,7 +130,7 @@ export function NewAppointmentModal({
                   key={tmpl.id}
                   onClick={() => applyTemplate(tmpl)}
                   title={tmpl.blurb}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                     active
                       ? "border-primary bg-primary text-primary-foreground shadow-soft"
                       : "border-border bg-card text-pine-deep hover:border-primary/40"
@@ -181,7 +181,7 @@ export function NewAppointmentModal({
             <button
               type="button"
               onClick={addRow}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
             >
               <Plus className="h-3 w-3" /> Add prep
             </button>
@@ -265,13 +265,13 @@ export function NewAppointmentModal({
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           onClick={onClose}
-          className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={submit}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
           Save appointment
         </button>

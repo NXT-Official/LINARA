@@ -60,24 +60,22 @@ export function AfterHoursLedger({
   if (!mounted) {
     return (
       <section
-        className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft"
+        className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft"
         suppressHydrationWarning
       >
-        <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
-          {heading}
-        </div>
+        <div className="text-xs font-semibold text-muted-foreground">{heading}</div>
         <div className="mt-1 font-display text-2xl text-foreground">—</div>
       </section>
     );
   }
 
   return (
-    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
+      {/* Stacks on a phone: side by side, the toggle squeezed the explanation
+          into a one-word-per-line column. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
-            {heading}
-          </div>
+          <div className="text-xs font-semibold text-muted-foreground">{heading}</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="font-display text-2xl text-foreground">
               {fmtHoursMinutes(restMin)}
@@ -93,11 +91,11 @@ export function AfterHoursLedger({
           </p>
         </div>
         {audience === "manager" && onSetDefault && (
-          <div className="shrink-0 text-right">
+          <div className="shrink-0 sm:text-right">
             <div className="text-xs font-semibold text-muted-foreground">
               {helperName ? `${helperName}'s default` : "Default"}
             </div>
-            <div className="mt-1 inline-flex rounded-full border border-border bg-background p-0.5">
+            <div className="mt-1 inline-flex rounded-xl border border-border bg-background p-0.5">
               {(["rest", "premium"] as const).map((k) => (
                 <button
                   key={k}
@@ -114,7 +112,7 @@ export function AfterHoursLedger({
                   }}
                   aria-pressed={ledgerDefault === k}
                   disabled={savingDefault}
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold disabled:opacity-60 ${
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-60 ${
                     ledgerDefault === k
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -148,19 +146,19 @@ export function AfterHoursLedger({
         <>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft transition hover:border-primary/40"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft transition hover:border-primary/40"
           >
             {open
               ? "Hide entries"
               : `Show ${monthEntries.length} ${monthEntries.length === 1 ? "entry" : "entries"}`}
           </button>
           {open && (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 divide-y divide-border/70">
               {monthEntries.map((e) => {
                 const meta = reasonLabel(e.reason);
                 const mins = ledgerEntryMinutes(e);
                 return (
-                  <li key={e.id} className="rounded-2xl ring-1 ring-border/20 bg-background p-3">
+                  <li key={e.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">
@@ -204,13 +202,13 @@ export function AfterHoursLedger({
                         />
                         <span>min</span>
                       </label>
-                      <div className="inline-flex rounded-full border border-border bg-card p-0.5">
+                      <div className="inline-flex rounded-xl border border-border bg-card p-0.5">
                         {(["rest", "premium"] as const).map((k) => (
                           <button
                             key={k}
                             onClick={() => onUpdateEntry(e.id, { resolution: k })}
                             aria-pressed={e.resolution === k}
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            className={`rounded-lg px-2.5 py-0.5 text-xs font-semibold ${
                               e.resolution === k
                                 ? "bg-primary text-primary-foreground"
                                 : "text-muted-foreground hover:text-foreground"

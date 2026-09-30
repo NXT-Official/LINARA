@@ -12,7 +12,7 @@ export function PalengkeChip({ compact }: { compact?: boolean } = {}) {
   return (
     <Link
       to="/manager/pantry"
-      className={`inline-flex items-center gap-1 rounded-full border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-[oklch(0.4_0.13_55)] transition hover:bg-terracotta-soft ${
+      className={`inline-flex items-center gap-1 rounded-lg border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-[oklch(0.4_0.13_55)] transition hover:bg-terracotta-soft ${
         compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"
       }`}
       title="Grocery list attached"

@@ -37,7 +37,7 @@ export function ShiftsSection({
   }, [helpers, byHelper]);
 
   return (
-    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-foreground">Shifts</h2>
@@ -45,7 +45,7 @@ export function ShiftsSection({
             One shift window and rest day per helper. Tap a row to edit.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
+        <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           <CalendarClock className="h-3 w-3" /> {helpers.length} helpers
         </span>
       </div>
@@ -67,13 +67,13 @@ export function ShiftsSection({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="divide-y divide-border/70">
         {helpers.map((h) => {
           const sched = byHelper[h.id];
           if (!sched) return null;
           const isEditing = editingId === h.id;
           return (
-            <div key={h.id} className="rounded-2xl ring-1 ring-border/20 bg-background/40 p-3.5">
+            <div key={h.id} className="py-3.5 first:pt-0 last:pb-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <Avatar initials={initialsOf(h.name)} />
@@ -88,7 +88,7 @@ export function ShiftsSection({
                 {!readOnly && (
                   <button
                     onClick={() => setEditingId(isEditing ? null : h.id)}
-                    className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
+                    className="shrink-0 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
                   >
                     {isEditing ? "Close" : "Edit"}
                   </button>
@@ -224,14 +224,14 @@ function ScheduleEditor({
         <button
           onClick={onCancel}
           disabled={saving}
-          className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
           Cancel
         </button>
         <button
           onClick={save}
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {saving ? (
             <>

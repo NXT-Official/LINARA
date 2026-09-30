@@ -315,7 +315,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await removeFromQueue(item.id);
       }
 
-      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa. 📶");
+      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa.");
     } catch (err) {
       console.error("[Offline Sync] Sync failed:", err);
     }

@@ -16,7 +16,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
   const restDay = invite?.restDay ?? helper.restDay;
   const wage = invite?.wagePHP ? `₱${invite.wagePHP.toLocaleString()} / month` : "Not on file yet";
   return (
-    <section className="rounded-[2rem] ring-1 ring-border/20 bg-card p-5 shadow-soft">
+    <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -24,7 +24,7 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
         aria-expanded={open}
       >
         <div className="min-w-0">
-          <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">
             On file with this household
           </div>
           <div className="mt-1 font-display text-lg text-foreground">

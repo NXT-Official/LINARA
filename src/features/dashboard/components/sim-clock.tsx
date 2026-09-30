@@ -38,7 +38,7 @@ export function SimClock({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-soft transition sm:text-xs ${
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-soft transition sm:text-xs ${
           isSim
             ? "border-accent/50 bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]"
             : "border-border bg-card text-muted-foreground"

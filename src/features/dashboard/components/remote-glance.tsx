@@ -15,15 +15,13 @@ export function RemoteGlance({
   const doneToday = active.filter((t) => t.status === "done");
   const donePhotos = doneToday.filter((t) => t.photo).slice(0, 6);
   return (
-    <section className="rounded-[2rem] border border-primary/20 bg-secondary/40 p-5 shadow-soft sm:p-6">
+    <section className="rounded-3xl border border-primary/20 bg-secondary/40 p-5 shadow-soft sm:p-6">
       <div className="flex items-start gap-3">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
           <Images className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold tracking-[0.14em] text-pine-deep/80">
-            Your OFW view · {adminName}
-          </div>
+          <div className="text-xs font-semibold text-pine-deep/80">Your OFW view · {adminName}</div>
           <h2 className="mt-0.5 font-display text-lg text-foreground">
             {active.length === 0
               ? "Nothing on today's board yet."
@@ -36,7 +34,7 @@ export function RemoteGlance({
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl ring-1 ring-border/20 bg-card p-4">
+      <div className="mt-4 border-t border-border/70 pt-4">
         <div className="flex items-center justify-between">
           <div className="text-xs font-semibold text-muted-foreground">
             Done today · {helperName} & team

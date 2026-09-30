@@ -66,7 +66,7 @@ export function TopBar() {
             <button
               onClick={() => setOfflineSimulated(!isOfflineSimulated)}
               aria-label={isOfflineSimulated ? "Simulate online" : "Simulate offline"}
-              className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2 py-1.5 text-xs font-semibold transition sm:px-2.5 ${
+              className={`hidden shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:inline-flex ${
                 isOfflineSimulated
                   ? "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20"
                   : "border-border bg-card text-muted-foreground hover:bg-secondary/40"

@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, CalendarClock, CheckCircle2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
@@ -85,12 +85,10 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {/* 📈 Spend Dial Card */}
-      <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
+      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
-              Petty Cash Spend
-            </span>
+            <span className="text-xs font-bold text-muted-foreground block">Petty cash spend</span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
@@ -144,16 +142,15 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               </>
             )}
           </span>
-          <span className="text-muted-foreground/80 font-mono text-xs">PALENGKE LIMIT</span>
         </div>
       </div>
 
       {/* 📉 Pay Dial Card */}
-      <div className="rounded-[2rem] bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
+      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-xs font-bold tracking-[0.12em] text-muted-foreground block">
-              {isHouseholdView ? "Payroll Due This Cutoff" : "Due This Cutoff"}
+            <span className="text-xs font-bold text-muted-foreground block">
+              {isHouseholdView ? "Payroll due this cutoff" : "Due this cutoff"}
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {/* While the cutoff is unknown, show nothing rather than a
@@ -260,9 +257,6 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 </span>
               )}
           </div>
-          <span className="text-muted-foreground/80 inline-flex items-center gap-1 font-mono text-xs">
-            <CalendarClock className="h-3 w-3" /> PAYDAY GAUGE
-          </span>
         </div>
       </div>
     </div>

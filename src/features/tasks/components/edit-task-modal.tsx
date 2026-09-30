@@ -117,14 +117,14 @@ export function EditTaskModal({
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           onClick={onClose}
-          className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={submit}
           disabled={!canSave}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           Save
         </button>

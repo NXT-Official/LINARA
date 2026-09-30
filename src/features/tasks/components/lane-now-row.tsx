@@ -28,7 +28,7 @@ export function LaneNowRow({
       }}
     >
       <div className="flex items-center gap-1.5">
-        <span className="text-xs font-bold tracking-[0.14em] text-muted-foreground">{label}</span>
+        <span className="text-xs font-bold text-muted-foreground">{label}</span>
         <span className="text-xs font-semibold tabular-nums text-foreground">· {when}</span>
         {late && (
           <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">

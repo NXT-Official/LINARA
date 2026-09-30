@@ -149,7 +149,7 @@ export function NewTaskModal({
                     type="button"
                     key={d}
                     onClick={() => toggleDay(d)}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -180,13 +180,13 @@ export function NewTaskModal({
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           onClick={onClose}
-          className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={submit}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
           {isRemote ? (sendLive ? "Send live" : "Send to on-site manager") : "Add to board"}
         </button>

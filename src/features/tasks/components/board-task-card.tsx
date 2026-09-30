@@ -34,10 +34,7 @@ export function BoardTaskCard({
     ? when.slice(0, -task.time.length).replace(/,?\s*$/, "")
     : "";
   return (
-    <article
-      className="overflow-hidden rounded-2xl ring-1 ring-border/20 bg-card shadow-soft"
-      style={{ borderLeft: `4px solid ${color.solid}` }}
-    >
+    <article className="overflow-hidden rounded-2xl ring-1 ring-border/20 bg-card shadow-soft">
       <div className="flex items-start gap-2.5 p-3">
         <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold leading-tight tabular-nums text-muted-foreground">
           {day && <span className="block">{day}</span>}
@@ -78,7 +75,7 @@ export function BoardTaskCard({
             {task.note && (
               <button
                 onClick={() => setShowNote((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
               </button>
@@ -86,7 +83,7 @@ export function BoardTaskCard({
             {isDone && task.photo && (
               <button
                 onClick={() => setShowPhoto((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
               </button>
