@@ -25,6 +25,7 @@ export function ManagerPassPage({
     schedules,
     vales,
     payslips,
+    payPeriods,
     invites: inviteStore,
     availability,
     helper,
@@ -37,6 +38,28 @@ export function ManagerPassPage({
     previewNewDay,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
+
+  // Pay still owed, per helper (current or past): closed periods with no
+  // payment, plus the final cutoff of someone who has left. From the shared
+  // pay-periods list (add-pay-periods.sql), so it matches Money and Past staff.
+  const owedPay = inviteStore.invites
+    .filter((i) => i.status !== "pending")
+    .map((invite) => {
+      const periods = payPeriods.byHelper[invite.id] ?? [];
+      const finalDue = invite.status === "ended" && periods.some((p) => p.isFinal && !p.payslipId);
+      return { invite, count: payPeriods.missed(invite.id).length + (finalDue ? 1 : 0) };
+    })
+    .filter((o) => o.count > 0);
+  const disputedPayments = payslips.payslips
+    .filter((p) => p.payoutProvider === "manual" && p.helperAck === "disputed")
+    .map((payslip) => {
+      const invite = inviteStore.invites.find((i) => i.id === payslip.helperId);
+      return {
+        payslip,
+        name: invite ? invite.claimedName || invite.name : "Your helper",
+        left: invite?.status === "ended",
+      };
+    });
   const {
     tasks,
     boardClosed,
@@ -118,16 +141,9 @@ export function ManagerPassPage({
         flaggedInvites={inviteStore.invites.filter(
           (i) => i.status !== "ended" && i.flags.length > 0,
         )}
-        // Her final payslip ends on her last day (helper_pay_cutoff), so a
-        // non-failed payslip ending that day means it has gone out.
-        finalPayDue={inviteStore.invites.filter(
-          (i) =>
-            i.status === "ended" &&
-            !payslips.payslips.some(
-              (p) =>
-                p.helperId === i.id && p.cutoffEnd === i.endedOn && p.payoutStatus !== "failed",
-            ),
-        )}
+        owedPay={owedPay}
+        disputedPayments={disputedPayments}
+        notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
         helpers={helpers}
         activeHelpers={activeHelpers}
         simDate={simDate}

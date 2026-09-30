@@ -152,6 +152,15 @@ export function PeopleSection({
                         Invited — pending
                       </span>
                     )}
+                    {isActive && inv.noticeLastDay && (
+                      <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
+                        Leaving{" "}
+                        {new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-PH", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
                     {inv.flags.length > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
                         <AlertCircle className="h-2.5 w-2.5" /> {inv.flags.length} flag
@@ -286,6 +295,7 @@ export function PeopleSection({
           helper={findHelper(ending.id, helpers)}
           otherHelpers={activeHelpers.filter((h) => h.id !== ending.id)}
           token={token}
+          initialLastDay={ending.noticeLastDay}
           onClose={() => setEnding(null)}
           onConfirm={async (lastDay, reassignTo) => {
             await onEndEmployment(ending.id, lastDay, reassignTo);

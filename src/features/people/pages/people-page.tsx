@@ -5,7 +5,8 @@ import { PeopleSection } from "../components/people-section";
 
 /** The household roster: admins, helpers, pending invites, and past staff. */
 export function PeoplePage() {
-  const { session, invites, helpers, activeHelpers, payslips, vales, board } = useAppStores();
+  const { session, invites, helpers, activeHelpers, payslips, payPeriods, vales, board } =
+    useAppStores();
   const { admins, currentAdmin, adminType } = session;
   const canInvite = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
@@ -30,7 +31,12 @@ export function PeoplePage() {
         onEndEmployment={async (id, lastDay, reassignTo) => {
           await invites.endEmployment(id, lastDay, reassignTo);
           // Her open tasks moved or went, and pending vales were declined.
-          await Promise.all([board.refresh(), vales.refresh(), payslips.refresh()]);
+          await Promise.all([
+            board.refresh(),
+            vales.refresh(),
+            payslips.refresh(),
+            payPeriods.refresh(),
+          ]);
         }}
       />
       <div className="mt-6">
@@ -38,10 +44,14 @@ export function PeoplePage() {
           pastStaff={past}
           helpers={helpers}
           payslips={payslips.payslips}
+          payPeriods={payPeriods}
           vales={vales.vales}
           token={session.token}
+          canPay={canInvite}
           onPayNow={payslips.payNow}
           onReconcile={payslips.reconcile}
+          onRecordOffApp={payslips.recordOffApp}
+          onWithdrawOffApp={payslips.withdrawOffApp}
         />
       </div>
     </>

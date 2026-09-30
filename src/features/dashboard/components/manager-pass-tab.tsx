@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { RosaStatus } from "@/features/availability/availability.types";
 import { RosaStatusChip } from "@/features/availability/components/rosa-status-chip";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
+import type { Payslip } from "@/features/pay/pay.types";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { HelperLane } from "@/features/tasks/components/helper-lane";
 import { MySuggestions } from "@/features/tasks/components/my-suggestions";
@@ -30,7 +31,9 @@ export type ManagerPassTabProps = {
   nowTs: number;
   pendingVales: ValeRequest[];
   flaggedInvites: Invite[];
-  finalPayDue: Invite[];
+  owedPay: { invite: Invite; count: number }[];
+  disputedPayments: { payslip: Payslip; name: string; left: boolean }[];
+  notices: Invite[];
   helpers: Helper[];
   activeHelpers: Helper[];
   simDate: Date;
@@ -68,7 +71,9 @@ export function ManagerPassTab({
   nowTs,
   pendingVales,
   flaggedInvites,
-  finalPayDue,
+  owedPay,
+  disputedPayments,
+  notices,
   helpers,
   activeHelpers,
   simDate,
@@ -222,7 +227,9 @@ export function ManagerPassTab({
         onDecideVale={onDecideVale}
         flaggedInvites={flaggedInvites}
         onResolveFlag={onResolveFlag}
-        finalPayDue={finalPayDue}
+        owedPay={owedPay}
+        disputedPayments={disputedPayments}
+        notices={notices}
       />
 
       {/* Remote-admin OFW glance */}

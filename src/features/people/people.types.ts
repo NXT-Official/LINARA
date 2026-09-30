@@ -65,6 +65,11 @@ export type Invite = {
   status: "pending" | "active" | "ended";
   /** Her last working day, for an ended employment ("YYYY-MM-DD"). */
   endedOn?: string;
+  /** Her first working day ("YYYY-MM-DD"); the invite date if never set. */
+  startedOn?: string;
+  /** The last day she gave notice for, from her app, while still employed. */
+  noticeLastDay?: string;
+  noticeNote?: string;
   claimedName?: string;
   claimedAt?: number;
   flags: InviteFlag[];

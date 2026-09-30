@@ -6,6 +6,7 @@ import { Modal } from "@/components/shared/modal";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { fmtHoursMinutes } from "@/features/ledger/ledger.utils";
 import {
+  netPayForCutoff,
   payComponentsForCutoff,
   thirteenthMonthEstimate,
   workedShareOfCutoff,
@@ -52,17 +53,20 @@ export function EndEmploymentModal({
   helper,
   otherHelpers,
   token,
+  initialLastDay,
   onClose,
   onConfirm,
 }: {
   helper: Helper;
+  /** The last day she gave notice for, if she did. */
+  initialLastDay?: string;
   /** Active helpers her open tasks could move to. */
   otherHelpers: Helper[];
   token: string;
   onClose: () => void;
   onConfirm: (lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
-  const [lastDay, setLastDay] = useState(() => toISODate(new Date()));
+  const [lastDay, setLastDay] = useState(() => initialLastDay ?? toISODate(new Date()));
   const [reassignTo, setReassignTo] = useState<string>(otherHelpers[0]?.id ?? "");
   const [preview, setPreview] = useState<EmploymentEndPreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -94,14 +98,16 @@ export function EndEmploymentModal({
   const blocked = current ? problemText(current) : null;
 
   const share = current
-    ? workedShareOfCutoff(current.finalCutoffStart, current.finalCutoffEnd, current.fullCutoffEnd)
+    ? workedShareOfCutoff(
+        current.finalCutoffStart,
+        current.finalCutoffEnd,
+        current.fullCutoffStart,
+        current.fullCutoffEnd,
+      )
     : 1;
   const components = payComponentsForCutoff(helper.monthlyRate, helper.paydayInterval, share);
   const finalNet = current
-    ? Math.max(
-        0,
-        components.basePay - components.statutoryEmployeeShare - current.unsettledValeTotal,
-      )
+    ? netPayForCutoff(helper.monthlyRate, helper.paydayInterval, current.unsettledValeTotal, share)
     : 0;
   const daysWorked = current ? daysInclusive(current.finalCutoffStart, current.finalCutoffEnd) : 0;
   const thirteenth = current
@@ -221,19 +227,21 @@ export function EndEmploymentModal({
             </div>
 
             <ul className="space-y-2 text-xs text-foreground">
-              {current.previousCutoffUnpaid && (
+              {current.unpaidPeriods > 0 && (
                 <Note tone="warn">
-                  Linara has no payment for{" "}
-                  {formatCutoffRange(current.previousCutoffStart, current.previousCutoffEnd)}. Only
-                  her final cutoff can be paid through Linara now, so settle that one with her
-                  directly.
+                  {current.unpaidPeriods === 1
+                    ? "One earlier pay period has"
+                    : `${current.unpaidPeriods} earlier pay periods have`}{" "}
+                  no payment on record. You can still pay{" "}
+                  {current.unpaidPeriods === 1 ? "it" : "them"} from Past staff, or record how you
+                  paid outside Linara.
                 </Note>
               )}
               {thirteenth > 0 && (
                 <Note tone="warn">
                   13th-month pay: about <strong>{fmtPeso(thirteenth)}</strong>, a twelfth of the
-                  basic pay on record for her this year. Linara doesn't pay this yet, so settle it
-                  with her.
+                  basic pay on record for her this year. It becomes payable from Past staff once her
+                  employment ends.
                 </Note>
               )}
               {current.restOwedMinutes > 0 && (

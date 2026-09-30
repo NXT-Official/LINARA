@@ -80,6 +80,8 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       weeklyRestDay: number;
       employment?: "live-in" | "live-out";
       phone?: string;
+      /** Her first working day, "YYYY-MM-DD"; defaults to today in Postgres. */
+      startedOn?: string;
       token: string;
     }) => data,
   )
@@ -143,6 +145,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
         status: "PENDING_CLAIM",
         employment: employment ?? null,
         phone: phone ?? null,
+        ...(data.startedOn ? { started_on: data.startedOn } : {}),
         created_by: profile.id,
       })
       .select()
@@ -495,11 +498,11 @@ export interface EmploymentEndPreview {
   latestPaidCutoffEnd: string | null;
   finalCutoffStart: string;
   finalCutoffEnd: string;
+  fullCutoffStart: string;
   fullCutoffEnd: string;
   finalCutoffPaid: boolean;
-  previousCutoffStart: string;
-  previousCutoffEnd: string;
-  previousCutoffUnpaid: boolean;
+  /** Closed periods before her final one with no payment of either kind. */
+  unpaidPeriods: number;
   openTasks: number;
   pendingVales: number;
   unsettledValeTotal: number;
@@ -528,11 +531,14 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       latestPaidCutoffEnd: (r.latest_paid_cutoff_end as string | null) ?? null,
       finalCutoffStart: r.final_cutoff_start as string,
       finalCutoffEnd: r.final_cutoff_end as string,
+      // Before add-pay-periods.sql the preview had no full start; the final
+      // cutoff's start was the full one then.
+      fullCutoffStart:
+        (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string),
       fullCutoffEnd: r.full_cutoff_end as string,
       finalCutoffPaid: Boolean(r.final_cutoff_paid),
-      previousCutoffStart: r.previous_cutoff_start as string,
-      previousCutoffEnd: r.previous_cutoff_end as string,
-      previousCutoffUnpaid: Boolean(r.previous_cutoff_unpaid),
+      // Before add-pay-periods.sql only the cutoff right before was checked.
+      unpaidPeriods: Number(r.unpaid_periods ?? (r.previous_cutoff_unpaid ? 1 : 0)),
       openTasks: Number(r.open_tasks ?? 0),
       pendingVales: Number(r.pending_vales ?? 0),
       unsettledValeTotal: Number(r.unsettled_vale_total ?? 0),

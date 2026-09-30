@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { toISODate } from "@/lib/time";
 
 import type { Employment, Invite, Station } from "../people.types";
 import { REGIONAL_MINIMUM_WAGE, WEEKLY_REST_DAY_NAMES } from "../people.constants";
@@ -30,6 +31,7 @@ export function InviteHelperModal({
   const [paydayInterval, setPaydayInterval] = useState<PaydayInterval>("semi_monthly");
   const [wage, setWage] = useState("8000");
   const [phone, setPhone] = useState("");
+  const [startedOn, setStartedOn] = useState(() => toISODate(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,7 @@ export function InviteHelperModal({
         paydayInterval,
         wagePHP: parseInt(wage, 10) || 0,
         phone: phone.trim(),
+        startedOn,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create the invite.");
@@ -154,6 +157,18 @@ export function InviteHelperModal({
             />
           </Field>
         </div>
+        <Field label="First day of work">
+          <input
+            type="date"
+            value={startedOn}
+            onChange={(e) => e.target.value && setStartedOn(e.target.value)}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+          <span className="mt-1 block text-xs text-muted-foreground">
+            Her real first day, even if it was years ago; it goes on her record. Linara tracks pay
+            from today, and a first day later than that pro-rates her first cutoff.
+          </span>
+        </Field>
         <Field label="Payday interval">
           <select
             value={paydayInterval}
