@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
-import { toISODate } from "@/lib/time";
+import { householdNow, toISODate } from "@/lib/time";
 
 import type { OffAppMethod } from "../pay.types";
 
@@ -34,7 +34,7 @@ export function RecordPaymentModal({
   onClose: () => void;
   onSubmit: (payment: { method: OffAppMethod; paidOn: string; note?: string }) => Promise<void>;
 }) {
-  const today = toISODate(new Date());
+  const today = toISODate(householdNow());
   const [method, setMethod] = useState<OffAppMethod>("CASH");
   const [paidOn, setPaidOn] = useState(today);
   const [note, setNote] = useState("");

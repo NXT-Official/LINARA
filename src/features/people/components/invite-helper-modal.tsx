@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
-import { toISODate } from "@/lib/time";
+import { householdNow, toISODate } from "@/lib/time";
 
 import type { Employment, Invite, Station } from "../people.types";
 import { REGIONAL_MINIMUM_WAGE, WEEKLY_REST_DAY_NAMES } from "../people.constants";
@@ -31,7 +31,7 @@ export function InviteHelperModal({
   const [paydayInterval, setPaydayInterval] = useState<PaydayInterval>("semi_monthly");
   const [wage, setWage] = useState("8000");
   const [phone, setPhone] = useState("");
-  const [startedOn, setStartedOn] = useState(() => toISODate(new Date()));
+  const [startedOn, setStartedOn] = useState(() => toISODate(householdNow()));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

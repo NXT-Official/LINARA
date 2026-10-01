@@ -5,10 +5,12 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 import {
   combineDateAndTime,
+  householdNow,
   isoToDisplayTime,
   isoToISODate,
   parseISODate,
   startOfDayIso,
+  toHouseholdClock,
   toISODate,
   weekdayOf,
   type Weekday,
@@ -152,7 +154,7 @@ export function useTaskBoard({
   // The board's "today" -- starts as real today, but is corrected to the
   // household's persisted board_date once that loads (see the mount effect
   // below); can be pushed forward via startNewDay.
-  const [simDate, setSimDate] = useState<Date>(() => new Date());
+  const [simDate, setSimDate] = useState<Date>(() => householdNow());
   // Set when the real device date has moved past simDate -- either the mount
   // fetch found a stale persisted board_date, or a tab has been left open
   // across a real day boundary (see the nowTs effect below). Consumed by
@@ -197,7 +199,7 @@ export function useTaskBoard({
   // clears rolloverNeededFor once it actually runs.
   useEffect(() => {
     if (rolloverNeededFor) return;
-    const today = new Date(nowTs);
+    const today = toHouseholdClock(nowTs);
     if (toISODate(today) > toISODate(simDate)) {
       setRolloverNeededFor(today);
     }

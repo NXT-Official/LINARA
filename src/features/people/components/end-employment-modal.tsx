@@ -12,7 +12,7 @@ import {
   workedShareOfCutoff,
 } from "@/features/pay/net-pay";
 import { formatCutoffRange } from "@/features/pay/pay.utils";
-import { toISODate } from "@/lib/time";
+import { householdNow, toISODate } from "@/lib/time";
 
 import { employmentEndPreviewFn, type EmploymentEndPreview } from "../people.actions";
 import type { Helper } from "../people.types";
@@ -66,7 +66,7 @@ export function EndEmploymentModal({
   onClose: () => void;
   onConfirm: (lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
-  const [lastDay, setLastDay] = useState(() => initialLastDay ?? toISODate(new Date()));
+  const [lastDay, setLastDay] = useState(() => initialLastDay ?? toISODate(householdNow()));
   const [reassignTo, setReassignTo] = useState<string>(otherHelpers[0]?.id ?? "");
   const [preview, setPreview] = useState<EmploymentEndPreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function EndEmploymentModal({
       .then((p) => {
         if (cancelled) return;
         // The device can be a day ahead of the household; its "today" wins.
-        if (p.problem === "future" && lastDay === toISODate(new Date())) {
+        if (p.problem === "future" && lastDay === toISODate(householdNow())) {
           setLastDay(p.today);
           return;
         }

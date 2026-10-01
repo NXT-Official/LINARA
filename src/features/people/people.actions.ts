@@ -182,6 +182,25 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * The household's IANA time zone (households.timezone), so the dashboard
+ * shows and enters task times in the house's time wherever the manager is
+ * (KNOWN_GAPS.md O9). null if it can't be read; the client then keeps using
+ * the device's zone.
+ */
+async function householdTimeZoneOf(
+  client: ReturnType<typeof createAuthedClient>,
+  householdId: string | null,
+): Promise<string | null> {
+  if (!householdId) return null;
+  const { data } = await client
+    .from("households")
+    .select("timezone")
+    .eq("id", householdId)
+    .maybeSingle();
+  return (data?.timezone as string | undefined) ?? null;
+}
+
+/**
  * 5. Manager Sign-Up Endpoint (Server Function)
  * Registers a brand-new manager and bootstraps their own household via
  * bootstrap_manager_household() (supabase/add-manager-bootstrap.sql), which
@@ -248,6 +267,7 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
       householdId: bootstrap.household_id,
       fullName: bootstrap.full_name,
       userType: bootstrap.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
     };
   });
 
@@ -312,6 +332,7 @@ export const managerLoginFn = createServerFn({ method: "POST" })
       householdId: profile.household_id,
       fullName: profile.full_name,
       userType: profile.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, profile.household_id),
     };
   });
 
@@ -344,6 +365,7 @@ export const finishBootstrapFn = createServerFn({ method: "POST" })
       householdId: bootstrap.household_id,
       fullName: bootstrap.full_name,
       userType: bootstrap.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
     };
   });
 
@@ -392,6 +414,7 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
       householdId: profile.household_id,
       fullName: profile.full_name,
       userType: profile.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, profile.household_id),
     };
   });
 

@@ -18,6 +18,7 @@ import { stationTone } from "@/features/people/people.constants";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
+import { householdTimeZone } from "@/lib/time";
 import { taskWhen } from "@/features/tasks/task.utils";
 
 /** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
@@ -315,6 +316,7 @@ export function NeedsYou({
                       {new Date(f.at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
+                        timeZone: householdTimeZone(),
                       })}
                     </p>
                   </div>

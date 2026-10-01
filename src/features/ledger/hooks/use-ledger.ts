@@ -5,7 +5,7 @@ import type { RosaStatus } from "@/features/availability/availability.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import { isRestDay } from "@/features/shifts/shift.utils";
 import type { CompletionRecord } from "@/features/tasks/hooks/use-task-board";
-import { parseHM, weekdayOf } from "@/lib/time";
+import { parseHM, toHouseholdClock, weekdayOf } from "@/lib/time";
 
 import {
   insertLedgerEntryFn,
@@ -80,7 +80,7 @@ export function useLedger({
 
   const classify = (ts: number, emergency: boolean): LedgerReason => {
     if (emergency) return "emergency";
-    const d = new Date(ts);
+    const d = toHouseholdClock(ts);
     const schedule = currentHelperId ? schedules.scheduleFor(currentHelperId) : undefined;
     if (schedule && isRestDay(weekdayOf(d), schedule)) return "rest_day";
     if (schedule?.breakStart && schedule?.breakEnd) {

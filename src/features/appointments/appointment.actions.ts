@@ -22,13 +22,34 @@ function getNextWeekdayDate(baseDate: Date, targetDayStr: string): Date {
   if (targetDay === -1) return new Date(baseDate);
 
   const result = new Date(baseDate);
-  const currentDay = result.getDay();
+  const currentDay = result.getUTCDay();
   let daysToAdd = targetDay - currentDay;
   if (daysToAdd < 0) {
     daysToAdd += 7; // Next week's occurrence
   }
-  result.setDate(result.getDate() + daysToAdd);
+  result.setUTCDate(result.getUTCDate() + daysToAdd);
   return result;
+}
+
+// The board's day and the household's UTC offset, from householdDayStamp()
+// ("2026-10-01T00:00:00+08:00"). Day math runs on the UTC fields of a date
+// at UTC midnight, so it never depends on the zone this code runs in -- UTC on
+// the server, anything on a dev machine (KNOWN_GAPS.md O9). An older caller's
+// plain ISO instant still works, read as a Manila day.
+function parseDayStamp(stamp?: string): { day: Date; offset: string } {
+  const m = stamp?.match(/^(\d{4})-(\d{2})-(\d{2})T00:00:00([+-]\d{2}:\d{2})$/);
+  if (m) return { day: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), offset: m[4] };
+  const manila = new Date((stamp ? new Date(stamp) : new Date()).getTime() + 8 * 3_600_000);
+  return {
+    day: new Date(Date.UTC(manila.getUTCFullYear(), manila.getUTCMonth(), manila.getUTCDate())),
+    offset: "+08:00",
+  };
+}
+
+// The instant the household's clock reads `hour`:00 on `day`.
+function atHouseholdHour(day: Date, hour: number, offset: string): Date {
+  const ymd = day.toISOString().slice(0, 10);
+  return new Date(`${ymd}T${String(hour).padStart(2, "0")}:00:00${offset}`);
 }
 
 /**
@@ -47,7 +68,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       const query = prompt.toLowerCase();
-      const baseline = simDate ? new Date(simDate) : new Date();
+      const { day: baseline, offset } = parseDayStamp(simDate);
 
       let targetDate = new Date(baseline);
       let title = "Calendar Appointment";
@@ -68,17 +89,17 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
         }
       }
 
+      let hour = 8;
       if (query.includes("8am") || query.includes("8:00")) {
-        targetDate.setHours(8, 0, 0, 0);
+        hour = 8;
       } else if (query.includes("6am") || query.includes("6:00")) {
-        targetDate.setHours(6, 0, 0, 0);
+        hour = 6;
       } else if (query.includes("12pm") || query.includes("12:00")) {
-        targetDate.setHours(12, 0, 0, 0);
+        hour = 12;
       } else if (query.includes("2pm") || query.includes("14:00")) {
-        targetDate.setHours(14, 0, 0, 0);
-      } else {
-        targetDate.setHours(8, 0, 0, 0);
+        hour = 14;
       }
+      const scheduledAt = atHouseholdHour(targetDate, hour, offset);
 
       if (query.includes("flight") || query.includes("airport")) {
         title = "Sir Ben's Flight to Singapore";
@@ -141,7 +162,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
       return {
         appointment: {
           title,
-          scheduledTime: targetDate.toISOString(),
+          scheduledTime: scheduledAt.toISOString(),
         },
         prepTasks,
       };
