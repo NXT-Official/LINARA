@@ -751,6 +751,12 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
     }
     const { error } = await client.auth.updateUser({ password: data.password });
     if (error) {
+      if (error.code === "same_password") {
+        throw new Error("Iba dapat ang bagong password sa dati mong password.");
+      }
+      if (error.code === "weak_password") {
+        throw new Error(`Masyadong mahina ang password. ${error.message}`);
+      }
       throw new Error(error.message);
     }
     await client.auth.signOut({ scope: "local" });

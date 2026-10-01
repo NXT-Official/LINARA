@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,7 +8,7 @@ import { Field } from "@/components/shared/field";
 import { completePasswordResetFn, requestPasswordResetFn } from "../people.actions";
 
 type Recovery = { accessToken: string; refreshToken: string };
-type Mode = "loading" | "request" | "sent" | "set" | "done";
+type Mode = "loading" | "request" | "sent" | "set" | "done" | "expired";
 
 const inputClass =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60";
@@ -42,6 +42,9 @@ export function PasswordResetFlow() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Shown on the form and kept there: a toast that vanished while the page
+  // jumped back to "request a link" left people unsure whether it worked.
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     const found = readRecoveryFromHash();
@@ -50,8 +53,7 @@ export function PasswordResetFlow() {
       window.history.replaceState(null, "", window.location.pathname);
     }
     if (found && "error" in found) {
-      toast.error(`${found.error}. Humingi ng bagong link sa ibaba.`);
-      setMode("request");
+      setMode("expired");
     } else if (found) {
       setRecovery(found);
       setMode("set");
@@ -82,14 +84,15 @@ export function PasswordResetFlow() {
   const savePassword = async () => {
     if (!recovery) return;
     if (password.length < 6) {
-      toast.error("Dapat may kahit anim (6) na characters ang password.");
+      setFormError("Dapat may kahit anim (6) na characters ang password.");
       return;
     }
     // eslint-disable-next-line security/detect-possible-timing-attacks -- Client-side double-entry check.
     if (password !== confirmPassword) {
-      toast.error("Hindi magkatugma ang passwords.");
+      setFormError("Hindi magkatugma ang dalawang password. Paki-type ulit.");
       return;
     }
+    setFormError(null);
     setLoading(true);
     try {
       await completePasswordResetFn({ data: { ...recovery, password } });
@@ -97,8 +100,15 @@ export function PasswordResetFlow() {
       setMode("done");
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "May error na naganap.");
-      setMode("request");
+      const message = err instanceof Error ? err.message : "";
+      // Only a dead link sends her away from the form; anything she can fix
+      // (same password as before, too weak) stays here, on screen.
+      if (/expired|nag-expire|Expired na/i.test(message)) {
+        setRecovery(null);
+        setMode("expired");
+      } else {
+        setFormError(message || "Hindi na-save ang bagong password. Subukan ulit.");
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +120,8 @@ export function PasswordResetFlow() {
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           {mode === "done" ? (
             <CheckCircle2 className="h-5 w-5" />
+          ) : mode === "expired" ? (
+            <AlertCircle className="h-5 w-5" />
           ) : (
             <KeyRound className="h-5 w-5" />
           )}
@@ -169,7 +181,10 @@ export function PasswordResetFlow() {
                   disabled={loading}
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFormError(null);
+                  }}
                   placeholder="••••••"
                   className={inputClass}
                 />
@@ -179,12 +194,23 @@ export function PasswordResetFlow() {
                   disabled={loading}
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setFormError(null);
+                  }}
                   placeholder="••••••"
                   className={inputClass}
                 />
               </Field>
             </div>
+            {formError && (
+              <p
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {formError}
+              </p>
+            )}
             <button
               onClick={savePassword}
               disabled={loading}
@@ -197,9 +223,14 @@ export function PasswordResetFlow() {
 
         {mode === "done" && (
           <>
-            <h1 className="mt-4 font-display text-2xl text-foreground">Password updated</h1>
+            <h1 className="mt-4 font-display text-2xl text-foreground">
+              Password reset successfully!
+            </h1>
+            <p className="mt-1.5 text-sm text-foreground">
+              Napalitan na ang password mo. Mag-sign in gamit ang bagong password.
+            </p>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Helper ka? Buksan ang Linara app sa phone mo at mag-sign in gamit ang bagong password.
+              Kasambahay ka? Buksan ang Linara app sa phone mo at doon mag-sign in.
             </p>
             <a
               href="linaramobile://sign-in"
@@ -207,6 +238,24 @@ export function PasswordResetFlow() {
             >
               Buksan ang Linara app
             </a>
+          </>
+        )}
+
+        {mode === "expired" && (
+          <>
+            <h1 className="mt-4 font-display text-2xl text-foreground">
+              This reset link has expired
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Luma na o nagamit na ang link na ito, kaya hindi napalitan ang password mo. Humingi ng
+              bagong link.
+            </p>
+            <button
+              onClick={() => setMode("request")}
+              className="mt-5 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+            >
+              Send a new link
+            </button>
           </>
         )}
 
