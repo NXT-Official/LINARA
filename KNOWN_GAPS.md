@@ -24,6 +24,23 @@ the bottom.
 - **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
 - **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
 
+### O17. The web dashboard never refreshes its access token, so a manager session dies after about an hour
+
+- **Found:** 2026-10-01, while putting the manager dashboard inside `LINARA_MOBILE` (a WebView, `app/manager.tsx`).
+- **What's missing:** `use-session.ts` stores `linara_manager_token` and `linara_manager_refresh_token` in localStorage, but nothing ever reads the refresh token. Every Supabase client in `src/lib/supabase.ts` has `autoRefreshToken: false`, and the access token is read into React state once, on mount. When the JWT expires (Supabase default: 1 hour), server functions start failing with an expired JWT until the manager reloads, and even a reload only works if `getManagerProfileFn` still accepts the token. Otherwise `use-session.ts` clears it and the manager has to log in again.
+- **Blocks:** Any manager who leaves a tab open, in a browser or in the app.
+- **Current workaround:** In `LINARA_MOBILE` the native Supabase client owns the session and refreshes it. `app/manager.tsx` writes each new token into the page's localStorage and reloads the page, roughly once an hour. On plain web there's no workaround.
+- **To close:** Refresh in `use-session.ts` (`supabase.auth.refreshSession` with the stored refresh token before expiry, then persist and `setToken`), and send the fresh token to every store. Owned by `LINARA`.
+
+### O18. The mobile app's manager side is the web dashboard in a WebView, not native screens
+
+- **Found:** 2026-10-01. The client wants managers in the APK too. For the demo, `LINARA_MOBILE/app/manager.tsx` loads the deployed dashboard (`MANAGER_DASHBOARD_URL` in `lib/env.ts`, defaulting to `https://linara-delta.vercel.app`) for accounts whose `user_type` is a manager type, and hands the page the app's session. A native rebuild comes later.
+- **What's missing:** Native manager screens. `LINARA_MOBILE/AGENTS.md` used to say the mobile client is helper-facing only; that's no longer true.
+- **Known limits of the WebView:** no offline use (a retry screen instead); no manager push notifications (`use-push-notifications.ts` skips managers, which is fine today because every push goes to a helper); the page reloads when the token refreshes (O17). A manager who signs up on the in-app dashboard but closes it before creating their household has no `user_profiles` row, so on the next launch they land on the helper tabs. Signing in again and choosing "New manager? Set up your household" gets them back.
+- **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
+- **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
+
+
 ---
 
 ## Closed Gaps
