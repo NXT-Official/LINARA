@@ -759,7 +759,9 @@ CREATE TABLE public.tickets (
     household_id UUID NOT NULL,
     title TEXT NOT NULL,
     notes TEXT,
-    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    -- NULL = Unassigned: on the managers' board only until one assigns it
+    -- (supabase/add-unassigned-tasks.sql).
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
     status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')) DEFAULT 'todo',
     sop_id UUID REFERENCES public.house_sops(id) ON DELETE SET NULL,
     photo_evidence_url TEXT,

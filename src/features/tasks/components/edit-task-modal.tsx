@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import {
@@ -19,28 +20,40 @@ import {
 
 import type { Task } from "../task.types";
 
-export type TaskEdit = { title: string; note?: string; scheduledStartIso: string };
+export type TaskEdit = {
+  title: string;
+  note?: string;
+  scheduledStartIso: string;
+  /** null = Unassigned. */
+  helperId: string | null;
+};
 
 const inputCls =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
 
 /**
- * Edit a task's what and when. Not who: moving it to another helper is a new
- * ask to a different person, and goes through New task and its send gate.
+ * Edit a task's what, when and who. A task can be left Unassigned and given
+ * to someone later (supabase/add-unassigned-tasks.sql); assigning it is what
+ * puts it on her phone. The out-of-shift warning follows whoever is picked.
  */
 export function EditTaskModal({
   task,
-  helperName,
-  schedule,
+  helpers,
+  scheduleFor,
   onClose,
   onSave,
 }: {
   task: Task;
-  helperName: string;
-  schedule: HelperSchedule | undefined;
+  /** Who it can go to: the household's current helpers. */
+  helpers: Helper[];
+  scheduleFor: (helperId: string) => HelperSchedule | undefined;
   onClose: () => void;
   onSave: (edit: TaskEdit) => void;
 }) {
+  const [helperId, setHelperId] = useState<string | null>(task.helperId);
+  const assignee = helpers.find((h) => h.id === helperId);
+  const helperName = assignee?.short ?? "your helper";
+  const schedule = helperId ? scheduleFor(helperId) : undefined;
   const [title, setTitle] = useState(task.title);
   const [note, setNote] = useState(task.note ?? "");
   const [date, setDate] = useState(() =>
@@ -62,6 +75,7 @@ export function EditTaskModal({
       title: title.trim(),
       note: note.trim() || undefined,
       scheduledStartIso: combineDateAndTime(date, fmtHM12(time)),
+      helperId,
     });
   };
 
@@ -77,11 +91,29 @@ export function EditTaskModal({
           <X className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">For {helperName}.</p>
       <div className="mt-4 space-y-3">
         <Field label="Title">
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
         </Field>
+        <Field label="Assigned to">
+          <select
+            value={helperId ?? ""}
+            onChange={(e) => setHelperId(e.target.value || null)}
+            className={inputCls}
+          >
+            <option value="">Unassigned (decide later)</option>
+            {helpers.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.short} · {h.station}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {helperId === null && (
+          <p className="text-sm text-muted-foreground">
+            Stays on your board only. Nobody sees it on their phone until you assign it.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Date">
             <input

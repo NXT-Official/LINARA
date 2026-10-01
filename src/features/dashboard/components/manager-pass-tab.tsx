@@ -6,6 +6,7 @@ import { RosaStatusChip } from "@/features/availability/components/rosa-status-c
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import type { Payslip } from "@/features/pay/pay.types";
 import type { Helper, Invite } from "@/features/people/people.types";
+import { UNASSIGNED_HELPER } from "@/features/people/people.utils";
 import { HelperLane } from "@/features/tasks/components/helper-lane";
 import { MySuggestions } from "@/features/tasks/components/my-suggestions";
 import { SuggestionsInbox } from "@/features/tasks/components/suggestions-inbox";
@@ -275,6 +276,17 @@ export function ManagerPassTab({
         </div>
         {passMode === "line" ? (
           <div className="space-y-3">
+            {/* Tasks nobody has yet: managers only, until one is assigned (Edit). */}
+            {(active.some((t) => t.helperId === null) ||
+              upcoming.some((t) => t.helperId === null)) && (
+              <HelperLane
+                unassigned
+                helper={UNASSIGNED_HELPER}
+                tasks={active.filter((t) => t.helperId === null)}
+                upcoming={upcoming.filter((t) => t.helperId === null)}
+                nowTs={nowTs}
+              />
+            )}
             {activeHelpers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
                 No active helpers yet — invite one from People to see their lane here.

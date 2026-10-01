@@ -10,7 +10,8 @@ export type Task = {
   note?: string;
   time: string;
   scheduledStart?: string; // ISO, tickets.scheduled_start -- the real instant behind `time`
-  helperId: string;
+  /** null = Unassigned (supabase/add-unassigned-tasks.sql): on the managers' board only. */
+  helperId: string | null;
   station: Station;
   status: Status;
   photo?: string;

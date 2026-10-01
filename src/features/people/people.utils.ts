@@ -60,6 +60,14 @@ export const UNKNOWN_HELPER: Helper = {
   effectiveResolution: "rest",
 };
 
+/** A task nobody is assigned to yet (tickets.helper_id NULL). */
+export const UNASSIGNED_HELPER: Helper = {
+  ...UNKNOWN_HELPER,
+  name: "Unassigned",
+  short: "Unassigned",
+  initials: "?",
+};
+
 export interface StatutorySplit {
   isUnder5k: boolean;
   sssEmployer: number;
@@ -114,5 +122,5 @@ export function cutoffsPerMonth(interval: PaydayInterval): 1 | 2 {
   return interval === "monthly" ? 1 : 2;
 }
 
-export const findHelper = (id: string, helpers: Helper[]): Helper =>
-  helpers.find((h) => h.id === id) ?? UNKNOWN_HELPER;
+export const findHelper = (id: string | null, helpers: Helper[]): Helper =>
+  id === null ? UNASSIGNED_HELPER : (helpers.find((h) => h.id === id) ?? UNKNOWN_HELPER);

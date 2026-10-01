@@ -36,6 +36,7 @@ await db.exec(read("add-pay-periods.sql"));
 // PGlite has no pg_cron: apply the function, not the schedule.
 await db.exec(read("add-nightly-utos-purge.sql").split("-- @schedule")[0]);
 await db.exec(read("add-account-deletion.sql"));
+await db.exec(read("add-unassigned-tasks.sql"));
 console.log("migrations applied");
 
 const M = "00000000-0000-0000-0000-00000000000a"; // manager, Manila household
@@ -68,6 +69,12 @@ await db.exec(`
   INSERT INTO helper_notes (helper_id, text) VALUES ('${HP2}', 'Rosa''s note'), ('${HP}', 'Marites'' note');
   INSERT INTO appointments (household_id, title) VALUES ('${H}', 'Pediatrician');
 `);
+
+// --- Unassigned tasks ---------------------------------------------------------------
+await db.exec(`INSERT INTO tickets (household_id, title, helper_id) VALUES ('${H}', 'Wash the car', NULL)`);
+check("a task can have no helper yet", (await q(`SELECT 1 FROM tickets WHERE helper_id IS NULL`)).length === 1);
+await db.exec(`UPDATE tickets SET helper_id = '${HP}' WHERE title = 'Wash the car'`);
+check("and be assigned later", (await one(`SELECT helper_id FROM tickets WHERE title = 'Wash the car'`)).helper_id === HP);
 
 // --- Nightly utos purge -------------------------------------------------------------
 // Each household's midnight is its own: a uto from just before Manila's midnight

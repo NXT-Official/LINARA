@@ -180,8 +180,8 @@ export function ManagerPassPage({
       {editing && (
         <EditTaskModal
           task={editing}
-          helperName={helpers.find((h) => h.id === editing.helperId)?.name ?? "your helper"}
-          schedule={schedules.scheduleFor(editing.helperId)}
+          helpers={activeHelpers}
+          scheduleFor={schedules.scheduleFor}
           onClose={() => setEditing(null)}
           onSave={(edit) => {
             editTask(editing.id, edit);

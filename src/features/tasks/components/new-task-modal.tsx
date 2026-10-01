@@ -20,6 +20,7 @@ export function NewTaskModal({
   isRemote?: boolean;
 }) {
   const [title, setTitle] = useState("");
+  // "" = Unassigned: a task can wait on the board until someone is picked.
   const [helperId, setHelperId] = useState(activeHelpers[0]?.id ?? "");
   const [time, setTime] = useState("08:00");
   const [note, setNote] = useState("");
@@ -32,7 +33,7 @@ export function NewTaskModal({
   };
 
   const submit = () => {
-    if (!title.trim() || !helperId) return;
+    if (!title.trim()) return;
     const [h, m] = time.split(":").map(Number);
     const suffix = h >= 12 ? "PM" : "AM";
     const hr = ((h + 11) % 12) + 1;
@@ -45,7 +46,7 @@ export function NewTaskModal({
     onAdd(
       {
         title: title.trim(),
-        helperId,
+        helperId: helperId || null,
         time: `${hr}:${String(m).padStart(2, "0")} ${suffix}`,
         note: note.trim() || undefined,
         recurrence,
@@ -88,7 +89,7 @@ export function NewTaskModal({
               onChange={(e) => setHelperId(e.target.value)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             >
-              {activeHelpers.length === 0 && <option value="">No active helpers yet</option>}
+              <option value="">Unassigned (decide later)</option>
               {activeHelpers.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name} · {h.station}

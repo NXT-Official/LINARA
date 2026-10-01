@@ -135,9 +135,9 @@ export function NeedsYou({
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone[t.station] : "bg-secondary text-muted-foreground"}`}
                     >
-                      {t.station}
+                      {t.helperId ? t.station : "Unassigned"}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -203,9 +203,9 @@ export function NeedsYou({
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone[t.station] : "bg-secondary text-muted-foreground"}`}
                     >
-                      {t.station}
+                      {t.helperId ? t.station : "Unassigned"}
                     </span>
                   </div>
                   {onEditTask && onCancelTask && (
