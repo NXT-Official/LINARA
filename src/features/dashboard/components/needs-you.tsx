@@ -8,14 +8,17 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
+import type { Payslip } from "@/features/pay/pay.types";
 import { stationTone } from "@/features/people/people.constants";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
+import { householdTimeZone } from "@/lib/time";
 import { taskWhen } from "@/features/tasks/task.utils";
 
 /** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
@@ -41,6 +44,9 @@ export function NeedsYou({
   onDecideVale,
   flaggedInvites,
   onResolveFlag,
+  owedPay = [],
+  disputedPayments = [],
+  notices = [],
 }: {
   blocked: Task[];
   /** Still To-do past their planned time (isPastDue). */
@@ -55,12 +61,25 @@ export function NeedsYou({
   onDecideVale: (id: string, decision: "approved" | "declined") => void;
   flaggedInvites: Invite[];
   onResolveFlag: (inviteId: string, flagId: string) => void;
+  /** Helpers with pay periods that closed unpaid (or, after leaving, final pay due). */
+  owedPay?: { invite: Invite; count: number }[];
+  /** Outside-Linara payments she says didn't reach her. */
+  disputedPayments?: { payslip: Payslip; name: string; left: boolean }[];
+  /** Helpers who gave notice from their app. */
+  notices?: Invite[];
 }) {
   const [replyId, setReplyId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
-  const total = blocked.length + pastDue.length + pendingVales.length + flagsCount;
+  const total =
+    blocked.length +
+    pastDue.length +
+    pendingVales.length +
+    flagsCount +
+    owedPay.length +
+    disputedPayments.length +
+    notices.length;
 
   if (total === 0) {
     return (
@@ -87,7 +106,7 @@ export function NeedsYou({
         <div>
           <div className="text-sm font-semibold text-foreground">Needs you · {total}</div>
           <div className="text-xs text-muted-foreground">
-            Stuck or past-due tasks, vale requests, and flagged details.
+            Stuck or past-due tasks, requests, flagged details, pay owed, and notice.
           </div>
         </div>
       </div>
@@ -297,6 +316,7 @@ export function NeedsYou({
                       {new Date(f.at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
+                        timeZone: householdTimeZone(),
                       })}
                     </p>
                   </div>
@@ -316,6 +336,108 @@ export function NeedsYou({
             );
           }),
         )}
+        {owedPay.map(({ invite: inv, count }) => {
+          const displayName = inv.claimedName || inv.name;
+          const left = inv.status === "ended";
+          return (
+            <div key={`owed-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-2">
+                <Avatar initials={initialsOf(displayName)} />
+                <span className="text-xs font-semibold text-foreground">{displayName}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                  <Coins className="h-3 w-3" /> {left ? "Left · still owed" : "Unpaid pay period"}
+                </span>
+              </div>
+              <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment on
+                record.
+              </h4>
+              <div className="mt-3">
+                <Link
+                  to={left ? "/manager/people" : "/manager/money"}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                >
+                  <Coins className="h-3.5 w-3.5" />{" "}
+                  {left ? "Pay from Past staff" : "Pay from Money"}
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+        {disputedPayments.map(({ payslip, name, left }) => (
+          <div key={`disputed-${payslip.id}`} className="py-3.5 first:pt-0 last:pb-0">
+            <div className="flex items-center gap-2">
+              <Avatar initials={initialsOf(name)} />
+              <span className="text-xs font-semibold text-foreground">{name}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                <AlertCircle className="h-3 w-3" /> Says she wasn't paid
+              </span>
+            </div>
+            <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+              {payslip.kind === "thirteenth_month"
+                ? `13th-month pay ${payslip.cutoffEnd.slice(0, 4)}`
+                : `Pay for ${payslip.cutoffStart.slice(5)} – ${payslip.cutoffEnd.slice(5)}`}
+              , recorded as paid outside Linara
+            </h4>
+            {payslip.helperAckNote && (
+              <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                "{payslip.helperAckNote}"
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link
+                to={left ? "/manager/people" : "/manager/money"}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+              >
+                Review the payment
+              </Link>
+              <span className="text-xs text-muted-foreground">
+                Talk it through with her, then withdraw the record and pay it again if it didn't
+                reach her.
+              </span>
+            </div>
+          </div>
+        ))}
+        {notices.map((inv) => {
+          const displayName = inv.claimedName || inv.name;
+          return (
+            <div key={`notice-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-2">
+                <Avatar initials={initialsOf(displayName)} />
+                <span className="text-xs font-semibold text-foreground">{displayName}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
+                  Gave notice
+                </span>
+              </div>
+              <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                Her last day:{" "}
+                {inv.noticeLastDay
+                  ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "—"}
+              </h4>
+              {inv.noticeNote && (
+                <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                  "{inv.noticeNote}"
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Link
+                  to="/manager/people"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                >
+                  End employment on that day
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  In People. Her final pay and open tasks are settled there.
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

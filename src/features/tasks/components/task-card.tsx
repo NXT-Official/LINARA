@@ -10,6 +10,7 @@ import { formatAppointmentDate } from "@/lib/time";
 import type { Task } from "../task.types";
 import { isPalengke, recurrenceLabel } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
+import { RescheduleNotice } from "./reschedule-notice";
 
 export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
   const helper = findHelper(task.helperId, helpers);
@@ -38,6 +39,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
           {formatAppointmentDate(task.scheduledDate)}
         </div>
       )}
+      <RescheduleNotice task={task} />
       {task.note && (
         <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{task.note}</p>
       )}

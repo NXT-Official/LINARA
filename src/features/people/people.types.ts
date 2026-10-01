@@ -61,7 +61,15 @@ export type Invite = {
   phone: string;
   createdAt: number;
   createdBy: string;
-  status: "pending" | "active";
+  /** "ended": she worked here and has left (helper_profiles INACTIVE). */
+  status: "pending" | "active" | "ended";
+  /** Her last working day, for an ended employment ("YYYY-MM-DD"). */
+  endedOn?: string;
+  /** Her first working day ("YYYY-MM-DD"); the invite date if never set. */
+  startedOn?: string;
+  /** The last day she gave notice for, from her app, while still employed. */
+  noticeLastDay?: string;
+  noticeNote?: string;
   claimedName?: string;
   claimedAt?: number;
   flags: InviteFlag[];

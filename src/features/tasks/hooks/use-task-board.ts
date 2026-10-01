@@ -5,10 +5,12 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 import {
   combineDateAndTime,
+  householdNow,
   isoToDisplayTime,
   isoToISODate,
   parseISODate,
   startOfDayIso,
+  toHouseholdClock,
   toISODate,
   weekdayOf,
   type Weekday,
@@ -27,7 +29,7 @@ import {
   type TicketRow,
 } from "../task.actions";
 import type { Recurrence, Routine, Status, Task } from "../task.types";
-import { routineMatches } from "../task.utils";
+import { movedFromLabel, routineMatches } from "../task.utils";
 
 export type AddTaskFlags = {
   afterHours?: boolean;
@@ -87,7 +89,17 @@ function toTask(row: TicketRow, helpers: Helper[]): Task {
     // day than today" concept -- see supabase/add-ticket-board-columns.sql.
     scheduledDate: row.appointment_id ? isoToISODate(row.scheduled_start) : undefined,
     leadMinutes: row.lead_minutes ?? undefined,
-    rescheduleNotice: row.reschedule_notice ?? undefined,
+    rescheduleNotice: row.reschedule_notice
+      ? {
+          // Formatted here, on the viewer's device (C59). Notices from before
+          // that fix only hold a string the server formatted in the wrong
+          // zone, so they say that the task moved but not from when.
+          movedFrom: row.reschedule_notice.oldStartIso
+            ? movedFromLabel(row.reschedule_notice.oldStartIso, row.scheduled_start)
+            : undefined,
+          appointmentTitle: row.reschedule_notice.appointmentTitle,
+        }
+      : undefined,
     afterHours: row.is_after_hours || undefined,
     emergency: row.emergency || undefined,
     queuedForShift: row.queued_for_shift || undefined,
@@ -122,11 +134,15 @@ export function useTaskBoard({
   isOnline = true,
   token,
   ready,
+  activeHelperIds,
 }: {
   nowTs: number;
   /** Real helper_profiles rows (any status), for resolving a task/routine's station
    * from its assigned helperId. */
   helpers: Helper[];
+  /** Helpers still employed here. A routine assigned to someone who has left
+   * (O4) stops respawning; omitted means every helper counts as active. */
+  activeHelperIds?: string[];
   onComplete: (record: CompletionRecord) => void;
   isOnline?: boolean;
   token: string | null;
@@ -138,7 +154,7 @@ export function useTaskBoard({
   // The board's "today" -- starts as real today, but is corrected to the
   // household's persisted board_date once that loads (see the mount effect
   // below); can be pushed forward via startNewDay.
-  const [simDate, setSimDate] = useState<Date>(() => new Date());
+  const [simDate, setSimDate] = useState<Date>(() => householdNow());
   // Set when the real device date has moved past simDate -- either the mount
   // fetch found a stale persisted board_date, or a tab has been left open
   // across a real day boundary (see the nowTs effect below). Consumed by
@@ -183,7 +199,7 @@ export function useTaskBoard({
   // clears rolloverNeededFor once it actually runs.
   useEffect(() => {
     if (rolloverNeededFor) return;
-    const today = new Date(nowTs);
+    const today = toHouseholdClock(nowTs);
     if (toISODate(today) > toISODate(simDate)) {
       setRolloverNeededFor(today);
     }
@@ -438,7 +454,13 @@ export function useTaskBoard({
   const routinesToSpawn = (targetDate: Date): Routine[] => {
     const wd = weekdayOf(targetDate);
     const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
-    return routines.filter((r) => routineMatches(r, wd) && !liveRoutineIds.has(r.id));
+    const employed = activeHelperIds ? new Set(activeHelperIds) : null;
+    return routines.filter(
+      (r) =>
+        routineMatches(r, wd) &&
+        !liveRoutineIds.has(r.id) &&
+        (!employed || employed.has(r.helperId)),
+    );
   };
 
   /** How many routines would respawn if startNewDay(targetDate) ran right

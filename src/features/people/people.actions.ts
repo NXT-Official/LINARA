@@ -80,6 +80,8 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       weeklyRestDay: number;
       employment?: "live-in" | "live-out";
       phone?: string;
+      /** Her first working day, "YYYY-MM-DD"; defaults to today in Postgres. */
+      startedOn?: string;
       token: string;
     }) => data,
   )
@@ -143,6 +145,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
         status: "PENDING_CLAIM",
         employment: employment ?? null,
         phone: phone ?? null,
+        ...(data.startedOn ? { started_on: data.startedOn } : {}),
         created_by: profile.id,
       })
       .select()
@@ -177,6 +180,25 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       status: "PENDING_CLAIM",
     };
   });
+
+/**
+ * The household's IANA time zone (households.timezone), so the dashboard
+ * shows and enters task times in the house's time wherever the manager is
+ * (KNOWN_GAPS.md O9). null if it can't be read; the client then keeps using
+ * the device's zone.
+ */
+async function householdTimeZoneOf(
+  client: ReturnType<typeof createAuthedClient>,
+  householdId: string | null,
+): Promise<string | null> {
+  if (!householdId) return null;
+  const { data } = await client
+    .from("households")
+    .select("timezone")
+    .eq("id", householdId)
+    .maybeSingle();
+  return (data?.timezone as string | undefined) ?? null;
+}
 
 /**
  * 5. Manager Sign-Up Endpoint (Server Function)
@@ -245,6 +267,7 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
       householdId: bootstrap.household_id,
       fullName: bootstrap.full_name,
       userType: bootstrap.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
     };
   });
 
@@ -309,6 +332,7 @@ export const managerLoginFn = createServerFn({ method: "POST" })
       householdId: profile.household_id,
       fullName: profile.full_name,
       userType: profile.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, profile.household_id),
     };
   });
 
@@ -341,6 +365,7 @@ export const finishBootstrapFn = createServerFn({ method: "POST" })
       householdId: bootstrap.household_id,
       fullName: bootstrap.full_name,
       userType: bootstrap.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
     };
   });
 
@@ -389,6 +414,7 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
       householdId: profile.household_id,
       fullName: profile.full_name,
       userType: profile.user_type,
+      timeZone: await householdTimeZoneOf(authedClient, profile.household_id),
     };
   });
 
@@ -483,6 +509,91 @@ export const cancelInviteFn = createServerFn({ method: "POST" })
     }
 
     return { helperId };
+  });
+
+/** What ending an employment on a given day would do -- see
+ * employment_end_preview in supabase/add-employment-end.sql. */
+export interface EmploymentEndPreview {
+  /** Why that day can't be her last one, or null if it can. */
+  problem: "not_active" | "future" | "before_start" | "already_paid_past" | null;
+  today: string;
+  startedOn: string;
+  latestPaidCutoffEnd: string | null;
+  finalCutoffStart: string;
+  finalCutoffEnd: string;
+  fullCutoffStart: string;
+  fullCutoffEnd: string;
+  finalCutoffPaid: boolean;
+  /** Closed periods before her final one with no payment of either kind. */
+  unpaidPeriods: number;
+  openTasks: number;
+  pendingVales: number;
+  unsettledValeTotal: number;
+  pendingRestOff: number;
+  futureRestOff: number;
+  restOwedMinutes: number;
+  basePaidThisYear: number;
+}
+
+export const employmentEndPreviewFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; lastDay: string }) => data)
+  .handler(async ({ data }): Promise<EmploymentEndPreview> => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: raw, error } = await authedClient.rpc("employment_end_preview", {
+      p_helper_id: data.helperId,
+      p_last_day: data.lastDay,
+    });
+    if (error || !raw) {
+      throw new Error(error?.message || "Failed to preview the end of employment");
+    }
+    const r = raw as Record<string, unknown>;
+    return {
+      problem: (r.problem as EmploymentEndPreview["problem"]) ?? null,
+      today: r.today as string,
+      startedOn: r.started_on as string,
+      latestPaidCutoffEnd: (r.latest_paid_cutoff_end as string | null) ?? null,
+      finalCutoffStart: r.final_cutoff_start as string,
+      finalCutoffEnd: r.final_cutoff_end as string,
+      // Before add-pay-periods.sql the preview had no full start; the final
+      // cutoff's start was the full one then.
+      fullCutoffStart:
+        (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string),
+      fullCutoffEnd: r.full_cutoff_end as string,
+      finalCutoffPaid: Boolean(r.final_cutoff_paid),
+      // Before add-pay-periods.sql only the cutoff right before was checked.
+      unpaidPeriods: Number(r.unpaid_periods ?? (r.previous_cutoff_unpaid ? 1 : 0)),
+      openTasks: Number(r.open_tasks ?? 0),
+      pendingVales: Number(r.pending_vales ?? 0),
+      unsettledValeTotal: Number(r.unsettled_vale_total ?? 0),
+      pendingRestOff: Number(r.pending_rest_off ?? 0),
+      futureRestOff: Number(r.future_rest_off ?? 0),
+      restOwedMinutes: Number(r.rest_owed_minutes ?? 0),
+      basePaidThisYear: Number(r.base_paid_this_year ?? 0),
+    };
+  });
+
+/**
+ * Ends an employment (KNOWN_GAPS.md O4): the helper goes INACTIVE with her
+ * last day recorded, her open tasks move to `reassignTo` or are removed, and
+ * her account is detached from the household. Everything she did stays on
+ * record. Manager-only, enforced inside end_helper_employment.
+ */
+export const endEmploymentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; helperId: string; lastDay: string; reassignTo: string | null }) => data,
+  )
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: raw, error } = await authedClient.rpc("end_helper_employment", {
+      p_helper_id: data.helperId,
+      p_last_day: data.lastDay,
+      p_reassign_to: data.reassignTo,
+    });
+    if (error || !raw) {
+      throw new Error(error?.message || "Failed to end the employment");
+    }
+    const r = raw as Record<string, unknown>;
+    return { tasksMoved: Number(r.tasks_moved ?? 0), tasksRemoved: Number(r.tasks_removed ?? 0) };
   });
 
 /**
@@ -629,4 +740,69 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
     }
     await client.auth.signOut({ scope: "local" });
     return { updated: true };
+  });
+
+export interface AccountDeletionRequest {
+  id: string;
+  status: "pending" | "cancelled" | "done";
+  requestedAt: string;
+}
+
+interface AccountDeletionRow {
+  id: string;
+  status: AccountDeletionRequest["status"];
+  requested_at: string;
+}
+
+const toDeletionRequest = (row: AccountDeletionRow): AccountDeletionRequest => ({
+  id: row.id,
+  status: row.status,
+  requestedAt: row.requested_at,
+});
+
+/**
+ * The signed-in manager's pending account-deletion request, if any
+ * (supabase/add-account-deletion.sql, KNOWN_GAPS.md O8). null before that
+ * migration is applied, so the People page still loads.
+ */
+export const getAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .from("account_deletion_requests")
+      .select("id, status, requested_at")
+      .eq("status", "pending")
+      .maybeSingle();
+    if (error) {
+      if (/account_deletion_requests/.test(error.message)) return null;
+      throw new Error(error.message);
+    }
+    return row ? toDeletionRequest(row as AccountDeletionRow) : null;
+  });
+
+/** Asks for this account to be deleted. Processed by hand within 30 days. */
+export const requestAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; note?: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .rpc("request_account_deletion", { p_note: data.note ?? null })
+      .single();
+    if (error || !row) {
+      throw new Error(error?.message || "Couldn't send the request");
+    }
+    return toDeletionRequest(row as AccountDeletionRow);
+  });
+
+/** Withdraws a pending deletion request; the account carries on as before. */
+export const cancelAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.rpc("cancel_account_deletion");
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { cancelled: true };
   });

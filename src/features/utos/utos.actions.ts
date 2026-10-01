@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
+import { pushToHelper } from "@/features/notifications/push";
 
 export interface QuickUtosRow {
   id: string;
@@ -71,6 +72,17 @@ export const insertUtoFn = createServerFn({ method: "POST" })
 
     if (error || !row) {
       throw new Error(error?.message || "Failed to send quick utos");
+    }
+
+    // Through the friction wall on purpose (override or emergency, not "let it
+    // wait"): the one case an off-shift helper is meant to be reached.
+    if (afterHours && !waiting) {
+      await pushToHelper(authedClient, helperId, {
+        title: emergency ? `Emergency mula kay ${senderName}` : `Utos mula kay ${senderName}`,
+        body: content,
+        url: "/today",
+        urgent: true,
+      });
     }
 
     return { id: row.id as string };

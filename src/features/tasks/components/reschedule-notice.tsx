@@ -1,20 +1,22 @@
+import { History } from "lucide-react";
+
 import type { Task } from "../task.types";
 
-export function RescheduleNotice({
-  notice,
-  newTime,
-}: {
-  notice?: Task["rescheduleNotice"];
-  newTime: string;
-}) {
-  if (!notice) return null;
+/**
+ * "Moved from 6:00 PM when Dinner at Lola's changed": shown on a prep task
+ * whose time shifted with its appointment, so a co-manager looking at the
+ * board knows the time isn't the one they planned. Gone once the task is done.
+ */
+export function RescheduleNotice({ task }: { task: Task }) {
+  const notice = task.rescheduleNotice;
+  if (!notice || task.status === "done") return null;
   return (
-    <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-xs leading-snug text-pine-deep">
-      <span className="mt-0.5">⏱</span>
+    <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
+      <History className="mt-0.5 h-3 w-3 shrink-0 text-terracotta-ink" aria-hidden />
       <span>
-        <span className="font-semibold">Rescheduled:</span> {notice.oldTime} → {newTime} because{" "}
-        <span className="italic">{notice.appointmentTitle}</span> changed.
+        Moved{notice.movedFrom ? ` from ${notice.movedFrom}` : ""} when{" "}
+        <span className="font-semibold text-foreground">{notice.appointmentTitle}</span> changed.
       </span>
-    </div>
+    </p>
   );
 }

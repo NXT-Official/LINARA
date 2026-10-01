@@ -7,6 +7,7 @@ import {
   managerSignUpFn,
 } from "../people.actions";
 import type { Admin, AdminType } from "../people.types";
+import { setHouseholdTimeZone } from "@/lib/time";
 
 const TOKEN_KEY = "linara_manager_token";
 const REFRESH_KEY = "linara_manager_refresh_token";
@@ -115,6 +116,7 @@ export function useSession(): Session {
           setStatus("needs_bootstrap");
           return;
         }
+        setHouseholdTimeZone(result.timeZone);
         setHouseholdId(result.householdId);
         setAdmin(buildAdmin(result.fullName, result.userType));
         setStatus("authed");
@@ -133,6 +135,7 @@ export function useSession(): Session {
       return "confirmation_pending";
     }
     persist(result.accessToken, result.refreshToken, result.userId, result.householdId);
+    setHouseholdTimeZone(result.timeZone);
     setToken(result.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
@@ -154,6 +157,7 @@ export function useSession(): Session {
       return "needs_bootstrap";
     }
     persist(result.accessToken, result.refreshToken, result.userId, result.householdId);
+    setHouseholdTimeZone(result.timeZone);
     setToken(result.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
@@ -167,6 +171,7 @@ export function useSession(): Session {
       if (!token) throw new Error("Not authenticated");
       const result = await finishBootstrapFn({ data: { token, ...data } });
       window.localStorage.setItem(HOUSEHOLD_ID_KEY, result.householdId);
+      setHouseholdTimeZone(result.timeZone);
       setHouseholdId(result.householdId);
       setAdmin(buildAdmin(result.fullName, result.userType));
       setStatus("authed");
@@ -176,6 +181,7 @@ export function useSession(): Session {
 
   const logOut = useCallback(() => {
     clear();
+    setHouseholdTimeZone(null);
     setToken(null);
     setUserId(null);
     setHouseholdId(null);

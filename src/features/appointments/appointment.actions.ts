@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
-import { isoToDisplayTime, isoToISODate } from "@/lib/time";
+import { pushToHelper } from "@/features/notifications/push";
 
 export interface ParsedSchedule {
   appointment: {
@@ -22,13 +22,34 @@ function getNextWeekdayDate(baseDate: Date, targetDayStr: string): Date {
   if (targetDay === -1) return new Date(baseDate);
 
   const result = new Date(baseDate);
-  const currentDay = result.getDay();
+  const currentDay = result.getUTCDay();
   let daysToAdd = targetDay - currentDay;
   if (daysToAdd < 0) {
     daysToAdd += 7; // Next week's occurrence
   }
-  result.setDate(result.getDate() + daysToAdd);
+  result.setUTCDate(result.getUTCDate() + daysToAdd);
   return result;
+}
+
+// The board's day and the household's UTC offset, from householdDayStamp()
+// ("2026-10-01T00:00:00+08:00"). Day math runs on the UTC fields of a date
+// at UTC midnight, so it never depends on the zone this code runs in -- UTC on
+// the server, anything on a dev machine (KNOWN_GAPS.md O9). An older caller's
+// plain ISO instant still works, read as a Manila day.
+function parseDayStamp(stamp?: string): { day: Date; offset: string } {
+  const m = stamp?.match(/^(\d{4})-(\d{2})-(\d{2})T00:00:00([+-]\d{2}:\d{2})$/);
+  if (m) return { day: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), offset: m[4] };
+  const manila = new Date((stamp ? new Date(stamp) : new Date()).getTime() + 8 * 3_600_000);
+  return {
+    day: new Date(Date.UTC(manila.getUTCFullYear(), manila.getUTCMonth(), manila.getUTCDate())),
+    offset: "+08:00",
+  };
+}
+
+// The instant the household's clock reads `hour`:00 on `day`.
+function atHouseholdHour(day: Date, hour: number, offset: string): Date {
+  const ymd = day.toISOString().slice(0, 10);
+  return new Date(`${ymd}T${String(hour).padStart(2, "0")}:00:00${offset}`);
 }
 
 /**
@@ -47,7 +68,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       const query = prompt.toLowerCase();
-      const baseline = simDate ? new Date(simDate) : new Date();
+      const { day: baseline, offset } = parseDayStamp(simDate);
 
       let targetDate = new Date(baseline);
       let title = "Calendar Appointment";
@@ -68,17 +89,17 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
         }
       }
 
+      let hour = 8;
       if (query.includes("8am") || query.includes("8:00")) {
-        targetDate.setHours(8, 0, 0, 0);
+        hour = 8;
       } else if (query.includes("6am") || query.includes("6:00")) {
-        targetDate.setHours(6, 0, 0, 0);
+        hour = 6;
       } else if (query.includes("12pm") || query.includes("12:00")) {
-        targetDate.setHours(12, 0, 0, 0);
+        hour = 12;
       } else if (query.includes("2pm") || query.includes("14:00")) {
-        targetDate.setHours(14, 0, 0, 0);
-      } else {
-        targetDate.setHours(8, 0, 0, 0);
+        hour = 14;
       }
+      const scheduledAt = atHouseholdHour(targetDate, hour, offset);
 
       if (query.includes("flight") || query.includes("airport")) {
         title = "Sir Ben's Flight to Singapore";
@@ -141,7 +162,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
       return {
         appointment: {
           title,
-          scheduledTime: targetDate.toISOString(),
+          scheduledTime: scheduledAt.toISOString(),
         },
         prepTasks,
       };
@@ -254,19 +275,33 @@ export const createAppointmentFn = createServerFn({ method: "POST" })
  * time actually moved -- a title-only edit doesn't get one, and omitting the
  * key (not passing null) for an unmoved ticket lets the RPC's COALESCE
  * preserve whatever notice was already there. Manager-only, enforced inside
- * the RPC. */
+ * the RPC.
+ *
+ * The notice stores the old *instant* (oldStartIso), not a formatted time:
+ * this runs on the server, whose time zone isn't the household's, so a
+ * string formatted here came out hours off (KNOWN_GAPS.md O14). Each device
+ * formats it for display.
+ *
+ * Helpers whose tasks moved get a push, but only those the manager's app
+ * reports as reachable right now (reachableHelperIds): an off-shift helper
+ * isn't pinged, and sees the heads-up on Today when she next opens the app. */
 export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
   .validator(
-    (data: { token: string; appointmentId: string; title: string; scheduledTimeIso: string }) =>
-      data,
+    (data: {
+      token: string;
+      appointmentId: string;
+      title: string;
+      scheduledTimeIso: string;
+      reachableHelperIds?: string[];
+    }) => data,
   )
   .handler(async ({ data }) => {
-    const { token, appointmentId, title, scheduledTimeIso } = data;
+    const { token, appointmentId, title, scheduledTimeIso, reachableHelperIds = [] } = data;
 
     const authedClient = createAuthedClient(token);
     const { data: rows, error: fetchError } = await authedClient
       .from("tickets")
-      .select("id, scheduled_start, lead_minutes")
+      .select("id, helper_id, status, scheduled_start, lead_minutes")
       .eq("appointment_id", appointmentId);
 
     if (fetchError) {
@@ -274,21 +309,22 @@ export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
     }
 
     const newApptTime = new Date(scheduledTimeIso).getTime();
+    const movedHelperIds = new Set<string>();
     const ticketUpdates = (rows ?? []).map((r) => {
       const leadMs = (r.lead_minutes ?? 0) * 60_000;
       const newScheduledStartIso = new Date(newApptTime - leadMs).toISOString();
-      const timeMoved = newScheduledStartIso !== r.scheduled_start;
+      const timeMoved =
+        new Date(newScheduledStartIso).getTime() !== new Date(r.scheduled_start).getTime();
       const base = { id: r.id, scheduled_start: newScheduledStartIso };
-      return timeMoved
-        ? {
-            ...base,
-            reschedule_notice: {
-              oldTime: isoToDisplayTime(r.scheduled_start),
-              oldDate: isoToISODate(r.scheduled_start),
-              appointmentTitle: title,
-            },
-          }
-        : base;
+      if (!timeMoved) return base;
+      if (r.helper_id && r.status !== "done") movedHelperIds.add(r.helper_id);
+      return {
+        ...base,
+        reschedule_notice: {
+          oldStartIso: new Date(r.scheduled_start).toISOString(),
+          appointmentTitle: title,
+        },
+      };
     });
 
     const { error } = await authedClient.rpc("reschedule_appointment_with_preps", {
@@ -301,6 +337,19 @@ export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
     if (error) {
       throw new Error(error.message);
     }
+
+    const reachable = new Set(reachableHelperIds);
+    await Promise.all(
+      [...movedHelperIds]
+        .filter((id) => reachable.has(id))
+        .map((helperId) =>
+          pushToHelper(authedClient, helperId, {
+            title: "May binago sa schedule mo",
+            body: `Inilipat ang ${title}, kaya gumalaw din ang oras ng task mo. Tingnan sa Today.`,
+            url: "/today",
+          }),
+        ),
+    );
   });
 
 /** Deletes an appointment; ON DELETE CASCADE (see the migration) takes care

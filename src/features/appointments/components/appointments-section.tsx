@@ -9,7 +9,9 @@ import type { Task } from "@/features/tasks/task.types";
 import {
   formatAppointmentDate,
   formatDisplayTime,
+  householdDayStamp,
   parseTimeToMinutes,
+  toHouseholdClock,
   toISODate,
 } from "@/lib/time";
 import { parseSchedulerFn } from "../appointment.actions";
@@ -49,12 +51,14 @@ export function AppointmentsSection({
       const result = await parseSchedulerFn({
         data: {
           prompt: prompt.trim(),
-          simDate: simDate.toISOString(),
+          // The board's day with the household's offset, so the parser reads
+          // the right date wherever this server or device runs (O9).
+          simDate: householdDayStamp(simDate),
         },
       });
 
       if (result) {
-        const dt = new Date(result.appointment.scheduledTime);
+        const dt = toHouseholdClock(result.appointment.scheduledTime);
         const dateIso = toISODate(dt);
         const timeDisplay = formatDisplayTime(dt.getHours() * 60 + dt.getMinutes());
 

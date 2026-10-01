@@ -53,12 +53,58 @@ export interface PayComponents {
 export function payComponentsForCutoff(
   monthlyRate: number,
   paydayInterval: PaydayInterval,
+  workedShare = 1,
 ): PayComponents {
   const cutoffs = cutoffsPerMonth(paydayInterval);
+  const basePay = monthlyRate / cutoffs;
+  const statutoryEmployeeShare = computeStatutorySplit(monthlyRate).totalEmployee / cutoffs;
+  if (workedShare >= 1) return { basePay, statutoryEmployeeShare };
+  // A final, shortened cutoff (she left mid-period): both figures scale with
+  // the days worked, rounded to centavos because they are snapshotted as-is.
+  const share = Math.max(0, workedShare);
   return {
-    basePay: monthlyRate / cutoffs,
-    statutoryEmployeeShare: computeStatutorySplit(monthlyRate).totalEmployee / cutoffs,
+    basePay: Math.round(basePay * share * 100) / 100,
+    statutoryEmployeeShare: Math.round(statutoryEmployeeShare * share * 100) / 100,
   };
+}
+
+/** Whole calendar days in [start, end], from "YYYY-MM-DD" strings. */
+function daysInclusive(start: string, end: string): number {
+  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
+
+/**
+ * How much of a cutoff was worked: 1 for an ordinary cutoff, less for the
+ * first one (she started mid-period) or the final one (she left mid-period).
+ * helper_pay_periods / helper_pay_cutoff give both the days she worked and
+ * the cutoff's normal bounds. Pro-rated by calendar days, the same way the
+ * monthly rate is spread over a cutoff in the first place.
+ */
+export function workedShareOfCutoff(
+  workedStart: string,
+  workedEnd: string,
+  fullStart: string,
+  fullEnd: string,
+): number {
+  const full = daysInclusive(fullStart, fullEnd);
+  if (full <= 0) return 1;
+  return Math.min(1, Math.max(0, daysInclusive(workedStart, workedEnd) / full));
+}
+
+/** Days worked in a period, for display ("3 days worked"). */
+export function daysWorked(workedStart: string, workedEnd: string): number {
+  return Math.max(0, daysInclusive(workedStart, workedEnd));
+}
+
+/**
+ * RA 10361 Sec. 25: 13th-month pay is at least 1/12 of the basic salary
+ * earned in the calendar year, pro-rated on separation. Linara neither
+ * computes nor pays it yet (KNOWN_GAPS.md O15); this is the estimate shown
+ * when an employment ends, from the basic pay Linara has on record.
+ */
+export function thirteenthMonthEstimate(basicPayEarnedThisYear: number): number {
+  return Math.round((Math.max(0, basicPayEarnedThisYear) / 12) * 100) / 100;
 }
 
 /**
@@ -76,7 +122,13 @@ export function netPayForCutoff(
   monthlyRate: number,
   paydayInterval: PaydayInterval,
   unsettledValeTotal: number,
+  /** Share of the cutoff worked, for a first or final one (workedShareOfCutoff). */
+  workedShare = 1,
 ): number {
-  const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(monthlyRate, paydayInterval);
+  const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(
+    monthlyRate,
+    paydayInterval,
+    workedShare,
+  );
   return Math.max(0, basePay - statutoryEmployeeShare - unsettledValeTotal);
 }
