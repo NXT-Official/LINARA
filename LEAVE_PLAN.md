@@ -1,8 +1,6 @@
 # Leave and days off: plan and scope
 
-Status: **plan, not built.** Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI.
-
-Decisions still open are marked **Decide**. Collected at the bottom.
+Status: **plan, not built. Decisions made 2026-10-02** (bottom of this doc). Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI. Legal assumptions and what's deferred: `LEGAL_CONSIDERATIONS.md`.
 
 ## What exists today
 
@@ -21,23 +19,23 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 
 | Kind | Paid? | Comes out of | Notes |
 | --- | --- | --- | --- |
-| **Service incentive leave (SIL)** | Yes | 5 days per service year | RA 10361 §29: after one year of service, 5 days of leave with pay a year. Unused days don't carry over and can't be converted to cash. She chooses what it's for (vacation, sick, family, other); the law doesn't split sick leave out for kasambahay. |
+| **Service incentive leave (SIL)** | Yes | 5 days per service year | RA 10361 §29: after one year of service, 5 days of leave with pay a year. Unused days don't carry over and can't be converted to cash. She chooses what it's for (vacation, sick, family, other); we read the law as setting no separate sick leave for kasambahay (to confirm, `LEGAL_CONSIDERATIONS.md`). |
 | **Day off in kind** | Yes, in time | Her rest-owed balance | The whole-day version of today's rest off. A full day debits one shift's minutes (shift length minus break) from the same balance, so after-hours work stays time, not money (C39). |
-| **Unpaid leave** | No | Nothing | Deducted from the cutoff it falls in, at a daily rate (**Decide** the divisor). |
+| **Unpaid leave** | No | Nothing | Deducted from the cutoff it falls in, at `monthly_rate × 12 ÷ pay_days_per_year`. That's 365 by default (every day counts, as for a live-in), settable per helper to 313 (six-day week) or 261 (five-day) for staff who aren't there every day. |
 | **Extra paid day** | Yes | Nothing (household's choice) | A household perk beyond the law: paid leave before her first year, an extra sick day, a fiesta. No balance; the household simply grants it. |
 
-**Decide:** "days off in kind" is read here as time off in lieu (paid in rest, not cash), matching the 2026-08-16 decision in `add-rest-off-requests.sql`. If you meant days the household gives as a perk, that's the fourth row, and both can stay.
+"Days off in kind" means time off in lieu: paid in rest, not cash, matching the 2026-08-16 decision in `add-rest-off-requests.sql`.
 
-**Other legal leave (Decide which go in v1, after checking).** Maternity (RA 11210), paternity (RA 8187), solo parent (RA 11861), VAWC (RA 9262) and the Magna Carta of Women's special leave (RA 9710) may also apply to kasambahay, but coverage, who pays (SSS or the household) and service minimums vary. Confirm each with DOLE or a labor lawyer before encoding. The design keeps leave types as data, so adding one later is a row, not a migration.
+**Other legal leave is deferred.** Maternity, paternity, solo parent, VAWC and special leave for women are written up in `LEGAL_CONSIDERATIONS.md` with what to confirm for each. Leave kinds are a CHECK list in the schema, so adding one later is a small migration plus copy.
 
 ## Rules
 
-- **Whole days only in v1.** Hour windows stay on rest off, which already works. Half days can follow.
+- **Whole days only.** Hour windows stay on rest off, which already works. Half days are for a later version: most helpers are live-in, so a half day off rarely means anything yet.
 - **A leave day is a working day.** Her weekly rest day inside a leave range costs nothing and isn't counted.
 - **No overlaps.** Two approved leaves for the same helper can't cover the same day, and leave can't overlap an approved rest-off window.
 - **Balances are checked under a lock when approving**, the same way `decide_rest_off_request` locks `helper_profiles` (C36 / the concurrent-approval note in that migration).
 - **SIL service year** runs from her `started_on` anniversary. Before the first anniversary her SIL balance is 0; a household that gives leave earlier uses an extra paid day.
-- **A manager can record leave for her** (she called in sick). It's approved when recorded, and her app asks her to confirm or dispute it, the same pattern as a manual payment's `helper_ack`. That keeps her record hers.
+- **A manager can record leave for her** (she called in sick). It's approved straight away. Her app then asks her to confirm or dispute it, the same pattern as a manual payment's `helper_ack`, so her record stays hers; a dispute flags it to the manager and doesn't undo it.
 - **She can cancel** a pending request, or an approved one that hasn't started.
 - **Dates are household dates** (C38, `household_today()`), never a device's.
 
@@ -45,6 +43,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 
 ### Schema (`LINARA/supabase/add-leave.sql`, applied by hand)
 
+- `helper_profiles.pay_days_per_year`: `365` (default), `313` or `261`. The unpaid-leave divisor, set on People.
 - `leave_requests`: `helper_id`, `kind` (`sil` | `in_kind` | `unpaid` | `extra_paid`), `reason` (`vacation` | `sick` | `family` | `other`), `start_date`, `end_date` (inclusive), `days` (working days, snapshotted at decision time like `rest_off_requests.minutes`), `minutes` (in-kind debit, snapshotted), `note`, `status` (`pending` | `approved` | `declined` | `cancelled`), `requested_by`, `decided_by`, `decided_at`, `decline_reason`, `helper_ack` (`pending` | `confirmed` | `disputed`, for manager-recorded leave), `settled_in_payslip_id` (unpaid only, like `vales`).
 - RLS: the household-isolation pattern `rest_off_requests_isolation` uses. Not private; it's addressed to the manager.
 - `sil_balance_days(helper)` and an updated `rest_owed_balance_minutes(helper)` that also subtracts approved in-kind leave, so there's still exactly one rest-owed number.
@@ -55,7 +54,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 
 - **Pass, Needs you:** pending leave requests, with approve and decline. Approving shows how many of her tasks fall on those days and offers to move them to Unassigned.
 - **Schedule:** leave on the planner (Week, By person, Month) on the shared time-off layer from C70. Routines don't spawn for her on leave days.
-- **People / helper:** balances (SIL left this service year, rest owed), history, and "Record leave".
+- **People / helper:** balances (SIL left this service year, rest owed), history, "Record leave", and the pay-days-per-year setting.
 - **Availability:** "On leave" counts as off for the send gate and the off-shift checks.
 - **Money:** unpaid leave days and their deduction on the period estimate and the payslip.
 
@@ -80,12 +79,12 @@ Each step ships on its own.
 
 Moves stay visible to her throughout (C71), so a task moved off a leave day tells her.
 
-## Decide
+## Decisions (2026-10-02)
 
-1. **Daily rate for unpaid leave.** `monthly_rate × 12 ÷ 313` (six-day week), `÷ 261` (five-day), `÷ 365`, or a household setting? Confirm with whoever does payroll.
-2. **"Days off in kind":** time off in lieu (assumed above), or household perk days, or both?
-3. **Other legal leave in v1:** SIL only, or also some of maternity, paternity, solo parent, VAWC and special leave for women, once checked?
-4. **Half days:** wait for v2 (assumed), or needed now?
-5. **Manager-recorded leave:** auto-approved with her confirmation afterwards (assumed), or does she approve first?
+1. **Daily rate for unpaid leave:** `÷ 365` by default, with a per-helper setting (313, 261) because not all staff are there every day.
+2. **"Days off in kind":** time off in lieu, from rest owed.
+3. **Other legal leave:** deferred. Notes in `LEGAL_CONSIDERATIONS.md`.
+4. **Half days:** a later version. Most helpers are live-in by default.
+5. **Manager-recorded leave:** approved straight away; she can confirm or dispute it afterwards.
 
-Not in scope: public holidays and holiday pay, leave conversion to cash (RA 10361 rules it out for SIL), and accrual for part-time or live-out arrangements beyond what `started_on` already gives.
+Not in scope: public holidays and holiday pay, leave conversion to cash (RA 10361 rules it out for SIL), and accrual for part-time or live-out arrangements beyond what `started_on` already gives. See `LEGAL_CONSIDERATIONS.md`.
