@@ -705,6 +705,7 @@ CREATE TABLE public.helper_profiles (
     phone TEXT,
     created_by UUID REFERENCES public.user_profiles(id),
     started_on DATE, -- her first working day; first pay period starts here (add-pay-periods.sql)
+    pay_days_per_year INT NOT NULL DEFAULT 365 CHECK (pay_days_per_year IN (261, 313, 365)), -- unpaid-leave divisor (add-leave.sql)
     notice_last_day DATE, -- notice she gave from her app (give_notice)
     notice_note TEXT,
     notice_given_at TIMESTAMP WITH TIME ZONE,
@@ -794,6 +795,32 @@ CREATE TABLE public.ticket_comments (
     body TEXT NOT NULL CHECK (char_length(btrim(body)) BETWEEN 1 AND 1000),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     edited_at TIMESTAMPTZ
+);
+
+-- Leave and days off (supabase/add-leave.sql, LEAVE_PLAN.md). Whole days:
+-- 'sil' (RA 10361 service incentive leave, 5 a service year after the first),
+-- 'in_kind' (time off in lieu, debited from rest_owed_balance_minutes),
+-- 'unpaid', 'extra_paid'. RLS is SELECT-only (household, plus her own after
+-- she leaves); every write goes through request_leave / record_leave /
+-- decide_leave_request / cancel_leave_request / ack_leave, which lock her
+-- helper_profiles row and share one rule check (leave_guard).
+CREATE TABLE public.leave_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('sil', 'in_kind', 'unpaid', 'extra_paid')),
+    reason TEXT NOT NULL DEFAULT 'other' CHECK (reason IN ('vacation', 'sick', 'family', 'other')),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL CHECK (end_date >= start_date),
+    days INT NOT NULL CHECK (days > 0), -- working days, snapshotted at approval
+    minutes INT NOT NULL DEFAULT 0, -- in_kind debit, snapshotted at approval
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined', 'cancelled')),
+    requested_by UUID, decided_by UUID, decided_at TIMESTAMPTZ, decline_reason TEXT,
+    cancelled_by UUID, cancelled_at TIMESTAMPTZ,
+    helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- manager-recorded leave
+    helper_ack_at TIMESTAMPTZ, helper_ack_note TEXT,
+    settled_in_payslip_id UUID REFERENCES public.payslips(id) ON DELETE SET NULL, -- unpaid, from step 5
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
 -- 5. Appointments Table (Schedule Anchors)
