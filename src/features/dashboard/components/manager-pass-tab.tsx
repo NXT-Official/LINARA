@@ -276,7 +276,7 @@ export function ManagerPassTab({
         </div>
         {passMode === "line" ? (
           <div className="space-y-3">
-            {/* Tasks nobody has yet: managers only, until one is assigned (Edit). */}
+            {/* Tasks nobody has yet: managers only, until one is assigned (tap a task). */}
             {(active.some((t) => t.helperId === null) ||
               upcoming.some((t) => t.helperId === null)) && (
               <HelperLane
@@ -285,6 +285,7 @@ export function ManagerPassTab({
                 tasks={active.filter((t) => t.helperId === null)}
                 upcoming={upcoming.filter((t) => t.helperId === null)}
                 nowTs={nowTs}
+                onOpenTask={isRemote ? undefined : onEditTask}
               />
             )}
             {activeHelpers.length === 0 ? (
@@ -299,12 +300,19 @@ export function ManagerPassTab({
                   tasks={active.filter((t) => t.helperId === h.id)}
                   upcoming={upcoming.filter((t) => t.helperId === h.id)}
                   nowTs={nowTs}
+                  onOpenTask={isRemote ? undefined : onEditTask}
                 />
               ))
             )}
           </div>
         ) : (
-          <TheBoardStatusLists tasks={active} upcoming={upcoming} helpers={helpers} nowTs={nowTs} />
+          <TheBoardStatusLists
+            tasks={active}
+            upcoming={upcoming}
+            helpers={helpers}
+            nowTs={nowTs}
+            onOpenTask={isRemote ? undefined : onEditTask}
+          />
         )}
       </section>
 

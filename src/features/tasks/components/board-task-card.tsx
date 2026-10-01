@@ -17,6 +17,7 @@ export function BoardTaskCard({
   late,
   isDoing,
   helpers,
+  onOpen,
 }: {
   task: Task;
   /** Display time, with the day when it isn't today (taskWhen). */
@@ -24,6 +25,8 @@ export function BoardTaskCard({
   late: boolean;
   isDoing: boolean;
   helpers: Helper[];
+  /** Opens the task (edit, assign, updates). Managers on site only. */
+  onOpen?: () => void;
 }) {
   const [showNote, setShowNote] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
@@ -46,7 +49,17 @@ export function BoardTaskCard({
             <h4
               className={`text-sm font-semibold ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}
             >
-              {task.title}
+              {onOpen ? (
+                <button
+                  type="button"
+                  onClick={onOpen}
+                  className="text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+                >
+                  {task.title}
+                </button>
+              ) : (
+                task.title
+              )}
             </h4>
             {isDoing && (
               <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">

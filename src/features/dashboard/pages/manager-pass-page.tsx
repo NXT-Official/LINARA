@@ -182,6 +182,8 @@ export function ManagerPassPage({
           task={editing}
           helpers={activeHelpers}
           scheduleFor={schedules.scheduleFor}
+          token={session.token}
+          myUserId={session.userId}
           onClose={() => setEditing(null)}
           onSave={(edit) => {
             editTask(editing.id, edit);

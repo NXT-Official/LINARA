@@ -783,6 +783,19 @@ CREATE TABLE public.tickets (
     created_by UUID REFERENCES public.user_profiles(id)
 );
 
+-- Updates on a task (supabase/add-ticket-comments.sql). Read and written by
+-- the household's managers and the task's assigned helper only
+-- (can_see_ticket_thread); author_id/author_name are stamped by a trigger.
+CREATE TABLE public.ticket_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    author_name TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL CHECK (char_length(btrim(body)) BETWEEN 1 AND 1000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    edited_at TIMESTAMPTZ
+);
+
 -- 5. Appointments Table (Schedule Anchors)
 --
 -- Real as of Closed Gap C14 (KNOWN_GAPS.md gap #7) -- previously had columns

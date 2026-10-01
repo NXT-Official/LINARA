@@ -10,6 +10,7 @@ export function LaneNowRow({
   color,
   late,
   muted,
+  onOpen,
 }: {
   label: string;
   task: Task;
@@ -18,10 +19,13 @@ export function LaneNowRow({
   color: { solid: string; soft: string };
   late: boolean;
   muted?: boolean;
+  onOpen?: () => void;
 }) {
+  const Wrapper = onOpen ? "button" : "div";
   return (
-    <div
-      className="rounded-2xl border px-3 py-2"
+    <Wrapper
+      {...(onOpen ? { type: "button" as const, onClick: onOpen } : {})}
+      className="block w-full rounded-2xl border px-3 py-2 text-left transition enabled:hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{
         backgroundColor: muted ? "transparent" : color.soft,
         borderColor: `${color.solid}40`,
@@ -42,6 +46,6 @@ export function LaneNowRow({
           <PalengkeChip compact />
         </div>
       )}
-    </div>
+    </Wrapper>
   );
 }

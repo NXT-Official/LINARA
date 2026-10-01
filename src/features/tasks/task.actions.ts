@@ -707,3 +707,80 @@ export const getServerNowFn = createServerFn({ method: "POST" })
       householdToday: householdToday as string,
     };
   });
+
+// --------------------------------------------------------------------------
+// Updates on a task (supabase/add-ticket-comments.sql): a thread the
+// household's managers and the assigned helper both read and add to. RLS
+// decides who sees what; the author is stamped by the database.
+// --------------------------------------------------------------------------
+
+export interface TicketComment {
+  id: string;
+  authorId: string | null;
+  authorName: string;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+}
+
+interface TicketCommentRow {
+  id: string;
+  author_id: string | null;
+  author_name: string;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+}
+
+const toComment = (row: TicketCommentRow): TicketComment => ({
+  id: row.id,
+  authorId: row.author_id,
+  authorName: row.author_name,
+  body: row.body,
+  createdAt: row.created_at,
+  editedAt: row.edited_at,
+});
+
+/** A task's updates, oldest first. Empty before the migration is applied. */
+export const listTicketCommentsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: rows, error } = await authedClient
+      .from("ticket_comments")
+      .select("id, author_id, author_name, body, created_at, edited_at")
+      .eq("ticket_id", data.ticketId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      if (/ticket_comments/.test(error.message)) return [];
+      throw new Error(error.message);
+    }
+    return ((rows ?? []) as TicketCommentRow[]).map(toComment);
+  });
+
+export const addTicketCommentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string; body: string }) => data)
+  .handler(async ({ data }) => {
+    const body = data.body.trim();
+    if (!body) throw new Error("Write something first.");
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .from("ticket_comments")
+      .insert({ ticket_id: data.ticketId, body })
+      .select("id, author_id, author_name, body, created_at, edited_at")
+      .single();
+    if (error || !row) {
+      throw new Error(error?.message || "Couldn't post the update.");
+    }
+    return toComment(row as TicketCommentRow);
+  });
+
+/** Only the author's own: RLS refuses anyone else's quietly (0 rows). */
+export const deleteTicketCommentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; commentId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.from("ticket_comments").delete().eq("id", data.commentId);
+    if (error) throw new Error(error.message);
+    return { commentId: data.commentId };
+  });

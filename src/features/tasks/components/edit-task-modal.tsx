@@ -19,6 +19,7 @@ import {
 } from "@/lib/time";
 
 import type { Task } from "../task.types";
+import { TaskUpdates } from "./task-updates";
 
 export type TaskEdit = {
   title: string;
@@ -40,6 +41,8 @@ export function EditTaskModal({
   task,
   helpers,
   scheduleFor,
+  token,
+  myUserId = null,
   onClose,
   onSave,
 }: {
@@ -47,6 +50,9 @@ export function EditTaskModal({
   /** Who it can go to: the household's current helpers. */
   helpers: Helper[];
   scheduleFor: (helperId: string) => HelperSchedule | undefined;
+  /** For the task's updates thread; without a token it isn't shown. */
+  token?: string | null;
+  myUserId?: string | null;
   onClose: () => void;
   onSave: (edit: TaskEdit) => void;
 }) {
@@ -148,6 +154,11 @@ export function EditTaskModal({
           />
         </Field>
       </div>
+      {token && (
+        <div className="mt-5 border-t border-border/60 pt-4">
+          <TaskUpdates token={token} ticketId={task.id} myUserId={myUserId} />
+        </div>
+      )}
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           onClick={onClose}

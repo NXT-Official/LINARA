@@ -13,10 +13,13 @@ export function HelperLane({
   upcoming: laterTasks,
   nowTs,
   unassigned = false,
+  onOpenTask,
 }: {
   helper: Helper;
   /** The Unassigned lane: tasks nobody has yet (helper is UNASSIGNED_HELPER). */
   unassigned?: boolean;
+  /** Opens a task (edit, assign, updates). */
+  onOpenTask?: (task: Task) => void;
   /** Today's tasks for this helper. */
   tasks: Task[];
   /** Scheduled for a later day -- shown, never counted. */
@@ -120,6 +123,7 @@ export function HelperLane({
               color={color}
               late={overdueSet.has(r.task.id)}
               muted={r.muted}
+              onOpen={onOpenTask ? () => onOpenTask(r.task) : undefined}
             />
           ))}
         </div>
@@ -150,7 +154,17 @@ export function HelperLane({
                     <div
                       className={`text-sm ${t.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}
                     >
-                      {t.title}
+                      {onOpenTask ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenTask(t)}
+                          className="text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+                        >
+                          {t.title}
+                        </button>
+                      ) : (
+                        t.title
+                      )}
                     </div>
                     {t.note && (
                       <div className="mt-0.5 line-clamp-2 text-xs italic text-muted-foreground">

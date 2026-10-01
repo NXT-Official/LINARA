@@ -17,10 +17,12 @@ export function TheBoardStatusLists({
   upcoming,
   helpers,
   nowTs,
+  onOpenTask,
 }: {
   tasks: Task[];
   upcoming: Task[];
   helpers: Helper[];
+  onOpenTask?: (task: Task) => void;
   nowTs: number;
 }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
@@ -92,6 +94,7 @@ export function TheBoardStatusLists({
                 late={tab !== "done" && overdueId(t)}
                 isDoing={t.status === "in_progress"}
                 helpers={helpers}
+                onOpen={onOpenTask ? () => onOpenTask(t) : undefined}
               />
             </div>
           ))
@@ -113,6 +116,7 @@ export function TheBoardStatusLists({
                 late={false}
                 isDoing={false}
                 helpers={helpers}
+                onOpen={onOpenTask ? () => onOpenTask(t) : undefined}
               />
             ))}
           </>
