@@ -7,8 +7,9 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
-import { isMovable, type RoutineGhost } from "../planner.utils";
+import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
 import { isPastDue } from "../task.utils";
+import { TONE_EDGE } from "./planner-tone";
 
 /** Drag-and-drop wiring the planner hands each day and each task. */
 export type PlannerDrag = {
@@ -148,9 +149,9 @@ export function PlannerTaskRow({
       draggable={movable}
       onDragStart={movable ? (e) => drag.start(task, e) : undefined}
       onDragEnd={movable ? drag.end : undefined}
-      className={`group relative transition-opacity ${dragging ? "opacity-40" : ""} ${
-        movable ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      className={`group relative border-l-[3px] transition-opacity ${TONE_EDGE[taskTone(task, nowTs)]} ${
+        dragging ? "opacity-40" : ""
+      } ${movable ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {onOpen ? (
         <button

@@ -40,6 +40,7 @@ import {
 import type { Routine, Task } from "../task.types";
 import { PlannerDayColumn, type PlannerDrag } from "./planner-day-column";
 import { PlannerMonth } from "./planner-month";
+import { TaskToneLegend } from "./planner-tone-legend";
 import { PlannerPeople, type PeopleRow } from "./planner-people";
 
 const VIEW_KEY = "linara.planView";
@@ -414,6 +415,8 @@ export function TaskPlanner({
         </p>
       )}
 
+      <TaskToneLegend />
+
       {view === "week" ? (
         <div className="grid gap-3 lg:grid-cols-7 lg:gap-2">
           {!showEarlier && days.some((d) => toISODate(d) < todayIso) && (
@@ -478,6 +481,7 @@ export function TaskPlanner({
           days={days}
           month={anchor.getMonth()}
           todayIso={todayIso}
+          nowTs={nowTs}
           tasksByDay={tasksByDay}
           appointmentsByDay={appointmentsShown}
           drag={drag}

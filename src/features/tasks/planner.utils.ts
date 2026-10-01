@@ -13,7 +13,7 @@ import {
 } from "@/lib/time";
 
 import type { Routine, Task } from "./task.types";
-import { byStart, routineAssignee, routineMatches } from "./task.utils";
+import { byStart, isPastDue, routineAssignee, routineMatches } from "./task.utils";
 
 /** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
 export type PlanView = "week" | "people" | "month";
@@ -82,6 +82,21 @@ export function groupByDay(tasks: Task[]): Map<string, Task[]> {
  * that work happened when it happened.
  */
 export const isMovable = (t: Task): boolean => t.status === "todo" || t.status === "blocked";
+
+/**
+ * Where a task stands, for colour at a glance in every planner view: late
+ * (still to do, past its time), held (on hold), doing, done, or simply
+ * planned. Suggested and queued tasks count as planned.
+ */
+export type TaskTone = "late" | "held" | "doing" | "done" | "planned";
+
+export function taskTone(t: Task, nowTs: number): TaskTone {
+  if (t.status === "done") return "done";
+  if (t.status === "blocked") return "held";
+  if (t.status === "in_progress") return "doing";
+  if (isPastDue(t, nowTs)) return "late";
+  return "planned";
+}
 
 /** The By person drop-target key for one person's day, as PlannerDrag.overDay holds it. */
 export const cellKey = (dayIso: string, helperId: string | null) => `${dayIso}|${helperId ?? ""}`;

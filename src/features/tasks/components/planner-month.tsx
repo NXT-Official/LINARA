@@ -1,24 +1,25 @@
 import { CalendarClock } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import { WEEKDAYS, toISODate } from "@/lib/time";
 
+import { taskTone } from "../planner.utils";
 import type { Task } from "../task.types";
 import type { PlannerDrag } from "./planner-day-column";
+import { TONE_DOT } from "./planner-tone";
 
 const SHOWN_PER_DAY = 3;
 
-const dotColor = (t: Task) => (t.helperId ? STATION_HEX[t.station] : UNASSIGNED_HEX).solid;
-
 /**
  * The month at a glance. Each day shows its first few tasks (on a phone, a
- * dot per task); tapping a day opens its week. Days take dropped tasks too.
+ * dot per task), each dot coloured by where the task stands (TONE_DOT);
+ * tapping a day opens its week. Days take dropped tasks too.
  */
 export function PlannerMonth({
   days,
   month,
   todayIso,
+  nowTs,
   tasksByDay,
   appointmentsByDay,
   drag,
@@ -28,6 +29,7 @@ export function PlannerMonth({
   /** The month being shown (0-11); days outside it are dimmed. */
   month: number;
   todayIso: string;
+  nowTs: number;
   tasksByDay: Map<string, Task[]>;
   appointmentsByDay: Map<string, Appointment[]>;
   drag?: PlannerDrag;
@@ -52,11 +54,15 @@ export function PlannerMonth({
           const isPast = iso < todayIso;
           const isOver = drag?.overDay === iso;
           const open = tasks.filter((t) => t.status !== "done").length;
+          const late = tasks.filter((t) => taskTone(t, nowTs) === "late").length;
+          const held = tasks.filter((t) => t.status === "blocked").length;
           const summary = [
             day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
             tasks.length === 0
               ? "nothing planned"
               : `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}${open && open < tasks.length ? `, ${open} still to do` : ""}`,
+            late > 0 ? `${late} late` : null,
+            held > 0 ? `${held} on hold` : null,
             appts.length > 0 ? `${appts.length} appointment${appts.length === 1 ? "" : "s"}` : null,
           ]
             .filter(Boolean)
@@ -104,8 +110,7 @@ export function PlannerMonth({
                       ) : (
                         <span
                           key={key}
-                          className={`h-1.5 w-1.5 rounded-full ${task?.status === "done" ? "opacity-40" : ""}`}
-                          style={{ backgroundColor: task ? dotColor(task) : undefined }}
+                          className={`h-1.5 w-1.5 rounded-full ${task ? TONE_DOT[taskTone(task, nowTs)] : ""}`}
                         />
                       ),
                     )}
@@ -123,8 +128,7 @@ export function PlannerMonth({
                   ) : task ? (
                     <span key={key} className="flex min-w-0 items-center gap-1 text-xs">
                       <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: dotColor(task) }}
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[taskTone(task, nowTs)]}`}
                       />
                       <span
                         className={`truncate ${

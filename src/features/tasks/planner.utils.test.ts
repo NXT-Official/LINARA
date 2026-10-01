@@ -10,6 +10,7 @@ import {
   planDays,
   planLabel,
   startOfWeek,
+  taskTone,
   stepAnchor,
 } from "./planner.utils";
 import type { TimeOff } from "@/features/shifts/time-off";
@@ -183,5 +184,22 @@ describe("isOutsideShift", () => {
     ).toBe(false);
     expect(isOutsideShift(task(), schedule)).toBe(true); // 7:30 PM
     expect(isOutsideShift(task({ helperId: null }), schedule)).toBe(false);
+  });
+});
+
+describe("taskTone", () => {
+  // The task fixture is due 7:30 PM Sep 30 in Manila (11:30 UTC).
+  const before = Date.parse("2026-09-30T11:00:00Z");
+  const after = Date.parse("2026-09-30T13:00:00Z");
+
+  it("is late only once a to-do task is past its time and grace", () => {
+    expect(taskTone(task(), before)).toBe("planned");
+    expect(taskTone(task(), after)).toBe("late");
+  });
+
+  it("follows the status otherwise, whatever the time", () => {
+    expect(taskTone(task({ status: "blocked" }), after)).toBe("held");
+    expect(taskTone(task({ status: "in_progress" }), after)).toBe("doing");
+    expect(taskTone(task({ status: "done" }), after)).toBe("done");
   });
 });
