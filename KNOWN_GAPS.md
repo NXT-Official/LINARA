@@ -40,6 +40,22 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
+### O23. Bought palengke items never go into pantry stock
+
+- **Found:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock").
+- **What's missing:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half exists. `LINARA_MOBILE`'s `setGroceryItemBought` (`services/api/grocery.ts`) and `completeTicket` touch only `grocery_items` and `tickets`. No code in either repo, and no trigger, writes `pantry_items.qty` from a purchase, even though `grocery_items.pantry_item_id` links the two.
+- **Blocks:** The pantry↔palengke reconciliation in `plan.md` §2.5. Low-stock items keep showing as low after they've been bought, so they're suggested again.
+- **Current workaround:** Someone sets the stock by hand on the manager Pantry page (`updatePantryItemQtyFn`).
+- **To close:** Decide when stock goes up (when the item is ticked, or when the run is completed) and by how much (`grocery_items.qty`, or up to `par`). Then do it in one place, preferably a DB function or trigger so both apps get it. Items with no `pantry_item_id` need a rule too: create a pantry row, or skip it. Schema side is owned by `LINARA`.
+
+### O24. The web "Hold to record a voice utos" button records nothing
+
+- **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
+- **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
+- **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
+- **Current workaround:** None. The button looks like it works.
+- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Until then, hide the button rather than ship a fake. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
+
 ---
 
 ## Closed Gaps
