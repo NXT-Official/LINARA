@@ -221,7 +221,7 @@ export interface TicketRow {
   id: string;
   title: string;
   notes: string | null;
-  helper_id: string;
+  helper_id: string | null;
   status: "todo" | "in_progress" | "done" | "blocked";
   photo_evidence_url: string | null;
   is_after_hours: boolean;
@@ -339,7 +339,8 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       token: string;
       title: string;
       notes?: string;
-      helperId: string;
+      /** null = Unassigned. */
+      helperId: string | null;
       scheduledStartIso: string;
       photoEvidenceUrl?: string;
       isAfterHours?: boolean;
@@ -415,7 +416,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
 
     // Overridden or emergency task for a helper who is off: the manager chose to
     // reach her. A queued, waiting or suggested task stays silent.
-    if (isAfterHours && !queuedForShift && !queued && !suggested) {
+    if (helperId && isAfterHours && !queuedForShift && !queued && !suggested) {
       const from = profile.full_name ? ` mula kay ${profile.full_name}` : "";
       await pushToHelper(authedClient, helperId, {
         title: emergency ? `Emergency task${from}` : `Bagong task${from}`,
@@ -438,6 +439,8 @@ export interface TicketPatch {
   scheduledStartIso?: string;
   title?: string;
   notes?: string | null;
+  /** Assign, reassign, or (null) unassign. */
+  helperId?: string | null;
 }
 
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
@@ -457,6 +460,7 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.scheduledStartIso !== undefined) dbPatch.scheduled_start = patch.scheduledStartIso;
     if (patch.title !== undefined) dbPatch.title = patch.title;
     if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+    if (patch.helperId !== undefined) dbPatch.helper_id = patch.helperId;
 
     const authedClient = createAuthedClient(token);
     const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);

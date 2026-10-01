@@ -260,7 +260,8 @@ export function useTaskBoard({
           pendingSync: true,
         };
         // Trigger local ledger record simulation even if offline so that local metrics are computed
-        if (status === "done" && cur.status !== "done") {
+        // An unassigned task done by a manager is nobody's after-hours work.
+        if (status === "done" && cur.status !== "done" && cur.helperId) {
           const start = startedAt ?? nowTs - 5 * 60_000;
           onComplete({
             sourceId: cur.id,
@@ -294,7 +295,7 @@ export function useTaskBoard({
     if (!cur) return;
     let startedAt = cur.startedAt;
     if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
-    if (status === "done" && cur.status !== "done") {
+    if (status === "done" && cur.status !== "done" && cur.helperId) {
       const start = startedAt ?? nowTs - 5 * 60_000;
       onComplete({
         sourceId: cur.id,
@@ -361,7 +362,7 @@ export function useTaskBoard({
   /** Changes a task's title, note, and start time -- the manager's Edit. */
   const editTask = (
     id: string,
-    edit: { title: string; note?: string; scheduledStartIso: string },
+    edit: { title: string; note?: string; scheduledStartIso: string; helperId: string | null },
   ) => {
     if (!token) return;
     updateTicketFn({
@@ -372,6 +373,7 @@ export function useTaskBoard({
           title: edit.title,
           notes: edit.note ?? null,
           scheduledStartIso: edit.scheduledStartIso,
+          helperId: edit.helperId,
         },
       },
     })

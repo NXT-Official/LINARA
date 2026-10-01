@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { STATION_HEX } from "@/features/people/people.constants";
+import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
 import type { Task } from "../task.types";
@@ -12,8 +12,11 @@ export function HelperLane({
   tasks,
   upcoming: laterTasks,
   nowTs,
+  unassigned = false,
 }: {
   helper: Helper;
+  /** The Unassigned lane: tasks nobody has yet (helper is UNASSIGNED_HELPER). */
+  unassigned?: boolean;
   /** Today's tasks for this helper. */
   tasks: Task[];
   /** Scheduled for a later day -- shown, never counted. */
@@ -21,7 +24,7 @@ export function HelperLane({
   nowTs: number;
 }) {
   const [open, setOpen] = useState(false);
-  const color = STATION_HEX[helper.station];
+  const color = unassigned ? UNASSIGNED_HEX : STATION_HEX[helper.station];
   const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
   const doneCount = sorted.filter((t) => t.status === "done").length;
   const inProg = sorted.find((t) => t.status === "in_progress");
@@ -40,8 +43,13 @@ export function HelperLane({
     sorted.filter((t) => t.status === "blocked" || isPastDue(t, nowTs)).map((t) => t.id),
   );
 
-  const pill =
-    overdueSet.size > 0
+  const toAssign = sorted.filter((t) => t.status !== "done").length + later.length;
+  const pill = unassigned
+    ? {
+        text: `${toAssign} to assign`,
+        cls: "bg-secondary text-muted-foreground",
+      }
+    : overdueSet.size > 0
       ? {
           text: `${overdueSet.size} ${overdueSet.size === 1 ? "needs" : "need"} you`,
           cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
@@ -75,19 +83,24 @@ export function HelperLane({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="font-display text-base text-foreground">{helper.short}</span>
-            <span className="text-xs font-semibold text-muted-foreground">{helper.station}</span>
-          </div>
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: color.solid }}
-              />
-            </div>
-            <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
-              {doneCount} of {sorted.length}
+            <span className="text-xs font-semibold text-muted-foreground">
+              {unassigned ? "On no one's phone yet" : helper.station}
             </span>
           </div>
+          {/* Progress means nothing until someone is doing them. */}
+          {!unassigned && (
+            <div className="mt-1.5 flex items-center gap-2.5">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: color.solid }}
+                />
+              </div>
+              <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
+                {doneCount} of {sorted.length}
+              </span>
+            </div>
+          )}
         </div>
         <span
           className={`ml-1 max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-1 text-xs font-semibold ${pill.cls}`}

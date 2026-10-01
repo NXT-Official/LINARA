@@ -165,6 +165,12 @@ export function useSendGate({
       onAddTask(stamp(t), { suggested: true });
       return;
     }
+    // Unassigned: nobody to disturb, so no wall. It reaches someone only when
+    // a manager assigns it.
+    if (t.helperId === null) {
+      onAddTask(stamp(t), {});
+      return;
+    }
     const taskStatus = statusOf(t.helperId);
     if (taskStatus.status === "off") {
       setIntent({

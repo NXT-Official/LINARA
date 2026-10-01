@@ -60,6 +60,9 @@ export const stationTone: Record<Station, string> = {
   House: "bg-secondary text-pine-deep",
 };
 
+/** Warm grey for a task nobody is assigned to yet. */
+export const UNASSIGNED_HEX = { solid: "#9A9387", soft: "rgba(154,147,135,0.16)" };
+
 export const STATION_HEX: Record<Station, { solid: string; soft: string }> = {
   Yaya: { solid: "#E6A98F", soft: "rgba(230,169,143,0.16)" },
   Cook: { solid: "#7FA98C", soft: "rgba(127,169,140,0.18)" },
