@@ -14,6 +14,7 @@ import { TaskPlanner } from "./task-planner";
 vi.mock("../task.actions", () => ({ listTicketsBetweenFn: vi.fn() }));
 
 const rosa: Helper = { ...UNKNOWN_HELPER, id: "h1", name: "Rosa Dela Cruz", short: "Rosa" };
+const lita: Helper = { ...UNKNOWN_HELPER, id: "h2", name: "Lita Santos", short: "Lita" };
 // Rosa rests on Sundays (0), 8 AM to 5 PM.
 const schedule: HelperSchedule = { shiftStart: "08:00", shiftEnd: "17:00", weeklyRestDay: 0 };
 
@@ -99,8 +100,8 @@ describe("TaskPlanner, week", () => {
       fireEvent.drop(day(/^Sat 3$/), { dataTransfer: dt() });
     });
     // 8:00 AM Saturday in Manila.
-    expect(moveLocally).toHaveBeenCalledWith("laundry", "2026-10-03T00:00:00.000Z");
-    expect(onMove).toHaveBeenCalledWith(laundry, "2026-10-03T00:00:00.000Z");
+    expect(moveLocally).toHaveBeenCalledWith("laundry", "2026-10-03T00:00:00.000Z", undefined);
+    expect(onMove).toHaveBeenCalledWith(laundry, "2026-10-03T00:00:00.000Z", "h1");
   });
 
   it("won't take a task into a day that has passed", async () => {
@@ -170,5 +171,128 @@ describe("TaskPlanner, month", () => {
     expect(screen.getByText("November 2026")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Thursday, November 12/ }));
     expect(screen.getByText("Nov 9 – Nov 15")).toBeTruthy();
+  });
+});
+
+describe("TaskPlanner, on the plan", () => {
+  it("shows a routine greyed on the later days it will spawn, not today or before", () => {
+    renderPlanner({
+      routines: [
+        {
+          id: "r1",
+          title: "Water the plants",
+          helperId: "h1",
+          station: "House",
+          time: "7:00 AM",
+          recurrence: "daily",
+        },
+      ],
+    });
+    expect(within(day(/^Wed 30$/)).queryByText("Water the plants")).toBeNull();
+    expect(within(day(/^Thu 1/)).queryByText("Water the plants")).toBeNull();
+    expect(within(day(/^Fri 2$/)).getByText("Water the plants")).toBeTruthy();
+  });
+
+  it("skips a routine's copy on a day that already has its task", () => {
+    renderPlanner({
+      routines: [
+        {
+          id: "r1",
+          title: "Water the plants",
+          helperId: "h1",
+          station: "House",
+          time: "7:00 AM",
+          recurrence: "daily",
+        },
+      ],
+      usePlan: () => ({
+        tasks: [
+          task({
+            id: "spawned",
+            title: "Water the plants",
+            routineId: "r1",
+            time: "7:00 AM",
+            scheduledStart: "2026-10-01T23:00:00.000Z", // Fri 7 AM in Manila
+          }),
+        ],
+        moveLocally: () => {},
+        reload: () => {},
+      }),
+    });
+    expect(within(day(/^Fri 2$/)).getAllByText("Water the plants")).toHaveLength(1);
+    expect(within(day(/^Sat 3$/)).getByText("Water the plants")).toBeTruthy();
+  });
+
+  it("links prep tasks to their appointment", () => {
+    renderPlanner({
+      usePlan: () => ({
+        tasks: [
+          task({
+            id: "prep",
+            title: "Pack the bag",
+            appointmentId: "a1",
+            appointmentTitle: "Dentist",
+            scheduledStart: "2026-10-01T00:00:00.000Z",
+          }),
+        ],
+        moveLocally: () => {},
+        reload: () => {},
+      }),
+    });
+    expect(within(day(/^Thu 1/)).getByText("For Dentist")).toBeTruthy();
+    expect(within(day(/^Fri 2$/)).getByText("1 prep task")).toBeTruthy();
+  });
+
+  it("marks a task planned outside her shift", () => {
+    renderPlanner({
+      usePlan: () => ({
+        tasks: [
+          task({
+            id: "late",
+            title: "Iron the shirts",
+            time: "8:00 PM",
+            scheduledStart: "2026-10-01T12:00:00.000Z",
+          }),
+        ],
+        moveLocally: () => {},
+        reload: () => {},
+      }),
+    });
+    expect(within(day(/^Thu 1/)).getByText(/off shift/)).toBeTruthy();
+  });
+});
+
+describe("TaskPlanner, by person", () => {
+  const byPerson = (over: Partial<Parameters<typeof TaskPlanner>[0]> = {}) => {
+    const out = renderPlanner({ helpers: [rosa, lita], activeHelpers: [rosa, lita], ...over });
+    fireEvent.click(screen.getByRole("button", { name: "By person" }));
+    return out;
+  };
+
+  it("lays the week out a row per person, with her day off", () => {
+    byPerson();
+    expect(within(day(/^Rosa, Thu 1$/)).getByText("Hang the laundry")).toBeTruthy();
+    expect(day(/^Rosa, Sun 4, day off$/)).toBeTruthy();
+    expect(day(/^Unassigned, Fri 2$/)).toBeTruthy();
+  });
+
+  it("hands a task to whoever's row it's dropped on", async () => {
+    const { onMove, moveLocally } = byPerson();
+    const row = within(day(/^Rosa, Thu 1$/))
+      .getByText("Hang the laundry")
+      .closest("li")!;
+    fireEvent.dragStart(row, { dataTransfer: dt() });
+    fireEvent.dragOver(day(/^Lita, Thu 1/), { dataTransfer: dt() });
+    await act(async () => {
+      fireEvent.drop(day(/^Lita, Thu 1/), { dataTransfer: dt() });
+    });
+    expect(moveLocally).toHaveBeenCalledWith("laundry", laundry.scheduledStart, "h2");
+    expect(onMove).toHaveBeenCalledWith(laundry, laundry.scheduledStart, "h2");
+  });
+
+  it("adds on a person's day with that person picked", () => {
+    const { onAddOn } = byPerson();
+    fireEvent.click(screen.getByRole("button", { name: "Add task for Lita on Fri 2" }));
+    expect(onAddOn).toHaveBeenCalledWith("2026-10-02", "h2");
   });
 });

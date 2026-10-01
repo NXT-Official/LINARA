@@ -67,7 +67,7 @@ Appointments act as schedule anchors, generating preparation tasks that fire bac
 
 ### 3.2a Planning Ahead
 
-Schedule opens on **Plan ahead**: the week as a board of day columns, or the month as a calendar. Each day shows who has it off, its appointments and its tasks. Managers add a task on any day from today on, drag a waiting one to another day (with Undo), and open any task to edit, reassign or reply to its updates. New task on the Pass takes a date too. See KNOWN_GAPS.md C68.
+Schedule opens on **Plan ahead**: the week as a board of day columns, the same week as a row per person (**By person**), or the month as a calendar. Each day shows who has it off, its appointments (with their prep tasks linked), its tasks, and the routines it will spawn. Managers add a task on any day from today on, drag a waiting one to another day or, by person, to someone else (with Undo), and open any task to edit, reassign or reply to its updates. Appointments, Shifts and Routines are tabs beside the plan. New task on the Pass takes a date too, and Quick Utos lives on the Pass. See KNOWN_GAPS.md C68 and C69.
 
 ### 3.3 Quick Utos & Nightly Purge
 

@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
 import type { Helper } from "@/features/people/people.types";
+import { findHelper } from "@/features/people/people.utils";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
-import { isMinuteInShift, isRestDay } from "@/features/shifts/shift.utils";
+import { isRestDay } from "@/features/shifts/shift.utils";
 import {
   combineDateAndTime,
   parseISODate,
@@ -19,18 +20,28 @@ import {
 import { usePlannerTasks } from "../hooks/use-planner-tasks";
 import {
   addDays,
+  cellKey,
   groupByDay,
+  isOutsideShift,
   planDays,
   planLabel,
+  routineGhosts,
   stepAnchor,
   taskDayIso,
   type PlanView,
+  type RoutineGhost,
 } from "../planner.utils";
-import type { Task } from "../task.types";
+import type { Routine, Task } from "../task.types";
 import { PlannerDayColumn, type PlannerDrag } from "./planner-day-column";
 import { PlannerMonth } from "./planner-month";
+import { PlannerPeople, type PeopleRow } from "./planner-people";
 
 const VIEW_KEY = "linara.planView";
+const VIEWS: { key: PlanView; label: string }[] = [
+  { key: "week", label: "Week" },
+  { key: "people", label: "By person" },
+  { key: "month", label: "Month" },
+];
 /** "all", "unassigned", or a helper id. */
 type Who = string;
 
@@ -42,21 +53,25 @@ const dayName = (iso: string) =>
   });
 
 /**
- * Plan ahead: the week as a board of days, or the month as a calendar. Any
- * task opens to edit; a waiting one can be dragged to another day; any day
- * from today on takes a new task. Reads every task in range, done ones
- * included, so a past day shows what happened.
+ * Plan ahead: the week as a board of days, the same week as a row per person,
+ * or the month as a calendar. Any task opens to edit; a waiting one can be
+ * dragged to another day (or, by person, to someone else); any day from today
+ * on takes a new task. Reads every task in range, done ones included, so a
+ * past day shows what happened, and shows the routines later days will spawn.
  */
 export function TaskPlanner({
   token,
   nowTs,
   boardTasks,
+  routines = [],
   helpers,
   activeHelpers,
   appointments,
   scheduleFor,
+  initialDay,
   onAddOn,
   onOpenTask,
+  onOpenAppointment,
   onMove,
   usePlan = usePlannerTasks,
 }: {
@@ -64,14 +79,20 @@ export function TaskPlanner({
   nowTs: number;
   /** The board's tasks: when they change, so might the plan. */
   boardTasks: Task[];
+  /** Routine templates: shown greyed on the later days they will spawn. */
+  routines?: Routine[];
   helpers: Helper[];
   activeHelpers: Helper[];
   appointments: Appointment[];
   scheduleFor: (helperId: string) => HelperSchedule | undefined;
-  onAddOn: (dayIso: string) => void;
+  /** YYYY-MM-DD to open on (a "Coming up" link from the Pass). Defaults to today. */
+  initialDay?: string;
+  /** A day to add on, and on By person, whose row it was (null = Unassigned). */
+  onAddOn: (dayIso: string, helperId?: string | null) => void;
   /** Absent for remote admins, who can look and suggest but not move. */
   onOpenTask?: (task: Task) => void;
-  onMove?: (task: Task, scheduledStartIso: string) => Promise<boolean>;
+  onOpenAppointment?: (appointment: Appointment) => void;
+  onMove?: (task: Task, scheduledStartIso: string, helperId: string | null) => Promise<boolean>;
   /** Where the tasks come from. Tests and the dev fixture pass their own. */
   usePlan?: typeof usePlannerTasks;
 }) {
@@ -81,7 +102,7 @@ export function TaskPlanner({
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(VIEW_KEY);
-      if (saved === "week" || saved === "month") setView(saved);
+      if (saved === "week" || saved === "people" || saved === "month") setView(saved);
     } catch {
       // ignore
     }
@@ -95,7 +116,10 @@ export function TaskPlanner({
     }
   };
 
-  const [anchor, setAnchor] = useState(() => parseISODate(todayIso));
+  const [anchor, setAnchor] = useState(() => parseISODate(initialDay ?? todayIso));
+  useEffect(() => {
+    if (initialDay) setAnchor(parseISODate(initialDay));
+  }, [initialDay]);
   const [who, setWho] = useState<Who>("all");
   // Phones stack the week, so days already gone would push today off screen.
   const [showEarlier, setShowEarlier] = useState(false);
@@ -111,12 +135,14 @@ export function TaskPlanner({
     boardTasks,
   });
 
+  const matchesWho = useCallback(
+    (helperId: string | null) =>
+      who === "all" ? true : who === "unassigned" ? helperId === null : helperId === who,
+    [who],
+  );
   const shown = useMemo(
-    () =>
-      (tasks ?? []).filter((t) =>
-        who === "all" ? true : who === "unassigned" ? t.helperId === null : t.helperId === who,
-      ),
-    [tasks, who],
+    () => (tasks ?? []).filter((t) => matchesWho(t.helperId)),
+    [tasks, matchesWho],
   );
   const tasksByDay = useMemo(() => groupByDay(shown), [shown]);
   const appointmentsByDay = useMemo(() => {
@@ -126,31 +152,58 @@ export function TaskPlanner({
       list.sort((x, y) => parseTimeToMinutes(x.time) - parseTimeToMinutes(y.time));
     return map;
   }, [appointments]);
+  // Prep tasks can fall on the day before their appointment, so count across the range.
+  const prepCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of tasks ?? [])
+      if (t.appointmentId) map.set(t.appointmentId, (map.get(t.appointmentId) ?? 0) + 1);
+    return map;
+  }, [tasks]);
+  const ghosts = useMemo(
+    () =>
+      routineGhosts(
+        routines.filter((r) => matchesWho(r.helperId)),
+        days,
+        todayIso,
+        tasks ?? [],
+        activeHelpers.map((h) => h.id),
+      ),
+    [routines, days, todayIso, tasks, activeHelpers, matchesWho],
+  );
 
-  // ----- Moving a task to another day -----
-  const move = async (task: Task, dayIso: string) => {
+  const outsideShift = (t: Task) =>
+    isOutsideShift(t, t.helperId ? scheduleFor(t.helperId) : undefined);
+
+  // ----- Moving a task to another day, or (by person) to someone else -----
+  const move = async (task: Task, dayIso: string, helperId: string | null) => {
     if (!onMove) return;
     const fromDay = taskDayIso(task);
-    if (!fromDay || fromDay === dayIso) return;
+    if (!fromDay || (fromDay === dayIso && helperId === task.helperId)) return;
     const startIso = combineDateAndTime(dayIso, task.time);
-    moveLocally(task.id, startIso);
-    const saved = await onMove(task, startIso);
+    const handedOver = helperId !== task.helperId;
+    moveLocally(task.id, startIso, handedOver ? helperId : undefined);
+    const saved = await onMove(task, startIso, helperId);
     if (!saved) {
       reload();
       return;
     }
-    const assignee = activeHelpers.find((h) => h.id === task.helperId);
-    const schedule = task.helperId ? scheduleFor(task.helperId) : undefined;
-    const outside =
-      schedule &&
-      !isMinuteInShift(parseTimeToMinutes(task.time), weekdayOf(parseISODate(dayIso)), schedule);
-    toast.success(`Moved "${task.title}" to ${dayName(dayIso)}`, {
+    const assignee = helperId ? findHelper(helperId, helpers) : null;
+    const schedule = helperId ? scheduleFor(helperId) : undefined;
+    const outside = isOutsideShift({ ...task, helperId, scheduledStart: startIso }, schedule);
+    const where = [
+      handedOver ? (assignee ? `to ${assignee.short}` : "to Unassigned") : null,
+      fromDay !== dayIso ? `${handedOver ? "on" : "to"} ${dayName(dayIso)}` : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    toast.success(`Moved "${task.title}" ${where}`, {
       description: outside
         ? `That's outside ${assignee?.short ?? "her"}'s shift. Doing it then counts as after-hours work.`
         : undefined,
       action: {
         label: "Undo",
-        onClick: () => void move({ ...task, scheduledStart: startIso }, fromDay),
+        onClick: () =>
+          void move({ ...task, scheduledStart: startIso, helperId }, fromDay, task.helperId),
       },
     });
   };
@@ -174,26 +227,29 @@ export function TaskPlanner({
           setDraggingId(null);
           setOverDay(null);
         },
-        dropTarget: (dayIso: string) => ({
-          onDragOver: (e: DragEvent) => {
-            if (!dragged.current) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            if (overDay !== dayIso) setOverDay(dayIso);
-          },
-          onDragLeave: (e: DragEvent) => {
-            if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-            setOverDay((d) => (d === dayIso ? null : d));
-          },
-          onDrop: (e: DragEvent) => {
-            e.preventDefault();
-            const task = dragged.current;
-            dragged.current = null;
-            setDraggingId(null);
-            setOverDay(null);
-            if (task) void move(task, dayIso);
-          },
-        }),
+        dropTarget: (dayIso: string, helperId?: string | null) => {
+          const key = helperId === undefined ? dayIso : cellKey(dayIso, helperId);
+          return {
+            onDragOver: (e: DragEvent) => {
+              if (!dragged.current) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (overDay !== key) setOverDay(key);
+            },
+            onDragLeave: (e: DragEvent) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+              setOverDay((d) => (d === key ? null : d));
+            },
+            onDrop: (e: DragEvent) => {
+              e.preventDefault();
+              const task = dragged.current;
+              dragged.current = null;
+              setDraggingId(null);
+              setOverDay(null);
+              if (task) void move(task, dayIso, helperId === undefined ? task.helperId : helperId);
+            },
+          };
+        },
       }
     : undefined;
 
@@ -203,7 +259,40 @@ export function TaskPlanner({
       .filter((h) => isRestDay(weekdayOf(day), scheduleFor(h.id)!))
       .map((h) => h.short);
 
+  // ----- By person -----
+  const peopleRows = useMemo((): PeopleRow[] => {
+    // Anyone with a task this week gets a row, even someone who has since left.
+    const ids = new Set(activeHelpers.map((h) => h.id));
+    const former = [...new Set(shown.map((t) => t.helperId))]
+      .filter((id): id is string => !!id && !ids.has(id))
+      .map((id) => findHelper(id, helpers));
+    const everyone = [...activeHelpers, ...former].filter((h) => matchesWho(h.id));
+    return [
+      ...(matchesWho(null) ? [{ helper: null }] : []),
+      ...everyone.map((helper) => ({ helper })),
+    ];
+  }, [activeHelpers, helpers, shown, matchesWho]);
+  const tasksByCell = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const [day, list] of tasksByDay)
+      for (const t of list) {
+        const key = cellKey(day, t.helperId);
+        map.set(key, [...(map.get(key) ?? []), t]);
+      }
+    return map;
+  }, [tasksByDay]);
+  const ghostsByCell = useMemo(() => {
+    const map = new Map<string, RoutineGhost[]>();
+    for (const [day, list] of ghosts)
+      for (const g of list) {
+        const key = cellKey(day, g.routine.helperId);
+        map.set(key, [...(map.get(key) ?? []), g]);
+      }
+    return map;
+  }, [ghosts]);
+
   const showingThisPeriod = days.some((d) => toISODate(d) === todayIso);
+  const appointmentsShown = who === "all" ? appointmentsByDay : new Map<string, Appointment[]>();
 
   return (
     <section className="space-y-3" aria-labelledby="plan-heading">
@@ -244,19 +333,19 @@ export function TaskPlanner({
             role="group"
             aria-label="Plan view"
           >
-            {(["week", "month"] as const).map((v) => (
+            {VIEWS.map(({ key, label }) => (
               <button
-                key={v}
+                key={key}
                 type="button"
-                onClick={() => changeView(v)}
-                aria-pressed={view === v}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  view === v
+                onClick={() => changeView(key)}
+                aria-pressed={view === key}
+                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                  view === key
                     ? "bg-primary text-primary-foreground shadow-soft"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {v === "week" ? "Week" : "Month"}
+                {label}
               </button>
             ))}
           </div>
@@ -265,7 +354,7 @@ export function TaskPlanner({
             <button
               type="button"
               onClick={() => setAnchor((a) => stepAnchor(view, a, -1))}
-              aria-label={view === "week" ? "Previous week" : "Previous month"}
+              aria-label={view === "month" ? "Previous month" : "Previous week"}
               className="grid h-9 w-9 place-items-center rounded-l-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -281,7 +370,7 @@ export function TaskPlanner({
             <button
               type="button"
               onClick={() => setAnchor((a) => stepAnchor(view, a, 1))}
-              aria-label={view === "week" ? "Next week" : "Next month"}
+              aria-label={view === "month" ? "Next month" : "Next week"}
               className="grid h-9 w-9 place-items-center rounded-r-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
@@ -290,9 +379,11 @@ export function TaskPlanner({
         </div>
       </div>
 
-      {drag && view === "week" && (
+      {drag && view !== "month" && (
         <p className="hidden px-1 text-sm text-muted-foreground lg:block">
-          Drag a task to another day to move it. Tap one to change anything else.
+          {view === "people"
+            ? "Drag a task to another day, or to someone else's row to hand it over. Tap one to change anything else."
+            : "Drag a task to another day to move it. Tap one to change anything else."}
         </p>
       )}
 
@@ -319,25 +410,47 @@ export function TaskPlanner({
                 isToday={iso === todayIso}
                 isPast={isPast}
                 tasks={tasksByDay.get(iso) ?? []}
-                appointments={who === "all" ? (appointmentsByDay.get(iso) ?? []) : []}
+                ghosts={ghosts.get(iso)}
+                appointments={appointmentsShown.get(iso) ?? []}
+                prepCounts={prepCounts}
                 offToday={offOn(day)}
                 helpers={helpers}
                 nowTs={nowTs}
+                outsideShift={outsideShift}
                 drag={drag}
                 onOpenTask={onOpenTask}
+                onOpenAppointment={onOpenAppointment}
                 onAdd={isPast ? undefined : () => onAddOn(iso)}
                 className={isPast && !showEarlier ? "hidden lg:flex" : "flex"}
               />
             );
           })}
         </div>
+      ) : view === "people" ? (
+        <PlannerPeople
+          days={days}
+          todayIso={todayIso}
+          rows={peopleRows}
+          tasksByCell={tasksByCell}
+          ghostsByCell={ghostsByCell}
+          appointmentsByDay={appointmentsShown}
+          prepCounts={prepCounts}
+          helpers={helpers}
+          nowTs={nowTs}
+          scheduleFor={scheduleFor}
+          outsideShift={outsideShift}
+          drag={drag}
+          onOpenTask={onOpenTask}
+          onOpenAppointment={onOpenAppointment}
+          onAdd={onAddOn}
+        />
       ) : (
         <PlannerMonth
           days={days}
           month={anchor.getMonth()}
           todayIso={todayIso}
           tasksByDay={tasksByDay}
-          appointmentsByDay={who === "all" ? appointmentsByDay : new Map()}
+          appointmentsByDay={appointmentsShown}
           drag={drag}
           onOpenDay={(day) => {
             setAnchor(day);

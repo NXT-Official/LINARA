@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { CalendarDays, Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
 import { RosaStatusChip } from "@/features/availability/components/rosa-status-chip";
@@ -54,6 +54,8 @@ export type ManagerPassTabProps = {
   onApproveSuggestion: (id: string) => void;
   onDismissSuggestion: (id: string) => void;
   onNewTask: () => void;
+  /** Quick Utos: a small ask, right now. Today's business, so it lives here. */
+  quickUtos?: ReactNode;
   /** Layout from the URL (`?view=`), or undefined to use this device's last choice. */
   view: PassMode | undefined;
   onViewChange: (mode: PassMode) => void;
@@ -94,6 +96,7 @@ export function ManagerPassTab({
   onApproveSuggestion,
   onDismissSuggestion,
   onNewTask,
+  quickUtos,
   view,
   onViewChange,
 }: ManagerPassTabProps) {
@@ -109,6 +112,8 @@ export function ManagerPassTab({
     }
   }, []);
   const passMode = view ?? stored ?? "line";
+  const navigate = useNavigate();
+  const openPlan = (day: string) => void navigate({ to: "/manager/schedule", search: { day } });
   const updatePassMode = (m: PassMode) => {
     try {
       window.localStorage.setItem(PASS_MODE_KEY, m);
@@ -296,6 +301,7 @@ export function ManagerPassTab({
                 upcoming={upcoming.filter((t) => t.helperId === null)}
                 nowTs={nowTs}
                 onOpenTask={isRemote ? undefined : onEditTask}
+                onOpenPlan={openPlan}
               />
             )}
             {activeHelpers.length === 0 ? (
@@ -311,6 +317,7 @@ export function ManagerPassTab({
                   upcoming={upcoming.filter((t) => t.helperId === h.id)}
                   nowTs={nowTs}
                   onOpenTask={isRemote ? undefined : onEditTask}
+                  onOpenPlan={openPlan}
                 />
               ))
             )}
@@ -322,9 +329,12 @@ export function ManagerPassTab({
             helpers={helpers}
             nowTs={nowTs}
             onOpenTask={isRemote ? undefined : onEditTask}
+            onOpenPlan={openPlan}
           />
         )}
       </section>
+
+      {quickUtos}
 
       {/* Compact spend / payday dials */}
       <SpendAndPayday />

@@ -1,4 +1,3 @@
-import { Moon } from "lucide-react";
 import { useState } from "react";
 
 import { AppointmentsSection } from "@/features/appointments/components/appointments-section";
@@ -8,15 +7,34 @@ import { ShiftsSection } from "@/features/shifts/components/shifts-section";
 import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import { RoutinesView } from "@/features/tasks/components/routines-view";
-import { TaskCard } from "@/features/tasks/components/task-card";
 import { TaskPlanner } from "@/features/tasks/components/task-planner";
 import type { Task } from "@/features/tasks/task.types";
-import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
 
 import { useAppStores } from "../app-store-context";
 
-/** Planning ahead: the week or month of tasks, then shifts, routines, appointments and the queue. */
-export function ManagerSchedulePage() {
+export const SCHEDULE_TABS = [
+  { key: "plan", label: "Plan" },
+  { key: "appointments", label: "Appointments" },
+  { key: "shifts", label: "Shifts" },
+  { key: "routines", label: "Routines" },
+] as const;
+export type ScheduleTab = (typeof SCHEDULE_TABS)[number]["key"];
+
+/**
+ * Planning ahead. The planner is the page: tasks, appointments, days off and
+ * routines all show on it. What sets the calendar up (appointments, shift
+ * hours, routines) sits one tab over, so it doesn't stack under the plan.
+ */
+export function ManagerSchedulePage({
+  tab,
+  day,
+  onTabChange,
+}: {
+  tab: ScheduleTab;
+  /** YYYY-MM-DD the planner opens on. */
+  day?: string;
+  onTabChange: (tab: ScheduleTab) => void;
+}) {
   const {
     session,
     board,
@@ -27,20 +45,18 @@ export function ManagerSchedulePage() {
     activeHelpers,
     utos,
     utosRecipientId,
-    setUtosRecipientId,
     clock,
   } = useAppStores();
   const activeInvites = invites.invites.filter((i) => i.status === "active");
   const { adminType, currentAdmin } = session;
   const { tasks, routines, simDate, addTask, addRoutine, removeRoutine, editTask } = board;
-  const [addingOn, setAddingOn] = useState<string | null>(null);
+  const [addingOn, setAddingOn] = useState<{ day: string; helperId?: string | null } | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
 
   const isRemote = adminType === "remote";
   const canEditShifts = adminType === "primary" || adminType === "co";
   const canOverride = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
-  const queued = tasks.filter((t) => t.queued);
 
   const gate = useSendGate({
     authorName,
@@ -65,80 +81,86 @@ export function ManagerSchedulePage() {
           still look at the week and add appointments.
         </div>
       )}
-      <TaskPlanner
-        token={session.token}
-        nowTs={clock.nowTs}
-        boardTasks={tasks}
-        helpers={helpers}
-        activeHelpers={activeHelpers}
-        appointments={appointments.appointments}
-        scheduleFor={schedules.scheduleFor}
-        onAddOn={setAddingOn}
-        onOpenTask={isRemote ? undefined : setEditing}
-        onMove={
-          isRemote
-            ? undefined
-            : (task, scheduledStartIso) =>
-                editTask(task.id, {
-                  title: task.title,
-                  note: task.note,
-                  scheduledStartIso,
-                  helperId: task.helperId,
-                })
-        }
-      />
-      <ShiftsSection schedules={schedules} helpers={activeInvites} readOnly={!canEditShifts} />
-      <QuickUtosLauncher
-        onSend={gate.sendUtos}
-        helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
-        activeHelpers={activeHelpers}
-        selectedHelperId={utosRecipientId}
-        onSelectHelper={setUtosRecipientId}
-      />
-      <RoutinesView
-        routines={routines}
-        token={session.token}
-        activeHelpers={activeHelpers}
-        onAdd={addRoutine}
-        onRemove={removeRoutine}
-      />
-      <AppointmentsSection
-        appointments={appointments}
-        tasks={tasks}
-        simDate={simDate}
-        helpers={helpers}
-        activeHelpers={activeHelpers}
-      />
-      {queued.length > 0 && (
-        <section className="rounded-3xl ring-1 ring-border/20 bg-card/60 p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-                <Moon className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-foreground">
-                  Queued for tomorrow · {queued.length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  These will move to To-do when you reopen the board.
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {queued.map((t) => (
-              <TaskCard key={t.id} task={t} helpers={helpers} />
-            ))}
-          </div>
-        </section>
+
+      <div className="-mx-1 overflow-x-auto px-1">
+        <div
+          className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
+          role="group"
+          aria-label="Schedule section"
+        >
+          {SCHEDULE_TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onTabChange(key)}
+              aria-pressed={tab === key}
+              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                tab === key
+                  ? "bg-primary text-primary-foreground shadow-soft"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "plan" && (
+        <TaskPlanner
+          token={session.token}
+          nowTs={clock.nowTs}
+          boardTasks={tasks}
+          routines={routines}
+          helpers={helpers}
+          activeHelpers={activeHelpers}
+          appointments={appointments.appointments}
+          scheduleFor={schedules.scheduleFor}
+          initialDay={day}
+          onAddOn={(dayIso, helperId) => setAddingOn({ day: dayIso, helperId })}
+          onOpenTask={isRemote ? undefined : setEditing}
+          onOpenAppointment={() => onTabChange("appointments")}
+          onMove={
+            isRemote
+              ? undefined
+              : (task, scheduledStartIso, helperId) =>
+                  editTask(task.id, {
+                    title: task.title,
+                    note: task.note,
+                    scheduledStartIso,
+                    helperId,
+                  })
+          }
+        />
+      )}
+      {tab === "appointments" && (
+        <AppointmentsSection
+          appointments={appointments}
+          tasks={tasks}
+          simDate={simDate}
+          helpers={helpers}
+          activeHelpers={activeHelpers}
+        />
+      )}
+      {tab === "shifts" && (
+        <ShiftsSection schedules={schedules} helpers={activeInvites} readOnly={!canEditShifts} />
+      )}
+      {tab === "routines" && (
+        <RoutinesView
+          routines={routines}
+          token={session.token}
+          activeHelpers={activeHelpers}
+          onAdd={addRoutine}
+          onRemove={removeRoutine}
+        />
       )}
 
       {addingOn && (
         <NewTaskModal
           activeHelpers={activeHelpers}
           isRemote={isRemote}
-          defaultDate={addingOn}
+          defaultDate={addingOn.day}
+          defaultHelperId={addingOn.helperId === undefined ? undefined : (addingOn.helperId ?? "")}
           scheduleFor={schedules.scheduleFor}
           onClose={() => setAddingOn(null)}
           onAdd={(t, opts) => {

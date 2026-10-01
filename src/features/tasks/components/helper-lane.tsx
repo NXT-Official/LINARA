@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
+import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
 import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { LaneNowRow } from "./lane-now-row";
@@ -14,12 +15,15 @@ export function HelperLane({
   nowTs,
   unassigned = false,
   onOpenTask,
+  onOpenPlan,
 }: {
   helper: Helper;
   /** The Unassigned lane: tasks nobody has yet (helper is UNASSIGNED_HELPER). */
   unassigned?: boolean;
   /** Opens a task (edit, assign, updates). */
   onOpenTask?: (task: Task) => void;
+  /** Opens the planner on a later day (YYYY-MM-DD). */
+  onOpenPlan?: (dayIso: string) => void;
   /** Today's tasks for this helper. */
   tasks: Task[];
   /** Scheduled for a later day -- shown, never counted. */
@@ -183,8 +187,17 @@ export function HelperLane({
           )}
           {later.length > 0 && (
             <>
-              <div className="px-3 pb-1 pt-3 text-xs font-semibold text-muted-foreground">
-                Coming up
+              <div className="flex items-baseline justify-between gap-2 px-3 pb-1 pt-3">
+                <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
+                {onOpenPlan && taskDayIso(later[0]) && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPlan(taskDayIso(later[0])!)}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    See in the planner
+                  </button>
+                )}
               </div>
               {later.map((t) => (
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">

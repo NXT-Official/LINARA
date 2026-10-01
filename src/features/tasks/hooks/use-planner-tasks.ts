@@ -53,18 +53,27 @@ export function usePlannerTasks({
     [current, helpers],
   );
 
-  const moveLocally = useCallback((id: string, scheduledStartIso: string) => {
-    setRows((prev) =>
-      prev
-        ? {
-            ...prev,
-            rows: prev.rows.map((r) =>
-              r.id === id ? { ...r, scheduled_start: scheduledStartIso } : r,
-            ),
-          }
-        : prev,
-    );
-  }, []);
+  const moveLocally = useCallback(
+    (id: string, scheduledStartIso: string, helperId?: string | null) => {
+      setRows((prev) =>
+        prev
+          ? {
+              ...prev,
+              rows: prev.rows.map((r) =>
+                r.id === id
+                  ? {
+                      ...r,
+                      scheduled_start: scheduledStartIso,
+                      ...(helperId !== undefined ? { helper_id: helperId } : {}),
+                    }
+                  : r,
+              ),
+            }
+          : prev,
+      );
+    },
+    [],
+  );
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 

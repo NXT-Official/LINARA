@@ -5,12 +5,14 @@ import { setHouseholdTimeZone, toISODate } from "@/lib/time";
 import {
   groupByDay,
   isMovable,
+  isOutsideShift,
+  routineGhosts,
   planDays,
   planLabel,
   startOfWeek,
   stepAnchor,
 } from "./planner.utils";
-import type { Task } from "./task.types";
+import type { Routine, Task } from "./task.types";
 
 const day = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -118,5 +120,44 @@ describe("isMovable", () => {
     expect(isMovable(task({ status: "blocked" }))).toBe(true);
     expect(isMovable(task({ status: "in_progress" }))).toBe(false);
     expect(isMovable(task({ status: "done" }))).toBe(false);
+  });
+});
+
+describe("routineGhosts", () => {
+  const routine = (over: Partial<Routine> = {}): Routine => ({
+    id: "r1",
+    title: "Water the plants",
+    helperId: "h1",
+    station: "House",
+    time: "7:00 AM",
+    recurrence: ["Mon", "Wed"],
+    ...over,
+  });
+  const week = planDays("week", day("2026-09-30"));
+
+  it("puts a routine on its matching days after today only", () => {
+    const ghosts = routineGhosts([routine()], week, "2026-09-28", [], ["h1"]);
+    expect([...ghosts.keys()]).toEqual(["2026-09-30"]);
+  });
+
+  it("leaves out a helper who has left", () => {
+    expect(routineGhosts([routine()], week, "2026-09-27", [], ["h2"]).size).toBe(0);
+  });
+});
+
+describe("isOutsideShift", () => {
+  const schedule = { shiftStart: "08:00", shiftEnd: "17:00", weeklyRestDay: 0 };
+  afterEach(() => setHouseholdTimeZone(null));
+
+  it("is false inside the shift and true after it, or for nobody's task", () => {
+    setHouseholdTimeZone("Asia/Manila");
+    expect(
+      isOutsideShift(
+        task({ time: "9:00 AM", scheduledStart: "2026-09-30T01:00:00.000Z" }),
+        schedule,
+      ),
+    ).toBe(false);
+    expect(isOutsideShift(task(), schedule)).toBe(true); // 7:30 PM
+    expect(isOutsideShift(task({ helperId: null }), schedule)).toBe(false);
   });
 });

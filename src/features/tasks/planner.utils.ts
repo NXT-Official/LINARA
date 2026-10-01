@@ -1,12 +1,21 @@
 // Calendar math for the planner (components/task-planner.tsx). Days here are
 // the civil Dates the rest of @/lib/time uses: local midnight, fields reading
 // the household's calendar.
-import { toHouseholdClock, toISODate } from "@/lib/time";
+import type { HelperSchedule } from "@/features/shifts/shift.types";
+import { isMinuteInShift } from "@/features/shifts/shift.utils";
+import {
+  parseISODate,
+  parseTimeToMinutes,
+  toHouseholdClock,
+  toISODate,
+  weekdayOf,
+} from "@/lib/time";
 
-import type { Task } from "./task.types";
-import { byStart } from "./task.utils";
+import type { Routine, Task } from "./task.types";
+import { byStart, routineMatches } from "./task.utils";
 
-export type PlanView = "week" | "month";
+/** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
+export type PlanView = "week" | "people" | "month";
 
 export const addDays = (d: Date, n: number): Date =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -21,11 +30,11 @@ export const startOfWeek = (d: Date): Date => addDays(d, -((d.getDay() + 6) % 7)
  */
 export function planDays(view: PlanView, anchor: Date): Date[] {
   const start =
-    view === "week"
+    view !== "month"
       ? startOfWeek(anchor)
       : startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
   const end =
-    view === "week"
+    view !== "month"
       ? addDays(start, 7)
       : addDays(startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)), 7);
   const days: Date[] = [];
@@ -35,7 +44,7 @@ export function planDays(view: PlanView, anchor: Date): Date[] {
 
 /** One week or one month earlier (-1) or later (1). A month step lands on the 1st. */
 export const stepAnchor = (view: PlanView, anchor: Date, dir: -1 | 1): Date =>
-  view === "week"
+  view !== "month"
     ? addDays(anchor, 7 * dir)
     : new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
 
@@ -72,3 +81,51 @@ export function groupByDay(tasks: Task[]): Map<string, Task[]> {
  * that work happened when it happened.
  */
 export const isMovable = (t: Task): boolean => t.status === "todo" || t.status === "blocked";
+
+/** The By person drop-target key for one person's day, as PlannerDrag.overDay holds it. */
+export const cellKey = (dayIso: string, helperId: string | null) => `${dayIso}|${helperId ?? ""}`;
+
+/** A routine's copy on a day it hasn't spawned yet: shown greyed, not a real task. */
+export type RoutineGhost = { routine: Routine; dayIso: string };
+
+/**
+ * The routines that will spawn on each day after today, by day. Routines only
+ * become real tasks when that day starts (useTaskBoard's startNewDay), so a
+ * later week would otherwise look emptier than it will be. A day that already
+ * has the routine's task, or a helper who has left, gets no copy.
+ */
+export function routineGhosts(
+  routines: Routine[],
+  days: Date[],
+  todayIso: string,
+  tasks: Task[],
+  activeHelperIds: string[],
+): Map<string, RoutineGhost[]> {
+  const spawned = new Set(
+    tasks.filter((t) => t.routineId).map((t) => `${t.routineId}|${taskDayIso(t)}`),
+  );
+  const active = new Set(activeHelperIds);
+  const byDay = new Map<string, RoutineGhost[]>();
+  for (const day of days) {
+    const dayIso = toISODate(day);
+    if (dayIso <= todayIso) continue;
+    const ghosts = routines
+      .filter(
+        (r) =>
+          active.has(r.helperId) &&
+          routineMatches(r, weekdayOf(day)) &&
+          !spawned.has(`${r.id}|${dayIso}`),
+      )
+      .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
+      .map((routine) => ({ routine, dayIso }));
+    if (ghosts.length > 0) byDay.set(dayIso, ghosts);
+  }
+  return byDay;
+}
+
+/** Is this assigned task planned outside its helper's shift (or on her day off)? */
+export function isOutsideShift(t: Task, schedule: HelperSchedule | undefined): boolean {
+  const dayIso = taskDayIso(t);
+  if (!t.helperId || !schedule || !dayIso) return false;
+  return !isMinuteInShift(parseTimeToMinutes(t.time), weekdayOf(parseISODate(dayIso)), schedule);
+}

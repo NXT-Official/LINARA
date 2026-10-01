@@ -6,6 +6,7 @@ import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
+import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
 import { toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
@@ -34,6 +35,7 @@ export function ManagerPassPage({
     activeHelpers,
     utos,
     utosRecipientId,
+    setUtosRecipientId,
     clock,
     startNewDay,
     previewNewDay,
@@ -163,6 +165,15 @@ export function ManagerPassPage({
         onApproveSuggestion={approveSuggestion}
         onDismissSuggestion={dismissSuggestion}
         onNewTask={() => setOpen(true)}
+        quickUtos={
+          <QuickUtosLauncher
+            onSend={gate.sendUtos}
+            helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
+            activeHelpers={activeHelpers}
+            selectedHelperId={utosRecipientId}
+            onSelectHelper={setUtosRecipientId}
+          />
+        }
         view={view}
         onViewChange={onViewChange}
       />

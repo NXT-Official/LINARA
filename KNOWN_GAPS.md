@@ -40,7 +40,6 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
-
 ---
 
 ## Closed Gaps
@@ -3080,7 +3079,24 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Data.** `listTicketsBetweenFn` reads every ticket in the visible range, done ones included, and refetches whenever the board does, so Realtime changes reach it too. No schema change.
 - **Residual:**
   - **Touch dragging.** Drag-and-drop is HTML5, so it works with a mouse but not reliably by touch (the mobile WebView). On a phone, a task moves by opening it and changing its date.
-  - **Routines.** Routine templates are still local-only (gap #4's closure notes), so the planner can't show a routine's future days before it spawns them.
+  - **Routines.** Routine templates are still local-only (gap #4's closure notes), so the planner can't show a routine's future days before it spawns them. Partly addressed by C69: it now shows the routines this tab knows about.
+
+### C69. Plan ahead couldn't be put away, and Schedule mixed the calendar with its setup (tester feedback)
+
+- **Found / fixed:** found in tester feedback 2026-10-01, fixed the same day on `jamesDev-schedule-update`.
+- **Was:** Schedule stacked six things in one scroll: the planner (always open, no way to fold it), Shifts, Quick Utos, Routines, Appointments and "Queued for tomorrow". The planner sat on top of the rest, and a "right now" action (Quick Utos) sat on the planning page.
+- **Fix:**
+  - **Schedule tabs.** Plan, Appointments, Shifts, Routines (`manager-schedule-page.tsx`), kept in the URL as `?tab=` like the Pass's `?view=`. Plan is the default and is the planner alone. `?day=YYYY-MM-DD` opens it on a given week.
+  - **On the plan.** Prep tasks say which appointment they're for, and an appointment says how many prep tasks it has (tap it to open Appointments). A task planned outside its helper's shift, or on her day off, is marked "off shift". Routines show greyed on the later days they'll spawn on (`routineGhosts` in `planner.utils.ts`). Queued tasks already showed on their day with a "Queued" tag, so the separate "Queued for tomorrow" list is gone.
+  - **By person.** A third view next to Week and Month (`planner-people.tsx`): a row per helper (plus Unassigned), a column per day, her shift hours in the row label and her day off shaded. Dropping a task on another row reassigns it, with Undo. Add on a cell opens New task with that person picked.
+  - **Quick Utos moved to the Pass**, under The Line.
+  - **Pass to planner.** "Coming up" on The Line and The Board has "See in the planner", which opens the week of the first upcoming task.
+  - No schema change. `/manager/pass` and `/login` are untouched (O18).
+- **Residual:**
+  - **Routines are still local-only** (gap #4). Their greyed copies show only the routines this browser tab knows about, and disappear on reload along with the routines themselves.
+  - **Touch dragging** (see C68) also applies to reassigning on By person. On a phone, reassign by opening the task.
+  - **By person on phones** scrolls sideways inside its card (names stay pinned). It is readable but cramped; Week stays the better phone view.
+  - **Month view** shows tasks and appointments only, not routine copies or off-shift marks.
 
 ---
 

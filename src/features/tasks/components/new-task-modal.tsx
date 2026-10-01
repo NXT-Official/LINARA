@@ -24,6 +24,7 @@ export function NewTaskModal({
   onAdd,
   isRemote = false,
   defaultDate,
+  defaultHelperId,
   scheduleFor,
 }: {
   activeHelpers: Helper[];
@@ -32,12 +33,14 @@ export function NewTaskModal({
   isRemote?: boolean;
   /** YYYY-MM-DD the form opens on: the board's day, or the planner day tapped. */
   defaultDate: string;
+  /** Who the form opens on: the planner row tapped ("" = Unassigned). Else the first helper. */
+  defaultHelperId?: string;
   /** For the out-of-shift warning; without it there is none. */
   scheduleFor?: (helperId: string) => HelperSchedule | undefined;
 }) {
   const [title, setTitle] = useState("");
   // "" = Unassigned: a task can wait on the board until someone is picked.
-  const [helperId, setHelperId] = useState(activeHelpers[0]?.id ?? "");
+  const [helperId, setHelperId] = useState(defaultHelperId ?? activeHelpers[0]?.id ?? "");
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("08:00");
   const [note, setNote] = useState("");
