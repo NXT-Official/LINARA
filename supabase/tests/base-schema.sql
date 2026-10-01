@@ -1,5 +1,5 @@
--- A minimal copy of the live schema: only what add-employment-end.sql and
--- add-pay-periods.sql touch, for exercising them in PGlite.
+-- A minimal copy of the live schema: only what the migrations under test
+-- touch, for exercising them in PGlite.
 CREATE ROLE authenticated;
 CREATE ROLE anon;
 CREATE SCHEMA auth;
@@ -53,7 +53,13 @@ CREATE TABLE public.tickets (
 CREATE TABLE public.quick_utos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient_id UUID REFERENCES public.helper_profiles(id) NOT NULL,
-    content TEXT NOT NULL
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE public.appointments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL,
+    title TEXT NOT NULL
 );
 CREATE TABLE public.helper_notes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,7 +88,7 @@ CREATE TABLE public.payslips (
     payout_external_id TEXT,
     payout_status TEXT NOT NULL DEFAULT 'pending_send',
     failure_reason TEXT,
-    requested_by UUID,
+    requested_by UUID REFERENCES public.user_profiles(id),
     requested_at TIMESTAMPTZ DEFAULT now(),
     confirmed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -96,7 +102,7 @@ CREATE TABLE public.payout_attempts (
     status TEXT NOT NULL,
     amount_sent NUMERIC NOT NULL,
     channel_code TEXT NOT NULL,
-    requested_by UUID
+    requested_by UUID REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.vales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,7 +117,7 @@ CREATE TABLE public.rest_off_requests (
     rest_date DATE NOT NULL,
     minutes INT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    decided_by UUID,
+    decided_by UUID REFERENCES public.user_profiles(id),
     decided_at TIMESTAMPTZ,
     decline_reason TEXT
 );
