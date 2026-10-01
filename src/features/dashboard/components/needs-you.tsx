@@ -12,6 +12,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
+import { CappedList } from "@/components/shared/capped-list";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import type { Payslip } from "@/features/pay/pay.types";
 import { stationTone } from "@/features/people/people.constants";
@@ -72,14 +73,12 @@ export function NeedsYou({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
-  const total =
-    blocked.length +
-    pastDue.length +
-    pendingVales.length +
-    flagsCount +
-    owedPay.length +
-    disputedPayments.length +
-    notices.length;
+  // Two groups, each capped (CappedList): a bad day's stuck tasks can't bury
+  // a missed payment, and years of history can't grow the box without end.
+  const taskCount = blocked.length + pastDue.length;
+  const requestCount =
+    disputedPayments.length + notices.length + owedPay.length + pendingVales.length + flagsCount;
+  const total = taskCount + requestCount;
 
   if (total === 0) {
     return (
@@ -110,334 +109,368 @@ export function NeedsYou({
           </div>
         </div>
       </div>
-      <div className="divide-y divide-border/70">
-        {blocked.map((t) => {
-          const helper = findHelper(t.helperId, helpers);
-          const isReplying = replyId === t.id;
-          return (
-            <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials={helper.initials} />
-                    <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="text-xs text-muted-foreground">· {taskWhen(t, nowTs)}</span>
-                  </div>
-                  <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
-                  <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                    "{t.blockReason}"
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
-                >
-                  {t.station}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setReplyId(isReplying ? null : t.id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> Reply
-                </button>
-                <button
-                  onClick={() => {
-                    onReschedule(t.id);
-                    setReplyId(null);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Reschedule
-                </button>
-              </div>
-              {isReplying && (
-                <div className="mt-3 rounded-xl border border-border bg-background p-2">
-                  <textarea
-                    value={drafts[t.id] ?? ""}
-                    onChange={(e) => setDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
-                    rows={2}
-                    placeholder={`Message ${helper.short}…`}
-                    className="w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                  <div className="mt-1 flex items-center justify-between px-1">
-                    <span className="text-xs text-muted-foreground">Mock only · not sent</span>
-                    <button
-                      onClick={() => setReplyId(null)}
-                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {pastDue.map((t) => {
-          const helper = findHelper(t.helperId, helpers);
-          return (
-            <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials={helper.initials} />
-                    <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="text-xs text-muted-foreground">
-                      · planned {taskWhen(t, nowTs)}
-                    </span>
-                  </div>
-                  <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t.routineId
-                      ? "Not started. Part of a routine, so cancelling skips just this one."
-                      : "Not started yet. Change it, or cancel it if it's no longer needed."}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
-                >
-                  {t.station}
-                </span>
-              </div>
-              {onEditTask && onCancelTask && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {confirmCancelId === t.id ? (
-                    <>
-                      <span className="text-xs text-foreground">
-                        Remove it from {helper.short}'s list?
-                      </span>
-                      <button
-                        onClick={() => setConfirmCancelId(null)}
-                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+      <div className="space-y-5">
+        {taskCount > 0 && (
+          <div>
+            {requestCount > 0 && (
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+                Tasks · {taskCount}
+              </h3>
+            )}
+            <CappedList noun={["task", "tasks"]} className="divide-y divide-border/70">
+              {blocked.map((t) => {
+                const helper = findHelper(t.helperId, helpers);
+                const isReplying = replyId === t.id;
+                return (
+                  <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Avatar initials={helper.initials} />
+                          <span className="text-xs font-semibold text-foreground">
+                            {helper.short}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            · {taskWhen(t, nowTs)}
+                          </span>
+                        </div>
+                        <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
+                        <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                          "{t.blockReason}"
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                       >
-                        Keep it
+                        {t.station}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setReplyId(isReplying ? null : t.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> Reply
                       </button>
                       <button
                         onClick={() => {
-                          onCancelTask(t.id);
-                          setConfirmCancelId(null);
+                          onReschedule(t.id);
+                          setReplyId(null);
                         }}
-                        className="rounded-lg bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
-                      >
-                        Yes, cancel it
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => onEditTask(t)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
-                        <Pencil className="h-3.5 w-3.5" /> Edit
+                        <RotateCcw className="h-3.5 w-3.5" /> Reschedule
                       </button>
-                      <button
-                        onClick={() => setConfirmCancelId(t.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    </div>
+                    {isReplying && (
+                      <div className="mt-3 rounded-xl border border-border bg-background p-2">
+                        <textarea
+                          value={drafts[t.id] ?? ""}
+                          onChange={(e) => setDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                          rows={2}
+                          placeholder={`Message ${helper.short}…`}
+                          className="w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-muted-foreground"
+                        />
+                        <div className="mt-1 flex items-center justify-between px-1">
+                          <span className="text-xs text-muted-foreground">
+                            Mock only · not sent
+                          </span>
+                          <button
+                            onClick={() => setReplyId(null)}
+                            className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {pastDue.map((t) => {
+                const helper = findHelper(t.helperId, helpers);
+                return (
+                  <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Avatar initials={helper.initials} />
+                          <span className="text-xs font-semibold text-foreground">
+                            {helper.short}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            · planned {taskWhen(t, nowTs)}
+                          </span>
+                        </div>
+                        <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t.routineId
+                            ? "Not started. Part of a routine, so cancelling skips just this one."
+                            : "Not started yet. Change it, or cancel it if it's no longer needed."}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Cancel task
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {pendingVales.map((v) => {
-          const helper = findHelper(v.helperId, helpers);
-          return (
-            <div key={v.id} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                        {t.station}
+                      </span>
+                    </div>
+                    {onEditTask && onCancelTask && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {confirmCancelId === t.id ? (
+                          <>
+                            <span className="text-xs text-foreground">
+                              Remove it from {helper.short}'s list?
+                            </span>
+                            <button
+                              onClick={() => setConfirmCancelId(null)}
+                              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                            >
+                              Keep it
+                            </button>
+                            <button
+                              onClick={() => {
+                                onCancelTask(t.id);
+                                setConfirmCancelId(null);
+                              }}
+                              className="rounded-lg bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+                            >
+                              Yes, cancel it
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => onEditTask(t)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                            >
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </button>
+                            <button
+                              onClick={() => setConfirmCancelId(t.id)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Cancel task
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CappedList>
+          </div>
+        )}
+        {requestCount > 0 && (
+          <div>
+            {taskCount > 0 && (
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+                Requests and pay · {requestCount}
+              </h3>
+            )}
+            <CappedList noun={["item", "items"]} className="divide-y divide-border/70">
+              {disputedPayments.map(({ payslip, name, left }) => (
+                <div key={`disputed-${payslip.id}`} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2">
-                    <Avatar initials={helper.initials} />
-                    <span className="text-xs font-semibold text-foreground">{helper.short}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-                      <Coins className="h-3 w-3" /> Vale request
+                    <Avatar initials={initialsOf(name)} />
+                    <span className="text-xs font-semibold text-foreground">{name}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                      <AlertCircle className="h-3 w-3" /> Says she wasn't paid
                     </span>
                   </div>
-                  <h4 className="mt-1.5 font-display text-lg text-foreground">
-                    ₱{v.amount.toLocaleString()}
+                  <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                    {payslip.kind === "thirteenth_month"
+                      ? `13th-month pay ${payslip.cutoffEnd.slice(0, 4)}`
+                      : `Pay for ${payslip.cutoffStart.slice(5)} – ${payslip.cutoffEnd.slice(5)}`}
+                    , recorded as paid outside Linara
                   </h4>
-                  <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                    "{v.reason}"
-                  </p>
+                  {payslip.helperAckNote && (
+                    <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                      "{payslip.helperAckNote}"
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Link
+                      to={left ? "/manager/people" : "/manager/money"}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                    >
+                      Review the payment
+                    </Link>
+                    <span className="text-xs text-muted-foreground">
+                      Talk it through with her, then withdraw the record and pay it again if it
+                      didn't reach her.
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => onDecideVale(v.id, "approved")}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                >
-                  <Check className="h-3.5 w-3.5" /> Approve
-                </button>
-                <button
-                  onClick={() => onDecideVale(v.id, "declined")}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" /> Decline
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {flaggedInvites.map((inv) =>
-          inv.flags.map((f) => {
-            const displayName = inv.claimedName || inv.name;
-            const initials = initialsOf(displayName);
-            const isSystemCheck = f.field === "wage_below_minimum";
-            return (
-              <div key={f.id} className="py-3.5 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+              ))}
+              {notices.map((inv) => {
+                const displayName = inv.claimedName || inv.name;
+                return (
+                  <div key={`notice-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-2">
-                      <Avatar initials={initials} />
+                      <Avatar initials={initialsOf(displayName)} />
                       <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-                        <AlertCircle className="h-3 w-3" />{" "}
-                        {isSystemCheck ? "Compliance check" : "Flagged a detail"}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
+                        Gave notice
                       </span>
                     </div>
                     <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                      {FLAG_LABEL[f.field] ?? f.field}
+                      Her last day:{" "}
+                      {inv.noticeLastDay
+                        ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "—"}
                     </h4>
-                    {f.note && (
+                    {inv.noticeNote && (
                       <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                        "{f.note}"
+                        "{inv.noticeNote}"
                       </p>
                     )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {isSystemCheck
-                        ? "Checked when the invite was created"
-                        : `Raised by ${displayName}`}{" "}
-                      ·{" "}
-                      {new Date(f.at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        timeZone: householdTimeZone(),
-                      })}
-                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Link
+                        to="/manager/people"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                      >
+                        End employment on that day
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        In People. Her final pay and open tasks are settled there.
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => onResolveFlag(inv.id, f.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                  >
-                    <Check className="h-3.5 w-3.5" /> Mark resolved
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    Update the household record in People → invite.
-                  </span>
-                </div>
-              </div>
-            );
-          }),
-        )}
-        {owedPay.map(({ invite: inv, count }) => {
-          const displayName = inv.claimedName || inv.name;
-          const left = inv.status === "ended";
-          return (
-            <div key={`owed-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex items-center gap-2">
-                <Avatar initials={initialsOf(displayName)} />
-                <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-                  <Coins className="h-3 w-3" /> {left ? "Left · still owed" : "Unpaid pay period"}
-                </span>
-              </div>
-              <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment on
-                record.
-              </h4>
-              <div className="mt-3">
-                <Link
-                  to={left ? "/manager/people" : "/manager/money"}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                >
-                  <Coins className="h-3.5 w-3.5" />{" "}
-                  {left ? "Pay from Past staff" : "Pay from Money"}
-                </Link>
-              </div>
-            </div>
-          );
-        })}
-        {disputedPayments.map(({ payslip, name, left }) => (
-          <div key={`disputed-${payslip.id}`} className="py-3.5 first:pt-0 last:pb-0">
-            <div className="flex items-center gap-2">
-              <Avatar initials={initialsOf(name)} />
-              <span className="text-xs font-semibold text-foreground">{name}</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                <AlertCircle className="h-3 w-3" /> Says she wasn't paid
-              </span>
-            </div>
-            <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-              {payslip.kind === "thirteenth_month"
-                ? `13th-month pay ${payslip.cutoffEnd.slice(0, 4)}`
-                : `Pay for ${payslip.cutoffStart.slice(5)} – ${payslip.cutoffEnd.slice(5)}`}
-              , recorded as paid outside Linara
-            </h4>
-            {payslip.helperAckNote && (
-              <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                "{payslip.helperAckNote}"
-              </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Link
-                to={left ? "/manager/people" : "/manager/money"}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-              >
-                Review the payment
-              </Link>
-              <span className="text-xs text-muted-foreground">
-                Talk it through with her, then withdraw the record and pay it again if it didn't
-                reach her.
-              </span>
-            </div>
-          </div>
-        ))}
-        {notices.map((inv) => {
-          const displayName = inv.claimedName || inv.name;
-          return (
-            <div key={`notice-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex items-center gap-2">
-                <Avatar initials={initialsOf(displayName)} />
-                <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
-                  Gave notice
-                </span>
-              </div>
-              <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                Her last day:{" "}
-                {inv.noticeLastDay
-                  ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "—"}
-              </h4>
-              {inv.noticeNote && (
-                <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                  "{inv.noticeNote}"
-                </p>
+                );
+              })}
+              {owedPay.map(({ invite: inv, count }) => {
+                const displayName = inv.claimedName || inv.name;
+                const left = inv.status === "ended";
+                return (
+                  <div key={`owed-${inv.id}`} className="py-3.5 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-2">
+                      <Avatar initials={initialsOf(displayName)} />
+                      <span className="text-xs font-semibold text-foreground">{displayName}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                        <Coins className="h-3 w-3" />{" "}
+                        {left ? "Left · still owed" : "Unpaid pay period"}
+                      </span>
+                    </div>
+                    <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                      {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment
+                      on record.
+                    </h4>
+                    <div className="mt-3">
+                      <Link
+                        to={left ? "/manager/people" : "/manager/money"}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                      >
+                        <Coins className="h-3.5 w-3.5" />{" "}
+                        {left ? "Pay from Past staff" : "Pay from Money"}
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+              {pendingVales.map((v) => {
+                const helper = findHelper(v.helperId, helpers);
+                return (
+                  <div key={v.id} className="py-3.5 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Avatar initials={helper.initials} />
+                          <span className="text-xs font-semibold text-foreground">
+                            {helper.short}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
+                            <Coins className="h-3 w-3" /> Vale request
+                          </span>
+                        </div>
+                        <h4 className="mt-1.5 font-display text-lg text-foreground">
+                          ₱{v.amount.toLocaleString()}
+                        </h4>
+                        <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                          "{v.reason}"
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => onDecideVale(v.id, "approved")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Approve
+                      </button>
+                      <button
+                        onClick={() => onDecideVale(v.id, "declined")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" /> Decline
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {flaggedInvites.map((inv) =>
+                inv.flags.map((f) => {
+                  const displayName = inv.claimedName || inv.name;
+                  const initials = initialsOf(displayName);
+                  const isSystemCheck = f.field === "wage_below_minimum";
+                  return (
+                    <div key={f.id} className="py-3.5 first:pt-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Avatar initials={initials} />
+                            <span className="text-xs font-semibold text-foreground">
+                              {displayName}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                              <AlertCircle className="h-3 w-3" />{" "}
+                              {isSystemCheck ? "Compliance check" : "Flagged a detail"}
+                            </span>
+                          </div>
+                          <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                            {FLAG_LABEL[f.field] ?? f.field}
+                          </h4>
+                          {f.note && (
+                            <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
+                              "{f.note}"
+                            </p>
+                          )}
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {isSystemCheck
+                              ? "Checked when the invite was created"
+                              : `Raised by ${displayName}`}{" "}
+                            ·{" "}
+                            {new Date(f.at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              timeZone: householdTimeZone(),
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => onResolveFlag(inv.id, f.id)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Mark resolved
+                        </button>
+                        <span className="text-xs text-muted-foreground">
+                          Update the household record in People → invite.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }),
               )}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Link
-                  to="/manager/people"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-                >
-                  End employment on that day
-                </Link>
-                <span className="text-xs text-muted-foreground">
-                  In People. Her final pay and open tasks are settled there.
-                </span>
-              </div>
-            </div>
-          );
-        })}
+            </CappedList>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { AlertCircle, Banknote, Gift, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { CappedList } from "@/components/shared/capped-list";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import type { Helper } from "@/features/people/people.types";
 
@@ -92,6 +93,8 @@ export function MissedPeriodsCard({
 
   const showThirteenth = thirteenth && thirteenth.amount > 0;
   if (missed.length === 0 && !showThirteenth) return null;
+  // Before vale: whatever is still owed comes off only the first payment.
+  const missedTotal = missed.reduce((sum, p) => sum + periodEstimate(helper, p), 0);
 
   // A plain function, not a component: defined per render, it would remount.
   const actions = ({ id, target, label, estimate }: Recording & { id: string }) =>
@@ -131,17 +134,23 @@ export function MissedPeriodsCard({
             <div>
               <h3 className="font-display text-lg text-foreground">
                 {missed.length} unpaid pay period{missed.length === 1 ? "" : "s"}
+                {missed.length > 1 && (
+                  <span className="text-muted-foreground"> · {fmtPeso(missedTotal)}</span>
+                )}
               </h3>
               <p className="text-xs text-muted-foreground">
-                These cutoffs closed with no payment on record. Pay them now, or record how they
-                were paid outside Linara.
+                These cutoffs closed with no payment on record, oldest first. Pay them now, or
+                record how they were paid outside Linara.
                 {unsettledVales > 0
                   ? ` The ${fmtPeso(unsettledVales)} of vale still owed comes off whichever payment goes first.`
                   : ""}
               </p>
             </div>
           </div>
-          <div className="mt-3 divide-y divide-border/70 border-t border-border/40">
+          <CappedList
+            noun={["period", "periods"]}
+            className="mt-3 divide-y divide-border/70 border-t border-border/40"
+          >
             {missed.map((period) => {
               const estimate = periodEstimate(helper, period);
               const partial =
@@ -167,7 +176,7 @@ export function MissedPeriodsCard({
                 </div>
               );
             })}
-          </div>
+          </CappedList>
         </>
       )}
 
