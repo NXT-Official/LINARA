@@ -321,7 +321,9 @@ export const managerLoginFn = createServerFn({ method: "POST" })
     }
 
     if (profile.user_type === "helper") {
-      throw new Error("This is a helper account — use the Worker's Station app instead.");
+      throw new Error(
+        "This is a helper account. Helpers sign in on the Linara app's own sign-in screen, not on the manager dashboard.",
+      );
     }
 
     return {
@@ -405,7 +407,9 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
     }
 
     if (profile.user_type === "helper") {
-      throw new Error("This is a helper account — use the Worker's Station app instead.");
+      throw new Error(
+        "This is a helper account. Helpers sign in on the Linara app's own sign-in screen, not on the manager dashboard.",
+      );
     }
 
     return {
