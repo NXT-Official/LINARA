@@ -262,6 +262,39 @@ describe("TaskPlanner, on the plan", () => {
   });
 });
 
+describe("TaskPlanner, time off", () => {
+  const off = [
+    {
+      id: "o1",
+      helperId: "h1",
+      date: "2026-10-01",
+      startMin: 420,
+      endMin: 600,
+      status: "approved" as const,
+    },
+    {
+      id: "o2",
+      helperId: "h1",
+      date: "2026-10-02",
+      startMin: 780,
+      endMin: 1020,
+      status: "pending" as const,
+    },
+  ];
+
+  it("shows approved and asked-for time off on its day", () => {
+    renderPlanner({ timeOff: off });
+    expect(within(day(/^Thu 1/)).getByText("Rosa off 7:00 AM – 10:00 AM")).toBeTruthy();
+    expect(within(day(/^Fri 2$/)).getByText("Rosa asked off 1:00 PM – 5:00 PM")).toBeTruthy();
+  });
+
+  it("marks a task inside approved time off", () => {
+    renderPlanner({ timeOff: off });
+    // Hang the laundry is 8:00 AM Thursday, inside 7 to 10.
+    expect(within(day(/^Thu 1/)).getByText(/time off/)).toBeTruthy();
+  });
+});
+
 describe("TaskPlanner, by person", () => {
   const byPerson = (over: Partial<Parameters<typeof TaskPlanner>[0]> = {}) => {
     const out = renderPlanner({ helpers: [rosa, lita], activeHelpers: [rosa, lita], ...over });

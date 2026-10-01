@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
 import type { Helper } from "@/features/people/people.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
+import type { TimeOff } from "@/features/shifts/time-off";
 import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
 import { routeUtosFn } from "@/features/utos/utos.actions";
@@ -60,6 +61,7 @@ export function useSendGate({
   resolveHelperName,
   utosTargetHelperId,
   activeHelpers,
+  timeOff = [],
   onSendUtos,
   onAddTask,
 }: {
@@ -76,6 +78,8 @@ export function useSendGate({
   utosTargetHelperId: string | null;
   /** For the AI station-mismatch toast below -- not used to auto-reroute a send. */
   activeHelpers: Helper[];
+  /** Approved time off counts as off (KNOWN_GAPS O19). */
+  timeOff?: TimeOff[];
   onSendUtos: (content: string, flags?: SendFlags) => void;
   onAddTask: (task: TaskDraft, flags?: AddTaskFlags) => void;
 }): SendGate {
@@ -87,6 +91,7 @@ export function useSendGate({
       schedules,
       nowTs,
       manualFromRow(helperProfiles.find((p) => p.id === helperId)),
+      timeOff,
     );
 
   // Attribute the task to whoever is looking, unless it already carries an author.

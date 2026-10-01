@@ -13,6 +13,7 @@ import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
 import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
+import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
 import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
@@ -61,6 +62,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     token: session.token,
     refresh: invites.refresh,
   });
+  const timeOff = useTimeOff({ token: session.token, ready: session.status === "authed" });
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
   const claimedHelperIds = useMemo(
@@ -81,6 +83,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     schedules,
     currentHelperId,
     helperProfiles: invites.helperProfiles,
+    timeOff: timeOff.list,
   });
   const ledger = useLedger({
     rosaStatus: availability.status,
@@ -120,10 +123,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       activeHelpers
         .filter((h) => {
           const row = invites.helperProfiles.find((p) => p.id === h.id);
-          return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
+          return (
+            statusFor(h.id, schedules, clock.nowTs, manualFromRow(row), timeOff.list).status !==
+            "off"
+          );
         })
         .map((h) => h.id),
-    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs],
+    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, timeOff.list],
   );
 
   const appointments = useAppointments({
@@ -490,6 +496,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     invites,
     pantry,
     schedules,
+    timeOff,
     vales,
     payslips,
     payPeriods,

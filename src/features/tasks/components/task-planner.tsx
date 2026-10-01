@@ -8,6 +8,12 @@ import { findHelper } from "@/features/people/people.utils";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay } from "@/features/shifts/shift.utils";
 import {
+  approvedTimeOffAt,
+  timeOffOn,
+  timeOffWindow,
+  type TimeOff,
+} from "@/features/shifts/time-off";
+import {
   combineDateAndTime,
   parseISODate,
   parseTimeToMinutes,
@@ -68,6 +74,7 @@ export function TaskPlanner({
   activeHelpers,
   appointments,
   scheduleFor,
+  timeOff = [],
   initialDay,
   onAddOn,
   onOpenTask,
@@ -85,6 +92,8 @@ export function TaskPlanner({
   activeHelpers: Helper[];
   appointments: Appointment[];
   scheduleFor: (helperId: string) => HelperSchedule | undefined;
+  /** Rest off (and later leave), approved and asked for (KNOWN_GAPS O19). */
+  timeOff?: TimeOff[];
   /** YYYY-MM-DD to open on (a "Coming up" link from the Pass). Defaults to today. */
   initialDay?: string;
   /** A day to add on, and on By person, whose row it was (null = Unassigned). */
@@ -171,8 +180,13 @@ export function TaskPlanner({
     [routines, days, todayIso, tasks, activeHelpers, matchesWho],
   );
 
-  const outsideShift = (t: Task) =>
-    isOutsideShift(t, t.helperId ? scheduleFor(t.helperId) : undefined);
+  /** Why a task's time is one its helper has off, if it is. */
+  const offLabel = (t: Task): string | null => {
+    const day = taskDayIso(t);
+    if (!t.helperId || !day) return null;
+    if (approvedTimeOffAt(timeOff, t.helperId, day, parseTimeToMinutes(t.time))) return "time off";
+    return isOutsideShift(t, scheduleFor(t.helperId)) ? "off shift" : null;
+  };
 
   // ----- Moving a task to another day, or (by person) to someone else -----
   const move = async (task: Task, dayIso: string, helperId: string | null) => {
@@ -188,8 +202,7 @@ export function TaskPlanner({
       return;
     }
     const assignee = helperId ? findHelper(helperId, helpers) : null;
-    const schedule = helperId ? scheduleFor(helperId) : undefined;
-    const outside = isOutsideShift({ ...task, helperId, scheduledStart: startIso }, schedule);
+    const off = offLabel({ ...task, helperId, scheduledStart: startIso });
     const where = [
       handedOver ? (assignee ? `to ${assignee.short}` : "to Unassigned") : null,
       fromDay !== dayIso ? `${handedOver ? "on" : "to"} ${dayName(dayIso)}` : null,
@@ -197,8 +210,8 @@ export function TaskPlanner({
       .filter(Boolean)
       .join(" ");
     toast.success(`Moved "${task.title}" ${where}`, {
-      description: outside
-        ? `That's outside ${assignee?.short ?? "her"}'s shift. Doing it then counts as after-hours work.`
+      description: off
+        ? `That's ${off === "time off" ? "in" : "outside"} ${assignee?.short ?? "her"}'s ${off === "time off" ? "time off" : "shift"}. Doing it then counts as after-hours work.`
         : undefined,
       action: {
         label: "Undo",
@@ -252,6 +265,14 @@ export function TaskPlanner({
         },
       }
     : undefined;
+
+  const timeOffNotes = (dayIso: string) =>
+    timeOffOn(timeOff, dayIso)
+      .filter((o) => matchesWho(o.helperId))
+      .map(
+        (o) =>
+          `${findHelper(o.helperId, helpers).short} ${o.status === "approved" ? "off" : "asked off"} ${timeOffWindow(o)}`,
+      );
 
   const offOn = (day: Date) =>
     activeHelpers
@@ -414,9 +435,10 @@ export function TaskPlanner({
                 appointments={appointmentsShown.get(iso) ?? []}
                 prepCounts={prepCounts}
                 offToday={offOn(day)}
+                timeOffNotes={timeOffNotes(iso)}
                 helpers={helpers}
                 nowTs={nowTs}
-                outsideShift={outsideShift}
+                offLabel={offLabel}
                 drag={drag}
                 onOpenTask={onOpenTask}
                 onOpenAppointment={onOpenAppointment}
@@ -438,7 +460,8 @@ export function TaskPlanner({
           helpers={helpers}
           nowTs={nowTs}
           scheduleFor={scheduleFor}
-          outsideShift={outsideShift}
+          timeOff={timeOff.filter((o) => matchesWho(o.helperId))}
+          offLabel={offLabel}
           drag={drag}
           onOpenTask={onOpenTask}
           onOpenAppointment={onOpenAppointment}

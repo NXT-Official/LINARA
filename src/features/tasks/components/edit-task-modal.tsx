@@ -6,6 +6,7 @@ import { Field } from "@/components/shared/field";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
+import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
   combineDateAndTime,
   displayTimeTo24h,
@@ -41,6 +42,7 @@ export function EditTaskModal({
   task,
   helpers,
   scheduleFor,
+  timeOff = [],
   token,
   myUserId = null,
   onClose,
@@ -50,6 +52,8 @@ export function EditTaskModal({
   /** Who it can go to: the household's current helpers. */
   helpers: Helper[];
   scheduleFor: (helperId: string) => HelperSchedule | undefined;
+  /** Approved time off warns like an out-of-shift time does (KNOWN_GAPS O19). */
+  timeOff?: TimeOff[];
   /** For the task's updates thread; without a token it isn't shown. */
   token?: string | null;
   myUserId?: string | null;
@@ -73,6 +77,8 @@ export function EditTaskModal({
     schedule && date && time
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
+  const inTimeOff =
+    !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
 
   const canSave = title.trim() !== "" && date !== "" && time !== "";
   const submit = () => {
@@ -138,11 +144,13 @@ export function EditTaskModal({
             />
           </Field>
         </div>
-        {outsideShift && (
+        {(inTimeOff || outsideShift) && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            That's outside {helperName}'s shift. Doing it then counts as after-hours work and adds
-            to rest owed.
+            {inTimeOff
+              ? `That's in ${helperName}'s approved time off.`
+              : `That's outside ${helperName}'s shift.`}{" "}
+            Doing it then counts as after-hours work and adds to rest owed.
           </p>
         )}
         <Field label="House-standard note (optional)">

@@ -5,6 +5,7 @@ import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants"
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay, summarizeSchedule } from "@/features/shifts/shift.utils";
+import { timeOffOn, timeOffWindow, type TimeOff } from "@/features/shifts/time-off";
 import { toISODate, weekdayOf } from "@/lib/time";
 
 import { cellKey, type RoutineGhost } from "../planner.utils";
@@ -36,7 +37,8 @@ export function PlannerPeople({
   helpers,
   nowTs,
   scheduleFor,
-  outsideShift,
+  timeOff,
+  offLabel,
   drag,
   onOpenTask,
   onOpenAppointment,
@@ -53,7 +55,8 @@ export function PlannerPeople({
   helpers: Helper[];
   nowTs: number;
   scheduleFor: (helperId: string) => HelperSchedule | undefined;
-  outsideShift: (task: Task) => boolean;
+  timeOff: TimeOff[];
+  offLabel: (task: Task) => string | null;
   drag?: PlannerDrag;
   onOpenTask?: (task: Task) => void;
   onOpenAppointment?: (appointment: Appointment) => void;
@@ -141,6 +144,9 @@ export function PlannerPeople({
                 const tasks = tasksByCell.get(key) ?? [];
                 const ghosts = ghostsByCell.get(key) ?? [];
                 const isOver = drag?.overDay === key;
+                const hers = helperId
+                  ? timeOffOn(timeOff, iso).filter((o) => o.helperId === helperId)
+                  : [];
                 return (
                   <section
                     key={key}
@@ -157,6 +163,11 @@ export function PlannerPeople({
                     }`}
                   >
                     {off && <p className="px-3 pt-2 text-xs text-muted-foreground">Day off</p>}
+                    {hers.map((o) => (
+                      <p key={o.id} className="px-3 pt-2 text-xs text-muted-foreground">
+                        {o.status === "approved" ? "Off" : "Asked off"} {timeOffWindow(o)}
+                      </p>
+                    ))}
                     {tasks.length + ghosts.length > 0 && (
                       <ul className="divide-y divide-border/60">
                         {tasks.map((t) => (
@@ -165,7 +176,7 @@ export function PlannerPeople({
                             task={t}
                             helpers={helpers}
                             nowTs={nowTs}
-                            outsideShift={outsideShift(t)}
+                            offLabel={offLabel(t)}
                             hideWho
                             drag={drag}
                             onOpen={onOpenTask ? () => onOpenTask(t) : undefined}

@@ -6,6 +6,7 @@ import { Field } from "@/components/shared/field";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
+import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
   WEEKDAYS,
   householdNow,
@@ -26,6 +27,7 @@ export function NewTaskModal({
   defaultDate,
   defaultHelperId,
   scheduleFor,
+  timeOff = [],
 }: {
   activeHelpers: Helper[];
   onClose: () => void;
@@ -37,6 +39,8 @@ export function NewTaskModal({
   defaultHelperId?: string;
   /** For the out-of-shift warning; without it there is none. */
   scheduleFor?: (helperId: string) => HelperSchedule | undefined;
+  /** Approved time off warns like an out-of-shift time does (KNOWN_GAPS O19). */
+  timeOff?: TimeOff[];
 }) {
   const [title, setTitle] = useState("");
   // "" = Unassigned: a task can wait on the board until someone is picked.
@@ -55,6 +59,8 @@ export function NewTaskModal({
     schedule && date && time
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
+  const inTimeOff =
+    !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
   const todayIso = toISODate(householdNow());
 
   const toggleDay = (d: Weekday) => {
@@ -145,11 +151,13 @@ export function NewTaskModal({
             />
           </Field>
         </div>
-        {outsideShift && (
+        {(inTimeOff || outsideShift) && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            That's outside {assignee?.short ?? "her"}'s shift. Doing it then counts as after-hours
-            work and adds to rest owed.
+            {inTimeOff
+              ? `That's in ${assignee?.short ?? "her"}'s approved time off.`
+              : `That's outside ${assignee?.short ?? "her"}'s shift.`}{" "}
+            Doing it then counts as after-hours work and adds to rest owed.
           </p>
         )}
         <Field label="House-standard note (optional)">

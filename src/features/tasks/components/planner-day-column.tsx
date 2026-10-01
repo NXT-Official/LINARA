@@ -77,7 +77,7 @@ export function PlannerTaskRow({
   task,
   helpers,
   nowTs,
-  outsideShift = false,
+  offLabel = null,
   hideWho = false,
   drag,
   onOpen,
@@ -85,8 +85,8 @@ export function PlannerTaskRow({
   task: Task;
   helpers: Helper[];
   nowTs: number;
-  /** Planned outside its helper's shift: doing it then is after-hours work. */
-  outsideShift?: boolean;
+  /** "off shift" or "time off": planned when its helper is off, so doing it then is after-hours work. */
+  offLabel?: string | null;
   /** By person already says whose it is. */
   hideWho?: boolean;
   /** Absent: this task can't be dragged (remote view). */
@@ -96,7 +96,7 @@ export function PlannerTaskRow({
   const helper = findHelper(task.helperId, helpers);
   const color = task.helperId ? STATION_HEX[task.station] : UNASSIGNED_HEX;
   const done = task.status === "done";
-  const offShift = outsideShift && !done;
+  const off = done ? null : offLabel;
   const movable = !!drag && isMovable(task);
   const dragging = drag?.draggingId === task.id;
 
@@ -121,7 +121,7 @@ export function PlannerTaskRow({
           <span className="truncate">For {task.appointmentTitle}</span>
         </span>
       )}
-      {(!hideWho || offShift) && (
+      {(!hideWho || off) && (
         <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           {!hideWho && (
             <>
@@ -133,9 +133,9 @@ export function PlannerTaskRow({
               <span className="truncate">{task.helperId ? helper.short : "Unassigned"}</span>
             </>
           )}
-          {offShift && (
+          {off && (
             <span className="shrink-0 font-semibold text-terracotta-ink">
-              {hideWho ? "Off shift" : "· off shift"}
+              {hideWho ? off.charAt(0).toUpperCase() + off.slice(1) : `· ${off}`}
             </span>
           )}
         </span>
@@ -265,9 +265,10 @@ export function PlannerDayColumn({
   appointments,
   prepCounts,
   offToday,
+  timeOffNotes = [],
   helpers,
   nowTs,
-  outsideShift,
+  offLabel,
   drag,
   onOpenTask,
   onOpenAppointment,
@@ -289,9 +290,11 @@ export function PlannerDayColumn({
   prepCounts: Map<string, number>;
   /** Short names of helpers whose rest day this is. */
   offToday: string[];
+  /** "Rosa off 1:00 PM – 5:00 PM", "Rosa asked off …": time off on this day. */
+  timeOffNotes?: string[];
   helpers: Helper[];
   nowTs: number;
-  outsideShift: (task: Task) => boolean;
+  offLabel: (task: Task) => string | null;
   drag?: PlannerDrag;
   onOpenTask?: (task: Task) => void;
   onOpenAppointment?: (appointment: Appointment) => void;
@@ -329,6 +332,11 @@ export function PlannerDayColumn({
       {offToday.length > 0 && (
         <p className="px-3 pt-2 text-xs text-muted-foreground">Day off: {offToday.join(", ")}</p>
       )}
+      {timeOffNotes.map((note) => (
+        <p key={note} className="px-3 pt-2 text-xs text-muted-foreground">
+          {note}
+        </p>
+      ))}
 
       {empty ? (
         <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -350,7 +358,7 @@ export function PlannerDayColumn({
               task={t}
               helpers={helpers}
               nowTs={nowTs}
-              outsideShift={outsideShift(t)}
+              offLabel={offLabel(t)}
               drag={drag}
               onOpen={onOpenTask ? () => onOpenTask(t) : undefined}
             />

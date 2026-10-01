@@ -13,8 +13,18 @@ import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, invites, payslips, payPeriods, vales, session } =
-    useAppStores();
+  const {
+    ledger,
+    helper,
+    helpers,
+    activeHelpers,
+    invites,
+    payslips,
+    payPeriods,
+    vales,
+    session,
+    timeOff,
+  } = useAppStores();
   const canPay = session.adminType === "primary" || session.adminType === "co";
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
@@ -103,6 +113,7 @@ export function ManagerMoneyPage() {
         helper={selectedHelper}
         token={session.token}
         ready={session.status === "authed"}
+        onDecided={timeOff.reload}
       />
       <AfterHoursLedger
         entries={helperLedgerEntries}

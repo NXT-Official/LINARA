@@ -5,6 +5,8 @@ export type RosaStatus = {
   until: number | null;
   quiet: boolean;
   restDay: boolean;
+  /** Inside approved time off (rest off today; leave later). Off, and the gate says why. */
+  timeOff?: boolean;
 };
 
 /** An active manual opt-in -- absence (null) means no override, not "off"

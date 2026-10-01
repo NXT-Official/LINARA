@@ -23,17 +23,21 @@ export function AvailabilityGate({
 }) {
   const kindLabel = intent.kind === "utos" ? "quick utos" : "task";
   const preview = intent.kind === "utos" ? intent.content : intent.task.title;
-  const hard = status.quiet || status.restDay;
+  const hard = status.quiet || status.restDay || !!status.timeOff;
   const headline = status.quiet
     ? `It's quiet hours for ${helperName}.`
-    : status.restDay
-      ? `It's ${helperName}'s rest day.`
-      : `This is outside ${helperName}'s hours.`;
+    : status.timeOff
+      ? `${helperName} has this time off.`
+      : status.restDay
+        ? `It's ${helperName}'s rest day.`
+        : `This is outside ${helperName}'s hours.`;
   const body = status.quiet
     ? `Overnight is protected rest. Time spent on this is logged as rest owed to ${helperName}. Only use Emergency if it truly can't wait.`
-    : status.restDay
-      ? `It's ${helperName}'s rest day. Time spent on this is logged as rest owed.`
-      : `${helperName} is off-shift. Time spent on this is logged as rest owed.`;
+    : status.timeOff
+      ? `This is time off that was approved for ${helperName}. Time spent on this is logged as rest owed.`
+      : status.restDay
+        ? `It's ${helperName}'s rest day. Time spent on this is logged as rest owed.`
+        : `${helperName} is off-shift. Time spent on this is logged as rest owed.`;
 
   return (
     <Modal onClose={onCancel}>

@@ -45,6 +45,7 @@ export function ManagerSchedulePage({
     activeHelpers,
     utos,
     utosRecipientId,
+    timeOff,
     clock,
   } = useAppStores();
   const activeInvites = invites.invites.filter((i) => i.status === "active");
@@ -67,6 +68,7 @@ export function ManagerSchedulePage({
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,
+    timeOff: timeOff.list,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });
@@ -116,6 +118,7 @@ export function ManagerSchedulePage({
           activeHelpers={activeHelpers}
           appointments={appointments.appointments}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           initialDay={day}
           onAddOn={(dayIso, helperId) => setAddingOn({ day: dayIso, helperId })}
           onOpenTask={isRemote ? undefined : setEditing}
@@ -162,6 +165,7 @@ export function ManagerSchedulePage({
           defaultDate={addingOn.day}
           defaultHelperId={addingOn.helperId === undefined ? undefined : (addingOn.helperId ?? "")}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           onClose={() => setAddingOn(null)}
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
@@ -174,6 +178,7 @@ export function ManagerSchedulePage({
           task={editing}
           helpers={activeHelpers}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           token={session.token}
           myUserId={session.userId}
           onClose={() => setEditing(null)}

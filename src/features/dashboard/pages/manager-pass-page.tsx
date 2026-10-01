@@ -35,6 +35,7 @@ export function ManagerPassPage({
     activeHelpers,
     utos,
     utosRecipientId,
+    timeOff,
     setUtosRecipientId,
     clock,
     startNewDay,
@@ -126,6 +127,7 @@ export function ManagerPassPage({
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,
+    timeOff: timeOff.list,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });
@@ -184,6 +186,7 @@ export function ManagerPassPage({
           isRemote={isRemote}
           defaultDate={toISODate(simDate)}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           onClose={() => setOpen(false)}
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
@@ -196,6 +199,7 @@ export function ManagerPassPage({
           task={editing}
           helpers={activeHelpers}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           token={session.token}
           myUserId={session.userId}
           onClose={() => setEditing(null)}
