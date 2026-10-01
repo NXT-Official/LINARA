@@ -1,6 +1,7 @@
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 
 import type { Task } from "../task.types";
+import { CommentBadge } from "./comment-badge";
 import { isPalengke } from "../task.utils";
 
 export function LaneNowRow({
@@ -39,6 +40,9 @@ export function LaneNowRow({
             Late
           </span>
         )}
+        <span className="ml-auto">
+          <CommentBadge taskId={task.id} />
+        </span>
       </div>
       <div className="mt-0.5 truncate text-sm font-medium text-foreground">{task.title}</div>
       {isPalengke(task) && (

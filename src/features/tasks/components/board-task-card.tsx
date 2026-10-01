@@ -8,6 +8,7 @@ import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 import { isPalengke } from "../task.utils";
+import { CommentBadge } from "./comment-badge";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
 
@@ -103,6 +104,7 @@ export function BoardTaskCard({
               </button>
             )}
             {isPalengke(task) && <PalengkeChip />}
+            <CommentBadge taskId={task.id} />
           </div>
           <RescheduleNotice task={task} />
           {showNote && task.note && (

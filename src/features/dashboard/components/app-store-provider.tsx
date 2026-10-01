@@ -4,6 +4,8 @@ import { useAppointments } from "@/features/appointments/hooks/use-appointments"
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
 import { useAvailability } from "@/features/availability/hooks/use-availability";
 import { GroceryProvider } from "@/features/groceries/components/grocery-provider";
+import { CommentActivityContext } from "@/features/tasks/comment-activity-context";
+import { useCommentActivity } from "@/features/tasks/hooks/use-comment-activity";
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
 import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
@@ -537,16 +539,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     },
   };
 
+  const commentActivity = useCommentActivity({
+    token: session.token,
+    myUserId: session.userId,
+    ready: session.status === "authed",
+  });
+
   return (
     <AppStoreContext.Provider value={value}>
-      <GroceryProvider
-        pantry={pantry}
-        token={session.token}
-        ready={session.status === "authed"}
-        receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
-      >
-        {children}
-      </GroceryProvider>
+      <CommentActivityContext.Provider value={commentActivity}>
+        <GroceryProvider
+          pantry={pantry}
+          token={session.token}
+          ready={session.status === "authed"}
+          receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
+        >
+          {children}
+        </GroceryProvider>
+      </CommentActivityContext.Provider>
     </AppStoreContext.Provider>
   );
 }

@@ -9,6 +9,7 @@ import { findHelper } from "@/features/people/people.utils";
 import type { Task } from "../task.types";
 import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
 import { isPastDue } from "../task.utils";
+import { CommentBadge } from "./comment-badge";
 import { TONE_EDGE } from "./planner-tone";
 
 /** Drag-and-drop wiring the planner hands each day and each task. */
@@ -118,7 +119,10 @@ export function PlannerTaskRow({
         <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
           {task.time}
         </span>
-        <StatusTag task={task} nowTs={nowTs} />
+        <span className="flex items-center gap-1">
+          <CommentBadge taskId={task.id} />
+          <StatusTag task={task} nowTs={nowTs} />
+        </span>
       </span>
       <span
         className={`mt-0.5 line-clamp-2 text-sm font-semibold ${

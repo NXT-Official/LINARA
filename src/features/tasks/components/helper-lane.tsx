@@ -6,6 +6,7 @@ import type { Helper } from "@/features/people/people.types";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
 import { byStart, isPastDue, taskWhen } from "../task.utils";
+import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
 
 export function HelperLane({
@@ -176,6 +177,7 @@ export function HelperLane({
                       </div>
                     )}
                   </div>
+                  <CommentBadge taskId={t.id} />
                   {isLate && (
                     <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
                       Late

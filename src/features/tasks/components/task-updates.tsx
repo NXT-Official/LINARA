@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { householdTimeZone } from "@/lib/time";
 
+import { useCommentActivityStore } from "../comment-activity-context";
 import {
   addTicketCommentFn,
   deleteTicketCommentFn,
@@ -20,9 +21,13 @@ const stamp = (iso: string) =>
     timeZone: householdTimeZone(),
   });
 
+/** While a thread is open, check for her replies this often. */
+const THREAD_POLL_MS = 15_000;
+
 /**
  * A task's thread of updates (supabase/add-ticket-comments.sql). The helper
  * it's assigned to sees the same thread in her app, and can add to it.
+ * Opening it marks it seen, which clears the "new" on the task's card.
  */
 export function TaskUpdates({
   token,
@@ -37,18 +42,28 @@ export function TaskUpdates({
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
 
+  const { markSeen, refresh: refreshActivity } = useCommentActivityStore();
+
   useEffect(() => {
     let cancelled = false;
-    listTicketCommentsFn({ data: { token, ticketId } })
-      .then((rows) => !cancelled && setComments(rows))
-      .catch((err) => {
-        console.error("[TaskUpdates] Failed to load updates:", err);
-        if (!cancelled) setComments([]);
-      });
+    const load = () =>
+      listTicketCommentsFn({ data: { token, ticketId } })
+        .then((rows) => {
+          if (cancelled) return;
+          setComments(rows);
+          markSeen(ticketId);
+        })
+        .catch((err) => {
+          console.error("[TaskUpdates] Failed to load updates:", err);
+          if (!cancelled) setComments((prev) => prev ?? []);
+        });
+    void load();
+    const timer = window.setInterval(load, THREAD_POLL_MS);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [token, ticketId]);
+  }, [token, ticketId, markSeen]);
 
   const post = async () => {
     if (!draft.trim()) return;
@@ -57,6 +72,7 @@ export function TaskUpdates({
       const added = await addTicketCommentFn({ data: { token, ticketId, body: draft } });
       setComments((prev) => [...(prev ?? []), added]);
       setDraft("");
+      refreshActivity();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't post the update.");
     } finally {
@@ -68,6 +84,7 @@ export function TaskUpdates({
     try {
       await deleteTicketCommentFn({ data: { token, commentId: id } });
       setComments((prev) => (prev ?? []).filter((c) => c.id !== id));
+      refreshActivity();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't delete it.");
     }

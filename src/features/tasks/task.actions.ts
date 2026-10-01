@@ -933,6 +933,49 @@ export const listTicketCommentsFn = createServerFn({ method: "POST" })
     return ((rows ?? []) as TicketCommentRow[]).map(toComment);
   });
 
+export interface CommentActivity {
+  count: number;
+  lastAt: string;
+  lastAuthorId: string | null;
+}
+
+/** How many days back the card badges look. Older threads still open in full. */
+const COMMENT_ACTIVITY_DAYS = 60;
+
+/**
+ * Per task: how many updates, and who wrote the latest, for the badges on
+ * task cards. RLS already limits it to the threads this user can see.
+ */
+export const listCommentActivityFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const since = new Date(Date.now() - COMMENT_ACTIVITY_DAYS * 86_400_000).toISOString();
+    const { data: rows, error } = await authedClient
+      .from("ticket_comments")
+      .select("ticket_id, author_id, created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: true });
+    if (error) {
+      if (/ticket_comments/.test(error.message)) return {};
+      throw new Error(error.message);
+    }
+    const activity: Record<string, CommentActivity> = {};
+    for (const row of (rows ?? []) as {
+      ticket_id: string;
+      author_id: string | null;
+      created_at: string;
+    }[]) {
+      const prev = activity[row.ticket_id];
+      activity[row.ticket_id] = {
+        count: (prev?.count ?? 0) + 1,
+        lastAt: row.created_at,
+        lastAuthorId: row.author_id,
+      };
+    }
+    return activity;
+  });
+
 export const addTicketCommentFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; ticketId: string; body: string }) => data)
   .handler(async ({ data }) => {
