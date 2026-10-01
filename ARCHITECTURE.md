@@ -1090,6 +1090,16 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- each an EXISTS through helper_profiles.user_id = auth.uid(). Additive SELECT
 -- policies; every write still goes through the household-scoped ones.
 
+-- Who may WRITE (supabase/fix-helper-write-access.sql, KNOWN_GAPS C72). The
+-- household-wide FOR ALL policies on user_profiles, helper_profiles, vales,
+-- ledger_entries, payslips and rest_off_requests below are now read-only
+-- (same names, FOR SELECT). Writes are for primary and co-managers only
+-- (is_household_manager()), except a helper's two direct writes: a new
+-- pending vale for herself, and her own helper_profiles.manual_status /
+-- manual_available_until (trigger helper_profiles_zz_guard_own_update).
+-- households_update_budget is manager-only too. Everything else goes through
+-- SECURITY DEFINER functions, which run as their owner.
+
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every
 -- role, including legitimate managers and claimed helpers. None of the

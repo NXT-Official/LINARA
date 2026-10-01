@@ -49,14 +49,6 @@ the bottom.
 - **To close:** Follow `LEAVE_PLAN.md`: the 2026-10-01 decision covers both legally required leave and the household's own days off (in kind and unpaid). Its decisions were made 2026-10-02; other legal leave is deferred to `LEGAL_CONSIDERATIONS.md`. Then a schema change applied by hand (`leave_requests`, balances, RPCs, a payslip deduction column) and UI in both repos, shown through the C70 time-off layer. Owned by `LINARA` (schema), both repos for UI.
 
 
-### O22. A helper's own session can write rows only a manager should
-
-- **Found:** 2026-10-02, writing `supabase/add-leave.sql`.
-- **What's missing:** `vales_isolation`, `ledger_entries_isolation` (`fix-household-rls-recursion.sql`), `payslips_isolation` (`add-payslips-table.sql`), `rest_off_requests_isolation` (`add-rest-off-requests.sql`) and `helper_profiles_isolation` are `FOR ALL` policies scoped only by household, and Supabase grants `authenticated` insert, update and delete on public tables by default. So a helper's own login, used straight against the REST API rather than through either app, can set her vale to approved, change ledger minutes, edit a payslip, approve her own rest off (skipping `decide_rest_off_request`'s manager check and balance lock), or change her own rate. Only the apps' code stops it. The helper app also writes `vales` directly (`LINARA_MOBILE/services/api/vales.ts` inserts her request), so she needs some write path there.
-- **Blocks:** Nothing while the project holds sandbox data only. Has to close before a real household onboards: these are money and rest balances.
-- **Current workaround:** None for those tables. `leave_requests` (`add-leave.sql`) is built the safe way: a `SELECT`-only policy, with every write through a function that checks who's calling.
-- **To close:** Make those policies `SELECT`-only (keeping the own-history reads from C60), and move each remaining direct write behind a `SECURITY DEFINER` function that checks the caller's role: a `request_vale` for her side, and the manager-side writes in `ledger.actions.ts`, `pay.actions.ts` and the People/shift updates. Then a PGlite test that her session gets "permission denied" on each. Owned by `LINARA`; touches `LINARA_MOBILE` for vales.
-
 ---
 
 ## Closed Gaps
@@ -3140,6 +3132,20 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Older installed builds** of the helper app read a hand-move notice as "dahil binago ang isang appointment" until they update.
   - **Not tested on a device** yet (push and the household-wide Realtime filter).
   - **More refetches.** Every ticket change in the household now refetches Today and My Week on each helper's phone. Fine at household scale.
+
+### C72. A helper's own session could write rows only a manager should (former Open Gap O22)
+
+- **Found / fixed:** found 2026-10-02 writing `supabase/add-leave.sql`, fixed the same day.
+- **Was:** `user_profiles`, `helper_profiles`, `vales`, `ledger_entries`, `payslips` and `rest_off_requests` each had one `FOR ALL` policy scoped only by household, and `households_update_budget` let anyone in the household update it. With Supabase's default table grants, a helper's own login used straight against the REST API could make herself a manager, raise her own rate, approve her own vale or rest off, change ledger minutes or a payslip, or close the board. Only the apps' code stood in the way.
+- **Fix:** `supabase/fix-helper-write-access.sql` (apply by hand, after every other migration).
+  - The household-wide policies keep their names but become `FOR SELECT`. Reads are unchanged, and so are the own-history read policies from C60.
+  - Writes are for primary and co-managers only (`is_household_manager()`), scoped to their household.
+  - A helper keeps the two direct writes her app makes: asking for a vale (a new pending, unsettled, undecided row for herself), and her own availability. A `BEFORE UPDATE` trigger on `helper_profiles` refuses any other column from her session; it skips managers and anything running inside a `SECURITY DEFINER` function, so claiming, notice and ending employment are unaffected.
+  - Checked first: every SQL function that writes these tables is `SECURITY DEFINER`, and the only direct writes in either app are the manager's on the web plus the helper's two above. No app code changed.
+  - PGlite test acting as each role: `supabase/tests/write-access.test.mjs` (25 checks, in `npm run test:sql`).
+- **Residual:**
+  - **Other tables stay household-wide:** `tickets`, `quick_utos`, `appointments`, `pantry_items` and `grocery_items`. Helpers write tickets and the pantry legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap.
+  - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
 
 ---
 
