@@ -11,6 +11,7 @@ import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launche
 import { toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
+import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
 import { StartNewDayModal } from "../components/start-new-day-modal";
 
@@ -68,6 +69,7 @@ export function ManagerPassPage({
   const {
     tasks,
     boardClosed,
+    setClosed,
     simDate,
     addTask,
     rescheduleTask,
@@ -86,6 +88,7 @@ export function ManagerPassPage({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [confirmingNewDay, setConfirmingNewDay] = useState(false);
+  const [confirmingEndDay, setConfirmingEndDay] = useState(false);
   const [newDayPreview, setNewDayPreview] = useState<{
     pendingUtos: number;
     routinesRespawning: number;
@@ -170,6 +173,8 @@ export function ManagerPassPage({
         isRemote={isRemote}
         canStartNewDay={canStartNewDay}
         onStartNewDay={openNewDayConfirm}
+        onEndDay={() => setConfirmingEndDay(true)}
+        onReopenDay={() => setClosed(false)}
         onReschedule={rescheduleTask}
         onEditTask={setEditing}
         onCancelTask={cancelTask}
@@ -228,6 +233,15 @@ export function ManagerPassPage({
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}
+        />
+      )}
+      {confirmingEndDay && (
+        <EndDayModal
+          onConfirm={() => {
+            setClosed(true);
+            setConfirmingEndDay(false);
+          }}
+          onCancel={() => setConfirmingEndDay(false)}
         />
       )}
       {confirmingNewDay && (

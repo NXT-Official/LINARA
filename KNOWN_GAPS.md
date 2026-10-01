@@ -53,8 +53,8 @@ the bottom.
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
 - **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
 - **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
-- **Current workaround:** None. The button looks like it works.
-- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Until then, hide the button rather than ship a fake. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
+- **Current workaround:** The button is removed (2026-10-02), so Quick Utos is presets and typed text only. Nothing pretends to record.
+- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos, and put the button back. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
 
 ---
 

@@ -94,7 +94,11 @@ export function PeoplePage() {
         />
       </div>
       <div className="mt-6">
-        <AccountSection token={session.token} activeHelperCount={activeHelpers.length} />
+        <AccountSection
+          token={session.token}
+          activeHelperCount={activeHelpers.length}
+          confirmName={session.currentAdmin?.name ?? ""}
+        />
       </div>
     </>
   );

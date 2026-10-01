@@ -55,6 +55,9 @@ export type ManagerPassTabProps = {
   isRemote: boolean;
   canStartNewDay: boolean;
   onStartNewDay: () => void;
+  /** Ask to end the day (confirmed in a modal). Same people as Start new day. */
+  onEndDay: () => void;
+  onReopenDay: () => void;
   onReschedule: (id: string) => void;
   onEditTask: (task: Task) => void;
   onCancelTask: (id: string) => void;
@@ -100,6 +103,8 @@ export function ManagerPassTab({
   isRemote,
   canStartNewDay,
   onStartNewDay,
+  onEndDay,
+  onReopenDay,
   onReschedule,
   onEditTask,
   onCancelTask,
@@ -146,7 +151,7 @@ export function ManagerPassTab({
   // Only say something the counts above don't already say. Anything waiting
   // on a decision is Needs You's job, directly below.
   const dayNote = boardClosed
-    ? "The day is done. New tasks are being queued for tomorrow."
+    ? "The day is done. Anything you add for today waits until it reopens."
     : active.length === 0
       ? "Nothing on today's board yet."
       : counts.done === active.length
@@ -197,16 +202,24 @@ export function ManagerPassTab({
           <div className="flex shrink-0 flex-col items-end gap-2">
             {boardClosed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                <Moon className="h-3 w-3" /> Board closed
+                <Moon className="h-3 w-3" /> Day ended
               </span>
             )}
             {canStartNewDay && (
-              <button
-                onClick={onStartNewDay}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-              >
-                <Sunrise className="h-3.5 w-3.5" /> Start new day
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={boardClosed ? onReopenDay : onEndDay}
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                >
+                  {boardClosed ? "Reopen today" : "End the day"}
+                </button>
+                <button
+                  onClick={onStartNewDay}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+                >
+                  <Sunrise className="h-3.5 w-3.5" /> Start new day
+                </button>
+              </div>
             )}
           </div>
         </div>
