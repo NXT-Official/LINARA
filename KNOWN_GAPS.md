@@ -3069,6 +3069,19 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Photos.** Files in Supabase Storage for deleted rows (pantry or appointment photos) aren't removed by the function.
   - **Not run live yet.** `DELETE FROM auth.users` inside the function hasn't been run on the live project. Check the first real one.
 
+### C68. Managers could only plan one day at a time (tester feedback)
+
+- **Found / fixed:** found in tester feedback 2026-10-01, fixed the same day.
+- **Was:** New task always landed on today's board, the only way to put a task on another day was opening it and changing its date, and nothing showed more than today plus a flat "Coming up" list.
+- **Fix:**
+  - **Plan ahead.** A new top section on Schedule (`src/features/tasks/components/task-planner.tsx`). Week view is a board of seven day columns (stacked on phones, with past days folded away); Month view is a calendar. Each day shows who has it off, its appointments and its tasks, and filters to one person or Unassigned.
+  - **Adding and moving.** Any day from today on takes a new task. A waiting or on-hold task drags to another day, keeping its time, with Undo and an out-of-shift warning. Any task opens to edit. Remote admins can look and suggest only.
+  - **New task has a Date.** On the Pass too, which links to the planner. A task planned for a later day skips the "she's off right now" wall (`use-send-gate.ts`), and a closed board no longer queues it; the form warns when the planned time is outside her shift instead.
+  - **Data.** `listTicketsBetweenFn` reads every ticket in the visible range, done ones included, and refetches whenever the board does, so Realtime changes reach it too. No schema change.
+- **Residual:**
+  - **Touch dragging.** Drag-and-drop is HTML5, so it works with a mouse but not reliably by touch (the mobile WebView). On a phone, a task moves by opening it and changing its date.
+  - **Routines.** Routine templates are still local-only (gap #4's closure notes), so the planner can't show a routine's future days before it spawns them.
+
 ---
 
 ## Template for New Entries

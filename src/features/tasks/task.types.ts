@@ -21,7 +21,9 @@ export type Task = {
   routineId?: string;
   appointmentId?: string;
   appointmentTitle?: string;
-  scheduledDate?: string; // YYYY-MM-DD, for appointment prep tasks
+  /** YYYY-MM-DD. Read back only for appointment prep tasks; on a new task, the
+   * day it is planned for (addTask falls back to the board's day). */
+  scheduledDate?: string;
   leadMinutes?: number; // lead offset before the appointment, in minutes
   /** Set when an appointment move shifted this task; movedFrom is "6:00 PM" / "Thu 6:00 PM". */
   rescheduleNotice?: { movedFrom?: string; appointmentTitle: string };

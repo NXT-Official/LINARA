@@ -1,16 +1,21 @@
 import { Moon } from "lucide-react";
+import { useState } from "react";
 
 import { AppointmentsSection } from "@/features/appointments/components/appointments-section";
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { ShiftsSection } from "@/features/shifts/components/shifts-section";
+import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
+import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import { RoutinesView } from "@/features/tasks/components/routines-view";
 import { TaskCard } from "@/features/tasks/components/task-card";
+import { TaskPlanner } from "@/features/tasks/components/task-planner";
+import type { Task } from "@/features/tasks/task.types";
 import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
 
 import { useAppStores } from "../app-store-context";
 
-/** The week: shifts, routines, appointments, and what is queued for tomorrow. */
+/** Planning ahead: the week or month of tasks, then shifts, routines, appointments and the queue. */
 export function ManagerSchedulePage() {
   const {
     session,
@@ -27,7 +32,9 @@ export function ManagerSchedulePage() {
   } = useAppStores();
   const activeInvites = invites.invites.filter((i) => i.status === "active");
   const { adminType, currentAdmin } = session;
-  const { tasks, routines, simDate, addTask, addRoutine, removeRoutine } = board;
+  const { tasks, routines, simDate, addTask, addRoutine, removeRoutine, editTask } = board;
+  const [addingOn, setAddingOn] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Task | null>(null);
 
   const isRemote = adminType === "remote";
   const canEditShifts = adminType === "primary" || adminType === "co";
@@ -58,6 +65,28 @@ export function ManagerSchedulePage() {
           still look at the week and add appointments.
         </div>
       )}
+      <TaskPlanner
+        token={session.token}
+        nowTs={clock.nowTs}
+        boardTasks={tasks}
+        helpers={helpers}
+        activeHelpers={activeHelpers}
+        appointments={appointments.appointments}
+        scheduleFor={schedules.scheduleFor}
+        onAddOn={setAddingOn}
+        onOpenTask={isRemote ? undefined : setEditing}
+        onMove={
+          isRemote
+            ? undefined
+            : (task, scheduledStartIso) =>
+                editTask(task.id, {
+                  title: task.title,
+                  note: task.note,
+                  scheduledStartIso,
+                  helperId: task.helperId,
+                })
+        }
+      />
       <ShiftsSection schedules={schedules} helpers={activeInvites} readOnly={!canEditShifts} />
       <QuickUtosLauncher
         onSend={gate.sendUtos}
@@ -105,6 +134,33 @@ export function ManagerSchedulePage() {
         </section>
       )}
 
+      {addingOn && (
+        <NewTaskModal
+          activeHelpers={activeHelpers}
+          isRemote={isRemote}
+          defaultDate={addingOn}
+          scheduleFor={schedules.scheduleFor}
+          onClose={() => setAddingOn(null)}
+          onAdd={(t, opts) => {
+            gate.addTask(t, opts);
+            setAddingOn(null);
+          }}
+        />
+      )}
+      {editing && (
+        <EditTaskModal
+          task={editing}
+          helpers={activeHelpers}
+          scheduleFor={schedules.scheduleFor}
+          token={session.token}
+          myUserId={session.userId}
+          onClose={() => setEditing(null)}
+          onSave={(edit) => {
+            void editTask(editing.id, edit);
+            setEditing(null);
+          }}
+        />
+      )}
       {gate.intent && (
         <AvailabilityGate
           intent={gate.intent}

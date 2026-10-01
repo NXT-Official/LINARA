@@ -1,4 +1,5 @@
-import { Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { CalendarDays, Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
@@ -267,12 +268,21 @@ export function ManagerPassTab({
                 : "By status, in time order."}
             </p>
           </div>
-          <button
-            onClick={onNewTask}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
-          >
-            <Plus className="h-3.5 w-3.5" /> New task
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* The Pass is today; planning the week or month happens on Schedule. */}
+            <Link
+              to="/manager/schedule"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft transition hover:bg-secondary/60"
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Plan ahead
+            </Link>
+            <button
+              onClick={onNewTask}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+            >
+              <Plus className="h-3.5 w-3.5" /> New task
+            </button>
+          </div>
         </div>
         {passMode === "line" ? (
           <div className="space-y-3">

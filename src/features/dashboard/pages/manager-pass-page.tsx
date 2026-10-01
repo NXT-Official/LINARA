@@ -6,6 +6,7 @@ import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
+import { toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
@@ -170,6 +171,8 @@ export function ManagerPassPage({
         <NewTaskModal
           activeHelpers={activeHelpers}
           isRemote={isRemote}
+          defaultDate={toISODate(simDate)}
+          scheduleFor={schedules.scheduleFor}
           onClose={() => setOpen(false)}
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
@@ -186,7 +189,7 @@ export function ManagerPassPage({
           myUserId={session.userId}
           onClose={() => setEditing(null)}
           onSave={(edit) => {
-            editTask(editing.id, edit);
+            void editTask(editing.id, edit);
             setEditing(null);
           }}
         />

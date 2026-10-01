@@ -1,10 +1,20 @@
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
 import type { Helper } from "@/features/people/people.types";
-import { WEEKDAYS, type Weekday } from "@/lib/time";
+import type { HelperSchedule } from "@/features/shifts/shift.types";
+import { isMinuteInShift } from "@/features/shifts/shift.utils";
+import {
+  WEEKDAYS,
+  householdNow,
+  parseHM,
+  parseISODate,
+  toISODate,
+  weekdayOf,
+  type Weekday,
+} from "@/lib/time";
 
 import type { Recurrence, Task } from "../task.types";
 
@@ -13,27 +23,43 @@ export function NewTaskModal({
   onClose,
   onAdd,
   isRemote = false,
+  defaultDate,
+  scheduleFor,
 }: {
   activeHelpers: Helper[];
   onClose: () => void;
   onAdd: (t: Omit<Task, "id" | "status" | "station">, opts?: { sendLive?: boolean }) => void;
   isRemote?: boolean;
+  /** YYYY-MM-DD the form opens on: the board's day, or the planner day tapped. */
+  defaultDate: string;
+  /** For the out-of-shift warning; without it there is none. */
+  scheduleFor?: (helperId: string) => HelperSchedule | undefined;
 }) {
   const [title, setTitle] = useState("");
   // "" = Unassigned: a task can wait on the board until someone is picked.
   const [helperId, setHelperId] = useState(activeHelpers[0]?.id ?? "");
+  const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("08:00");
   const [note, setNote] = useState("");
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
   const [days, setDays] = useState<Weekday[]>([]);
   const [sendLive, setSendLive] = useState(false);
 
+  // Planning never bypasses her boundaries silently, same as Edit.
+  const schedule = helperId ? scheduleFor?.(helperId) : undefined;
+  const assignee = activeHelpers.find((h) => h.id === helperId);
+  const outsideShift =
+    schedule && date && time
+      ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
+      : false;
+  const todayIso = toISODate(householdNow());
+
   const toggleDay = (d: Weekday) => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
   };
 
   const submit = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !date || !time) return;
     const [h, m] = time.split(":").map(Number);
     const suffix = h >= 12 ? "PM" : "AM";
     const hr = ((h + 11) % 12) + 1;
@@ -50,6 +76,7 @@ export function NewTaskModal({
         time: `${hr}:${String(m).padStart(2, "0")} ${suffix}`,
         note: note.trim() || undefined,
         recurrence,
+        scheduledDate: date,
       },
       { sendLive: isRemote ? sendLive : undefined },
     );
@@ -82,20 +109,29 @@ export function NewTaskModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
+        <Field label="Assign to">
+          <select
+            value={helperId}
+            onChange={(e) => setHelperId(e.target.value)}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+          >
+            <option value="">Unassigned (decide later)</option>
+            {activeHelpers.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} · {h.station}
+              </option>
+            ))}
+          </select>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Assign to">
-            <select
-              value={helperId}
-              onChange={(e) => setHelperId(e.target.value)}
+          <Field label="Date">
+            <input
+              type="date"
+              value={date}
+              min={todayIso < defaultDate ? todayIso : defaultDate}
+              onChange={(e) => setDate(e.target.value)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Unassigned (decide later)</option>
-              {activeHelpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
           <Field label="Time">
             <input
@@ -106,6 +142,13 @@ export function NewTaskModal({
             />
           </Field>
         </div>
+        {outsideShift && (
+          <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
+            That's outside {assignee?.short ?? "her"}'s shift. Doing it then counts as after-hours
+            work and adds to rest owed.
+          </p>
+        )}
         <Field label="House-standard note (optional)">
           <textarea
             value={note}
@@ -187,7 +230,8 @@ export function NewTaskModal({
         </button>
         <button
           onClick={submit}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          disabled={!title.trim() || !date || !time}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           {isRemote ? (sendLive ? "Send live" : "Send to on-site manager") : "Add to board"}
         </button>

@@ -8,6 +8,7 @@ import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
 import { routeUtosFn } from "@/features/utos/utos.actions";
 import type { SendFlags } from "@/features/utos/hooks/use-utos";
+import { toHouseholdClock, toISODate } from "@/lib/time";
 
 import { manualFromRow, statusFor } from "../availability.utils";
 import type { RosaStatus } from "../availability.types";
@@ -168,6 +169,12 @@ export function useSendGate({
     // Unassigned: nobody to disturb, so no wall. It reaches someone only when
     // a manager assigns it.
     if (t.helperId === null) {
+      onAddTask(stamp(t), {});
+      return;
+    }
+    // Planned for a later day: whether she's off right now doesn't matter.
+    // The form warns when the planned time is outside her shift instead.
+    if (t.scheduledDate && t.scheduledDate > toISODate(toHouseholdClock(nowTs))) {
       onAddTask(stamp(t), {});
       return;
     }

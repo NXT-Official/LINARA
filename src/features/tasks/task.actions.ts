@@ -332,6 +332,35 @@ export const listTicketsFn = createServerFn({ method: "POST" })
     return resigned as unknown as TicketRow[];
   });
 
+/**
+ * Every ticket scheduled in [fromIso, toIso), whatever its status -- the
+ * planner's week or month. Unlike listTicketsFn this includes finished tasks
+ * from earlier days, so a past day still shows what happened on it. Evidence
+ * photos aren't re-signed: the planner never shows them.
+ */
+export const listTicketsBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, fromIso, toIso } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("tickets")
+      .select("*, created_by_profile:user_profiles(full_name)")
+      .gte("scheduled_start", fromIso)
+      .lt("scheduled_start", toIso)
+      .order("scheduled_start", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (rows ?? []).map((row) => ({
+      ...row,
+      photo_evidence_url: null,
+    })) as unknown as TicketRow[];
+  });
+
 /** Creates one ticket -- addTask, and each freshly spawned routine instance. */
 export const insertTicketFn = createServerFn({ method: "POST" })
   .validator(

@@ -65,6 +65,10 @@ Appointments act as schedule anchors, generating preparation tasks that fire bac
   - `Wake driver & load car` (Lead time: `-45 minutes` -> Friday at 5:15 AM)
 - **Rescheduling Propagation:** If Sir's flight is delayed to Friday at 9:00 AM, the manager shifts the appointment. The system automatically recalculates and shifts all dependent tasks, highlighting the shift on the helper's station without silent schedule changes via [`computePrepSchedule()`](src/lib/time.ts:55).
 
+### 3.2a Planning Ahead
+
+Schedule opens on **Plan ahead**: the week as a board of day columns, or the month as a calendar. Each day shows who has it off, its appointments and its tasks. Managers add a task on any day from today on, drag a waiting one to another day (with Undo), and open any task to edit, reassign or reply to its updates. New task on the Pass takes a date too. See KNOWN_GAPS.md C68.
+
 ### 3.3 Quick Utos & Nightly Purge
 
 Handles trivial, short-order requests (e.g., "Add more rice," "Come to kitchen") without bloating formal task boards or creating open-ended chat rooms.

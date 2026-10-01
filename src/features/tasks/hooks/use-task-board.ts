@@ -67,7 +67,8 @@ function decodeRecurrence(r: string[] | null): Recurrence | undefined {
   return r as Weekday[];
 }
 
-function toTask(row: TicketRow, helpers: Helper[]): Task {
+/** A tickets row as the board shows it. Shared with the planner (use-planner-tasks.ts). */
+export function toTask(row: TicketRow, helpers: Helper[]): Task {
   const helper = findHelper(row.helper_id, helpers);
   return {
     id: row.id,
@@ -216,14 +217,17 @@ export function useTaskBoard({
       toast.error("Hindi ka naka-sign in — hindi ma-add ang task.");
       return;
     }
-    const shouldQueue = boardClosed || !!flags.queuedForShift;
+    // A task can be planned for a later day (the planner, or New task's
+    // Date). A closed board only holds back tonight's new tasks, not those.
+    const dateIso = t.scheduledDate ?? toISODate(simDate);
+    const shouldQueue = (boardClosed && dateIso <= toISODate(simDate)) || !!flags.queuedForShift;
     insertTicketFn({
       data: {
         token,
         title: t.title,
         notes: t.note,
         helperId: t.helperId,
-        scheduledStartIso: combineDateAndTime(toISODate(simDate), t.time),
+        scheduledStartIso: combineDateAndTime(dateIso, t.time),
         photoEvidenceUrl: t.photo,
         isAfterHours: !!flags.afterHours,
         emergency: !!flags.emergency,
@@ -359,13 +363,14 @@ export function useTaskBoard({
       });
   };
 
-  /** Changes a task's title, note, and start time -- the manager's Edit. */
+  /** Changes a task's title, note, start and assignee -- the manager's Edit, and
+   * the planner's drag to another day. Resolves false when the save failed. */
   const editTask = (
     id: string,
     edit: { title: string; note?: string; scheduledStartIso: string; helperId: string | null },
-  ) => {
-    if (!token) return;
-    updateTicketFn({
+  ): Promise<boolean> => {
+    if (!token) return Promise.resolve(false);
+    return updateTicketFn({
       data: {
         token,
         ticketId: id,
@@ -377,10 +382,14 @@ export function useTaskBoard({
         },
       },
     })
-      .then(() => refresh())
+      .then(async () => {
+        await refresh();
+        return true;
+      })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to edit task:", err);
         toast.error("Hindi na-save ang pagbabago sa task.");
+        return false;
       });
   };
 
