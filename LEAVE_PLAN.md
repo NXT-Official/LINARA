@@ -71,7 +71,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 Each step ships on its own.
 
 1. **Time off on the calendars (done, C70).** No schema change. Approved and pending rest off on the web planner and My Week, and in the off-shift and availability checks. Built as a general "time off" layer that leave plugs into.
-2. **Schema.** `add-leave.sql`: table, RLS, balances, RPCs. Applied by hand to the sandbox project.
+2. **Schema (written 2026-10-02, not yet applied).** `supabase/add-leave.sql`: table, RLS, balances, RPCs, and `pay_days_per_year`. Tested in PGlite (`supabase/tests/leave.test.mjs`, part of `npm run test:sql`). Apply by hand to the sandbox project. Unlike the older money tables (KNOWN_GAPS O22), its policy is read-only and every write goes through a function.
 3. **Request and decide.** Helper app request form and balances; web Needs you, People, and Record leave. Leave appears through the step-1 layer.
 4. **Tasks and routines on leave days.** The move-to-Unassigned prompt; routines skip her.
 5. **Pay.** The unpaid deduction in `initiate_payslip`, both `net-pay.ts` files, the Pay Dial and both payslip views. The riskiest step: three surfaces have to agree on net pay (see `net-pay.ts`'s header).

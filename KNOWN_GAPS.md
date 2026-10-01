@@ -49,6 +49,14 @@ the bottom.
 - **To close:** Follow `LEAVE_PLAN.md`: the 2026-10-01 decision covers both legally required leave and the household's own days off (in kind and unpaid). Its decisions were made 2026-10-02; other legal leave is deferred to `LEGAL_CONSIDERATIONS.md`. Then a schema change applied by hand (`leave_requests`, balances, RPCs, a payslip deduction column) and UI in both repos, shown through the C70 time-off layer. Owned by `LINARA` (schema), both repos for UI.
 
 
+### O22. A helper's own session can write rows only a manager should
+
+- **Found:** 2026-10-02, writing `supabase/add-leave.sql`.
+- **What's missing:** `vales_isolation`, `ledger_entries_isolation` (`fix-household-rls-recursion.sql`), `payslips_isolation` (`add-payslips-table.sql`), `rest_off_requests_isolation` (`add-rest-off-requests.sql`) and `helper_profiles_isolation` are `FOR ALL` policies scoped only by household, and Supabase grants `authenticated` insert, update and delete on public tables by default. So a helper's own login, used straight against the REST API rather than through either app, can set her vale to approved, change ledger minutes, edit a payslip, approve her own rest off (skipping `decide_rest_off_request`'s manager check and balance lock), or change her own rate. Only the apps' code stops it. The helper app also writes `vales` directly (`LINARA_MOBILE/services/api/vales.ts` inserts her request), so she needs some write path there.
+- **Blocks:** Nothing while the project holds sandbox data only. Has to close before a real household onboards: these are money and rest balances.
+- **Current workaround:** None for those tables. `leave_requests` (`add-leave.sql`) is built the safe way: a `SELECT`-only policy, with every write through a function that checks who's calling.
+- **To close:** Make those policies `SELECT`-only (keeping the own-history reads from C60), and move each remaining direct write behind a `SECURITY DEFINER` function that checks the caller's role: a `request_vale` for her side, and the manager-side writes in `ledger.actions.ts`, `pay.actions.ts` and the People/shift updates. Then a PGlite test that her session gets "permission denied" on each. Owned by `LINARA`; touches `LINARA_MOBILE` for vales.
+
 ---
 
 ## Closed Gaps
