@@ -1393,20 +1393,16 @@ All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative 
 
 ### 11.1 Local Environment Variables (`.env`)
 
-Create a `.env` file in the project's root folder:
+Copy `.env.example` to `.env` in the project's root folder and fill in the Supabase URL and anon key:
 
 ```env
-# 1. Supabase Local Configuration Coordinates (Run via Supabase CLI)
 SUPABASE_URL=http://localhost:54321
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsLWVudmlyb25tZW50Ii...
-
-# 2. Security Tokens
-JWT_SECRET=super_secret_local_dev_jwt_key_string_32_chars
-SYSTEM_CRON_SECRET=local_cron_purger_verification_hash_192837
-
-# 3. regional labor parameter configuration
+SUPABASE_ANON_KEY=your_supabase_anon_key
 REGIONAL_MINIMUM_WAGE=6000.00
+USE_MOCK_AI=true
 ```
+
+That file is for local development only. In production the values are split between two stores that never see each other: **Vercel** (the web app's build and server functions) and **Supabase Edge Function secrets** (`supabase/functions/*`). `README.md` §12 lists which variable goes where. Scheduled jobs (the nightly Quick Utos purge) run in Postgres with `pg_cron` and need no secret.
 
 ### 11.2 Run & Verification Procedures
 

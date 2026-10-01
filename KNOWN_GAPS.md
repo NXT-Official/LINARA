@@ -16,43 +16,6 @@ the bottom.
 
 ## Open Gaps
 
-### O1. No documented split between Vercel env vars and Supabase Edge Function secrets
-
-- **Found:** 2026-08-14, while helping deploy `LINARA` to Vercel.
-- **Gap:** README.md §10.2/§12 and ARCHITECTURE.md §11 only document a single
-  local `.env` file. In production there are actually two independent
-  secret stores that never see each other's values: (1) **Vercel**, which
-  builds the client bundle (`SUPABASE_URL`/`SUPABASE_ANON_KEY`/`USE_MOCK_AI`
-  are compiled in via the `define` block in `vite.config.ts`) and runs the
-  Nitro server functions (`XENDIT_SECRET_WRITE_KEY`, `XENDIT_API_URL`,
-  `REGIONAL_MINIMUM_WAGE` read at runtime via `process.env` in
-  `pay.actions.ts`/`people.actions.ts`); and (2) **Supabase Edge
-  Functions**, which read their own env via `Deno.env.get()` and need
-  secrets set separately with `supabase secrets set` or the Dashboard
-  (`OPENAI_API_KEY`, a second independent `USE_MOCK_AI`, optional
-  `*_MODEL` overrides, `XENDIT_WEBHOOK_VERIFICATION_TOKEN`). Nothing in the
-  docs says this, so it's easy to fill in Vercel's env vars, see the AI
-  features silently fail (edge functions 500 with no `OPENAI_API_KEY`), and
-  not know where to look.
-- **Also noted:** `JWT_SECRET`/`SYSTEM_CRON_SECRET` are listed in
-  `.env.example`/README as required but no code currently reads either one
-  (`Deno.env.get`/`process.env` grep across `src/` and
-  `supabase/functions/` turns up nothing) — likely placeholders for the
-  not-yet-built midnight Quick-Utos purge cron from `plan.md` §3.3.
-- **Workaround:** none needed to function — just know Vercel and Supabase
-  secrets are configured independently. Not yet fixed by writing this down
-  in README/ARCHITECTURE.md itself.
-- **Current production decision (2026-08-14):** deploying with
-  `USE_MOCK_AI=true` on the Supabase Edge Functions — no live LLM provider
-  wired up yet, so `OPENAI_API_KEY` is intentionally unset. The
-  `Deno.env.get("OPENAI_API_KEY")` calls in `generate-sop`, `parse-scheduler`,
-  `route-utos`, `simplify-sop`, and `promote-voice-task` are provider-specific
-  (OpenAI chat-completions shape) and will need rewriting, not just a secret
-  swap, if/when a real provider is picked — see `linara_ai_provider_decision`
-  memory for the live-migration options under consideration (OpenAI vs.
-  Claude API) and the constraint that `transcribe-notes` (Whisper) has no
-  Claude equivalent and would stay on a separate provider regardless.
-
 ### O2. A household can only ever have one admin -- co-manager and remote (OFW) admin have no way in
 
 - **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).
@@ -60,31 +23,6 @@ the bottom.
 - **Blocks:** Any demo or marketing of OFW mode, multi-admin attribution ("from [name]"), and the remote-suggestion approval flow.
 - **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
 - **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
-
-### O5. Quick Utos are deleted only when a manager opens the app, not nightly
-
-- **Found:** 2026-09-30, launch-readiness review.
-- **What's missing:** `plan.md` §2.3 and README §3.3 say "at midnight, all individual Quick Utos … are permanently deleted from the database". The concept doc makes it a hard build rule ("wiped nightly must be real deletion"). The only deletion is `clearAllUtosForHelpersFn`, called from `runDayRollover` in `app-store-provider.tsx`. That runs on manual "Start new day" or on C31's auto-rollover, and both need a manager's browser to load the app. If no manager opens the web app for three days, three days of utos stay in `quick_utos`. The deletion is real when it happens; the timing is what the docs overstate. This is the cron that `SYSTEM_CRON_SECRET` was a placeholder for (see O1).
-- **Blocks:** Any privacy/"no surveillance log" claim in marketing.
-- **Current workaround:** Relies on the manager opening the app daily.
-- **To close:** A scheduled server-side purge (`pg_cron` job or a scheduled Edge Function) that deletes `quick_utos` rows older than the household's civil day, using `households.timezone` from C38. Owned by `LINARA`.
-
-### O8. No privacy policy or terms of service, in either app or on the site
-
-- **Found:** 2026-09-30, launch-readiness review.
-- **What's missing:** No privacy policy, terms, or data-deletion path exists anywhere (grep across both repos). The app collects wages, emails, receipt/evidence photos and voice notes, and the web app processes payouts. Both app stores require a privacy-policy URL, and both require in-app account deletion for apps with account creation. The Data Privacy Act (RA 10173) applies to both the household and the helper's data.
-- **Blocks:** App-store submission; any public signup.
-- **Current workaround:** None (fine while everything is sandbox-only, per the Closed Gaps environment note).
-- **To close:** Policy/terms pages on the web app (linked from landing, `/login`, and the mobile claim screen), plus an account-deletion request path. Deletion has to be reconciled with RA 10361 payslip retention, so "delete my account" can't mean "delete my payslips". Needs a legal review before publishing, not just a template.
-
-### O9. Task times render in the viewer's device time zone, not the household's
-
-- **Found:** 2026-09-30, while adding past-due tasks to Needs You.
-- **What's missing:** `isoToDisplayTime` / `combineDateAndTime` (`src/lib/time.ts`) read and write `tickets.scheduled_start` in the **browser's** time zone. An OFW admin in Dubai would see a 7:30 PM Manila task as 3:30 PM, and a task they create for "7:30 PM" lands at 11:30 PM in the house. C38 fixed the same class of bug for pay cutoffs with `households.timezone`; tickets never got that treatment.
-- **Blocks:** Nothing today (O2: a remote admin can't join yet). Becomes real the moment OFW mode ships, which is the brand doc's stated wedge.
-- **Current workaround:** Past-due detection (`isPastDue` in `task.utils.ts`) compares instants, so it is correct in any time zone. Only the displayed/entered wall-clock times are off.
-- **To close:** Render and parse ticket times in `households.timezone`, in both apps. Owned by `LINARA`.
-
 
 ---
 
@@ -3055,6 +2993,64 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Notice:** `give_notice()` and `withdraw_notice()` let her give her last day and a message from My Record. The manager sees it in Needs You and on People ("Leaving Oct 20"), and End employment opens on that day. A trigger clears the notice when the employment ends.
 - **First day:** `helper_profiles.started_on`, set on the invite form (backfilled from the invite date). It's used on her record and PDF, and it pro-rates a first cutoff she started partway through. That pro-rating shows on the Pay Dial and in the mobile estimate the same way the payout applies it.
 - **Names:** `user_profiles_former_staff_read` lets a manager keep reading the names of people who worked in their household.
+
+### C64. The split between Vercel env vars and Supabase Edge Function secrets wasn't documented (former Open Gap O1)
+
+- **Found / fixed:** found 2026-08-14 deploying to Vercel. README §12.1–12.3 had covered most of it since; finished 2026-10-01.
+- **Was:** the local `.env` was the only documented configuration, so it was easy to fill in Vercel, see the AI features fail on the Supabase side, and not know where to look. `.env.example` and `architecture.md` §11 also listed `JWT_SECRET` and `SYSTEM_CRON_SECRET`, which nothing reads.
+- **Fix:**
+  - `.env.example` is grouped by where each value lives (Vercel vs. Supabase secrets) and lists the Xendit and `EXPO_ACCESS_TOKEN` values it was missing.
+  - The two placeholder secrets are gone everywhere. The purge they were reserved for runs in `pg_cron` and needs none (C65).
+  - README §12.2 gains `EXPO_ACCESS_TOKEN`; new §12.5 covers migrations and scheduled jobs, and §12.6 the mobile app's own `.env`. `architecture.md` §11.1 points at README §12. `supabase/DEPLOYMENTS.md` lists the cron job and how to check it.
+- **Residual:** which AI provider to use is still open. That decision now lives in README §12.4 (it used to sit inside this gap). The privacy policy has to name the provider before it goes live.
+
+### C65. Quick Utos were deleted only when a manager opened the app (former Open Gap O5)
+
+- **Found / fixed:** found 2026-09-30, launch-readiness review. Fixed 2026-10-01.
+- **Was:** the only deletion was the web app's day rollover, which needs a manager's browser, so utos could sit in `quick_utos` for days.
+- **Fix:** `supabase/add-nightly-utos-purge.sql`, applied by hand.
+  - `purge_stale_quick_utos()` deletes every uto created before the start of its household's current day, in `households.timezone` (C38). Only `postgres` can run it.
+  - A `pg_cron` job, `purge-stale-quick-utos`, runs it hourly at :05, so each household's utos go within the hour after its own midnight, wherever it is.
+  - The rollover's own deletion stays as it was.
+  - Tested in PGlite (`supabase/tests/privacy.test.mjs`): it keeps today's and deletes yesterday's, running it twice deletes nothing more, and an app user can't call it.
+- **Residual:**
+  - Utos still `waiting` for her next shift are purged too. That matches the spec ("all individual Quick Utos") and what "Start new day" already did, but a uto sent at 11 PM for the morning is gone by morning.
+  - The `pg_cron` half can't run in PGlite. Check `cron.job` after applying (the query is in the migration and in `DEPLOYMENTS.md`).
+
+### C66. Task times showed in the viewer's device time zone, not the household's (former Open Gap O9)
+
+- **Found / fixed:** found 2026-09-30. Fixed 2026-10-01 in `LINARA`.
+- **Was:** `combineDateAndTime` and `isoToDisplayTime` read and wrote `tickets.scheduled_start` in the browser's zone, so a manager abroad saw and entered task times shifted by the difference.
+- **Fix:**
+  - **The zone.** `src/lib/time.ts` holds the household's zone. The four sign-in paths in `people.actions.ts` return `households.timezone`, and `use-session.ts` sets it before the session turns `authed`, so every store loads in it. Until it's known, the device's zone is used, as before.
+  - **The conversions.** `toHouseholdClock()` (instant → wall clock) and `fromHouseholdClock()` (wall clock → instant) are what `combineDateAndTime`, `isoToDisplayTime`, `isoToISODate`, `startOfDayIso`, `formatTimeOfDay` and `formatClock` now go through.
+  - **Callers that read "now".** Availability, the ledger's rest-day/break classification, the board's "now" line, `taskWhen`, `isLaterThanToday`, `movedFromLabel`, the board's starting day and rollover check, and the "today" defaults in the pay and people forms.
+  - **The scheduler AI.** The board's day is now sent as `householdDayStamp()` (`2026-10-01T00:00:00+08:00`). Both mocks (`appointment.actions.ts` and the `parse-scheduler` edge function) do their day math on that stamp instead of the server's own zone, which is UTC on Vercel and gave the wrong weekday for Manila. The live prompt is told to keep the household's offset.
+  - **Tests.** `src/lib/time.household-zone.test.ts` checks a Manila household read from devices in Manila, Dubai and Los Angeles, plus a household with daylight saving.
+- **Residual:**
+  - `LINARA_MOBILE`'s helper screens still use the phone's zone. That's deliberate: her phone is in the house. A manager using the app sees the web dashboard (O18), which is fixed.
+  - The `parse-scheduler` change takes effect only once the function is redeployed (`DEPLOYMENTS.md`).
+  - `toHouseholdClock` returns a Date whose local fields read the household's clock. An hour that doesn't exist on the device itself (its own spring-forward night) shifts by an hour on display. No Philippine zone has daylight saving.
+
+### C67. No privacy policy, terms, or account deletion (former Open Gap O8)
+
+- **Found / fixed:** found 2026-09-30. Fixed 2026-10-01, as drafts pending legal review.
+- **Was:** nothing anywhere. Both app stores require a privacy-policy URL and in-app account deletion, and RA 10173 applies.
+- **Fix:**
+  - **The pages.** `/privacy` and `/terms` on the web app (`src/features/legal/`), written from what the two apps actually store and send rather than from a template. Each opens with "Draft, under legal review", and the privacy policy has a Filipino summary. They're linked from the landing footer, `/login`, the mobile join screen (`review-terms.tsx`) and the mobile My Record.
+  - **Deletion requests.** `supabase/add-account-deletion.sql` adds `account_deletion_requests`, with `request_account_deletion()` and `cancel_account_deletion()` for either app. Managers ask from People → "Your account"; helpers from My Record → "Burahin ang account ko", available with or without a household.
+  - **Carrying them out.** `process_account_deletion(user_id)` is operator-only and run from the SQL editor within 30 days.
+    - **It deletes:** the login (cascading to the profile and push tokens), her private notes, and, for a household's last manager, its appointments, pantry and grocery lists, SOPs, utos and unclaimed invites, plus the household itself if nobody ever worked there.
+    - **It keeps:** each employment and its payslips, vales, hours, leave and tasks, unlinked from the login. That's the RA 10361 record, and the helper's.
+    - **Attribution columns** (`created_by`, `requested_by` and so on) are found from the catalog and set to NULL.
+    - **It refuses** while the person, or the household they're the last manager of, still has an ACTIVE employment, so final pay is settled first.
+  - **Tests.** Tested in PGlite (`privacy.test.mjs`).
+- **Residual:**
+  - **Legal review.** A lawyer has to review both documents before public launch.
+  - **Contact address.** There is no privacy contact yet: `PRIVACY_CONTACT_EMAIL` in `legal.constants.ts` is null, and the pages show a visible placeholder.
+  - **Manual processing.** Requests are carried out by hand, so someone has to check `SELECT * FROM account_deletion_requests WHERE status = 'pending'`.
+  - **Photos.** Files in Supabase Storage for deleted rows (pantry or appointment photos) aren't removed by the function.
+  - **Not run live yet.** `DELETE FROM auth.users` inside the function hasn't been run on the live project. Check the first real one.
 
 ---
 

@@ -265,16 +265,17 @@ To handle erratic local connectivity without throwing critical errors:
     cp .env.example .env
     ```
 
-    Populate the file with your local database coordinates, system secrets, and keys:
+    Fill in your Supabase project's URL and anon key; the rest has working defaults:
 
     ```env
     SUPABASE_URL=http://localhost:54321
     SUPABASE_ANON_KEY=your_supabase_anon_key
-    JWT_SECRET=your_32_character_jwt_secret
-    SYSTEM_CRON_SECRET=your_system_cron_secret
     REGIONAL_MINIMUM_WAGE=6000.00
     USE_MOCK_AI=true
     ```
+
+    This file is for local development only. In production the same values are
+    split between Vercel and Supabase Edge Function secrets; see §12.
 
 4.  **Start Development Server:**
     ```bash
@@ -340,15 +341,16 @@ Set these in the Vercel project's **Settings → Environment Variables**.
 | --- | --- | --- |
 | `SUPABASE_URL` | [vite.config.ts](vite.config.ts) `define` block — baked into the client bundle at **build time** | Always |
 | `SUPABASE_ANON_KEY` | same `define` block, build time | Always |
-| `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see [KNOWN_GAPS.md](KNOWN_GAPS.md) O1) |
+| `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see §12.4) |
 | `SITE_URL` | same `define` block, build time — absolute origin for `og:image`/`og:url` in [`__root.tsx`](src/routes/__root.tsx) | Optional — falls back to Vercel's `VERCEL_PROJECT_PRODUCTION_URL`; set it once a custom domain (e.g. linara.ph) is live so link previews use that domain |
 | `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled |
 | `XENDIT_API_URL` | same file | Optional — defaults to `https://api.xendit.co` |
 | `REGIONAL_MINIMUM_WAGE` | [people.actions.ts](src/features/people/people.actions.ts) — server-only, runtime | Required (defaults to `6000.00` if unset) |
+| `EXPO_ACCESS_TOKEN` | [push.ts](src/features/notifications/push.ts) — server-only, runtime | Optional — only once "Enhanced push security" is turned on for the Expo project |
 
 Because `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`USE_MOCK_AI` are compiled in via Vite's `define`, they must be present in Vercel's **build-time** environment (Vercel exposes project env vars to the build step by default, so no extra config is needed there — just don't scope them to "Production only" if preview deploys also need them). The Xendit and wage vars are read by server functions at request time and don't need to exist at build time.
 
-`JWT_SECRET` and `SYSTEM_CRON_SECRET` appear in [`.env.example`](.env.example) but nothing in the codebase reads them yet — they're placeholders for the not-yet-built midnight Quick-Utos purge cron (`plan.md` §3.3). Not required for the app to run.
+There is no `JWT_SECRET` or `SYSTEM_CRON_SECRET`. Older docs listed both as placeholders for the nightly Quick Utos purge, which now runs inside Postgres as a `pg_cron` job (`supabase/add-nightly-utos-purge.sql`) and needs no secret.
 
 ### 12.3 Supabase Edge Function secrets
 
@@ -357,7 +359,7 @@ Set these via `supabase secrets set KEY=value` (or Dashboard → Edge Functions 
 | Variable | Read by | When it's needed |
 | --- | --- | --- |
 | `USE_MOCK_AI` | all six AI functions (`generate-sop`, `parse-scheduler`, `route-utos`, `simplify-sop`, `promote-voice-task`, `transcribe-notes`) | A **second, independent** copy of the Vercel flag — set it explicitly; it does not inherit Vercel's value |
-| `OPENAI_API_KEY` | same six functions | Required for live AI once `USE_MOCK_AI` is `false` — currently unset, see [KNOWN_GAPS.md](KNOWN_GAPS.md) O1 for the provider decision still open (OpenAI vs. Claude API) |
+| `OPENAI_API_KEY` | same six functions | Required for live AI once `USE_MOCK_AI` is `false` — currently unset; the provider decision is still open (§12.4) |
 | `SOP_CREATOR_MODEL` | `generate-sop` | Optional, defaults to `gpt-4o` |
 | `UTOS_ROUTER_MODEL` | `parse-scheduler`, `route-utos` | Optional, defaults to `gpt-4o-mini` |
 | `SOP_SIMPLIFIER_MODEL` | `simplify-sop` | Optional, defaults to `gpt-4o-mini` |
@@ -369,7 +371,21 @@ Set these via `supabase secrets set KEY=value` (or Dashboard → Edge Functions 
 
 ### 12.4 Current production status
 
-As of the last deploy, Supabase Edge Functions run with `USE_MOCK_AI=true` and no `OPENAI_API_KEY` — there is no live LLM provider wired up yet. See [KNOWN_GAPS.md](KNOWN_GAPS.md) O1 for the open decision on which provider to migrate to (the edge functions call OpenAI's chat-completions shape directly, so switching providers is a code change, not just a secret swap).
+As of the last deploy, Supabase Edge Functions run with `USE_MOCK_AI=true` and no `OPENAI_API_KEY` — there is no live LLM provider wired up yet. Which provider to use (OpenAI or the Claude API) is still undecided. The edge functions call OpenAI's chat-completions shape directly, so switching providers is a code change, not just a secret swap, and `transcribe-notes` (Whisper) has no Claude equivalent, so it would stay on a separate provider either way. Before any provider goes live, the privacy policy (`src/features/legal/privacy-policy.tsx`) has to name it.
+
+### 12.5 The database: migrations and scheduled jobs
+
+Migrations under `supabase/*.sql` are applied by hand in the Supabase SQL editor, in the order each file's header gives, and each is recorded in [KNOWN_GAPS.md](KNOWN_GAPS.md). Scheduled work runs in Postgres itself with `pg_cron`, not in Vercel or an Edge Function, so it needs no secret and no outside scheduler:
+
+| Job | Schedule | Defined in |
+| --- | --- | --- |
+| `purge-stale-quick-utos` | hourly at :05 — deletes each household's Quick Utos from before its own midnight | `supabase/add-nightly-utos-purge.sql` |
+
+`supabase/DEPLOYMENTS.md` has the queries to check a job is scheduled and see its last runs. Account deletions are carried out by hand from the SQL editor (`process_account_deletion`, `supabase/add-account-deletion.sql`), within 30 days of the request.
+
+### 12.6 The mobile app
+
+`LINARA_MOBILE` has its own `.env` (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_WEB_APP_URL`), baked into each build by EAS. `EXPO_PUBLIC_SUPABASE_URL` must be the same project as `SUPABASE_URL` here. See `../LINARA_MOBILE/.env.example`.
 
 ---
 
