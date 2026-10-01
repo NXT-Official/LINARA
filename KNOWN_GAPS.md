@@ -40,29 +40,13 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
-### O19. Approved rest off shows on neither side's calendar, and doesn't stop anyone reaching her
-
-- **Found:** 2026-10-01, checking what the Schedule rework (C69) means for the helper's side.
-- **What's missing:** `rest_off_requests` (`supabase/add-rest-off-requests.sql`) holds approved time off: one date and a time window, redeemed from the after-hours balance. The helper requests it on My Pay (`LINARA_MOBILE/app/(app)/pay.tsx`) and a manager approves it on Money (`rest-off-requests.tsx`). Nothing else reads it. The web planner only knows the weekly rest day (`isRestDay`), the helper's My Week (`LINARA_MOBILE/app/(app)/week.tsx`, `lib/week.ts`) only knows the weekly rest day, and availability (`availability.utils.ts`, `LINARA_MOBILE/lib/availability.ts`) ignores it. A manager can plan a task, or send a Quick Utos, into time they approved as hers with no warning.
-- **Blocks:** Trusting either calendar; "available means you may disturb me" (the rest-off migration's own header).
-- **Current workaround:** None.
-- **To close:** No schema change needed. RLS already lets both sides read the rows. Show approved (and pending) windows on the web planner and on My Week, count them as off in `isOutsideShift` and in the availability status on both sides. Both repos.
-
-### O20. Moving or reassigning a task from the planner is silent on the helper's side
-
-- **Found:** 2026-10-01, same review as O19.
-- **What's missing:** `plan.md` §2.2 says schedule changes are never silent, but only appointment moves write `tickets.reschedule_notice` (what drives "Inilipat" on My Week and the moved-tasks banner on Today). A planner drag, a By person reassign (C69) or a date change in Edit task only updates `scheduled_start`/`helper_id`; no notice, no push. Separately, the helper app's Realtime subscription filters `tickets` on `helper_id=eq.<her id>` (`LINARA_MOBILE/hooks/use-realtime-subscription.ts`), which matches the row's new value, so a task reassigned away from her probably stays on her screens until the next refetch. This is likely but not yet tested on a device.
-- **Blocks:** The helper trusting her week once managers plan ahead with the planner.
-- **Current workaround:** None.
-- **To close:** Write a notice on manual moves. `reschedule_notice` is shaped for appointments (`appointmentTitle` is required on both sides), so the shape is a cross-repo contract change. Push when a later-day task moves or changes hands, and refetch on reassign-away (or subscribe without the filter and filter client-side). Both repos.
-
 ### O21. There is no vacation or leave, only hour-level rest off in lieu
 
 - **Found:** 2026-10-01, asked whether an approved vacation shows on both sides.
 - **What's missing:** No table, flow or doc covers multi-day leave. RA 10361 (Batas Kasambahay) gives a kasambahay with at least a year of service five days of paid service incentive leave a year; nothing tracks that entitlement, its use, or its pay. `rest_off_requests` is time off in lieu (one date, a time window, debited from after-hours minutes) and is not a substitute.
 - **Blocks:** Showing a vacation on either calendar (there's nothing to show), payslips that reflect paid leave, and the RA 10361 record a helper takes with her.
 - **Current workaround:** A manager can only mark nothing, or move tasks off those days by hand.
-- **To close:** Product decision first (multi-day requests? paid vs unpaid? SIL accrual from start date?), then a schema change applied by hand. Either a `leave_requests` table or a `kind` + date range on `rest_off_requests`, an approval RPC like `decide_rest_off_request`, and display on both calendars plus availability as in O19. Owned by `LINARA` (schema), both repos for UI.
+- **To close:** Follow `LEAVE_PLAN.md`: the 2026-10-01 decision covers both legally required leave and the household's own days off (in kind and unpaid). Five decisions are still open there. Then a schema change applied by hand (`leave_requests`, balances, RPCs, a payslip deduction column) and UI in both repos, shown through the C70 time-off layer. Owned by `LINARA` (schema), both repos for UI.
 
 
 ---
@@ -3122,6 +3106,32 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Touch dragging** (see C68) also applies to reassigning on By person. On a phone, reassign by opening the task.
   - **By person on phones** scrolls sideways inside its card (names stay pinned). It is readable but cramped; Week stays the better phone view.
   - **Month view** shows tasks and appointments only, not routine copies or off-shift marks.
+
+### C70. Approved rest off showed on neither side's calendar, and didn't stop anyone reaching her (former Open Gap O19)
+
+- **Found / fixed:** found 2026-10-01 checking what the Schedule rework (C69) means for the helper's side, fixed the same day.
+- **Was:** `rest_off_requests` were only read on Money (web) and My Pay (helper app). Both calendars knew only the weekly rest day, and availability ignored approved rest off, so a manager could plan a task or send a Quick Utos into time they'd approved as hers.
+- **Fix:**
+  - **Web.** One time-off model (`src/features/shifts/time-off.ts`, `hooks/use-time-off.ts`) loaded once for the app, refreshed after a decision on Money and every five minutes. The planner shows approved and asked-for rest off on Week and By person and marks a task inside approved time off "time off". `statusFor` treats approved time off as off (her own Available opt-in still wins), the gate says it's her time off, and New/Edit task warn.
+  - **Helper app.** `deriveRosaStatus` treats an approved day off as off, and Today's Availability card says so. My Week lists each day's day off, approved or still waiting.
+  - Leave (LEAVE_PLAN.md) is meant to plug into the same `TimeOff` shape.
+- **Residual:**
+  - **Month views** (web planner and My Week's month grid) show a day off only as an outline on the phone and not at all on the web month.
+  - **Lag.** The web polls every five minutes, so a request made on her phone takes up to that long to appear on an open dashboard.
+  - **Device clock.** The helper app reads "today" from the phone, like the rest of that app, not the household's time zone.
+
+### C71. Moving or reassigning a task from the planner was silent on the helper's side (former Open Gap O20)
+
+- **Found / fixed:** found 2026-10-01 in the same review as C70, fixed the same day.
+- **Was:** only appointment moves wrote `tickets.reschedule_notice`. A planner drag, a By person hand-over or a date change in Edit task updated the ticket with no notice and no push, and the helper app's Realtime filter (`helper_id=eq.<her id>`) matches the row after the change, so a task handed to someone else stayed on the phone it left.
+- **Fix:**
+  - **Web.** `updateTicketFn` works out the change (`scheduleChange`): her task's time moved writes `reschedule_notice` with `movedBy` instead of `appointmentTitle`; a hand-over clears any old notice. If she's reachable right now (`isReachable`, from the same `reachableHelperIds` appointment moves use) she gets a push: "Inilipat ang task", or "Bagong task" for one handed to her. The board's notice reads "Moved from ... by Ana".
+  - **Helper app.** The moved-tasks banner says "Inilipat ni Ana." for a hand move. `useRealtimeSubscription` listens household-wide when it knows her household (`tickets_isolation` already lets her read those rows), so a task taken away disappears.
+  - **Contract.** `reschedule_notice.appointmentTitle` is now optional in both repos.
+- **Residual:**
+  - **Older installed builds** of the helper app read a hand-move notice as "dahil binago ang isang appointment" until they update.
+  - **Not tested on a device** yet (push and the household-wide Realtime filter).
+  - **More refetches.** Every ticket change in the household now refetches Today and My Week on each helper's phone. Fine at household scale.
 
 ---
 

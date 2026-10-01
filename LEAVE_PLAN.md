@@ -1,6 +1,6 @@
 # Leave and days off: plan and scope
 
-Status: **plan, not built.** Closes KNOWN_GAPS O21 when done; builds on O19 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI.
+Status: **plan, not built.** Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI.
 
 Decisions still open are marked **Decide**. Collected at the bottom.
 
@@ -9,7 +9,7 @@ Decisions still open are marked **Decide**. Collected at the bottom.
 | What | Where | What it covers |
 | --- | --- | --- |
 | Weekly rest day | `helper_profiles.weekly_rest_day` | One fixed day a week. Shown on both calendars. |
-| Rest off (time off in lieu) | `rest_off_requests` (`add-rest-off-requests.sql`, `add-rest-off-validation.sql`) | One date plus a time window, paid for out of the rest she earned working after hours (`rest_owed_balance_minutes`). She asks on My Pay; a manager decides on Money. Shown on neither calendar (O19). |
+| Rest off (time off in lieu) | `rest_off_requests` (`add-rest-off-requests.sql`, `add-rest-off-validation.sql`) | One date plus a time window, paid for out of the rest she earned working after hours (`rest_owed_balance_minutes`). She asks on My Pay; a manager decides on Money. Shown on both calendars since C70. |
 | Start date | `helper_profiles.started_on` | Her first working day. Enough to work out leave eligibility. |
 | Pay | `initiate_payslip`, `net-pay.ts` in both repos | `net = base - statutory share - unsettled vales`. No term for leave. |
 
@@ -54,7 +54,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 ### Web dashboard (`LINARA`)
 
 - **Pass, Needs you:** pending leave requests, with approve and decline. Approving shows how many of her tasks fall on those days and offers to move them to Unassigned.
-- **Schedule:** leave on the planner (Week, By person, Month) and on the shared time-off layer O19 adds. Routines don't spawn for her on leave days.
+- **Schedule:** leave on the planner (Week, By person, Month) on the shared time-off layer from C70. Routines don't spawn for her on leave days.
 - **People / helper:** balances (SIL left this service year, rest owed), history, and "Record leave".
 - **Availability:** "On leave" counts as off for the send gate and the off-shift checks.
 - **Money:** unpaid leave days and their deduction on the period estimate and the payslip.
@@ -62,7 +62,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 ### Helper app (`LINARA_MOBILE`)
 
 - **Request leave:** kind, dates, reason, note. Shows her balances and what the request would leave.
-- **My Week:** leave and approved rest off on their days (O19), plus next/previous week and a month view.
+- **My Week:** leave on its days, next to the rest off and paging C70 added.
 - **Confirm or dispute** leave a manager recorded for her.
 - **Payslip:** the unpaid-leave line, from the stored payslip, not recomputed.
 - **My Record and its PDF:** leave taken by kind and year. Part of the RA 10361 record she keeps.
@@ -71,14 +71,14 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 
 Each step ships on its own.
 
-1. **Time off on the calendars (O19).** No schema change. Approved and pending rest off on the web planner and My Week, and in the off-shift and availability checks. Built as a general "time off" layer that leave plugs into.
+1. **Time off on the calendars (done, C70).** No schema change. Approved and pending rest off on the web planner and My Week, and in the off-shift and availability checks. Built as a general "time off" layer that leave plugs into.
 2. **Schema.** `add-leave.sql`: table, RLS, balances, RPCs. Applied by hand to the sandbox project.
 3. **Request and decide.** Helper app request form and balances; web Needs you, People, and Record leave. Leave appears through the step-1 layer.
 4. **Tasks and routines on leave days.** The move-to-Unassigned prompt; routines skip her.
 5. **Pay.** The unpaid deduction in `initiate_payslip`, both `net-pay.ts` files, the Pay Dial and both payslip views. The riskiest step: three surfaces have to agree on net pay (see `net-pay.ts`'s header).
 6. **Record.** Leave on My Record and in its PDF.
 
-Moves stay visible to her throughout (O20), so a task moved off a leave day tells her.
+Moves stay visible to her throughout (C71), so a task moved off a leave day tells her.
 
 ## Decide
 
