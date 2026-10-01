@@ -171,9 +171,10 @@ check("a six-day week divides by 313", Number(due.deduction) === 613.42, due);
 await q(`UPDATE helper_profiles SET pay_days_per_year = 365 WHERE id = $1`, [HP]);
 
 // --- 13th month ------------------------------------------------------------------
-await q(`SELECT * FROM record_offapp_payslip($1, 4000, 187.5, 'CASH', '2026-09-16', null, '2026-09-01')`, [
-  HP,
-]);
+await q(
+  `SELECT * FROM record_offapp_payslip($1, 4000, 187.5, 'CASH', '2026-09-16', null, '2026-09-01')`,
+  [HP],
+);
 await q(`SELECT * FROM record_payout_attempt_result($1, 'succeeded')`, [retry.attempt_id]);
 const thirteenth = await one(`SELECT * FROM thirteenth_month_due($1, 2026)`, [HP]);
 check(
