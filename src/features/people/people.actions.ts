@@ -741,3 +741,68 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
     await client.auth.signOut({ scope: "local" });
     return { updated: true };
   });
+
+export interface AccountDeletionRequest {
+  id: string;
+  status: "pending" | "cancelled" | "done";
+  requestedAt: string;
+}
+
+interface AccountDeletionRow {
+  id: string;
+  status: AccountDeletionRequest["status"];
+  requested_at: string;
+}
+
+const toDeletionRequest = (row: AccountDeletionRow): AccountDeletionRequest => ({
+  id: row.id,
+  status: row.status,
+  requestedAt: row.requested_at,
+});
+
+/**
+ * The signed-in manager's pending account-deletion request, if any
+ * (supabase/add-account-deletion.sql, KNOWN_GAPS.md O8). null before that
+ * migration is applied, so the People page still loads.
+ */
+export const getAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .from("account_deletion_requests")
+      .select("id, status, requested_at")
+      .eq("status", "pending")
+      .maybeSingle();
+    if (error) {
+      if (/account_deletion_requests/.test(error.message)) return null;
+      throw new Error(error.message);
+    }
+    return row ? toDeletionRequest(row as AccountDeletionRow) : null;
+  });
+
+/** Asks for this account to be deleted. Processed by hand within 30 days. */
+export const requestAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; note?: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .rpc("request_account_deletion", { p_note: data.note ?? null })
+      .single();
+    if (error || !row) {
+      throw new Error(error?.message || "Couldn't send the request");
+    }
+    return toDeletionRequest(row as AccountDeletionRow);
+  });
+
+/** Withdraws a pending deletion request; the account carries on as before. */
+export const cancelAccountDeletionFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.rpc("cancel_account_deletion");
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { cancelled: true };
+  });

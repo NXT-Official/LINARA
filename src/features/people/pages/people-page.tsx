@@ -1,9 +1,10 @@
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
+import { AccountSection } from "../components/account-section";
 import { PastStaffSection } from "../components/past-staff-section";
 import { PeopleSection } from "../components/people-section";
 
-/** The household roster: admins, helpers, pending invites, and past staff. */
+/** The household roster: admins, helpers, pending invites, past staff, and your own account. */
 export function PeoplePage() {
   const { session, invites, helpers, activeHelpers, payslips, payPeriods, vales, board } =
     useAppStores();
@@ -53,6 +54,9 @@ export function PeoplePage() {
           onRecordOffApp={payslips.recordOffApp}
           onWithdrawOffApp={payslips.withdrawOffApp}
         />
+      </div>
+      <div className="mt-6">
+        <AccountSection token={session.token} activeHelperCount={activeHelpers.length} />
       </div>
     </>
   );
