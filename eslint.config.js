@@ -19,11 +19,15 @@ export default tseslint.config(
       ".vercel",
       "node_modules",
       "src/routeTree.gen.ts",
+      // Vendored design tooling (the Impeccable skill), not app code.
+      ".claude",
+      ".impeccable",
     ],
   },
   {
-    // Config files run in Node, not the browser.
-    files: ["*.config.{js,ts}", "src/server.ts", "src/start.ts"],
+    // Config files and the SQL test runners (supabase/tests) run in Node,
+    // not the browser.
+    files: ["*.config.{js,ts}", "src/server.ts", "src/start.ts", "supabase/tests/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
   // Spread the recommended configurations directly at the array level,
