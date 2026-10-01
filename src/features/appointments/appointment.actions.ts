@@ -317,7 +317,8 @@ export const rescheduleAppointmentFn = createServerFn({ method: "POST" })
         new Date(newScheduledStartIso).getTime() !== new Date(r.scheduled_start).getTime();
       const base = { id: r.id, scheduled_start: newScheduledStartIso };
       if (!timeMoved) return base;
-      if (r.helper_id && r.status !== "done") movedHelperIds.add(r.helper_id);
+      if (r.helper_id && r.status !== "done" && r.status !== "cancelled")
+        movedHelperIds.add(r.helper_id);
       return {
         ...base,
         reschedule_notice: {

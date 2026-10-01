@@ -763,7 +763,13 @@ CREATE TABLE public.tickets (
     -- NULL = Unassigned: on the managers' board only until one assigns it
     -- (supabase/add-unassigned-tasks.sql).
     helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')) DEFAULT 'todo',
+    -- 'cancelled' (supabase/add-cancelled-tasks.sql): kept for the record, off
+    -- the board, Today and every to-do count. Trigger tickets_stamp_cancel sets
+    -- cancelled_at / cancelled_by / cancelled_by_name, and clears them on restore.
+    status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked', 'cancelled')) DEFAULT 'todo',
+    cancelled_at TIMESTAMPTZ,
+    cancelled_by UUID, -- no FK on purpose: a 2nd tickets -> user_profiles link breaks the creator embed
+    cancelled_by_name TEXT,
     sop_id UUID REFERENCES public.house_sops(id) ON DELETE SET NULL,
     photo_evidence_url TEXT,
     is_after_hours BOOLEAN NOT NULL DEFAULT FALSE,

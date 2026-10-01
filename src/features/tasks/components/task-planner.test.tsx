@@ -124,6 +124,25 @@ describe("TaskPlanner, week", () => {
     expect(done.getAttribute("draggable")).toBe("false");
   });
 
+  it("keeps a cancelled task on its day, struck through, saying who, and not draggable", () => {
+    const curtains = task({
+      id: "curtains",
+      title: "Iron the curtains",
+      status: "cancelled",
+      cancelledBy: "Ben",
+      scheduledStart: "2026-10-02T00:00:00.000Z",
+    });
+    renderPlanner({
+      usePlan: () => ({ tasks: [laundry, curtains], moveLocally: vi.fn(), reload: () => {} }),
+    });
+    const fri = within(day(/^Fri 2$/));
+    const title = fri.getByText("Iron the curtains");
+    expect(title.className).toContain("line-through");
+    expect(fri.getByText("Cancelled")).toBeTruthy();
+    expect(fri.getByText("By Ben")).toBeTruthy();
+    expect(title.closest("li")!.getAttribute("draggable")).toBe("false");
+  });
+
   it("adds on today and later days only", () => {
     const { onAddOn } = renderPlanner();
     expect(within(day(/^Wed 30$/)).queryByRole("button", { name: /add task/i })).toBeNull();

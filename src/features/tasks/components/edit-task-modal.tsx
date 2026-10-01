@@ -1,4 +1,4 @@
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Ban, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
@@ -47,6 +47,8 @@ export function EditTaskModal({
   myUserId = null,
   onClose,
   onSave,
+  onCancelTask,
+  onRestore,
 }: {
   task: Task;
   /** Who it can go to: the household's current helpers. */
@@ -59,7 +61,14 @@ export function EditTaskModal({
   myUserId?: string | null;
   onClose: () => void;
   onSave: (edit: TaskEdit) => void;
+  /** Cancel it: it stays on the Schedule, struck through. Absent where it can't be (started or done). */
+  onCancelTask?: () => void;
+  /** For a cancelled task: back on the board as To-do. */
+  onRestore?: () => void;
 }) {
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const cancelled = task.status === "cancelled";
+  const canCancel = !!onCancelTask && (task.status === "todo" || task.status === "blocked");
   const [helperId, setHelperId] = useState<string | null>(task.helperId);
   const assignee = helpers.find((h) => h.id === helperId);
   const helperName = assignee?.short ?? "your helper";
@@ -94,7 +103,9 @@ export function EditTaskModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-xl text-foreground">Edit task</h3>
+        <h3 className="font-display text-xl text-foreground">
+          {cancelled ? "Cancelled task" : "Edit task"}
+        </h3>
         <button
           onClick={onClose}
           aria-label="Close"
@@ -103,6 +114,26 @@ export function EditTaskModal({
           <X className="h-4 w-4" />
         </button>
       </div>
+      {cancelled && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
+          <span>
+            Cancelled
+            {task.cancelledBy ? ` by ${task.cancelledBy}` : ""}
+            {task.cancelledAt
+              ? ` on ${new Date(task.cancelledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+              : ""}
+            . It's off the board and her phone.
+          </span>
+          {onRestore && (
+            <button
+              onClick={onRestore}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Restore
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-4 space-y-3">
         <Field label="Title">
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
@@ -167,12 +198,37 @@ export function EditTaskModal({
           <TaskUpdates token={token} ticketId={task.id} myUserId={myUserId} />
         </div>
       )}
-      <div className="mt-5 flex items-center justify-end gap-2">
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+        {canCancel &&
+          (confirmingCancel ? (
+            <span className="mr-auto inline-flex items-center gap-2 text-xs text-foreground">
+              Cancel this task?
+              <button
+                onClick={onCancelTask}
+                className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+              >
+                Yes, cancel it
+              </button>
+              <button
+                onClick={() => setConfirmingCancel(false)}
+                className="font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Keep it
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmingCancel(true)}
+              className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-muted-foreground hover:text-destructive"
+            >
+              <Ban className="h-4 w-4" /> Cancel task
+            </button>
+          ))}
         <button
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          Close
         </button>
         <button
           onClick={submit}

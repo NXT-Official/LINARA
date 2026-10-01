@@ -3,6 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { createAuthedClient } from "@/lib/supabase";
 import { pushToHelper } from "@/features/notifications/push";
 
+import type { Status } from "./task.types";
+
 export interface HouseStandardSOP {
   title: string;
   description: string;
@@ -222,7 +224,7 @@ export interface TicketRow {
   title: string;
   notes: string | null;
   helper_id: string | null;
-  status: "todo" | "in_progress" | "done" | "blocked";
+  status: Status;
   photo_evidence_url: string | null;
   is_after_hours: boolean;
   emergency: boolean;
@@ -252,6 +254,9 @@ export interface TicketRow {
   actual_end: string | null;
   created_by: string | null;
   created_by_profile: { full_name: string } | null;
+  /** From add-cancelled-tasks.sql; absent before it is applied. */
+  cancelled_at?: string | null;
+  cancelled_by_name?: string | null;
 }
 
 const HOUSEHOLD_EVIDENCE_BUCKET = "household-evidence";
@@ -321,6 +326,8 @@ export const listTicketsFn = createServerFn({ method: "POST" })
       .from("tickets")
       .select("*, created_by_profile:user_profiles(full_name)")
       .or(`status.neq.done,scheduled_start.gte.${sinceIso}`)
+      // Cancelled tasks are for the planner's record, not the board.
+      .neq("status", "cancelled")
       .order("scheduled_start", { ascending: true });
 
     if (error) {
@@ -378,7 +385,7 @@ export const countOpenTasksBetweenFn = createServerFn({ method: "POST" })
       .from("tickets")
       .select("id", { count: "exact", head: true })
       .eq("helper_id", data.helperId)
-      .neq("status", "done")
+      .not("status", "in", "(done,cancelled)")
       .gte("scheduled_start", data.fromIso)
       .lt("scheduled_start", data.toIso);
     if (error) throw new Error(error.message);
@@ -399,7 +406,7 @@ export const unassignOpenTasksBetweenFn = createServerFn({ method: "POST" })
       // A notice about her schedule means nothing once the task isn't hers.
       .update({ helper_id: null, reschedule_notice: null })
       .eq("helper_id", data.helperId)
-      .neq("status", "done")
+      .not("status", "in", "(done,cancelled)")
       .gte("scheduled_start", data.fromIso)
       .lt("scheduled_start", data.toIso)
       .select("id");
@@ -505,7 +512,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
   });
 
 export interface TicketPatch {
-  status?: "todo" | "in_progress" | "done" | "blocked";
+  status?: Status;
   photoEvidenceUrl?: string | null;
   blockReason?: string | null;
   queued?: boolean;
@@ -567,6 +574,21 @@ export const updateTicketFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
+    if (patch.status === "cancelled" && notifyHelper) {
+      const { data: cancelled } = await authedClient
+        .from("tickets")
+        .select("title, helper_id")
+        .eq("id", ticketId)
+        .single();
+      if (cancelled?.helper_id) {
+        await pushToHelper(authedClient, cancelled.helper_id as string, {
+          title: "Kinansela ang task",
+          body: cancelled.title as string,
+          url: "/week",
+        });
+      }
+    }
+
     if (change && notifyHelper && change.helperId && (change.moved || change.handedOver)) {
       const from = change.movedBy ? ` mula kay ${change.movedBy}` : "";
       await pushToHelper(
@@ -599,7 +621,7 @@ export async function scheduleChange(
   if (error || !row) return null;
 
   const helperId: string | null = patch.helperId !== undefined ? patch.helperId : row.helper_id;
-  const live = row.status !== "done" && helperId !== null;
+  const live = row.status !== "done" && row.status !== "cancelled" && helperId !== null;
   const handedOver = live && helperId !== row.helper_id;
   const moved =
     live &&

@@ -85,13 +85,14 @@ export const isMovable = (t: Task): boolean => t.status === "todo" || t.status =
 
 /**
  * Where a task stands, for colour at a glance in every planner view: late
- * (still to do, past its time), held (on hold), doing, done, or simply
- * planned. Suggested and queued tasks count as planned.
+ * (still to do, past its time), held (on hold), doing, done, cancelled, or
+ * simply planned. Suggested and queued tasks count as planned.
  */
-export type TaskTone = "late" | "held" | "doing" | "done" | "planned";
+export type TaskTone = "late" | "held" | "doing" | "done" | "cancelled" | "planned";
 
 export function taskTone(t: Task, nowTs: number): TaskTone {
   if (t.status === "done") return "done";
+  if (t.status === "cancelled") return "cancelled";
   if (t.status === "blocked") return "held";
   if (t.status === "in_progress") return "doing";
   if (isPastDue(t, nowTs)) return "late";

@@ -5,6 +5,7 @@ const LEGEND = [
   { tone: "held", dot: TONE_DOT.held, label: "On hold" },
   { tone: "doing", dot: TONE_DOT.doing, label: "Doing" },
   { tone: "done", dot: TONE_DOT.done, label: "Done" },
+  { tone: "cancelled", dot: TONE_DOT.cancelled, label: "Cancelled" },
   { tone: "planned", dot: TONE_DOT.planned, label: "Planned" },
 ];
 

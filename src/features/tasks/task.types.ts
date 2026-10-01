@@ -1,7 +1,8 @@
 import type { Station } from "@/features/people/people.types";
 import type { Weekday } from "@/lib/time";
 
-export type Status = "todo" | "in_progress" | "done" | "blocked";
+/** "cancelled" (add-cancelled-tasks.sql): kept for the record, off the board and every to-do count. */
+export type Status = "todo" | "in_progress" | "done" | "blocked" | "cancelled";
 export type Recurrence = "none" | "daily" | Weekday[];
 
 export type Task = {
@@ -38,6 +39,9 @@ export type Task = {
   createdBy?: string; // display name of admin who created it
   suggested?: boolean; // pending approval by an on-site admin (used for Remote-admin picks)
   pendingSync?: boolean; // offline pending status
+  /** For a cancelled task: when (ISO) and by whom (name), from the trigger's stamp. */
+  cancelledAt?: string;
+  cancelledBy?: string;
 };
 
 // A recurring template that spawns a Task on matching weekdays.

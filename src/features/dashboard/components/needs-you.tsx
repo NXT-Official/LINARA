@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  Ban,
   CalendarOff,
   Check,
   ChevronDown,
@@ -7,7 +8,6 @@ import {
   MessageCircle,
   Pencil,
   RotateCcw,
-  Trash2,
   X,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -236,7 +236,7 @@ export function NeedsYou({
                       {confirmCancelId === t.id ? (
                         <>
                           <span className="text-xs text-foreground">
-                            Remove it from {helper.short}'s list?
+                            Cancel it? It stays on the Schedule, crossed out.
                           </span>
                           <button
                             onClick={() => setConfirmCancelId(null)}
@@ -266,7 +266,7 @@ export function NeedsYou({
                             onClick={() => setConfirmCancelId(t.id)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Cancel task
+                            <Ban className="h-3.5 w-3.5" /> Cancel task
                           </button>
                         </>
                       )}

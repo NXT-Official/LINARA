@@ -48,6 +48,15 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
         <Check className="h-3.5 w-3.5" /> Done
       </span>
     );
+  if (task.status === "cancelled")
+    return (
+      <span
+        className="text-xs font-semibold text-muted-foreground"
+        title={task.cancelledBy ? `Cancelled by ${task.cancelledBy}` : undefined}
+      >
+        Cancelled
+      </span>
+    );
   if (task.status === "in_progress")
     return (
       <span className="rounded-full bg-accent/20 px-1.5 text-xs font-bold text-accent-foreground">
@@ -96,7 +105,9 @@ export function PlannerTaskRow({
 }) {
   const helper = findHelper(task.helperId, helpers);
   const color = task.helperId ? STATION_HEX[task.station] : UNASSIGNED_HEX;
-  const done = task.status === "done";
+  const cancelled = task.status === "cancelled";
+  // Done and cancelled both read as settled: muted and struck through.
+  const done = task.status === "done" || cancelled;
   const off = done ? null : offLabel;
   const movable = !!drag && isMovable(task);
   const dragging = drag?.draggingId === task.id;
@@ -116,6 +127,11 @@ export function PlannerTaskRow({
       >
         {task.title}
       </span>
+      {cancelled && task.cancelledBy && (
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          By {task.cancelledBy}
+        </span>
+      )}
       {task.appointmentTitle && (
         <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-terracotta-ink">
           <CalendarClock className="h-3 w-3 shrink-0" aria-hidden />

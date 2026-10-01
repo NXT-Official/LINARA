@@ -53,7 +53,8 @@ export function PlannerMonth({
           const isToday = iso === todayIso;
           const isPast = iso < todayIso;
           const isOver = drag?.overDay === iso;
-          const open = tasks.filter((t) => t.status !== "done").length;
+          const open = tasks.filter((t) => t.status !== "done" && t.status !== "cancelled").length;
+          const cancelled = tasks.filter((t) => t.status === "cancelled").length;
           const late = tasks.filter((t) => taskTone(t, nowTs) === "late").length;
           const held = tasks.filter((t) => t.status === "blocked").length;
           const summary = [
@@ -63,6 +64,7 @@ export function PlannerMonth({
               : `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}${open && open < tasks.length ? `, ${open} still to do` : ""}`,
             late > 0 ? `${late} late` : null,
             held > 0 ? `${held} on hold` : null,
+            cancelled > 0 ? `${cancelled} cancelled` : null,
             appts.length > 0 ? `${appts.length} appointment${appts.length === 1 ? "" : "s"}` : null,
           ]
             .filter(Boolean)
@@ -132,7 +134,7 @@ export function PlannerMonth({
                       />
                       <span
                         className={`truncate ${
-                          task.status === "done"
+                          task.status === "done" || task.status === "cancelled"
                             ? "text-muted-foreground line-through"
                             : "text-foreground"
                         }`}

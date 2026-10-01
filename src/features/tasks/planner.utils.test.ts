@@ -201,5 +201,6 @@ describe("taskTone", () => {
     expect(taskTone(task({ status: "blocked" }), after)).toBe("held");
     expect(taskTone(task({ status: "in_progress" }), after)).toBe("doing");
     expect(taskTone(task({ status: "done" }), after)).toBe("done");
+    expect(taskTone(task({ status: "cancelled" }), after)).toBe("cancelled");
   });
 });

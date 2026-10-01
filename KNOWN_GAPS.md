@@ -3155,6 +3155,18 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - A leave spanning two cutoffs comes off the later one whole rather than being split; contributions stay on the full monthly rate. Both noted in `LEGAL_CONSIDERATIONS.md` to confirm.
   - Missed-period estimates on Money don't subtract unpaid leave (nor vale), since those come off whichever payment goes first; the payout itself always does.
 
+### C74. Cancelling a task deleted it, so it vanished from the planner and her week
+
+- **Found / fixed:** 2026-10-02, the user asked why a cancelled task wasn't visible anywhere.
+- **Was:** Needs you's "Cancel task" deleted the ticket. Nothing recorded that the task had been planned or who called it off, and it disappeared from her My Week without a word.
+- **Fix:** `supabase/add-cancelled-tasks.sql` (**apply by hand after add-unpaid-leave-pay.sql**).
+  - `tickets.status` gains `'cancelled'`. A trigger stamps `cancelled_at`, `cancelled_by` and `cancelled_by_name`, and clears them when the task is restored to To-do. `cancelled_by` has no foreign key: a second `tickets -> user_profiles` link would make both apps' `created_by_profile:user_profiles(full_name)` embed ambiguous and break every ticket query.
+  - `employment_end_preview` doesn't count cancelled tasks as open, and `end_helper_employment` neither hands them on nor deletes them.
+  - **Web:** cancelling (Needs you, or the new Cancel task in Edit task on the Schedule) sets the status, with Undo; Edit task on a cancelled one shows who and when, with Restore. The board leaves cancelled tasks out; the planner shows them crossed out with "Cancelled" and who did it, grey in the legend. She gets a push ("Kinansela ang task") if she's reachable. Until the migration is applied, the update is refused by the CHECK and the app falls back to the old delete.
+  - **App:** Today, the focus card, moved notices and the palengke step leave cancelled tasks out; My Week shows them crossed out as "Kinansela ng manager".
+  - PGlite test: `supabase/tests/cancelled-tasks.test.mjs` (in `npm run test:sql`).
+- **Residual:** a helper whose phone queued "done" offline for a task cancelled in the meantime will still mark it done when it syncs; that's left as the truthful outcome.
+
 ---
 
 ## Template for New Entries

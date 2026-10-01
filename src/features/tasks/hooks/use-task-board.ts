@@ -109,6 +109,8 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
     startedAt: row.actual_start ? new Date(row.actual_start).getTime() : undefined,
     createdBy: row.created_by_profile?.full_name ?? undefined,
     suggested: row.suggested || undefined,
+    cancelledAt: row.cancelled_at ?? undefined,
+    cancelledBy: row.cancelled_by_name ?? undefined,
   };
 }
 
@@ -404,17 +406,54 @@ export function useTaskBoard({
   };
 
   /**
-   * Removes a task that was never started. There is no cancelled status, and a
-   * not-started ticket carries no work or ledger entry, so deleting loses
-   * nothing of the helper's record.
+   * Cancels a task: it stays on the planner and her week, struck through,
+   * with who and when (supabase/add-cancelled-tasks.sql), and leaves the
+   * board and every to-do count. She hears about it if she's reachable. Undo
+   * puts it back to To-do.
+   *
+   * Until that migration is applied the status doesn't exist and the update
+   * is refused by the CHECK constraint, so it falls back to the old delete.
    */
   const cancelTask = (id: string) => {
     if (!token) return;
-    deleteTicketFn({ data: { token, ticketId: id } })
-      .then(() => refresh())
+    const cur = tasks.find((t) => t.id === id);
+    updateTicketFn({
+      data: {
+        token,
+        ticketId: id,
+        patch: { status: "cancelled" },
+        notifyHelper: !!cur?.helperId && !!isReachable?.(cur.helperId),
+      },
+    })
+      .then(() => {
+        toast.success("Task cancelled. It stays on the Schedule.", {
+          action: { label: "Undo", onClick: () => restoreTask(id) },
+        });
+        return refresh();
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.message.includes("tickets_status_check")) {
+          return deleteTicketFn({ data: { token, ticketId: id } }).then(() => refresh());
+        }
+        throw err;
+      })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to cancel task:", err);
         toast.error("Hindi na-cancel ang task.");
+      });
+  };
+
+  /** Puts a cancelled task back on the board, as To-do. */
+  const restoreTask = (id: string) => {
+    if (!token) return;
+    updateTicketFn({ data: { token, ticketId: id, patch: { status: "todo", blockReason: null } } })
+      .then(() => {
+        toast.success("Task restored.");
+        return refresh();
+      })
+      .catch((err) => {
+        console.error("[useTaskBoard] Failed to restore task:", err);
+        toast.error("Hindi na-restore ang task.");
       });
   };
 
@@ -549,6 +588,7 @@ export function useTaskBoard({
     rescheduleTask,
     editTask,
     cancelTask,
+    restoreTask,
     approveSuggestion,
     dismissSuggestion,
     setClosed,

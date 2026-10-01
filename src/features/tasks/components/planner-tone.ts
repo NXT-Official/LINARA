@@ -9,6 +9,7 @@ export const TONE_EDGE: Record<TaskTone, string> = {
   held: "border-l-terracotta",
   doing: "border-l-primary",
   done: "border-l-muted-foreground/30",
+  cancelled: "border-l-transparent",
   planned: "border-l-transparent",
 };
 
@@ -18,5 +19,7 @@ export const TONE_DOT: Record<TaskTone, string> = {
   held: "bg-terracotta",
   doing: "bg-primary",
   done: "bg-muted-foreground/30",
+  // A struck-out ring: there was a task, and it isn't happening.
+  cancelled: "ring-1 ring-inset ring-muted-foreground/30 opacity-60",
   planned: "ring-1 ring-inset ring-muted-foreground/70",
 };

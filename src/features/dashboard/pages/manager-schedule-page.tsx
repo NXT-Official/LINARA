@@ -50,7 +50,17 @@ export function ManagerSchedulePage({
   } = useAppStores();
   const activeInvites = invites.invites.filter((i) => i.status === "active");
   const { adminType, currentAdmin } = session;
-  const { tasks, routines, simDate, addTask, addRoutine, removeRoutine, editTask } = board;
+  const {
+    tasks,
+    routines,
+    simDate,
+    addTask,
+    addRoutine,
+    removeRoutine,
+    editTask,
+    cancelTask,
+    restoreTask,
+  } = board;
   const [addingOn, setAddingOn] = useState<{ day: string; helperId?: string | null } | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
 
@@ -184,6 +194,14 @@ export function ManagerSchedulePage({
           onClose={() => setEditing(null)}
           onSave={(edit) => {
             void editTask(editing.id, edit);
+            setEditing(null);
+          }}
+          onCancelTask={() => {
+            cancelTask(editing.id);
+            setEditing(null);
+          }}
+          onRestore={() => {
+            restoreTask(editing.id);
             setEditing(null);
           }}
         />
