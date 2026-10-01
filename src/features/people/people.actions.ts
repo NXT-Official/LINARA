@@ -331,10 +331,10 @@ export const managerLoginFn = createServerFn({ method: "POST" })
       };
     }
 
+    // One sign-in for everyone: a kasambahay is told her Linara is in the
+    // app, rather than refused. No tokens go back, so no web session starts.
     if (profile.user_type === "helper") {
-      throw new Error(
-        "This is a helper account. Helpers sign in on the Linara app's own sign-in screen, not on the manager dashboard.",
-      );
+      return { status: "helper" as const };
     }
 
     return {

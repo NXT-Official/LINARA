@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, ArrowLeft, Home, Loader2, Smartphone, UserRound } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
@@ -16,11 +16,13 @@ import { useSession } from "../hooks/use-session";
  * `_app.tsx` fresh, which builds its own session that re-resolves from the
  * same localStorage tokens this flow just wrote.
  */
-export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "signup" | "login" }) {
+export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode }) {
   const session = useSession();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<"signup" | "login">(initialMode);
+  // One flow for everyone: sign in, or create an account after saying
+  // which kind. A kasambahay's Linara is the app; the web says so.
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [fullName, setFullName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [email, setEmail] = useState("");
@@ -76,6 +78,10 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "sign
           toast.info(
             "Hindi pa na-confirm ang email mo. I-click muna ang link, tapos subukan ulit.",
           );
+          return;
+        }
+        if (result === "helper") {
+          setMode("kasambahay-signed-in");
           return;
         }
         if (result === "needs_bootstrap") {
@@ -163,6 +169,57 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "sign
     );
   }
 
+  if (mode === "choose") {
+    return (
+      <AuthCard>
+        <h1 className="mt-4 font-display text-2xl text-foreground">Create an account</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">Which one are you?</p>
+        <div className="mt-5 space-y-3">
+          <ChoiceButton
+            icon={<Home className="h-5 w-5" />}
+            title="I run a household"
+            body="Employer. Set up your household, then invite the people who work in it."
+            onClick={() => setMode("signup")}
+          />
+          <ChoiceButton
+            icon={<UserRound className="h-5 w-5" />}
+            title="I work in a household"
+            body="Kasambahay. Join with the invite code your employer gave you."
+            onClick={() => setMode("kasambahay")}
+          />
+        </div>
+        <SwitchLink onClick={() => setMode("login")}>Already have an account? Log in</SwitchLink>
+      </AuthCard>
+    );
+  }
+
+  if (mode === "kasambahay" || mode === "kasambahay-signed-in") {
+    return (
+      <AuthCard>
+        <h1 className="mt-4 font-display text-2xl text-foreground">
+          {mode === "kasambahay" ? "Sa app ka magsisimula" : "Nasa app ang Linara mo"}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {mode === "kasambahay"
+            ? "Ang account ng kasambahay ay ginagawa sa Linara app, gamit ang invite code galing sa employer mo."
+            : "Kasambahay account ito. Ang tasks, sahod at record mo ay nasa Linara app; doon ka mag-sign in."}
+        </p>
+        <a
+          href="linaramobile://sign-in"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+        >
+          <Smartphone className="h-4 w-4" /> Buksan ang Linara app
+        </a>
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Wala pa ang app sa phone mo? Hingin sa employer mo ang link para ma-download ito.
+        </p>
+        <SwitchLink onClick={() => setMode("login")}>
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+        </SwitchLink>
+      </AuthCard>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
@@ -172,8 +229,8 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "sign
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {mode === "signup"
-            ? "Gawin ang manager account mo para sa household mo."
-            : "Mag-log in sa iyong manager account."}
+            ? "Gawin ang employer account mo para sa household mo."
+            : "Mag-sign in sa Linara, employer man o kasambahay."}
         </p>
 
         {confirmationPending && (
@@ -263,12 +320,14 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "sign
           type="button"
           disabled={loading}
           onClick={() => {
-            setMode(mode === "signup" ? "login" : "signup");
+            setMode(mode === "signup" ? "login" : "choose");
             setConfirmationPending(false);
           }}
           className="mt-3 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
         >
-          {mode === "signup" ? "Already have an account? Log in" : "New household? Set one up"}
+          {mode === "signup"
+            ? "Already have an account? Log in"
+            : "New to Linara? Create an account"}
         </button>
 
         {mode === "login" && (
@@ -293,5 +352,58 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "sign
         </p>
       </div>
     </div>
+  );
+}
+
+type Mode = "login" | "signup" | "choose" | "kasambahay" | "kasambahay-signed-in";
+
+function AuthCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
+        <LogoMark className="h-10 w-10" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ChoiceButton({
+  icon,
+  title,
+  body,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  body: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-2xl border border-border bg-background px-4 py-3.5 text-left transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-primary">
+        {icon}
+      </span>
+      <span>
+        <span className="block text-sm font-semibold text-foreground">{title}</span>
+        <span className="mt-0.5 block text-sm text-muted-foreground">{body}</span>
+      </span>
+    </button>
+  );
+}
+
+function SwitchLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 flex w-full items-center justify-center gap-1 text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+    >
+      {children}
+    </button>
   );
 }

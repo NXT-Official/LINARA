@@ -69,7 +69,7 @@ export type Session = {
   logIn: (data: {
     email: string;
     password: string;
-  }) => Promise<"authed" | "confirmation_pending" | "needs_bootstrap">;
+  }) => Promise<"authed" | "confirmation_pending" | "needs_bootstrap" | "helper">;
   finishBootstrap: (data: { fullName: string; householdName?: string }) => Promise<void>;
   logOut: () => void;
 };
@@ -153,6 +153,9 @@ export function useSession(): Session {
     const result = await managerLoginFn({ data });
     if (result.status === "confirmation_pending") {
       return "confirmation_pending";
+    }
+    if (result.status === "helper") {
+      return "helper";
     }
     if (result.status === "needs_bootstrap") {
       persist(result.accessToken, result.refreshToken, result.userId);
