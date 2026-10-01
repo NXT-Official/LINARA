@@ -311,6 +311,12 @@ export function PayslipHistory({
                     )}
                   </div>
                 </div>
+                {p.unpaidLeaveDeduction > 0 && (
+                  <p className="mt-1 text-muted-foreground">
+                    After {fmtPeso(p.unpaidLeaveDeduction)} unpaid leave ({p.unpaidLeaveDays}{" "}
+                    {p.unpaidLeaveDays === 1 ? "day" : "days"})
+                  </p>
+                )}
                 {manual && (p.manualNote || p.helperAckNote) && (
                   <p className="mt-1 text-muted-foreground">
                     {p.manualNote ? `Your note: ${p.manualNote}` : ""}

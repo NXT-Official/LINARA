@@ -19,6 +19,8 @@ function payslip(status: PayoutStatus, minutesAgo: number): Payslip {
     basePay: 6000,
     statutoryEmployeeShare: 187.5,
     valeDeductions: 0,
+    unpaidLeaveDays: 0,
+    unpaidLeaveDeduction: 0,
     netPay: 5812.5,
     kind: "regular",
     payoutProvider: "xendit",

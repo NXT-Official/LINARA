@@ -36,6 +36,9 @@ export type Payslip = {
   basePay: number;
   statutoryEmployeeShare: number;
   valeDeductions: number;
+  /** Unpaid leave it deducted (add-unpaid-leave-pay.sql); 0 on older payslips. */
+  unpaidLeaveDays: number;
+  unpaidLeaveDeduction: number;
   netPay: number;
   kind: PayslipKind;
   /** "xendit", or "manual" for a payment made outside Linara. */

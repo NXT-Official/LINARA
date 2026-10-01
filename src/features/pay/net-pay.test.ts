@@ -23,7 +23,8 @@ import {
  *
  * The rule being defended, from net-pay.ts:
  *
- *     net = max(0, base - statutory employee share - unsettled approved vales)
+ *     net = max(0, base - statutory employee share - unsettled approved vales
+ *                  - unpaid leave)
  *
  * with NO term from `ledger_entries`. After-hours work is time, not money.
  *
@@ -80,6 +81,17 @@ describe("netPayForCutoff -- the shared rule", () => {
     },
   );
 
+  it("takes unpaid leave as Postgres prices it, pro-rated cutoffs included", () => {
+    // 2 days at 8000 x 12 / 365 = 526.03, the figure unpaid-leave-pay.test.mjs
+    // gets from unpaid_leave_due for the same helper.
+    expect(netPayForCutoff(8000, "semi_monthly", 500, 1, 526.03)).toBeCloseTo(2786.47, 2);
+    expect(netPayForCutoff(8000, "semi_monthly", 0, 3 / 15, 263.01)).toBeCloseTo(
+      800 - 37.5 - 263.01,
+      2,
+    );
+    expect(netPayForCutoff(8000, "semi_monthly", 0, 1, 99_999)).toBe(0);
+  });
+
   it("floors at zero rather than going negative, matching GREATEST(0, ...)", () => {
     // A vale larger than the whole cutoff's pay. Postgres clamps with
     // GREATEST(0, ...); if this side ever returned a negative, the Pay Dial
@@ -102,23 +114,23 @@ describe("netPayForCutoff -- the shared rule", () => {
 });
 
 describe("the other surfaces still implement the same rule", () => {
-  it("initiate_payslip computes net_pay from exactly base - statutory - vales", () => {
-    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-pay-periods.sql"), "utf8");
+  it("initiate_payslip computes net_pay from exactly base - statutory - vales - unpaid leave", () => {
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-unpaid-leave-pay.sql"), "utf8");
 
-    // The current definition of initiate_payslip lives in the pay-periods
-    // migration (O15/O16: missed periods and 13th-month; before that O4's final
-    // cutoff, and C38). If a later migration redefines the
+    // The current definition of initiate_payslip lives in the unpaid-leave
+    // migration (LEAVE_PLAN.md step 5; before that add-pay-periods.sql for
+    // O15/O16, O4's final cutoff, and C38). If a later migration redefines the
     // function, this test must be repointed at that file -- which is itself a
     // useful forcing function, since a redefinition is exactly when the
     // formula could drift.
     expect(sql).toContain("CREATE FUNCTION public.initiate_payslip(");
     expect(sql).toContain(
-      "v_net_pay := GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total);",
+      "v_net_pay := GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total - v_leave_total);",
     );
   });
 
   it("initiate_payslip never reads ledger_entries", () => {
-    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-pay-periods.sql"), "utf8");
+    const sql = readFileSync(resolve(REPO_ROOT, "supabase/add-unpaid-leave-pay.sql"), "utf8");
     const body = sqlCodeOnly(sql.slice(sql.indexOf("CREATE FUNCTION public.initiate_payslip(")));
 
     // C39's first defect: the Pay Dial promised money the payout never
@@ -190,7 +202,9 @@ describe("the other surfaces still implement the same rule", () => {
     }
 
     const src = codeOnly(readFileSync(mobile, "utf8"));
-    expect(src).toContain("Math.max(0, basePay - statutoryEmployeeShare - approvedValeTotal)");
+    expect(src).toContain(
+      "Math.max(0, basePay - statutoryEmployeeShare - approvedValeTotal - unpaidLeaveDeduction)",
+    );
     expect(src).not.toMatch(/ledger|restOwed|rest_owed/i);
 
     // And that the component actually routes through it rather than restating

@@ -19,9 +19,14 @@ import type { PaydayInterval } from "@/features/people/people.types";
  *
  * THE INVARIANT, stated once:
  *
- *     net = max(0, base - statutory employee share - unsettled approved vales)
+ *     net = max(0, base - statutory employee share - unsettled approved vales
+ *                  - unpaid leave)
  *
- * and nothing else. In particular **no term from `ledger_entries`**. After-hours
+ * and nothing else. Unpaid leave (LEAVE_PLAN.md step 5,
+ * supabase/add-unpaid-leave-pay.sql) is days x monthly rate x 12 /
+ * pay_days_per_year; which leave a cutoff takes is Postgres's to say
+ * (`unpaid_leave_due`), so callers pass the peso figure it returns rather than
+ * working out the days themselves. In particular **no term from `ledger_entries`**. After-hours
  * work is TIME, not money (user decision 2026-08-16, C39): rest owed accrues in
  * minutes and is redeemed through `rest_off_requests`, and rest-day premium is
  * explicitly not paid in cash either. There is no peso path out of the ledger
@@ -109,7 +114,7 @@ export function thirteenthMonthEstimate(basicPayEarnedThisYear: number): number 
 
 /**
  * Net take-home for one cutoff. Mirrors `initiate_payslip`'s
- * `GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total)`.
+ * `GREATEST(0, p_base_pay - p_statutory_employee_share - v_vale_total - v_leave_total)`.
  *
  * `unsettledValeTotal` must be approved vales with `settled_in_payslip_id IS
  * NULL` only -- a vale already deducted from a previous cutoff's payout would
@@ -124,11 +129,13 @@ export function netPayForCutoff(
   unsettledValeTotal: number,
   /** Share of the cutoff worked, for a first or final one (workedShareOfCutoff). */
   workedShare = 1,
+  /** What `unpaid_leave_due` says this cutoff takes for unpaid leave, in pesos. */
+  unpaidLeaveDeduction = 0,
 ): number {
   const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(
     monthlyRate,
     paydayInterval,
     workedShare,
   );
-  return Math.max(0, basePay - statutoryEmployeeShare - unsettledValeTotal);
+  return Math.max(0, basePay - statutoryEmployeeShare - unsettledValeTotal - unpaidLeaveDeduction);
 }

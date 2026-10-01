@@ -819,7 +819,10 @@ CREATE TABLE public.leave_requests (
     cancelled_by UUID, cancelled_at TIMESTAMPTZ,
     helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- manager-recorded leave
     helper_ack_at TIMESTAMPTZ, helper_ack_note TEXT,
-    settled_in_payslip_id UUID REFERENCES public.payslips(id) ON DELETE SET NULL, -- unpaid, from step 5
+    -- Unpaid only: the payslip that deducted it, like vales. A leave comes off
+    -- whole from the cutoff it ends in (her final cutoff also takes leave
+    -- running past her last day, up to it); a failed payout releases it.
+    settled_in_payslip_id UUID REFERENCES public.payslips(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
@@ -981,6 +984,10 @@ CREATE TABLE public.payslips (
     base_pay NUMERIC(10,2) NOT NULL,
     statutory_employee_share NUMERIC(10,2) NOT NULL,
     vale_deductions NUMERIC(10,2) NOT NULL DEFAULT 0,
+    -- Unpaid leave it deducted, snapshotted (supabase/add-unpaid-leave-pay.sql):
+    -- days x monthly_rate x 12 / pay_days_per_year. net_pay subtracts it.
+    unpaid_leave_days INT NOT NULL DEFAULT 0,
+    unpaid_leave_deduction NUMERIC(10,2) NOT NULL DEFAULT 0,
     net_pay NUMERIC(10,2) NOT NULL,
     currency TEXT NOT NULL DEFAULT 'PHP',
     payout_provider TEXT NOT NULL DEFAULT 'xendit',

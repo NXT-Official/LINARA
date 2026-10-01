@@ -24,6 +24,9 @@ export interface PayslipRow {
   base_pay: number;
   statutory_employee_share: number;
   vale_deductions: number;
+  /** From supabase/add-unpaid-leave-pay.sql; absent before it is applied. */
+  unpaid_leave_days?: number;
+  unpaid_leave_deduction?: number;
   net_pay: number;
   /** Columns from supabase/add-pay-periods.sql; absent before it is applied. */
   kind?: PayslipKind;
@@ -302,6 +305,41 @@ export const getThirteenthMonthFn = createServerFn({ method: "POST" })
       payableFrom: r.payable_from as string,
       dueBy: r.due_by as string,
     };
+  });
+
+export type UnpaidLeaveDue = { days: number; deduction: number };
+
+/**
+ * The unpaid leave a payslip for each cutoff would take, from the same
+ * Postgres function the payout uses (`unpaid_leave_due`), so an estimate
+ * can't pick different leave than the payment will. `final` is a helper's
+ * last cutoff, which also takes leave running past her last day. Before
+ * add-unpaid-leave-pay.sql is applied there's no such function and no
+ * deduction, so it reads as none.
+ */
+export const getUnpaidLeaveDueFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; items: { helperId: string; cutoffEnd: string; final?: boolean }[] }) =>
+      data,
+  )
+  .handler(async ({ data }): Promise<UnpaidLeaveDue[]> => {
+    const client = createAuthedClient(data.token);
+    return Promise.all(
+      data.items.map(async (item) => {
+        const { data: rows, error } = await client.rpc("unpaid_leave_due", {
+          p_helper_id: item.helperId,
+          p_cutoff_end: item.cutoffEnd,
+          p_final: item.final ?? false,
+        });
+        if (error) {
+          // PGRST202 / 42883: the function isn't there yet.
+          if (error.code === "PGRST202" || error.code === "42883") return { days: 0, deduction: 0 };
+          throw new Error(error.message);
+        }
+        const r = (rows as { leave_days: number; deduction: number }[] | null)?.[0];
+        return { days: Number(r?.leave_days ?? 0), deduction: Number(r?.deduction ?? 0) };
+      }),
+    );
   });
 
 /**
