@@ -16,11 +16,11 @@ import { useSession } from "../hooks/use-session";
  * `_app.tsx` fresh, which builds its own session that re-resolves from the
  * same localStorage tokens this flow just wrote.
  */
-export function ManagerAuthFlow() {
+export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: "signup" | "login" }) {
   const session = useSession();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [mode, setMode] = useState<"signup" | "login">(initialMode);
   const [fullName, setFullName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [email, setEmail] = useState("");
