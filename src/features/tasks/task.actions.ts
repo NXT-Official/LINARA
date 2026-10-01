@@ -235,12 +235,17 @@ export interface TicketRow {
   appointment_id: string | null;
   appointment_title: string | null;
   lead_minutes: number | null;
-  /** oldStartIso since O14; older rows carry a server-formatted oldTime instead. */
+  /**
+   * oldStartIso since O14; older rows carry a server-formatted oldTime
+   * instead. An appointment move sets appointmentTitle; a manager moving the
+   * task by hand (O20) sets movedBy instead. Read by ../LINARA_MOBILE too.
+   */
   reschedule_notice: {
     oldStartIso?: string;
     oldTime?: string;
     oldDate?: string;
-    appointmentTitle: string;
+    appointmentTitle?: string;
+    movedBy?: string;
   } | null;
   scheduled_start: string;
   actual_start: string | null;
@@ -475,9 +480,17 @@ export interface TicketPatch {
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
  * them are just a patch onto one ticket row. */
 export const updateTicketFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; ticketId: string; patch: TicketPatch }) => data)
+  .validator(
+    (data: {
+      token: string;
+      ticketId: string;
+      patch: TicketPatch;
+      /** Whoever has the task after this is reachable now (statusFor != off), so a move may ping her. */
+      notifyHelper?: boolean;
+    }) => data,
+  )
   .handler(async ({ data }) => {
-    const { token, ticketId, patch } = data;
+    const { token, ticketId, patch, notifyHelper } = data;
 
     const dbPatch: Record<string, unknown> = {};
     if (patch.status !== undefined) dbPatch.status = patch.status;
@@ -492,14 +505,84 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.helperId !== undefined) dbPatch.helper_id = patch.helperId;
 
     const authedClient = createAuthedClient(token);
+
+    // A change of time or hands is never silent on her side (plan.md 2.2,
+    // KNOWN_GAPS O20): the same notice an appointment move writes, which her
+    // app shows as "Inilipat" and in Today's "May binago sa schedule mo".
+    const change =
+      patch.scheduledStartIso !== undefined || patch.helperId !== undefined
+        ? await scheduleChange(authedClient, ticketId, patch)
+        : null;
+    if (change?.moved) {
+      dbPatch.reschedule_notice = { oldStartIso: change.oldStartIso, movedBy: change.movedBy };
+    } else if (change?.handedOver) {
+      // A notice about someone else's schedule means nothing to the new assignee.
+      dbPatch.reschedule_notice = null;
+    }
+
     const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);
 
     if (error) {
       throw new Error(error.message);
     }
 
+    if (change && notifyHelper && change.helperId && (change.moved || change.handedOver)) {
+      const from = change.movedBy ? ` mula kay ${change.movedBy}` : "";
+      await pushToHelper(
+        authedClient,
+        change.helperId,
+        change.handedOver
+          ? { title: `Bagong task${from}`, body: change.title, url: "/week" }
+          : { title: "Inilipat ang task", body: `${change.title}: binago ang oras.`, url: "/week" },
+      );
+    }
+
     return { ticketId };
   });
+
+/**
+ * What a patch does to a ticket's schedule: moved in time for the same
+ * helper, or handed to someone else. Done tasks and Unassigned ones concern
+ * no helper's day, so they're neither.
+ */
+export async function scheduleChange(
+  client: ReturnType<typeof createAuthedClient>,
+  ticketId: string,
+  patch: TicketPatch,
+) {
+  const { data: row, error } = await client
+    .from("tickets")
+    .select("title, status, helper_id, scheduled_start")
+    .eq("id", ticketId)
+    .single();
+  if (error || !row) return null;
+
+  const helperId: string | null = patch.helperId !== undefined ? patch.helperId : row.helper_id;
+  const live = row.status !== "done" && helperId !== null;
+  const handedOver = live && helperId !== row.helper_id;
+  const moved =
+    live &&
+    !handedOver &&
+    patch.scheduledStartIso !== undefined &&
+    new Date(patch.scheduledStartIso).getTime() !== new Date(row.scheduled_start).getTime();
+  if (!moved && !handedOver) return null;
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  const { data: me } = user
+    ? await client.from("user_profiles").select("full_name").eq("id", user.id).single()
+    : { data: null };
+
+  return {
+    title: row.title as string,
+    helperId,
+    moved,
+    handedOver,
+    oldStartIso: new Date(row.scheduled_start).toISOString(),
+    movedBy: (me?.full_name as string | null | undefined) ?? undefined,
+  };
+}
 
 /** dismissSuggestion/withdraw -- a suggested task a manager or remote admin
  * discards outright, not just marked done. */

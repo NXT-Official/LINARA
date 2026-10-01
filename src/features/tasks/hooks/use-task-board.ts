@@ -99,6 +99,7 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
             ? movedFromLabel(row.reschedule_notice.oldStartIso, row.scheduled_start)
             : undefined,
           appointmentTitle: row.reschedule_notice.appointmentTitle,
+          movedBy: row.reschedule_notice.movedBy,
         }
       : undefined,
     afterHours: row.is_after_hours || undefined,
@@ -136,6 +137,7 @@ export function useTaskBoard({
   token,
   ready,
   activeHelperIds,
+  isReachable,
 }: {
   nowTs: number;
   /** Real helper_profiles rows (any status), for resolving a task/routine's station
@@ -144,6 +146,9 @@ export function useTaskBoard({
   /** Helpers still employed here. A routine assigned to someone who has left
    * (O4) stops respawning; omitted means every helper counts as active. */
   activeHelperIds?: string[];
+  /** Whether a helper may be pinged right now (statusFor != off). A move or
+   * hand-over pings only her; the rest see it next time they open the app. */
+  isReachable?: (helperId: string) => boolean;
   onComplete: (record: CompletionRecord) => void;
   isOnline?: boolean;
   token: string | null;
@@ -380,6 +385,7 @@ export function useTaskBoard({
           scheduledStartIso: edit.scheduledStartIso,
           helperId: edit.helperId,
         },
+        notifyHelper: !!edit.helperId && !!isReachable?.(edit.helperId),
       },
     })
       .then(async () => {

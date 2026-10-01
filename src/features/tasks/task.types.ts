@@ -25,8 +25,12 @@ export type Task = {
    * day it is planned for (addTask falls back to the board's day). */
   scheduledDate?: string;
   leadMinutes?: number; // lead offset before the appointment, in minutes
-  /** Set when an appointment move shifted this task; movedFrom is "6:00 PM" / "Thu 6:00 PM". */
-  rescheduleNotice?: { movedFrom?: string; appointmentTitle: string };
+  /**
+   * Set when this task's time changed: with appointmentTitle when its
+   * appointment moved, with movedBy when a manager moved it by hand (O20).
+   * movedFrom is "6:00 PM" / "Thu 6:00 PM".
+   */
+  rescheduleNotice?: { movedFrom?: string; appointmentTitle?: string; movedBy?: string };
   afterHours?: boolean;
   emergency?: boolean;
   queuedForShift?: boolean; // waiting for Rosa's next working period

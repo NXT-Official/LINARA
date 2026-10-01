@@ -105,6 +105,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
   const activeHelperIds = useMemo(() => activeHelpers.map((h) => h.id), [activeHelpers]);
+  // Read at call time: reachability is worked out below, after the board exists.
+  const reachableRef = useRef<string[]>([]);
   const board = useTaskBoard({
     nowTs: clock.nowTs,
     helpers,
@@ -113,6 +115,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
     token: session.token,
     ready: session.status === "authed",
+    isReachable: (helperId) => reachableRef.current.includes(helperId),
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment
@@ -131,6 +134,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         .map((h) => h.id),
     [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, timeOff.list],
   );
+  reachableRef.current = reachableHelperIds;
 
   const appointments = useAppointments({
     token: session.token,
