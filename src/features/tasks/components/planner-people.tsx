@@ -5,7 +5,7 @@ import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants"
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay, summarizeSchedule } from "@/features/shifts/shift.utils";
-import { timeOffOn, timeOffWindow, type TimeOff } from "@/features/shifts/time-off";
+import { describeTimeOff, timeOffOn, type TimeOff } from "@/features/shifts/time-off";
 import { toISODate, weekdayOf } from "@/lib/time";
 
 import { cellKey, type RoutineGhost } from "../planner.utils";
@@ -165,7 +165,7 @@ export function PlannerPeople({
                     {off && <p className="px-3 pt-2 text-xs text-muted-foreground">Day off</p>}
                     {hers.map((o) => (
                       <p key={o.id} className="px-3 pt-2 text-xs text-muted-foreground">
-                        {o.status === "approved" ? "Off" : "Asked off"} {timeOffWindow(o)}
+                        {describeTimeOff(o)}
                       </p>
                     ))}
                     {tasks.length + ghosts.length > 0 && (

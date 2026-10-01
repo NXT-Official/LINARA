@@ -10,7 +10,7 @@ import { isRestDay } from "@/features/shifts/shift.utils";
 import {
   approvedTimeOffAt,
   timeOffOn,
-  timeOffWindow,
+  describeTimeOff,
   type TimeOff,
 } from "@/features/shifts/time-off";
 import {
@@ -269,10 +269,7 @@ export function TaskPlanner({
   const timeOffNotes = (dayIso: string) =>
     timeOffOn(timeOff, dayIso)
       .filter((o) => matchesWho(o.helperId))
-      .map(
-        (o) =>
-          `${findHelper(o.helperId, helpers).short} ${o.status === "approved" ? "off" : "asked off"} ${timeOffWindow(o)}`,
-      );
+      .map((o) => describeTimeOff(o, findHelper(o.helperId, helpers).short));
 
   const offOn = (day: Date) =>
     activeHelpers

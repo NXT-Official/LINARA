@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { statusFor } from "@/features/availability/availability.utils";
+import type { LeaveRequest } from "@/features/leave/leave.types";
 import type { RestOffRequestRow } from "@/features/ledger/rest-off.actions";
 import { setHouseholdTimeZone } from "@/lib/time";
 
 import type { ScheduleStore } from "./hooks/use-schedules";
-import { approvedTimeOffAt, timeOffFromRestOff, timeOffWindow, type TimeOff } from "./time-off";
+import {
+  approvedTimeOffAt,
+  describeTimeOff,
+  timeOffFromLeave,
+  timeOffFromRestOff,
+  timeOffWindow,
+  type TimeOff,
+} from "./time-off";
 
 const row = (over: Partial<RestOffRequestRow>): RestOffRequestRow => ({
   id: "r1",
@@ -68,6 +76,7 @@ describe("statusFor with time off", () => {
       startMin: 780,
       endMin: 1020,
       status: "approved",
+      kind: "rest_off",
     },
   ];
   // Friday Oct 2 2026, 2 PM in Manila.
@@ -86,5 +95,42 @@ describe("statusFor with time off", () => {
     setHouseholdTimeZone("Asia/Manila");
     const manual = { availableUntil: twoPm + 60 * 60_000 };
     expect(statusFor("h1", schedules, twoPm, manual, off).status).toBe("available");
+  });
+});
+
+describe("leave as time off", () => {
+  const leave = (over: Partial<LeaveRequest>): LeaveRequest => ({
+    id: "l1",
+    helperId: "h1",
+    kind: "sil",
+    reason: "vacation",
+    startDate: "2026-10-05",
+    endDate: "2026-10-07",
+    days: 3,
+    minutes: 0,
+    note: null,
+    status: "approved",
+    declineReason: null,
+    helperAck: null,
+    helperAckNote: null,
+    ...over,
+  });
+
+  it("is one whole day per date it covers, and only while live", () => {
+    const list = timeOffFromLeave([leave({}), leave({ id: "l2", status: "declined" })]);
+    expect(list.map((o) => o.date)).toEqual(["2026-10-05", "2026-10-06", "2026-10-07"]);
+    expect(list[0]).toMatchObject({ startMin: 0, endMin: 1440, kind: "sil" });
+    expect(approvedTimeOffAt(list, "h1", "2026-10-06", 0)).toBeTruthy();
+    expect(approvedTimeOffAt(list, "h1", "2026-10-06", 1439)).toBeTruthy();
+  });
+
+  it("says what it is, with or without a name", () => {
+    const [sil] = timeOffFromLeave([leave({})]);
+    const [asked] = timeOffFromLeave([leave({ kind: "unpaid", status: "pending" })]);
+    const [rest] = timeOffFromRestOff([row({})]);
+    expect(describeTimeOff(sil, "Rosa")).toBe("Rosa on leave (SIL)");
+    expect(describeTimeOff(asked, "Rosa")).toBe("Rosa asked for unpaid leave");
+    expect(describeTimeOff(rest, "Rosa")).toBe("Rosa off 1:00 PM – 5:00 PM");
+    expect(describeTimeOff(asked)).toBe("Asked for unpaid leave");
   });
 });

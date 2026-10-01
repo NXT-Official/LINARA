@@ -271,6 +271,7 @@ describe("TaskPlanner, time off", () => {
       startMin: 420,
       endMin: 600,
       status: "approved" as const,
+      kind: "rest_off" as const,
     },
     {
       id: "o2",
@@ -279,6 +280,7 @@ describe("TaskPlanner, time off", () => {
       startMin: 780,
       endMin: 1020,
       status: "pending" as const,
+      kind: "rest_off" as const,
     },
   ];
 

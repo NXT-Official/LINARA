@@ -149,6 +149,8 @@ export function ManagerPassPage({
         owedPay={owedPay}
         disputedPayments={disputedPayments}
         notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
+        pendingLeave={timeOff.leave.filter((l) => l.status === "pending")}
+        onDecideLeave={canOverride ? (id, d) => void timeOff.decideLeave(id, d) : undefined}
         helpers={helpers}
         activeHelpers={activeHelpers}
         simDate={simDate}
