@@ -1,6 +1,6 @@
 # Leave and days off: plan and scope
 
-Status: **steps 1–3 built (2026-10-02); 4–6 to go. Decisions made 2026-10-02** (bottom of this doc). Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI. Legal assumptions and what's deferred: `LEGAL_CONSIDERATIONS.md`.
+Status: **steps 1–4 built (2026-10-02); 5–6 to go. Decisions made 2026-10-02** (bottom of this doc). Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI. Legal assumptions and what's deferred: `LEGAL_CONSIDERATIONS.md`.
 
 ## What exists today
 
@@ -53,7 +53,7 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 ### Web dashboard (`LINARA`)
 
 - **Pass, Needs you:** pending leave requests, with approve and decline. Approving shows how many of her tasks fall on those days and offers to move them to Unassigned.
-- **Schedule:** leave on the planner (Week, By person, Month) on the shared time-off layer from C70. Routines don't spawn for her on leave days.
+- **Schedule:** leave on the planner (Week, By person, Month) on the shared time-off layer from C70. A routine due on her leave spawns Unassigned instead of on her phone.
 - **People / helper:** balances (SIL left this service year, rest owed), history, "Record leave", and the pay-days-per-year setting.
 - **Availability:** "On leave" counts as off for the send gate and the off-shift checks.
 - **Money:** unpaid leave days and their deduction on the period estimate and the payslip.
@@ -73,7 +73,7 @@ Each step ships on its own.
 1. **Time off on the calendars (done, C70).** No schema change. Approved and pending rest off on the web planner and My Week, and in the off-shift and availability checks. Built as a general "time off" layer that leave plugs into.
 2. **Schema (done, applied 2026-10-02).** `supabase/add-leave.sql`: table, RLS, balances, RPCs, and `pay_days_per_year`. Tested in PGlite (`supabase/tests/leave.test.mjs`, part of `npm run test:sql`). Apply by hand to the sandbox project. Its policy is read-only and every write goes through a function, the pattern C72 then applied to the older money tables.
 3. **Request and decide (done 2026-10-02).** Helper app: the leave card on My Pay (ask, cancel, confirm or dispute recorded leave), leave on My Week and in her status on Today. Web: Needs you approves and declines; People shows balances, history and disputes, Record leave, and the pay-days setting. Leave reaches the planner, availability and the gate through the step-1 layer.
-4. **Tasks and routines on leave days.** The move-to-Unassigned prompt; routines skip her.
+4. **Tasks and routines on leave days (done 2026-10-02).** Approving leave in Needs you, or recording it on People, shows how many of her unfinished tasks fall on those days and moves them to Unassigned unless the manager unticks it (`unassignOpenTasksBetweenFn`; their times stay as they were). A routine due while she has approved time off (leave, or a rest-off window covering its time) spawns Unassigned rather than being skipped, because the work still needs doing; the planner's routine copies show it the same way. No schema change: tasks already allow no helper (`add-unassigned-tasks.sql`). Unassigned tasks drop off her phone through the household-wide Realtime from C71, with no notice, since they're no longer hers.
 5. **Pay.** The unpaid deduction in `initiate_payslip`, both `net-pay.ts` files, the Pay Dial and both payslip views. The riskiest step: three surfaces have to agree on net pay (see `net-pay.ts`'s header).
 6. **Record.** Leave on My Record and in its PDF.
 

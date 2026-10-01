@@ -39,7 +39,12 @@ export type ManagerPassTabProps = {
   notices: Invite[];
   pendingLeave: LeaveRequest[];
   /** Absent for remote admins. */
-  onDecideLeave?: (id: string, decision: "approved" | "declined") => void;
+  leaveTaskCounts?: Record<string, number>;
+  onDecideLeave?: (
+    id: string,
+    decision: "approved" | "declined",
+    opts: { unassignTasks: boolean },
+  ) => void;
   helpers: Helper[];
   activeHelpers: Helper[];
   simDate: Date;
@@ -83,6 +88,7 @@ export function ManagerPassTab({
   disputedPayments,
   notices,
   pendingLeave,
+  leaveTaskCounts,
   onDecideLeave,
   helpers,
   activeHelpers,
@@ -244,6 +250,7 @@ export function ManagerPassTab({
         disputedPayments={disputedPayments}
         notices={notices}
         pendingLeave={pendingLeave}
+        leaveTaskCounts={leaveTaskCounts}
         onDecideLeave={onDecideLeave}
       />
 

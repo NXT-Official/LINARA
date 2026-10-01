@@ -12,6 +12,8 @@ import {
   startOfWeek,
   stepAnchor,
 } from "./planner.utils";
+import type { TimeOff } from "@/features/shifts/time-off";
+
 import type { Routine, Task } from "./task.types";
 
 const day = (iso: string) => {
@@ -142,6 +144,28 @@ describe("routineGhosts", () => {
 
   it("leaves out a helper who has left", () => {
     expect(routineGhosts([routine()], week, "2026-09-27", [], ["h2"]).size).toBe(0);
+  });
+
+  it("goes to Unassigned while its helper has approved time off then", () => {
+    const off = (over: Partial<TimeOff> = {}): TimeOff => ({
+      id: "l1:2026-09-30",
+      helperId: "h1",
+      date: "2026-09-30",
+      startMin: 0,
+      endMin: 24 * 60,
+      status: "approved",
+      kind: "sil",
+      ...over,
+    });
+    const on = (list: TimeOff[]) =>
+      routineGhosts([routine()], week, "2026-09-27", [], ["h1"], list).get("2026-09-30")?.[0]
+        .helperId;
+    expect(on([])).toBe("h1");
+    expect(on([off()])).toBeNull();
+    // Only approved time off, and only when it covers the routine's time.
+    expect(on([off({ status: "pending" })])).toBe("h1");
+    expect(on([off({ kind: "rest_off", startMin: 13 * 60, endMin: 17 * 60 })])).toBe("h1");
+    expect(on([off({ kind: "rest_off", startMin: 6 * 60, endMin: 8 * 60 })])).toBeNull();
   });
 });
 

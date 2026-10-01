@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
+import { useOpenTaskCounts } from "@/features/leave/hooks/use-open-task-counts";
 import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
@@ -118,6 +119,11 @@ export function ManagerPassPage({
   const active = onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs));
   const upcoming = onBoard.filter((t) => isLaterThanToday(t, clock.nowTs));
   const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
+  const pendingLeave = timeOff.leave.filter((l) => l.status === "pending");
+  const leaveTaskCounts = useOpenTaskCounts(
+    canOverride ? session.token : null,
+    pendingLeave.map((l) => ({ key: l.id, ...l })),
+  );
   const gate = useSendGate({
     authorName,
     isRemote,
@@ -149,8 +155,11 @@ export function ManagerPassPage({
         owedPay={owedPay}
         disputedPayments={disputedPayments}
         notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
-        pendingLeave={timeOff.leave.filter((l) => l.status === "pending")}
-        onDecideLeave={canOverride ? (id, d) => void timeOff.decideLeave(id, d) : undefined}
+        pendingLeave={pendingLeave}
+        leaveTaskCounts={leaveTaskCounts}
+        onDecideLeave={
+          canOverride ? (id, d, opts) => void timeOff.decideLeave(id, d, opts) : undefined
+        }
         helpers={helpers}
         activeHelpers={activeHelpers}
         simDate={simDate}

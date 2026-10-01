@@ -116,6 +116,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     token: session.token,
     ready: session.status === "authed",
     isReachable: (helperId) => reachableRef.current.includes(helperId),
+    timeOff: timeOff.list,
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment

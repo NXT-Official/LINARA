@@ -202,7 +202,12 @@ export function RoutineGhostRow({
       </span>
       {!hideWho && (
         <span className="mt-1 block truncate text-xs text-muted-foreground">
-          {findHelper(routine.helperId, helpers).short}
+          {ghost.helperId ? findHelper(ghost.helperId, helpers).short : "Unassigned"}
+        </span>
+      )}
+      {!ghost.helperId && (
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          {findHelper(routine.helperId, helpers).short} is off then
         </span>
       )}
     </li>

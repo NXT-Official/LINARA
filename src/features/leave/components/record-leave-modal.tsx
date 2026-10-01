@@ -5,6 +5,8 @@ import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
 import type { RecordLeaveInput } from "@/features/shifts/hooks/use-time-off";
 
+import { useOpenTaskCounts } from "../hooks/use-open-task-counts";
+
 import { LEAVE_KIND_HINT, LEAVE_KIND_LABEL, LEAVE_REASON_LABEL } from "../leave.constants";
 import type { LeaveKind, LeaveReason } from "../leave.types";
 
@@ -19,12 +21,15 @@ const inputCls =
 export function RecordLeaveModal({
   helperName,
   helperId,
+  token,
   defaultDate,
   onClose,
   onRecord,
 }: {
   helperName: string;
   helperId: string;
+  /** For counting her tasks on the chosen days. */
+  token: string | null;
   /** YYYY-MM-DD the dates start on: today. */
   defaultDate: string;
   onClose: () => void;
@@ -37,8 +42,12 @@ export function RecordLeaveModal({
   const [endDate, setEndDate] = useState(defaultDate);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [keepTasks, setKeepTasks] = useState(false);
 
   const valid = !!startDate && !!endDate && endDate >= startDate;
+  const taskCount =
+    useOpenTaskCounts(token, valid ? [{ key: "range", helperId, startDate, endDate }] : []).range ??
+    0;
 
   const submit = async () => {
     if (!valid || saving) return;
@@ -50,6 +59,7 @@ export function RecordLeaveModal({
       startDate,
       endDate,
       note: note.trim() || undefined,
+      unassignTasks: taskCount > 0 && !keepTasks,
     });
     setSaving(false);
     if (saved) onClose();
@@ -128,6 +138,24 @@ export function RecordLeaveModal({
             className={inputCls}
           />
         </Field>
+        {valid && taskCount > 0 && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl bg-background/60 p-3 ring-1 ring-border/20">
+            <input
+              type="checkbox"
+              checked={!keepTasks}
+              onChange={(e) => setKeepTasks(!e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {taskCount} of {helperName}'s unfinished {taskCount === 1 ? "task is" : "tasks are"}{" "}
+                on these days.
+              </span>{" "}
+              Move {taskCount === 1 ? "it" : "them"} to Unassigned so someone else can take{" "}
+              {taskCount === 1 ? "it" : "them"}.
+            </span>
+          </label>
+        )}
       </div>
       <div className="mt-5 flex items-center justify-end gap-2">
         <button

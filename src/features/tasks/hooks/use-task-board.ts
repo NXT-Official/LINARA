@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
+import type { TimeOff } from "@/features/shifts/time-off";
 import {
   combineDateAndTime,
   householdNow,
@@ -29,7 +30,7 @@ import {
   type TicketRow,
 } from "../task.actions";
 import type { Recurrence, Routine, Status, Task } from "../task.types";
-import { movedFromLabel, routineMatches } from "../task.utils";
+import { movedFromLabel, routineAssignee, routineMatches } from "../task.utils";
 
 export type AddTaskFlags = {
   afterHours?: boolean;
@@ -138,6 +139,7 @@ export function useTaskBoard({
   ready,
   activeHelperIds,
   isReachable,
+  timeOff = [],
 }: {
   nowTs: number;
   /** Real helper_profiles rows (any status), for resolving a task/routine's station
@@ -149,6 +151,8 @@ export function useTaskBoard({
   /** Whether a helper may be pinged right now (statusFor != off). A move or
    * hand-over pings only her; the rest see it next time they open the app. */
   isReachable?: (helperId: string) => boolean;
+  /** Approved time off: a routine due while its helper is away spawns Unassigned. */
+  timeOff?: TimeOff[];
   onComplete: (record: CompletionRecord) => void;
   isOnline?: boolean;
   token: string | null;
@@ -516,7 +520,7 @@ export function useTaskBoard({
               token,
               title: r.title,
               notes: r.note,
-              helperId: r.helperId,
+              helperId: routineAssignee(r, toISODate(targetDate), timeOff),
               scheduledStartIso: combineDateAndTime(toISODate(targetDate), r.time),
               recurrence: encodeRecurrence(r.recurrence),
               routineId: r.id,

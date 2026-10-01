@@ -366,6 +366,47 @@ export const listTicketsBetweenFn = createServerFn({ method: "POST" })
     })) as unknown as TicketRow[];
   });
 
+/**
+ * A helper's unfinished tasks scheduled in [fromIso, toIso): what a leave over
+ * those days would leave without anyone (LEAVE_PLAN.md step 4).
+ */
+export const countOpenTasksBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { count, error } = await client
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("helper_id", data.helperId)
+      .neq("status", "done")
+      .gte("scheduled_start", data.fromIso)
+      .lt("scheduled_start", data.toIso);
+    if (error) throw new Error(error.message);
+    return count ?? 0;
+  });
+
+/**
+ * Moves those same tasks to Unassigned, so they're on the managers' board to
+ * hand to someone else instead of on the phone of someone who's away. Their
+ * time stays as it was. Returns how many moved.
+ */
+export const unassignOpenTasksBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client
+      .from("tickets")
+      // A notice about her schedule means nothing once the task isn't hers.
+      .update({ helper_id: null, reschedule_notice: null })
+      .eq("helper_id", data.helperId)
+      .neq("status", "done")
+      .gte("scheduled_start", data.fromIso)
+      .lt("scheduled_start", data.toIso)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return rows?.length ?? 0;
+  });
+
 /** Creates one ticket -- addTask, and each freshly spawned routine instance. */
 export const insertTicketFn = createServerFn({ method: "POST" })
   .validator(

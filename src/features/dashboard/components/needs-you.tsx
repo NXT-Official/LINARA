@@ -53,6 +53,7 @@ export function NeedsYou({
   disputedPayments = [],
   notices = [],
   pendingLeave = [],
+  leaveTaskCounts = {},
   onDecideLeave,
 }: {
   blocked: Task[];
@@ -76,10 +77,18 @@ export function NeedsYou({
   notices?: Invite[];
   /** Leave she asked for, waiting on a manager. */
   pendingLeave?: LeaveRequest[];
+  /** Her unfinished tasks on each pending leave's days, by leave id. */
+  leaveTaskCounts?: Record<string, number>;
   /** Absent for remote admins: only on-site managers decide leave. */
-  onDecideLeave?: (id: string, decision: "approved" | "declined") => void;
+  onDecideLeave?: (
+    id: string,
+    decision: "approved" | "declined",
+    opts: { unassignTasks: boolean },
+  ) => void;
 }) {
   const [replyId, setReplyId] = useState<string | null>(null);
+  // Leave ids whose tasks the manager chose to leave with her.
+  const [keepTasks, setKeepTasks] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
@@ -420,6 +429,8 @@ export function NeedsYou({
             })}
             {pendingLeave.map((l) => {
               const helper = findHelper(l.helperId, helpers);
+              const taskCount = leaveTaskCounts[l.id] ?? 0;
+              const unassignTasks = taskCount > 0 && !keepTasks[l.id];
               return (
                 <div key={l.id} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2">
@@ -436,16 +447,35 @@ export function NeedsYou({
                     {LEAVE_REASON_LABEL[l.reason]}
                     {l.note ? ` · "${l.note}"` : ""}
                   </p>
+                  {onDecideLeave && taskCount > 0 && (
+                    <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={unassignTasks}
+                        onChange={(e) =>
+                          setKeepTasks((prev) => ({ ...prev, [l.id]: !e.target.checked }))
+                        }
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                      />
+                      <span>
+                        <span className="font-semibold text-foreground">
+                          {taskCount} of {helper.short}'s{" "}
+                          {taskCount === 1 ? "task is" : "tasks are"} on those days.
+                        </span>{" "}
+                        Move {taskCount === 1 ? "it" : "them"} to Unassigned when you approve.
+                      </span>
+                    </label>
+                  )}
                   {onDecideLeave && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
-                        onClick={() => onDecideLeave(l.id, "approved")}
+                        onClick={() => onDecideLeave(l.id, "approved", { unassignTasks })}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
                         <Check className="h-3.5 w-3.5" /> Approve
                       </button>
                       <button
-                        onClick={() => onDecideLeave(l.id, "declined")}
+                        onClick={() => onDecideLeave(l.id, "declined", { unassignTasks: false })}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-3.5 w-3.5" /> Decline

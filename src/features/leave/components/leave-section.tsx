@@ -201,6 +201,7 @@ export function LeaveSection({
         <RecordLeaveModal
           helperName={recordingFor.short}
           helperId={recordingFor.id}
+          token={token}
           defaultDate={todayIso}
           onClose={() => setRecordingFor(null)}
           onRecord={onRecord}

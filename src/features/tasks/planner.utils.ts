@@ -3,6 +3,7 @@
 // the household's calendar.
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
+import type { TimeOff } from "@/features/shifts/time-off";
 import {
   parseISODate,
   parseTimeToMinutes,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/time";
 
 import type { Routine, Task } from "./task.types";
-import { byStart, routineMatches } from "./task.utils";
+import { byStart, routineAssignee, routineMatches } from "./task.utils";
 
 /** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
 export type PlanView = "week" | "people" | "month";
@@ -85,14 +86,19 @@ export const isMovable = (t: Task): boolean => t.status === "todo" || t.status =
 /** The By person drop-target key for one person's day, as PlannerDrag.overDay holds it. */
 export const cellKey = (dayIso: string, helperId: string | null) => `${dayIso}|${helperId ?? ""}`;
 
-/** A routine's copy on a day it hasn't spawned yet: shown greyed, not a real task. */
-export type RoutineGhost = { routine: Routine; dayIso: string };
+/**
+ * A routine's copy on a day it hasn't spawned yet: shown greyed, not a real
+ * task. `helperId` is who it will go to: null (Unassigned) when the routine's
+ * helper has approved time off then.
+ */
+export type RoutineGhost = { routine: Routine; dayIso: string; helperId: string | null };
 
 /**
  * The routines that will spawn on each day after today, by day. Routines only
  * become real tasks when that day starts (useTaskBoard's startNewDay), so a
  * later week would otherwise look emptier than it will be. A day that already
- * has the routine's task, or a helper who has left, gets no copy.
+ * has the routine's task, or a helper who has left, gets no copy. One due
+ * while its helper has approved time off is shown as Unassigned, as it will spawn.
  */
 export function routineGhosts(
   routines: Routine[],
@@ -100,6 +106,7 @@ export function routineGhosts(
   todayIso: string,
   tasks: Task[],
   activeHelperIds: string[],
+  timeOff: TimeOff[] = [],
 ): Map<string, RoutineGhost[]> {
   const spawned = new Set(
     tasks.filter((t) => t.routineId).map((t) => `${t.routineId}|${taskDayIso(t)}`),
@@ -117,7 +124,7 @@ export function routineGhosts(
           !spawned.has(`${r.id}|${dayIso}`),
       )
       .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
-      .map((routine) => ({ routine, dayIso }));
+      .map((routine) => ({ routine, dayIso, helperId: routineAssignee(routine, dayIso, timeOff) }));
     if (ghosts.length > 0) byDay.set(dayIso, ghosts);
   }
   return byDay;

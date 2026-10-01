@@ -58,6 +58,9 @@ const dayName = (iso: string) =>
     day: "numeric",
   });
 
+// A stable empty list, so the memos below don't recompute every render.
+const NO_TIME_OFF: TimeOff[] = [];
+
 /**
  * Plan ahead: the week as a board of days, the same week as a row per person,
  * or the month as a calendar. Any task opens to edit; a waiting one can be
@@ -74,7 +77,7 @@ export function TaskPlanner({
   activeHelpers,
   appointments,
   scheduleFor,
-  timeOff = [],
+  timeOff = NO_TIME_OFF,
   initialDay,
   onAddOn,
   onOpenTask,
@@ -168,17 +171,23 @@ export function TaskPlanner({
       if (t.appointmentId) map.set(t.appointmentId, (map.get(t.appointmentId) ?? 0) + 1);
     return map;
   }, [tasks]);
-  const ghosts = useMemo(
-    () =>
-      routineGhosts(
-        routines.filter((r) => matchesWho(r.helperId)),
-        days,
-        todayIso,
-        tasks ?? [],
-        activeHelpers.map((h) => h.id),
-      ),
-    [routines, days, todayIso, tasks, activeHelpers, matchesWho],
-  );
+  // Filtered by who each copy will go to, which time off can make Unassigned.
+  const ghosts = useMemo(() => {
+    const all = routineGhosts(
+      routines,
+      days,
+      todayIso,
+      tasks ?? [],
+      activeHelpers.map((h) => h.id),
+      timeOff,
+    );
+    const out = new Map<string, RoutineGhost[]>();
+    for (const [day, list] of all) {
+      const mine = list.filter((g) => matchesWho(g.helperId));
+      if (mine.length > 0) out.set(day, mine);
+    }
+    return out;
+  }, [routines, days, todayIso, tasks, activeHelpers, timeOff, matchesWho]);
 
   /** Why a task's time is one its helper has off, if it is. */
   const offLabel = (t: Task): string | null => {
@@ -303,7 +312,7 @@ export function TaskPlanner({
     const map = new Map<string, RoutineGhost[]>();
     for (const [day, list] of ghosts)
       for (const g of list) {
-        const key = cellKey(day, g.routine.helperId);
+        const key = cellKey(day, g.helperId);
         map.set(key, [...(map.get(key) ?? []), g]);
       }
     return map;

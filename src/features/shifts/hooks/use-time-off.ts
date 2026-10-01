@@ -8,7 +8,9 @@ import {
   recordLeaveFn,
 } from "@/features/leave/leave.actions";
 import type { LeaveKind, LeaveReason, LeaveRequest } from "@/features/leave/leave.types";
+import { leaveRangeIso } from "@/features/leave/leave.utils";
 import { listRestOffRequestsFn, type RestOffRequestRow } from "@/features/ledger/rest-off.actions";
+import { unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
 
 import { timeOffFromLeave, timeOffFromRestOff, type TimeOff } from "../time-off";
 
@@ -19,6 +21,8 @@ export type RecordLeaveInput = {
   startDate: string;
   endDate: string;
   note?: string;
+  /** Also move her unfinished tasks on those days to Unassigned. */
+  unassignTasks?: boolean;
 };
 
 export type TimeOffStore = {
@@ -29,7 +33,11 @@ export type TimeOffStore = {
   /** Refetch now, e.g. after a manager decides a rest-off request. */
   reload: () => void;
   /** Each resolves true once saved; a refusal is shown as a toast with the server's reason. */
-  decideLeave: (id: string, decision: "approved" | "declined") => Promise<boolean>;
+  decideLeave: (
+    id: string,
+    decision: "approved" | "declined",
+    opts?: { unassignTasks?: boolean },
+  ) => Promise<boolean>;
   recordLeave: (input: RecordLeaveInput) => Promise<boolean>;
   cancelLeave: (id: string) => Promise<boolean>;
 };
@@ -79,45 +87,83 @@ export function useTimeOff({
   );
 
   const run = useCallback(
-    async (write: () => Promise<unknown>, done: string, failed: string) => {
+    async (
+      write: () => Promise<unknown>,
+      done: string,
+      failed: string,
+      after?: () => Promise<void>,
+    ) => {
       try {
         await write();
-        toast.success(done);
-        return true;
       } catch (err) {
         // The database's own reasons ("Not enough service incentive leave: ...")
         // say what to do, so they're shown as they are.
         toast.error(err instanceof Error ? err.message : failed);
-        return false;
-      } finally {
         reload();
+        return false;
       }
+      toast.success(done);
+      // A follow-up reports its own failure: what `write` saved stays saved.
+      await after?.();
+      reload();
+      return true;
     },
     [reload],
   );
 
+  /**
+   * Once leave is approved, her unfinished tasks on those days go to
+   * Unassigned (LEAVE_PLAN.md step 4). The leave itself is already saved, so
+   * a failure here says so rather than calling the whole thing failed.
+   */
+  const unassignDuring = useCallback(
+    async (helperId: string, startDate: string, endDate: string) => {
+      if (!token) return;
+      try {
+        const moved = await unassignOpenTasksBetweenFn({
+          data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
+        });
+        if (moved > 0)
+          toast.success(`${moved} ${moved === 1 ? "task" : "tasks"} moved to Unassigned.`);
+      } catch (err) {
+        console.error("[useTimeOff] Failed to move tasks off leave days:", err);
+        toast.error(
+          "Leave saved, but the tasks on those days couldn't be moved. Move them on Schedule.",
+        );
+      }
+    },
+    [token],
+  );
+
   const decideLeave = useCallback(
-    (id: string, decision: "approved" | "declined") =>
-      token
-        ? run(
-            () => decideLeaveFn({ data: { token, requestId: id, decision } }),
-            decision === "approved" ? "Leave approved." : "Leave declined.",
-            "Couldn't save that decision.",
-          )
-        : Promise.resolve(false),
-    [token, run],
+    (id: string, decision: "approved" | "declined", opts?: { unassignTasks?: boolean }) => {
+      if (!token) return Promise.resolve(false);
+      const request = leave.find((l) => l.id === id);
+      return run(
+        () => decideLeaveFn({ data: { token, requestId: id, decision } }),
+        decision === "approved" ? "Leave approved." : "Leave declined.",
+        "Couldn't save that decision.",
+        decision === "approved" && opts?.unassignTasks && request
+          ? () => unassignDuring(request.helperId, request.startDate, request.endDate)
+          : undefined,
+      );
+    },
+    [token, run, leave, unassignDuring],
   );
 
   const recordLeave = useCallback(
-    (input: RecordLeaveInput) =>
+    ({ unassignTasks, ...input }: RecordLeaveInput) =>
       token
         ? run(
             () => recordLeaveFn({ data: { token, ...input } }),
             "Leave recorded. She'll be asked to confirm it.",
             "Couldn't record that leave.",
+            unassignTasks
+              ? () => unassignDuring(input.helperId, input.startDate, input.endDate)
+              : undefined,
           )
         : Promise.resolve(false),
-    [token, run],
+    [token, run, unassignDuring],
   );
 
   const cancelLeave = useCallback(

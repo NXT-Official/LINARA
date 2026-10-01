@@ -1,3 +1,4 @@
+import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
   fromHouseholdClock,
   isoToDisplayTime,
@@ -20,6 +21,15 @@ export const routineMatches = (r: Routine, wd: Weekday): boolean => {
   if (r.recurrence === "daily") return true;
   return r.recurrence.includes(wd);
 };
+
+/**
+ * Who a routine's task goes to on a day: its helper, or no one (Unassigned)
+ * when she has approved time off at its time (leave, or a rest-off window).
+ * The work still needs doing, so it lands where a manager will hand it on
+ * rather than on the phone of someone who's away (LEAVE_PLAN.md step 4).
+ */
+export const routineAssignee = (r: Routine, dayIso: string, timeOff: TimeOff[]): string | null =>
+  approvedTimeOffAt(timeOff, r.helperId, dayIso, parseTimeToMinutes(r.time)) ? null : r.helperId;
 
 // The market run is the one task that carries the grocery list and its budget.
 export const isPalengke = (t: Task) => /pal[eé]ngke|marketing run/i.test(t.title);
