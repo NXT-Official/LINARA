@@ -1,19 +1,46 @@
 import { AlertCircle, Check, Package, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
+
 import type { PantryStore } from "../hooks/use-pantry";
-import { PANTRY_CATEGORIES } from "../pantry.types";
-import { AddPantryItemModal } from "./add-pantry-item-modal";
+import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
+import { PantryItemModal } from "./pantry-item-modal";
 import { PantryRow } from "./pantry-row";
 
-/** Stock levels grouped by category, lows first. Shown to managers and the Cook alike. */
+type PantryFilter = "all" | "low" | PantryCategory;
+const FILTER_CHIPS: { key: PantryFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "low", label: "Low" },
+  ...PANTRY_CATEGORIES.map((c) => ({ key: c, label: c })),
+];
+
+/**
+ * Stock levels grouped by category, lows first, with search and a filter.
+ * Shown to managers and the Cook alike.
+ */
 export function PantrySection({ pantry }: { pantry: PantryStore }) {
-  const { items, adjust: onAdjust, setQty: onSetQty, add: onAdd, remove: onRemove } = pantry;
+  const {
+    items,
+    adjust: onAdjust,
+    setQty: onSetQty,
+    add: onAdd,
+    edit: onEdit,
+    remove: onRemove,
+  } = pantry;
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<PantryItem | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<PantryFilter>("all");
   const lowCount = items.filter((i) => i.qty <= i.par).length;
+  const shown = items.filter(
+    (i) =>
+      matchesQuery(i.name, query) &&
+      (filter === "all" || (filter === "low" ? i.qty <= i.par : i.category === filter)),
+  );
   const grouped = PANTRY_CATEGORIES.map((cat) => ({
     cat,
-    items: items
+    items: shown
       .filter((i) => i.category === cat)
       .sort((a, b) => (a.qty <= a.par ? -1 : 1) - (b.qty <= b.par ? -1 : 1)),
   })).filter((g) => g.items.length > 0);
@@ -51,7 +78,28 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
         </div>
       </div>
 
+      {items.length > 0 && (
+        <div className="mt-4">
+          <ListFilter
+            query={query}
+            onQuery={setQuery}
+            chips={FILTER_CHIPS}
+            active={filter}
+            onChip={setFilter}
+            label="Search pantry"
+          />
+        </div>
+      )}
+
       <div className="mt-4 space-y-4">
+        {items.length === 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nothing in the pantry yet. Add what you keep at home.
+          </p>
+        )}
+        {items.length > 0 && grouped.length === 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground">Nothing matches.</p>
+        )}
         {grouped.map((g) => (
           <div key={g.cat}>
             <div className="mb-2 px-1 text-xs font-semibold text-muted-foreground">{g.cat}</div>
@@ -62,6 +110,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
                   item={i}
                   onAdjust={onAdjust}
                   onSetQty={onSetQty}
+                  onEdit={setEditing}
                   onRemove={onRemove}
                 />
               ))}
@@ -71,11 +120,26 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
       </div>
 
       {adding && (
-        <AddPantryItemModal
+        <PantryItemModal
           onClose={() => setAdding(false)}
-          onAdd={(item) => {
+          onSave={(item) => {
             onAdd(item);
             setAdding(false);
+          }}
+        />
+      )}
+      {editing && (
+        <PantryItemModal
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSave={(item) => {
+            onEdit(editing.id, {
+              name: item.name,
+              unit: item.unit,
+              par: item.par,
+              category: item.category,
+            });
+            setEditing(null);
           }}
         />
       )}

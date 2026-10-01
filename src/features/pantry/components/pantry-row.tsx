@@ -1,4 +1,4 @@
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { PantryItem } from "../pantry.types";
@@ -7,15 +7,20 @@ export function PantryRow({
   item,
   onAdjust,
   onSetQty,
+  onEdit,
   onRemove,
 }: {
   item: PantryItem;
   onAdjust: (id: string, delta: number) => void;
   onSetQty: (id: string, qty: number) => void;
+  onEdit: (item: PantryItem) => void;
   onRemove: (id: string) => void;
 }) {
   const low = item.qty <= item.par;
   const [editing, setEditing] = useState(false);
+  // Removing takes a second click (client feedback, 2026-10-02: deletes
+  // shouldn't be one tap).
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [draft, setDraft] = useState(String(item.qty));
   useEffect(() => {
     setDraft(String(item.qty));
@@ -31,7 +36,17 @@ export function PantryRow({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="group inline-flex min-w-0 items-center gap-1 text-left"
+            aria-label={`Edit ${item.name}`}
+          >
+            <span className="truncate text-sm font-semibold text-foreground group-hover:underline">
+              {item.name}
+            </span>
+            <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
+          </button>
           {low && (
             <span className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-1.5 py-0.5 text-xs font-bold text-white">
               Low
@@ -82,13 +97,30 @@ export function PantryRow({
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
-        <button
-          onClick={() => onRemove(item.id)}
-          className="ml-1 grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-          aria-label={`Remove ${item.name}`}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {confirmingRemove ? (
+          <span className="ml-1 inline-flex items-center gap-1 text-xs">
+            <button
+              onClick={() => onRemove(item.id)}
+              className="rounded-lg bg-destructive px-2 py-1 font-semibold text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </button>
+            <button
+              onClick={() => setConfirmingRemove(false)}
+              className="rounded-lg px-2 py-1 font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Keep
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setConfirmingRemove(true)}
+            className="ml-1 grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
+            aria-label={`Remove ${item.name}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

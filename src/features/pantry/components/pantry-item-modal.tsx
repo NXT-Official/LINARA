@@ -5,26 +5,35 @@ import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pant
 
 import { Modal } from "@/components/shared/modal";
 
-export function AddPantryItemModal({
+/**
+ * Add a pantry item, or edit one (`initial`). Editing leaves the stock
+ * count alone: that's the row's − / + and its own number field.
+ */
+export function PantryItemModal({
+  initial,
   onClose,
-  onAdd,
+  onSave,
 }: {
+  initial?: PantryItem;
   onClose: () => void;
-  onAdd: (item: Omit<PantryItem, "id">) => void;
+  onSave: (item: Omit<PantryItem, "id">) => void;
 }) {
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unit, setUnit] = useState("pcs");
-  const [par, setPar] = useState("1");
-  const [category, setCategory] = useState<PantryCategory>("Pantry");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [qty, setQty] = useState(String(initial?.qty ?? 1));
+  const [unit, setUnit] = useState(initial?.unit ?? "pcs");
+  const [par, setPar] = useState(String(initial?.par ?? 1));
+  const [category, setCategory] = useState<PantryCategory>(initial?.category ?? "Pantry");
   const valid = name.trim().length > 0 && !isNaN(parseFloat(qty)) && !isNaN(parseFloat(par));
 
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between">
-        <h3 className="font-display text-xl text-foreground">Add pantry item</h3>
+        <h3 className="font-display text-xl text-foreground">
+          {initial ? `Edit ${initial.name}` : "Add pantry item"}
+        </h3>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -40,16 +49,18 @@ export function AddPantryItemModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
-            <input
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              inputMode="decimal"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
-            />
-          </label>
+        <div className={`grid gap-2 ${initial ? "grid-cols-2" : "grid-cols-3"}`}>
+          {!initial && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+              <input
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                inputMode="decimal"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
+              />
+            </label>
+          )}
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
             <input
@@ -94,7 +105,7 @@ export function AddPantryItemModal({
         <button
           disabled={!valid}
           onClick={() =>
-            onAdd({
+            onSave({
               name: name.trim(),
               qty: parseFloat(qty),
               unit: unit.trim() || "pcs",
@@ -104,7 +115,7 @@ export function AddPantryItemModal({
           }
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
-          Add
+          {initial ? "Save" : "Add"}
         </button>
       </div>
     </Modal>

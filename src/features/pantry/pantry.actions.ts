@@ -112,6 +112,34 @@ export const updatePantryItemQtyFn = createServerFn({ method: "POST" })
     return { itemId, qty };
   });
 
+/** Changes an item's details (name, unit, par, shelf). Stock goes through updatePantryItemQtyFn. */
+export const updatePantryItemFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      itemId: string;
+      name: string;
+      unit: string;
+      par: number;
+      category: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, itemId, name, unit, par, category } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("pantry_items")
+      .update({ name, unit, par, category, updated_at: new Date().toISOString() })
+      .eq("id", itemId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { itemId };
+  });
+
 /** Removes a pantry item entirely. */
 export const deletePantryItemFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; itemId: string }) => data)

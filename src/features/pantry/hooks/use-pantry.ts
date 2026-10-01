@@ -5,6 +5,7 @@ import {
   deletePantryItemFn,
   insertPantryItemFn,
   listPantryItemsFn,
+  updatePantryItemFn,
   updatePantryItemQtyFn,
   type PantryItemRow,
 } from "../pantry.actions";
@@ -15,6 +16,8 @@ export type PantryStore = {
   adjust: (id: string, delta: number) => void;
   setQty: (id: string, qty: number) => void;
   add: (item: Omit<PantryItem, "id">) => void;
+  /** Name, unit, par and shelf. Stock goes through setQty. */
+  edit: (id: string, patch: Omit<PantryItem, "id" | "qty">) => void;
   remove: (id: string) => void;
   refresh: () => Promise<void>;
 };
@@ -91,6 +94,25 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       });
   };
 
+  const edit = (id: string, patch: Omit<PantryItem, "id" | "qty">) => {
+    if (!token || !patch.name.trim()) return;
+    updatePantryItemFn({
+      data: {
+        token,
+        itemId: id,
+        name: patch.name.trim(),
+        unit: patch.unit.trim() || "pcs",
+        par: patch.par,
+        category: patch.category,
+      },
+    })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[usePantry] Failed to edit pantry item:", err);
+        toast.error("Hindi na-save ang pantry item.");
+      });
+  };
+
   const remove = (id: string) => {
     if (!token) return;
     setItems((prev) => prev.filter((p) => p.id !== id));
@@ -103,5 +125,5 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       });
   };
 
-  return { items, adjust, setQty, add, remove, refresh };
+  return { items, adjust, setQty, add, edit, remove, refresh };
 }

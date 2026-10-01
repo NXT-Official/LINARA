@@ -8,6 +8,7 @@ import {
   getHouseholdBudgetFn,
   insertGroceryItemFn,
   listGroceryItemsFn,
+  updateGroceryItemFn,
   updateHouseholdBudgetFn,
   type GroceryItemRow,
 } from "../grocery.actions";
@@ -37,8 +38,8 @@ function toGroceryItem(row: GroceryItemRow): GroceryItem {
  * `tickets.photo_evidence_url`, not on any grocery_items row.
  *
  * The displayed list is the real items plus auto-suggestions derived from
- * low pantry stock (suggestions stay purely local/informational -- adding
- * one for real is just addManual).
+ * low pantry stock. A suggestion is local to this browser until someone
+ * adds it (addSuggestion): only real rows reach her list on mobile.
  */
 export function useGroceryList({
   pantry,
@@ -121,6 +122,42 @@ export function useGroceryList({
       });
   };
 
+  const addSuggestion = (item: GroceryItem) => {
+    if (!token || !item.pantryItemId) return;
+    insertGroceryItemFn({
+      data: {
+        token,
+        name: item.name,
+        qty: item.qty,
+        unit: item.unit,
+        pantryItemId: item.pantryItemId,
+      },
+    })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to add suggestion:", err);
+        toast.error("Hindi na-add ang grocery item.");
+      });
+  };
+
+  const edit = (item: GroceryItem, patch: { name: string; qty: number; unit: string }) => {
+    if (!token || isSuggestion(item) || !patch.name.trim()) return;
+    updateGroceryItemFn({
+      data: {
+        token,
+        itemId: item.id,
+        name: patch.name.trim(),
+        qty: patch.qty,
+        unit: patch.unit.trim() || "pcs",
+      },
+    })
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to edit grocery item:", err);
+        toast.error("Hindi na-save ang grocery item.");
+      });
+  };
+
   const remove = (item: GroceryItem) => {
     if (isSuggestion(item)) {
       // Dismiss this suggestion until pantry qty changes and it re-qualifies.
@@ -157,6 +194,9 @@ export function useGroceryList({
     remaining: budget - spent,
     receiptPhoto,
     addManual,
+    addSuggestion,
+    edit,
+    refresh,
     setBudget,
     remove,
   };
