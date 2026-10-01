@@ -45,8 +45,9 @@ the bottom.
 - **Found:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock").
 - **What's missing:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half exists. `LINARA_MOBILE`'s `setGroceryItemBought` (`services/api/grocery.ts`) and `completeTicket` touch only `grocery_items` and `tickets`. No code in either repo, and no trigger, writes `pantry_items.qty` from a purchase, even though `grocery_items.pantry_item_id` links the two.
 - **Blocks:** The pantry↔palengke reconciliation in `plan.md` §2.5. Low-stock items keep showing as low after they've been bought, so they're suggested again.
-- **Current workaround:** Someone sets the stock by hand on the manager Pantry page (`updatePantryItemQtyFn`).
-- **To close:** Decide when stock goes up (when the item is ticked, or when the run is completed) and by how much (`grocery_items.qty`, or up to `par`). Then do it in one place, preferably a DB function or trigger so both apps get it. Items with no `pantry_item_id` need a rule too: create a pantry row, or skip it. Schema side is owned by `LINARA`.
+- **Current workaround:** Someone sets the stock by hand, on the web Pantry page or with − / + on mobile.
+- **Fix written, not yet applied (2026-10-02):** `supabase/add-grocery-restock.sql` adds a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item, and unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Tested in `supabase/tests/grocery-restock.test.mjs`. Both apps can now create linked items: "Add to list" on a web suggestion, "Ilista sa palengke" on mobile.
+- **To close:** Apply `add-grocery-restock.sql` in the SQL editor, then move this to Closed Gaps. Owned by `LINARA`.
 
 ### O24. The web "Hold to record a voice utos" button records nothing
 
