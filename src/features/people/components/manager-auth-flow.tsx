@@ -279,6 +279,18 @@ export function ManagerAuthFlow() {
             Forgot password?
           </Link>
         )}
+
+        <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
+          {mode === "signup" ? "By creating a household you agree to the " : "Linara's "}
+          <Link to="/terms" className="underline underline-offset-4 hover:text-foreground">
+            terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">
+            privacy policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

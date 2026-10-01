@@ -666,15 +666,25 @@ This database structure outlines the PostgreSQL relational mappings required to 
 
 ```sql
 -- 1. Profiles Table (Holds global users)
+--
+-- household_id is nullable since supabase/add-employment-end.sql: a helper
+-- between households (her employment ended, she hasn't joined another)
+-- belongs to none. Managers always have one.
 CREATE TABLE public.user_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    household_id UUID NOT NULL,
+    household_id UUID,
     full_name TEXT NOT NULL,
     user_type TEXT NOT NULL CHECK (user_type IN ('primary_manager', 'co_manager', 'remote_admin', 'helper')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- 2. Helper Profiles (Holds terms of employment)
+--
+-- One row is one EMPLOYMENT (one household, one set of terms), not one
+-- person: the person is user_id. end_helper_employment() (see
+-- supabase/add-employment-end.sql) sets status = 'INACTIVE' and ended_on
+-- without deleting anything; join_household_with_invite() lets the same
+-- account take a new invite. At most one ACTIVE row per user_id.
 CREATE TABLE public.helper_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
@@ -694,6 +704,13 @@ CREATE TABLE public.helper_profiles (
     employment TEXT CHECK (employment IN ('live-in', 'live-out')),
     phone TEXT,
     created_by UUID REFERENCES public.user_profiles(id),
+    started_on DATE, -- her first working day; first pay period starts here (add-pay-periods.sql)
+    notice_last_day DATE, -- notice she gave from her app (give_notice)
+    notice_note TEXT,
+    notice_given_at TIMESTAMP WITH TIME ZONE,
+    ended_on DATE, -- her last working day, once the employment has ended
+    ended_at TIMESTAMP WITH TIME ZONE,
+    ended_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -925,7 +942,10 @@ CREATE TABLE public.payslips (
     net_pay NUMERIC(10,2) NOT NULL,
     currency TEXT NOT NULL DEFAULT 'PHP',
     payout_provider TEXT NOT NULL DEFAULT 'xendit',
-    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA')),
+    kind TEXT NOT NULL DEFAULT 'regular' CHECK (kind IN ('regular', 'thirteenth_month')),
+    -- CASH/BANK_TRANSFER/OTHER: a payment recorded as made outside Linara
+    -- (payout_provider = 'manual'), see supabase/add-pay-periods.sql.
+    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA', 'CASH', 'BANK_TRANSFER', 'OTHER')),
     payout_reference_id TEXT NOT NULL UNIQUE,
     payout_external_id TEXT,
     payout_status TEXT NOT NULL CHECK (payout_status IN ('pending_send', 'processing', 'succeeded', 'failed')) DEFAULT 'pending_send',
@@ -933,6 +953,11 @@ CREATE TABLE public.payslips (
     requested_by UUID REFERENCES public.user_profiles(id),
     requested_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     confirmed_at TIMESTAMP WITH TIME ZONE,
+    paid_on DATE, -- manual payments: the day it was handed over
+    manual_note TEXT,
+    helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- her answer to a manual payment
+    helper_ack_at TIMESTAMP WITH TIME ZONE,
+    helper_ack_note TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -1005,14 +1030,23 @@ CREATE POLICY grocery_items_isolation ON public.grocery_items
     FOR ALL USING (household_id = public.current_household_id());
 
 -- Helper Private Notes Policy (The Privacy Wall)
--- Prevents any non-owner (including managers) from reading/writing notes
+-- Prevents any non-owner (including managers) from reading/writing notes.
+-- Set-valued since supabase/add-employment-end.sql: the old scalar subquery
+-- errored once a helper had a second employment.
 CREATE POLICY helper_notes_privacy ON public.helper_notes
     FOR ALL USING (
-        helper_id = (
-            SELECT id FROM public.helper_profiles
-            WHERE user_id = auth.uid()
+        helper_id IN (
+            SELECT hp.id FROM public.helper_profiles hp
+            WHERE hp.user_id = auth.uid()
         )
     );
+
+-- Her own history, in every household she has worked for (read-only,
+-- supabase/add-employment-end.sql): user_profiles_self_read (id = auth.uid()),
+-- helper_profiles_own_read (user_id = auth.uid()), and payslips_own_read /
+-- rest_off_requests_own_read / tickets_own_read / households_own_history_read,
+-- each an EXISTS through helper_profiles.user_id = auth.uid(). Additive SELECT
+-- policies; every write still goes through the household-scoped ones.
 
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every
@@ -1359,20 +1393,16 @@ All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative 
 
 ### 11.1 Local Environment Variables (`.env`)
 
-Create a `.env` file in the project's root folder:
+Copy `.env.example` to `.env` in the project's root folder and fill in the Supabase URL and anon key:
 
 ```env
-# 1. Supabase Local Configuration Coordinates (Run via Supabase CLI)
 SUPABASE_URL=http://localhost:54321
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsLWVudmlyb25tZW50Ii...
-
-# 2. Security Tokens
-JWT_SECRET=super_secret_local_dev_jwt_key_string_32_chars
-SYSTEM_CRON_SECRET=local_cron_purger_verification_hash_192837
-
-# 3. regional labor parameter configuration
+SUPABASE_ANON_KEY=your_supabase_anon_key
 REGIONAL_MINIMUM_WAGE=6000.00
+USE_MOCK_AI=true
 ```
+
+That file is for local development only. In production the values are split between two stores that never see each other: **Vercel** (the web app's build and server functions) and **Supabase Edge Function secrets** (`supabase/functions/*`). `README.md` §12 lists which variable goes where. Scheduled jobs (the nightly Quick Utos purge) run in Postgres with `pg_cron` and need no secret.
 
 ### 11.2 Run & Verification Procedures
 

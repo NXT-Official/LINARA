@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import type { Helper } from "@/features/people/people.types";
-import { parseTimeToMinutes } from "@/lib/time";
+import { parseTimeToMinutes, toHouseholdClock } from "@/lib/time";
 
 import type { Task } from "../task.types";
 import { byStart, isPastDue, taskWhen } from "../task.utils";
@@ -29,7 +29,7 @@ export function TheBoardStatusLists({
   const todo = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
   const doing = sorted.filter((t) => t.status === "in_progress");
   const done = sorted.filter((t) => t.status === "done");
-  const now = new Date(nowTs);
+  const now = toHouseholdClock(nowTs);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const overdueId = (t: Task) => t.status === "blocked" || isPastDue(t, nowTs);
 

@@ -1,6 +1,6 @@
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import { isMinuteInShift, isRestDay } from "@/features/shifts/shift.utils";
-import { weekdayOf } from "@/lib/time";
+import { toHouseholdClock, weekdayOf } from "@/lib/time";
 
 import { QUIET_END_HOUR, QUIET_START_HOUR } from "./availability.constants";
 import type { ManualAvailability, RosaStatus } from "./availability.types";
@@ -19,7 +19,8 @@ export function statusFor(
   nowTs: number,
   manual?: ManualAvailability | null,
 ): RosaStatus {
-  const d = new Date(nowTs);
+  // Her shift, rest day and quiet hours are the household's clock (O9).
+  const d = toHouseholdClock(nowTs);
   const h = d.getHours();
   const weekday = weekdayOf(d);
   const schedule = helperId ? schedules.scheduleFor(helperId) : undefined;

@@ -5,6 +5,7 @@ import { fmtHM12 } from "@/lib/time";
 
 import {
   cancelInviteFn,
+  endEmploymentFn,
   inviteHelperFn,
   listHelperProfilesFn,
   listInviteFlagsFn,
@@ -43,6 +44,12 @@ export interface HelperProfileRow {
    * active override. */
   manual_status: "available" | "off" | null;
   manual_available_until: string | null;
+  /** Her last working day once the employment has ended (add-employment-end.sql). */
+  ended_on?: string | null;
+  /** add-pay-periods.sql: her first day, and notice she gave from her app. */
+  started_on?: string | null;
+  notice_last_day?: string | null;
+  notice_note?: string | null;
   created_at: string;
 }
 
@@ -70,7 +77,11 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
     phone: row.phone ?? "",
     createdAt: new Date(row.created_at).getTime(),
     createdBy: "Manager",
-    status: row.status === "ACTIVE" ? "active" : "pending",
+    status: row.status === "ACTIVE" ? "active" : row.status === "INACTIVE" ? "ended" : "pending",
+    endedOn: row.ended_on ?? undefined,
+    startedOn: row.started_on ?? row.created_at.slice(0, 10),
+    noticeLastDay: row.notice_last_day ?? undefined,
+    noticeNote: row.notice_note ?? undefined,
     flags,
   };
 }
@@ -139,6 +150,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
         weeklyRestDay: weeklyRestDay >= 0 ? weeklyRestDay : 0,
         employment: data.employment,
         phone: data.phone,
+        startedOn: data.startedOn,
         token,
       },
     });
@@ -176,6 +188,16 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     }
   };
 
+  /** Her last day, and where her open tasks go (another active helper, or
+   * null to remove them). Write-then-refresh: the roster, payroll and
+   * schedules all derive from this list. */
+  const endEmployment = async (id: string, lastDay: string, reassignTo: string | null) => {
+    if (!token) throw new Error("Not authenticated");
+    const result = await endEmploymentFn({ data: { token, helperId: id, lastDay, reassignTo } });
+    await refresh();
+    return result;
+  };
+
   const patch = (id: string, fn: (invite: Invite) => Invite) =>
     setInvites((prev) => prev.map((i) => (i.id === id ? fn(i) : i)));
 
@@ -195,6 +217,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     refresh,
     create,
     cancel,
+    endEmployment,
     updateWage,
     resolveFlag: (inviteId: string, flagId: string) => {
       if (!token) return;

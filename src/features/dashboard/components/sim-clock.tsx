@@ -2,7 +2,7 @@ import { CalendarClock } from "lucide-react";
 import { useState } from "react";
 
 import { useMounted } from "@/hooks/use-mounted";
-import { formatClock } from "@/lib/time";
+import { formatClock, fromHouseholdClock, householdNow } from "@/lib/time";
 
 export function SimClock({
   nowTs,
@@ -21,7 +21,8 @@ export function SimClock({
     hour: number;
     minute?: number;
   }) => {
-    const base = new Date();
+    // Jumps are to the household's clock ("Sunday 7 PM" in the house).
+    const base = householdNow();
     if (opts.toSunday) {
       const dow = base.getDay();
       const add = (7 - dow) % 7 || 7; // next Sunday (never today)
@@ -29,8 +30,14 @@ export function SimClock({
     } else if (opts.dayOffset) {
       base.setDate(base.getDate() + opts.dayOffset);
     }
-    base.setHours(opts.hour, opts.minute ?? 0, 0, 0);
-    onChange(base.getTime() - Date.now());
+    const target = fromHouseholdClock(
+      base.getFullYear(),
+      base.getMonth() + 1,
+      base.getDate(),
+      opts.hour,
+      opts.minute ?? 0,
+    );
+    onChange(target.getTime() - Date.now());
     setOpen(false);
   };
   const isSim = offsetMs !== null;

@@ -1,4 +1,118 @@
 // Calendar + clock helpers shared across features. Pure functions, no React.
+//
+// Wall-clock times are the HOUSEHOLD's, not the device's (KNOWN_GAPS.md O9).
+// A task at 7:30 PM is 7:30 PM in the house, whether the manager reading it
+// is in the living room or in Dubai. The session sets the household's zone
+// (households.timezone) once it knows it; every conversion between a stored
+// instant and a "date + 6:30 PM" pair below goes through it. Until then -- and
+// in tests that don't set one -- the device's own zone is used, as before.
+//
+// Calendar dates in this app (simDate, a routine's day, a cutoff) are plain
+// local Dates at midnight whose fields read the household's calendar. Only
+// the edges that meet a real instant need the zone: toHouseholdClock() for
+// instant -> wall clock, fromHouseholdClock() for wall clock -> instant.
+
+let householdZone: string | undefined;
+
+const isValidZone = (tz: string): boolean => {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Set by the session from households.timezone; null goes back to the device's zone. */
+export function setHouseholdTimeZone(tz: string | null | undefined): void {
+  householdZone = tz && isValidZone(tz) ? tz : undefined;
+}
+
+/** The zone wall-clock times are shown and entered in. */
+export const householdTimeZone = (): string =>
+  householdZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const zoneFormatters = new Map<string, Intl.DateTimeFormat>();
+function wallClockIn(ms: number, tz: string) {
+  let fmt = zoneFormatters.get(tz);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    });
+    zoneFormatters.set(tz, fmt);
+  }
+  const part: Record<string, number> = {};
+  for (const p of fmt.formatToParts(ms)) {
+    if (p.type !== "literal") part[p.type] = Number(p.value);
+  }
+  return {
+    y: part.year,
+    mo: part.month,
+    d: part.day,
+    h: part.hour === 24 ? 0 : part.hour,
+    mi: part.minute,
+    s: part.second,
+  };
+}
+
+const msPart = (ms: number) => ((ms % 1000) + 1000) % 1000;
+
+/**
+ * The household's wall clock at `instant`, as a Date whose LOCAL fields
+ * (getHours, getDay, getDate...) read it -- so toISODate, weekdayOf and the
+ * rest work on it unchanged. For reading and calendar math only: it is not
+ * the same instant, so never send it to the server.
+ */
+export function toHouseholdClock(instant: Date | number | string): Date {
+  const ms = new Date(instant).getTime();
+  if (!householdZone || Number.isNaN(ms)) return new Date(ms);
+  const w = wallClockIn(ms, householdZone);
+  return new Date(w.y, w.mo - 1, w.d, w.h, w.mi, w.s, msPart(ms));
+}
+
+/** The household's "now", read as toHouseholdClock does. */
+export const householdNow = (): Date => toHouseholdClock(Date.now());
+
+/** The instant at which the household's clock reads y-mo-d h:mi (mo is 1-12). */
+export function fromHouseholdClock(y: number, mo: number, d: number, h = 0, mi = 0): Date {
+  if (!householdZone) return new Date(y, mo - 1, d, h, mi, 0, 0);
+  const zone = householdZone;
+  const wanted = Date.UTC(y, mo - 1, d, h, mi);
+  const offsetAt = (ms: number) => {
+    const w = wallClockIn(ms, zone);
+    return Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s) - (ms - msPart(ms));
+  };
+  // Two passes settle the offset across a DST change in the household's zone.
+  let guess = wanted - offsetAt(wanted);
+  guess = wanted - offsetAt(guess);
+  return new Date(guess);
+}
+
+/**
+ * A calendar day plus the household's UTC offset that day, e.g.
+ * "2026-10-01T00:00:00+08:00" -- how a day is sent to the scheduler AI, so
+ * it (and its mock) knows the date and the zone without guessing either.
+ */
+export function householdDayStamp(day: Date): string {
+  const y = day.getFullYear();
+  const mo = day.getMonth() + 1;
+  const d = day.getDate();
+  const offsetMin = Math.round(
+    (Date.UTC(y, mo - 1, d) - fromHouseholdClock(y, mo, d).getTime()) / 60_000,
+  );
+  const sign = offsetMin < 0 ? "-" : "+";
+  const abs = Math.abs(offsetMin);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `${toISODate(day)}T00:00:00${sign}${hh}:${mm}`;
+}
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -68,27 +182,27 @@ export const computePrepSchedule = (
   return { date: toISODate(dt), time: formatDisplayTime(dt.getHours() * 60 + dt.getMinutes()) };
 };
 
-// Combine a YYYY-MM-DD date and a "6:30 AM"-style display time into a full
-// ISO timestamp -- how a client-side (date, time) pair becomes tickets.scheduled_start.
+// Combine a YYYY-MM-DD date and a "6:30 AM"-style display time, both in the
+// household's time, into a full ISO timestamp -- how a client-side (date,
+// time) pair becomes tickets.scheduled_start.
 export const combineDateAndTime = (dateIso: string, time: string): string => {
   const [y, mo, d] = dateIso.split("-").map(Number);
-  const dt = new Date(y, mo - 1, d, 0, 0, 0, 0);
-  dt.setMinutes(parseTimeToMinutes(time));
-  return dt.toISOString();
+  const minutes = parseTimeToMinutes(time);
+  return fromHouseholdClock(y, mo, d, Math.floor(minutes / 60), minutes % 60).toISOString();
 };
 
-// Start of the local calendar day containing `d`, as an ISO timestamp -- the
+// Start of the household's calendar day `d`, as an ISO timestamp -- the
 // "has this ticket's day already passed" boundary for listTicketsFn.
 export const startOfDayIso = (d: Date): string =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString();
+  fromHouseholdClock(d.getFullYear(), d.getMonth() + 1, d.getDate()).toISOString();
 
 // The reverse of combineDateAndTime -- split a stored ISO timestamp back into
-// its display-time and date-string components.
+// its display-time and date-string components, in the household's time.
 export const isoToDisplayTime = (iso: string): string => {
-  const d = new Date(iso);
+  const d = toHouseholdClock(iso);
   return formatDisplayTime(d.getHours() * 60 + d.getMinutes());
 };
-export const isoToISODate = (iso: string): string => toISODate(new Date(iso));
+export const isoToISODate = (iso: string): string => toISODate(toHouseholdClock(iso));
 
 // Postgres TIME columns (shift_start, shift_end, break_start, break_end) come
 // back from Supabase as "HH:MM:SS", not "HH:MM". Splitting on ":" and reading
@@ -115,7 +229,7 @@ export const displayTimeTo24h = (t: string): string => {
 };
 
 export function formatClock(ts: number) {
-  const d = new Date(ts);
+  const d = toHouseholdClock(ts);
   let h = d.getHours();
   const m = d.getMinutes().toString().padStart(2, "0");
   const s = h >= 12 ? "PM" : "AM";
@@ -127,7 +241,7 @@ export function formatClock(ts: number) {
 
 // "6:05 PM" for a timestamp. Used for utos stamps, ledger rows, and availability windows.
 export function formatTimeOfDay(ts: number): string {
-  const d = new Date(ts);
+  const d = toHouseholdClock(ts);
   const h = d.getHours() % 12 || 12;
   const m = d.getMinutes().toString().padStart(2, "0");
   const suffix = d.getHours() >= 12 ? "PM" : "AM";

@@ -8,7 +8,7 @@ export const corsHeaders = {
 
 interface SchedulerRequest {
   prompt: string;
-  simDate?: string; // ISO 8601 string representing current simulation time
+  simDate?: string; // the board's day with the household's offset, e.g. "2026-10-01T00:00:00+08:00"
 }
 
 // Helper to find the next occurrence of a specific weekday starting from baseline Date
@@ -18,19 +18,40 @@ function getNextWeekdayDate(baseDate: Date, targetDayStr: string): Date {
   if (targetDay === -1) return new Date(baseDate);
 
   const result = new Date(baseDate);
-  const currentDay = result.getDay();
+  const currentDay = result.getUTCDay();
   let daysToAdd = targetDay - currentDay;
   if (daysToAdd < 0) {
     daysToAdd += 7; // Next week's occurrence
   }
-  result.setDate(result.getDate() + daysToAdd);
+  result.setUTCDate(result.getUTCDate() + daysToAdd);
   return result;
+}
+
+// The board's day and the household's UTC offset, from householdDayStamp()
+// ("2026-10-01T00:00:00+08:00"). Day math runs on the UTC fields of a date
+// at UTC midnight, so it never depends on the zone this code runs in -- UTC on
+// the server, anything on a dev machine (KNOWN_GAPS.md O9). An older caller's
+// plain ISO instant still works, read as a Manila day.
+function parseDayStamp(stamp?: string): { day: Date; offset: string } {
+  const m = stamp?.match(/^(\d{4})-(\d{2})-(\d{2})T00:00:00([+-]\d{2}:\d{2})$/);
+  if (m) return { day: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), offset: m[4] };
+  const manila = new Date((stamp ? new Date(stamp) : new Date()).getTime() + 8 * 3_600_000);
+  return {
+    day: new Date(Date.UTC(manila.getUTCFullYear(), manila.getUTCMonth(), manila.getUTCDate())),
+    offset: "+08:00",
+  };
+}
+
+// The instant the household's clock reads `hour`:00 on `day`.
+function atHouseholdHour(day: Date, hour: number, offset: string): Date {
+  const ymd = day.toISOString().slice(0, 10);
+  return new Date(`${ymd}T${String(hour).padStart(2, "0")}:00:00${offset}`);
 }
 
 // Local mock parser for offline development
 function parseMockSchedule(prompt: string, simDateStr?: string) {
   const query = prompt.toLowerCase();
-  const baseline = simDateStr ? new Date(simDateStr) : new Date();
+  const { day: baseline, offset } = parseDayStamp(simDateStr);
 
   // Default targets
   let targetDate = new Date(baseline);
@@ -46,18 +67,17 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
   }
 
   // Parse Time keywords
+  let hour = 8; // default
   if (query.includes("8am") || query.includes("8:00")) {
-    targetDate.setHours(8, 0, 0, 0);
+    hour = 8;
   } else if (query.includes("6am") || query.includes("6:00")) {
-    targetDate.setHours(6, 0, 0, 0);
+    hour = 6;
   } else if (query.includes("12pm") || query.includes("12:00")) {
-    targetDate.setHours(12, 0, 0, 0);
+    hour = 12;
   } else if (query.includes("2pm") || query.includes("14:00")) {
-    targetDate.setHours(14, 0, 0, 0);
-  } else {
-    // Default to 8 AM
-    targetDate.setHours(8, 0, 0, 0);
+    hour = 14;
   }
+  const scheduledAt = atHouseholdHour(targetDate, hour, offset);
 
   // Parse Title keyword
   if (query.includes("flight") || query.includes("airport")) {
@@ -121,7 +141,7 @@ function parseMockSchedule(prompt: string, simDateStr?: string) {
   return {
     appointment: {
       title,
-      scheduledTime: targetDate.toISOString(),
+      scheduledTime: scheduledAt.toISOString(),
     },
     prepTasks,
   };
@@ -173,7 +193,7 @@ serve(async (req) => {
     const systemPrompt = `You are the Linara Temporal Scheduler, a specialized assistant for household organization. Your job is to extract calendar anchors (appointments) and parse relative dependent preparation sequences.
 
 Rules of execution:
-1. Identify the core "Anchor Event" (the appointment) with its title and local date/time. Map it to an ISO 8601 timestamp using the baseline simulation clock date context.
+1. Identify the core "Anchor Event" (the appointment) with its title and local date/time. Map it to an ISO 8601 timestamp using the baseline simulation clock date context. The baseline carries the household's UTC offset (e.g. +08:00): times the user says are the household's local time, so write the timestamp with that same offset.
 2. Identify all relative preparation tasks. Convert lead times expressed in natural language ("12h before", "10 hours before", "45 mins before") into negative integers representing minutes relative to the anchor (e.g. -720 for 12 hours before).
 3. If the user states a task should happen "after", convert it to positive offset minutes.
 4. Set default roles/stations based on context keywords:

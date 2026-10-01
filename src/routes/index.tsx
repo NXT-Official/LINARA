@@ -217,6 +217,14 @@ function LandingPage() {
         role="contentinfo"
       >
         <p>© 2026 Linara Home. Built for dignity, clarity, and household harmony.</p>
+        <p className="mt-2 flex justify-center gap-4">
+          <Link to="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link to="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </p>
       </footer>
     </div>
   );

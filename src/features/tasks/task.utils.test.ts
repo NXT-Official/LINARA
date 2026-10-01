@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Task } from "./task.types";
-import { byStart, isLaterThanToday, isPastDue, taskWhen } from "./task.utils";
+import { byStart, isLaterThanToday, isPastDue, movedFromLabel, taskWhen } from "./task.utils";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -101,5 +101,23 @@ describe("isLaterThanToday", () => {
       scheduledStart: new Date(2026, 9, 1, 8).toISOString(),
     });
     expect(isLaterThanToday(early, now)).toBe(false);
+  });
+});
+
+describe("movedFromLabel", () => {
+  // Local wall-clock times, so the test holds in any time zone.
+  const at = (day: number, h: number) => new Date(2026, 9, day, h, 0).toISOString();
+
+  it("gives just the time when the day didn't change", () => {
+    expect(movedFromLabel(at(1, 18), at(1, 20))).toBe("6:00 PM");
+  });
+
+  it("adds the weekday when it moved to another day this week", () => {
+    // Oct 1, 2026 is a Thursday.
+    expect(movedFromLabel(at(1, 18), at(2, 18))).toBe("Thu 6:00 PM");
+  });
+
+  it("uses the date when it moved a week or more", () => {
+    expect(movedFromLabel(at(1, 18), at(9, 18))).toBe("Oct 1, 6:00 PM");
   });
 });

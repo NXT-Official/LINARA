@@ -8,6 +8,8 @@ import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import {
   combineDateAndTime,
   displayTimeTo24h,
+  householdNow,
+  isoToISODate,
   fmtHM12,
   parseHM,
   parseISODate,
@@ -42,7 +44,7 @@ export function EditTaskModal({
   const [title, setTitle] = useState(task.title);
   const [note, setNote] = useState(task.note ?? "");
   const [date, setDate] = useState(() =>
-    toISODate(task.scheduledStart ? new Date(task.scheduledStart) : new Date()),
+    task.scheduledStart ? isoToISODate(task.scheduledStart) : toISODate(householdNow()),
   );
   const [time, setTime] = useState(() => displayTimeTo24h(task.time));
 

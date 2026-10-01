@@ -59,6 +59,22 @@ Set separately from deploys and **not** cleared by one
 | `USE_MOCK_AI` | the six AI functions — set, so they return canned output |
 | `OPENAI_API_KEY` / provider keys | the AI functions, per `README.md` — **not set yet**; needed only once `USE_MOCK_AI` comes off |
 
+## Scheduled jobs (pg_cron)
+
+Not Edge Functions, but deployed by hand the same way: each is created by the
+migration that defines it, and lives in the database.
+
+| Job | Schedule | Migration |
+| --- | --- | --- |
+| `purge-stale-quick-utos` | `5 * * * *` (hourly) | `add-nightly-utos-purge.sql` |
+
+```sql
+SELECT jobname, schedule, active FROM cron.job;
+SELECT j.jobname, d.status, d.return_message, d.start_time
+  FROM cron.job_run_details d JOIN cron.job j USING (jobid)
+ ORDER BY d.start_time DESC LIMIT 10;
+```
+
 ## Log
 
 Newest first. Record what changed and how it was verified, not just that a

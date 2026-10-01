@@ -7,6 +7,7 @@ import { GroceryProvider } from "@/features/groceries/components/grocery-provide
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
 import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
+import { usePayPeriods } from "@/features/pay/hooks/use-pay-periods";
 import { usePayslips } from "@/features/pay/hooks/use-payslips";
 import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
@@ -62,6 +63,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   });
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
+  const claimedHelperIds = useMemo(
+    () => invites.helperProfiles.filter((p) => p.status !== "PENDING_CLAIM").map((p) => p.id),
+    [invites.helperProfiles],
+  );
+  const payPeriods = usePayPeriods({
+    token: session.token,
+    ready: session.status === "authed",
+    helperIds: claimedHelperIds,
+    payslipsVersion: payslips.payslips
+      .map((p) => `${p.id}:${p.payoutStatus}:${p.helperAck}`)
+      .join(","),
+  });
   const clock = useSimClock();
   const availability = useAvailability({
     nowTs: clock.nowTs,
@@ -88,19 +101,36 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [_boardChannelStatus, setBoardChannelStatus] = useState<string>("INITIALIZING");
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
+  const activeHelperIds = useMemo(() => activeHelpers.map((h) => h.id), [activeHelpers]);
   const board = useTaskBoard({
     nowTs: clock.nowTs,
     helpers,
+    activeHelperIds,
     onComplete: ledger.record,
     isOnline,
     token: session.token,
     ready: session.status === "authed",
   });
 
+  // Helpers who may be pinged right now (statusFor() != "off"). An appointment
+  // move pushes to these only; the rest see the heads-up when they next open
+  // the app (the concept doc's "no pings after hours").
+  const reachableHelperIds = useMemo(
+    () =>
+      activeHelpers
+        .filter((h) => {
+          const row = invites.helperProfiles.find((p) => p.id === h.id);
+          return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
+        })
+        .map((h) => h.id),
+    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs],
+  );
+
   const appointments = useAppointments({
     token: session.token,
     ready: session.status === "authed",
     refreshTasks: board.refresh,
+    reachableHelperIds,
   });
 
   // Who the next Quick Utos goes to -- defaults to whichever active helper is
@@ -111,13 +141,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // resolved eagerly, so a not-yet-loaded currentHelperId doesn't get baked
   // in as a stale default.
   const [pickedUtosHelperId, setPickedUtosHelperId] = useState<string | null>(null);
-  const defaultUtosRecipientId = useMemo(() => {
-    const reachable = activeHelpers.find((h) => {
-      const row = invites.helperProfiles.find((p) => p.id === h.id);
-      return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
-    });
-    return reachable?.id ?? currentHelperId;
-  }, [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, currentHelperId]);
+  const defaultUtosRecipientId = reachableHelperIds[0] ?? currentHelperId;
   const utosRecipientId = pickedUtosHelperId ?? defaultUtosRecipientId;
   const utosRecipientName =
     activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper";
@@ -468,6 +492,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     schedules,
     vales,
     payslips,
+    payPeriods,
     clock,
     availability,
     ledger,
