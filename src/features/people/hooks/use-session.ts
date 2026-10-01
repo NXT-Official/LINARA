@@ -130,7 +130,12 @@ export function useSession(): Session {
   }, []);
 
   const signUp: Session["signUp"] = useCallback(async (data) => {
-    const result = await managerSignUpFn({ data });
+    const result = await managerSignUpFn({
+      data: {
+        ...data,
+        emailRedirectTo: `${window.location.origin}/email-confirmed?for=manager`,
+      },
+    });
     if (result.status === "confirmation_pending") {
       return "confirmation_pending";
     }

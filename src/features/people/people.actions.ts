@@ -209,14 +209,25 @@ async function householdTimeZoneOf(
  */
 export const managerSignUpFn = createServerFn({ method: "POST" })
   .validator(
-    (data: { fullName: string; householdName?: string; email: string; password: string }) => data,
+    (data: {
+      fullName: string;
+      householdName?: string;
+      email: string;
+      password: string;
+      /** Where the confirmation email's link lands (/email-confirmed on this site). */
+      emailRedirectTo?: string;
+    }) => data,
   )
   .handler(async ({ data }) => {
-    const { fullName, householdName, email, password } = data;
+    const { fullName, householdName, email, password, emailRedirectTo } = data;
 
+    // Without emailRedirectTo the link goes to Supabase's Site URL setting,
+    // which pointed at a retired deployment (404). It must also be listed in
+    // Supabase Auth > URL Configuration > Redirect URLs, or Supabase ignores it.
     const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
       email,
       password,
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
     });
 
     if (signUpError && signUpError.code !== "user_already_exists") {
