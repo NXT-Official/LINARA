@@ -40,6 +40,31 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
+### O19. Approved rest off shows on neither side's calendar, and doesn't stop anyone reaching her
+
+- **Found:** 2026-10-01, checking what the Schedule rework (C69) means for the helper's side.
+- **What's missing:** `rest_off_requests` (`supabase/add-rest-off-requests.sql`) holds approved time off: one date and a time window, redeemed from the after-hours balance. The helper requests it on My Pay (`LINARA_MOBILE/app/(app)/pay.tsx`) and a manager approves it on Money (`rest-off-requests.tsx`). Nothing else reads it. The web planner only knows the weekly rest day (`isRestDay`), the helper's My Week (`LINARA_MOBILE/app/(app)/week.tsx`, `lib/week.ts`) only knows the weekly rest day, and availability (`availability.utils.ts`, `LINARA_MOBILE/lib/availability.ts`) ignores it. A manager can plan a task, or send a Quick Utos, into time they approved as hers with no warning.
+- **Blocks:** Trusting either calendar; "available means you may disturb me" (the rest-off migration's own header).
+- **Current workaround:** None.
+- **To close:** No schema change needed. RLS already lets both sides read the rows. Show approved (and pending) windows on the web planner and on My Week, count them as off in `isOutsideShift` and in the availability status on both sides. Both repos.
+
+### O20. Moving or reassigning a task from the planner is silent on the helper's side
+
+- **Found:** 2026-10-01, same review as O19.
+- **What's missing:** `plan.md` §2.2 says schedule changes are never silent, but only appointment moves write `tickets.reschedule_notice` (what drives "Inilipat" on My Week and the moved-tasks banner on Today). A planner drag, a By person reassign (C69) or a date change in Edit task only updates `scheduled_start`/`helper_id`; no notice, no push. Separately, the helper app's Realtime subscription filters `tickets` on `helper_id=eq.<her id>` (`LINARA_MOBILE/hooks/use-realtime-subscription.ts`), which matches the row's new value, so a task reassigned away from her probably stays on her screens until the next refetch. This is likely but not yet tested on a device.
+- **Blocks:** The helper trusting her week once managers plan ahead with the planner.
+- **Current workaround:** None.
+- **To close:** Write a notice on manual moves. `reschedule_notice` is shaped for appointments (`appointmentTitle` is required on both sides), so the shape is a cross-repo contract change. Push when a later-day task moves or changes hands, and refetch on reassign-away (or subscribe without the filter and filter client-side). Both repos.
+
+### O21. There is no vacation or leave, only hour-level rest off in lieu
+
+- **Found:** 2026-10-01, asked whether an approved vacation shows on both sides.
+- **What's missing:** No table, flow or doc covers multi-day leave. RA 10361 (Batas Kasambahay) gives a kasambahay with at least a year of service five days of paid service incentive leave a year; nothing tracks that entitlement, its use, or its pay. `rest_off_requests` is time off in lieu (one date, a time window, debited from after-hours minutes) and is not a substitute.
+- **Blocks:** Showing a vacation on either calendar (there's nothing to show), payslips that reflect paid leave, and the RA 10361 record a helper takes with her.
+- **Current workaround:** A manager can only mark nothing, or move tasks off those days by hand.
+- **To close:** Product decision first (multi-day requests? paid vs unpaid? SIL accrual from start date?), then a schema change applied by hand. Either a `leave_requests` table or a `kind` + date range on `rest_off_requests`, an approval RPC like `decide_rest_off_request`, and display on both calendars plus availability as in O19. Owned by `LINARA` (schema), both repos for UI.
+
+
 ---
 
 ## Closed Gaps
