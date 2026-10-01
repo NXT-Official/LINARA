@@ -40,15 +40,6 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
-### O21. There is no vacation or leave, only hour-level rest off in lieu
-
-- **Found:** 2026-10-01, asked whether an approved vacation shows on both sides.
-- **What's missing:** No table, flow or doc covers multi-day leave. RA 10361 (Batas Kasambahay) gives a kasambahay with at least a year of service five days of paid service incentive leave a year; nothing tracks that entitlement, its use, or its pay. `rest_off_requests` is time off in lieu (one date, a time window, debited from after-hours minutes) and is not a substitute.
-- **Blocks:** Showing a vacation on either calendar (there's nothing to show), payslips that reflect paid leave, and the RA 10361 record a helper takes with her.
-- **Current workaround:** Partly closed 2026-10-02 (LEAVE_PLAN.md steps 1–5): leave can be asked for, recorded, decided and cancelled, and shows on both calendars and in availability (`add-leave.sql`, applied). Approving or recording it offers to move her unfinished tasks on those days to Unassigned, and a routine due while she's off spawns Unassigned. Unpaid leave comes off pay (`add-unpaid-leave-pay.sql`, to apply by hand after `add-leave.sql`). Still missing: leave on her record and its PDF (step 6).
-- **To close:** Follow `LEAVE_PLAN.md`: the 2026-10-01 decision covers both legally required leave and the household's own days off (in kind and unpaid). Its decisions were made 2026-10-02; other legal leave is deferred to `LEGAL_CONSIDERATIONS.md`. Then a schema change applied by hand (`leave_requests`, balances, RPCs, a payslip deduction column) and UI in both repos, shown through the C70 time-off layer. Owned by `LINARA` (schema), both repos for UI.
-
-
 ---
 
 ## Closed Gaps
@@ -3146,6 +3137,23 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Residual:**
   - **Other tables stay household-wide:** `tickets`, `quick_utos`, `appointments`, `pantry_items` and `grocery_items`. Helpers write tickets and the pantry legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap.
   - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
+
+### C73. There was no vacation or leave, only hour-level rest off in lieu (former Open Gap O21)
+
+- **Found / fixed:** found 2026-10-01 (asked whether an approved vacation shows on both sides), built 2026-10-02 in six steps. Plan, decisions and what each step did: `LEAVE_PLAN.md`; legal readings and deferred leave types: `LEGAL_CONSIDERATIONS.md`.
+- **Was:** nothing covered multi-day leave. RA 10361 gives a kasambahay with a year of service five days of paid service incentive leave a year; nothing tracked it, its use, or its pay. `rest_off_requests` (one date, a time window) was the only time off.
+- **Fix:**
+  - **Kinds:** service incentive leave (5 days per service year from her first anniversary), a day off in kind (from rest owed), unpaid leave, and an extra paid day the household gives. Whole days only.
+  - **Schema:** `supabase/add-leave.sql` (applied): `leave_requests`, `pay_days_per_year`, balances, and the request / record / decide / cancel / acknowledge functions. Read-only table; every write is a function.
+  - **Pay:** `supabase/add-unpaid-leave-pay.sql` (**apply by hand after add-leave.sql**): unpaid leave at `days × monthly_rate × 12 ÷ pay_days_per_year` comes off the payslip for the cutoff it ends in, settled like a vale and released on a failed payout; 13th-month pay counts basic pay less it.
+  - **Web:** Needs you decides leave and offers to move her tasks on those days to Unassigned; People shows balances, history and disputes, Record leave and the pay-days setting; leave shows on the planner, in availability and the gate; routines due on her leave spawn Unassigned; the Pay Dial, Money, Past staff, End employment and payslip history show the deduction.
+  - **App:** ask, cancel, confirm or dispute leave on My Pay; leave on My Week and Today; the deduction on My Pay's estimate and payslip history; leave on My Record, its PDF and the shared text.
+  - **Tests:** `supabase/tests/leave.test.mjs` and `unpaid-leave-pay.test.mjs` (PGlite, in `npm run test:sql`), `net-pay.test.ts` in both repos, and unit tests for the planner, Record leave, and the record PDF.
+- **Residual:**
+  - Not yet tried on a device or against the sandbox project.
+  - Half days, other legal leave (maternity, paternity, solo parent, VAWC, special leave for women) and public holidays are deferred (`LEGAL_CONSIDERATIONS.md`).
+  - A leave spanning two cutoffs comes off the later one whole rather than being split; contributions stay on the full monthly rate. Both noted in `LEGAL_CONSIDERATIONS.md` to confirm.
+  - Missed-period estimates on Money don't subtract unpaid leave (nor vale), since those come off whichever payment goes first; the payout itself always does.
 
 ---
 
