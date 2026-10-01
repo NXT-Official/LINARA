@@ -1,6 +1,6 @@
 # Leave and days off: plan and scope
 
-Status: **plan, not built. Decisions made 2026-10-02** (bottom of this doc). Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI. Legal assumptions and what's deferred: `LEGAL_CONSIDERATIONS.md`.
+Status: **steps 1–3 built (2026-10-02); 4–6 to go. Decisions made 2026-10-02** (bottom of this doc). Closes KNOWN_GAPS O21 when done; builds on C70 (time off on the calendars). Spans both repos: `LINARA` owns the schema, and both apps get UI. Legal assumptions and what's deferred: `LEGAL_CONSIDERATIONS.md`.
 
 ## What exists today
 
@@ -71,8 +71,8 @@ As agreed on 2026-10-01: helpers track their legally required leave in Linara, a
 Each step ships on its own.
 
 1. **Time off on the calendars (done, C70).** No schema change. Approved and pending rest off on the web planner and My Week, and in the off-shift and availability checks. Built as a general "time off" layer that leave plugs into.
-2. **Schema (written 2026-10-02, not yet applied).** `supabase/add-leave.sql`: table, RLS, balances, RPCs, and `pay_days_per_year`. Tested in PGlite (`supabase/tests/leave.test.mjs`, part of `npm run test:sql`). Apply by hand to the sandbox project. Unlike the older money tables (KNOWN_GAPS O22), its policy is read-only and every write goes through a function.
-3. **Request and decide.** Helper app request form and balances; web Needs you, People, and Record leave. Leave appears through the step-1 layer.
+2. **Schema (done, applied 2026-10-02).** `supabase/add-leave.sql`: table, RLS, balances, RPCs, and `pay_days_per_year`. Tested in PGlite (`supabase/tests/leave.test.mjs`, part of `npm run test:sql`). Apply by hand to the sandbox project. Unlike the older money tables (KNOWN_GAPS O22), its policy is read-only and every write goes through a function.
+3. **Request and decide (done 2026-10-02).** Helper app: the leave card on My Pay (ask, cancel, confirm or dispute recorded leave), leave on My Week and in her status on Today. Web: Needs you approves and declines; People shows balances, history and disputes, Record leave, and the pay-days setting. Leave reaches the planner, availability and the gate through the step-1 layer.
 4. **Tasks and routines on leave days.** The move-to-Unassigned prompt; routines skip her.
 5. **Pay.** The unpaid deduction in `initiate_payslip`, both `net-pay.ts` files, the Pay Dial and both payslip views. The riskiest step: three surfaces have to agree on net pay (see `net-pay.ts`'s header).
 6. **Record.** Leave on My Record and in its PDF.

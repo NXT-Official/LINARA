@@ -45,7 +45,7 @@ the bottom.
 - **Found:** 2026-10-01, asked whether an approved vacation shows on both sides.
 - **What's missing:** No table, flow or doc covers multi-day leave. RA 10361 (Batas Kasambahay) gives a kasambahay with at least a year of service five days of paid service incentive leave a year; nothing tracks that entitlement, its use, or its pay. `rest_off_requests` is time off in lieu (one date, a time window, debited from after-hours minutes) and is not a substitute.
 - **Blocks:** Showing a vacation on either calendar (there's nothing to show), payslips that reflect paid leave, and the RA 10361 record a helper takes with her.
-- **Current workaround:** A manager can only mark nothing, or move tasks off those days by hand.
+- **Current workaround:** Partly closed 2026-10-02 (LEAVE_PLAN.md steps 1–3): leave can be asked for, recorded, decided and cancelled, and shows on both calendars and in availability (`add-leave.sql`, applied). Still missing: tasks and routines on leave days (step 4), the unpaid deduction on pay (step 5), and leave on her record (step 6).
 - **To close:** Follow `LEAVE_PLAN.md`: the 2026-10-01 decision covers both legally required leave and the household's own days off (in kind and unpaid). Its decisions were made 2026-10-02; other legal leave is deferred to `LEGAL_CONSIDERATIONS.md`. Then a schema change applied by hand (`leave_requests`, balances, RPCs, a payslip deduction column) and UI in both repos, shown through the C70 time-off layer. Owned by `LINARA` (schema), both repos for UI.
 
 
