@@ -201,6 +201,12 @@ export function PasswordResetFlow() {
             <p className="mt-1.5 text-sm text-muted-foreground">
               Helper ka? Buksan ang Linara app sa phone mo at mag-sign in gamit ang bagong password.
             </p>
+            <a
+              href="linaramobile://sign-in"
+              className="mt-5 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+            >
+              Buksan ang Linara app
+            </a>
           </>
         )}
 
@@ -209,7 +215,7 @@ export function PasswordResetFlow() {
             to="/login"
             className="mt-4 block text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
           >
-            Manager? Go to log in
+            {mode === "done" ? "Or sign in here" : "Manager? Go to log in"}
           </Link>
         )}
       </div>
