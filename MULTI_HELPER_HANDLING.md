@@ -87,9 +87,16 @@ Now: `QuickUtos` carries a real `toHelperId` (set from `quick_utos.recipient_id`
 on read), and `onDone`'s `ledger.record({ helperId: u.toHelperId })` uses
 that instead of the ambient `currentHelperId`.
 
-**Not audited by this pass:** other ledger-affecting flows (e.g. whatever
-computes task-completion after-hours time, if anything does yet) — worth a
-separate check before assuming the whole Ledger feature is multi-helper-safe.
+**Task completions — fixed (2026-10-02, KNOWN_GAPS.md O25 → C76):** these used
+to go through the same `ledger.record`, which drops any completion whose
+helper isn't `currentHelperId`, and only when a manager clicked Done on the
+web. Now the database records them (`supabase/add-ticket-ledger.sql`'s trigger
+on `tickets`), for the task's own `helper_id`, whichever app closed it, and
+the web no longer calls `record` for tasks.
+
+**Still open:** `record` keeps its `completion.helperId !== currentHelperId`
+early return, so a Quick Utos done by any helper other than the first active
+one still records nothing, despite the `toHelperId` fix above.
 
 ### Availability / friction wall — fully fixed, including the manual opt-in
 

@@ -155,7 +155,9 @@ export function useTaskBoard({
   isReachable?: (helperId: string) => boolean;
   /** Approved time off: a routine due while its helper is away spawns Unassigned. */
   timeOff?: TimeOff[];
-  onComplete: (record: CompletionRecord) => void;
+  /** Told about each completion as it happens. The after-hours ledger no longer
+   * listens: the database records it for either app (add-ticket-ledger.sql, O25). */
+  onComplete?: (record: CompletionRecord) => void;
   isOnline?: boolean;
   token: string | null;
   ready: boolean;
@@ -278,7 +280,7 @@ export function useTaskBoard({
         // An unassigned task done by a manager is nobody's after-hours work.
         if (status === "done" && cur.status !== "done" && cur.helperId) {
           const start = startedAt ?? nowTs - 5 * 60_000;
-          onComplete({
+          onComplete?.({
             sourceId: cur.id,
             kind: "task",
             title: cur.title,
@@ -312,7 +314,7 @@ export function useTaskBoard({
     if (status === "in_progress" && cur.status !== "in_progress" && !startedAt) startedAt = nowTs;
     if (status === "done" && cur.status !== "done" && cur.helperId) {
       const start = startedAt ?? nowTs - 5 * 60_000;
-      onComplete({
+      onComplete?.({
         sourceId: cur.id,
         kind: "task",
         title: cur.title,

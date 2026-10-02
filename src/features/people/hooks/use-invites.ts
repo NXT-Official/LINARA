@@ -10,11 +10,12 @@ import {
   listHelperProfilesFn,
   listInviteFlagsFn,
   resolveInviteFlagFn,
+  updateHelperPantryRoleFn,
   updateHelperWageFn,
   type InviteFlagRow,
 } from "../people.actions";
 import { WEEKLY_REST_DAY_NAMES } from "../people.constants";
-import type { Invite, InviteFlag, Station } from "../people.types";
+import type { Invite, InviteFlag, PantryRole, Station } from "../people.types";
 
 export type InviteStore = ReturnType<typeof useInvites>;
 
@@ -52,6 +53,8 @@ export interface HelperProfileRow {
   pay_days_per_year?: number;
   notice_last_day?: string | null;
   notice_note?: string | null;
+  /** add-pantry-roles.sql: in charge of the pantry, or buys from the list. */
+  pantry_role?: PantryRole;
   created_at: string;
 }
 
@@ -84,6 +87,7 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
     startedOn: row.started_on ?? row.created_at.slice(0, 10),
     noticeLastDay: row.notice_last_day ?? undefined,
     noticeNote: row.notice_note ?? undefined,
+    pantryRole: row.pantry_role,
     flags,
   };
 }
@@ -213,6 +217,19 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     await refresh();
   };
 
+  /** Shows the new choice at once; puts the old one back if it didn't save. */
+  const setPantryRole = async (id: string, pantryRole: PantryRole) => {
+    if (!token) return;
+    const before = invites.find((i) => i.id === id)?.pantryRole;
+    patch(id, (i) => ({ ...i, pantryRole }));
+    try {
+      await updateHelperPantryRoleFn({ data: { token, helperId: id, pantryRole } });
+    } catch (err) {
+      patch(id, (i) => ({ ...i, pantryRole: before }));
+      throw err;
+    }
+  };
+
   return {
     invites,
     helperProfiles,
@@ -221,6 +238,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     cancel,
     endEmployment,
     updateWage,
+    setPantryRole,
     resolveFlag: (inviteId: string, flagId: string) => {
       if (!token) return;
       // Hide it at once; put it back if the delete didn't go through.

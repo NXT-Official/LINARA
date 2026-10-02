@@ -2,7 +2,13 @@ import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { PantryItem } from "../pantry.types";
+import { STOCK_LABEL, stockState, unitFor } from "../pantry.utils";
 
+/**
+ * One line of the pantry: a row in a hairline-divided list, never its own
+ * box (DESIGN.md: rows inside a card are split by dividers). The name wraps
+ * rather than truncating, and on a phone the count drops under it.
+ */
 export function PantryRow({
   item,
   onAdjust,
@@ -16,7 +22,7 @@ export function PantryRow({
   onEdit: (item: PantryItem) => void;
   onRemove: (id: string) => void;
 }) {
-  const low = item.qty <= item.par;
+  const state = stockState(item);
   const [editing, setEditing] = useState(false);
   // Removing takes a second click (client feedback, 2026-10-02: deletes
   // shouldn't be one tap).
@@ -31,37 +37,42 @@ export function PantryRow({
     setEditing(false);
   };
   return (
-    <div
-      className={`flex items-center gap-3 rounded-2xl border p-2.5 sm:p-3 ${low ? "border-terracotta/40 bg-terracotta-soft/30" : "border-border/70 bg-background/60"}`}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+      <div className="min-w-[10rem] flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <button
             type="button"
             onClick={() => onEdit(item)}
             className="group inline-flex min-w-0 items-center gap-1 text-left"
             aria-label={`Edit ${item.name}`}
           >
-            <span className="truncate text-sm font-semibold text-foreground group-hover:underline">
+            <span className="text-sm font-semibold text-foreground group-hover:underline">
               {item.name}
             </span>
             <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
           </button>
-          {low && (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-1.5 py-0.5 text-xs font-bold text-white">
-              Low
+          {state !== "ok" && (
+            <span
+              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                state === "out"
+                  ? "bg-terracotta text-accent-foreground"
+                  : "bg-terracotta-soft text-accent-foreground"
+              }`}
+            >
+              {STOCK_LABEL[state]}
             </span>
           )}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          par {item.par} {item.unit}
+          Buy more at {item.par} {unitFor(item.par, item.unit)}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <button
           onClick={() => onAdjust(item.id, -1)}
-          className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label="Decrease"
+          disabled={item.qty <= 0}
+          className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground disabled:opacity-40"
+          aria-label={`One less ${item.name}`}
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -78,22 +89,25 @@ export function PantryRow({
                 setEditing(false);
               }
             }}
+            aria-label={`${item.name} on hand`}
             className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
           />
         ) : (
           <button
             onClick={() => setEditing(true)}
             className="min-w-[64px] rounded-lg px-2 py-1 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-secondary"
-            aria-label={`Edit ${item.name} quantity`}
+            aria-label={`Edit how much ${item.name} is on hand`}
           >
             {item.qty}{" "}
-            <span className="text-xs font-normal text-muted-foreground">{item.unit}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {unitFor(item.qty, item.unit)}
+            </span>
           </button>
         )}
         <button
           onClick={() => onAdjust(item.id, 1)}
           className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label="Increase"
+          aria-label={`One more ${item.name}`}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>

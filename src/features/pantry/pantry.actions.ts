@@ -90,6 +90,60 @@ export const insertPantryItemFn = createServerFn({ method: "POST" })
     return { id: row.id as string };
   });
 
+/**
+ * Adds several pantry items at once -- the starter list a new household picks
+ * from (client feedback, 2026-10-02: an empty Pantry gave them nothing to do).
+ * One insert, so it lands whole or not at all.
+ */
+export const insertPantryItemsFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      items: { name: string; qty: number; unit: string; par: number; category: string }[];
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, items } = data;
+    if (items.length === 0) return { count: 0 };
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    const { error } = await authedClient.from("pantry_items").insert(
+      items.map((item) => ({
+        household_id: profile.household_id,
+        name: item.name,
+        qty: item.qty,
+        unit: item.unit,
+        par: item.par,
+        category: item.category,
+      })),
+    );
+
+    if (error) {
+      throw new Error(error.message || "Failed to add pantry items");
+    }
+
+    return { count: items.length };
+  });
+
 /** Sets a pantry item's current quantity -- powers both the +/- adjust
  * buttons and the direct qty edit, which both resolve to an absolute qty
  * client-side before calling this (same "single mutator, callers compute

@@ -43,6 +43,10 @@ export type Admin = {
 };
 
 export type Employment = "live-in" | "live-out";
+/** Who keeps the pantry (supabase/add-pantry-roles.sql): "lead" is in charge
+ * of stock and the palengke list; "runner" buys what's on the list. Both can
+ * say something ran out. */
+export type PantryRole = "lead" | "runner";
 export type InviteFlag = { id: string; field: string; note?: string; at: number };
 export type Invite = {
   id: string;
@@ -72,5 +76,7 @@ export type Invite = {
   noticeNote?: string;
   claimedName?: string;
   claimedAt?: number;
+  /** Unset until add-pantry-roles.sql is applied; People hides the choice then. */
+  pantryRole?: PantryRole;
   flags: InviteFlag[];
 };

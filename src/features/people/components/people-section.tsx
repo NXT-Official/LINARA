@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/shared/avatar";
 
 import { adminPermSummary, adminTypeLabel, REGIONAL_MINIMUM_WAGE } from "../people.constants";
-import type { Admin, Helper, Invite } from "../people.types";
+import type { Admin, Helper, Invite, PantryRole } from "../people.types";
 import { findHelper, initialsOf } from "../people.utils";
 import { EditWageModal } from "./edit-wage-modal";
 import { EndEmploymentModal } from "./end-employment-modal";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
+import { PantryRolePicker } from "./pantry-role-picker";
 
 /** The household roster: admins, and real helpers/pending invites from the database. */
 export function PeopleSection({
@@ -22,6 +23,7 @@ export function PeopleSection({
   onInvite,
   onCancelInvite,
   onUpdateWage,
+  onSetPantryRole,
   helpers,
   activeHelpers,
   token,
@@ -39,6 +41,7 @@ export function PeopleSection({
   ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
   onUpdateWage: (id: string, wagePHP: number) => Promise<void>;
+  onSetPantryRole: (id: string, role: PantryRole) => Promise<void>;
   /** Every helper row, for the pay figures the end-employment preview needs. */
   helpers: Helper[];
   activeHelpers: Helper[];
@@ -182,6 +185,15 @@ export function PeopleSection({
                     <div className="text-xs text-muted-foreground">
                       Claimed her own account · joined via {inv.createdBy}
                     </div>
+                  )}
+
+                  {inv.pantryRole && (
+                    <PantryRolePicker
+                      name={displayName}
+                      role={inv.pantryRole}
+                      canChange={canInvite}
+                      onChange={(role) => onSetPantryRole(inv.id, role)}
+                    />
                   )}
 
                   {inv.wagePHP < REGIONAL_MINIMUM_WAGE && (
