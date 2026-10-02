@@ -3189,6 +3189,18 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - Same change: `/login` forwards a signed-in manager into the app, and the auth redirects replace the history entry, so the browser's Back from the dashboard leaves to the landing page instead of bouncing back to `/login`.
 - **Residual:** a failed restore on load (offline, say) still clears the stored session, as before; in the WebView that clear is what tells the app to hand over a fresh token. Browser-tested 2026-10-02 against the sandbox project with a real manager sign-in: a junk stored token renews on reload, the timer renews after a simulated 56 minutes and the dashboard keeps loading, and a refused refresh token lands on `/login`. Not yet tried in a real tab left open overnight.
 
+### C76. Off-hours work she finished on her phone never reached the after-hours ledger (former Open Gap O25)
+
+- **Found / fixed:** 2026-10-02, while adding tick / untick to the app's "Lahat ng task ngayon" (client feedback: tasks done out of order).
+- **Was:** only the web wrote task entries: `use-task-board.ts` `onComplete` → `use-ledger.ts` `record` → `insertLedgerEntryFn`, when a **manager** clicked Done, and only for `currentHelperId`. Nothing wrote one when the helper finished a task in `LINARA_MOBILE`, although the app told her an off-hours task "naka-log ito bilang rest owed".
+- **Fix:** `supabase/add-ticket-ledger.sql` (**apply by hand after add-cancelled-tasks.sql and fix-helper-write-access.sql, and before the web change below is deployed**).
+  - A trigger on `tickets`: a task becoming `done` gets one `ledger_entries` row (keyed by `associated_ticket_id`, unique) when it was finished off her shift, by the same rules as the web's `statusFor()` + `classify()`: quiet hours, rest day, break, outside her shift, approved rest off or leave; an emergency or off-hours task always counts. Household clock. Minutes from `actual_start` (or 5) to `actual_end`, clamped to now.
+  - Going from `done` to anything else removes that entry, so an untick never leaves rest owed behind.
+  - `SECURITY DEFINER`, so it runs on the helper's own update; she still can't write `ledger_entries` directly (C72).
+  - **Web:** no longer records task entries itself (`onComplete` is now optional and unused), and refreshes the ledger on every ticket change. Quick Utos entries are still written by the web.
+  - PGlite test: `supabase/tests/ticket-ledger.test.mjs` (17 checks, in `npm run test:sql`).
+- **Residual:** between applying the SQL and deploying the web change, a manager's Done on the web counts twice; apply and deploy together. Quick Utos entries still only record for the first active helper (MULTI_HELPER_HANDLING.md, Ledger).
+
 ---
 
 ## Template for New Entries

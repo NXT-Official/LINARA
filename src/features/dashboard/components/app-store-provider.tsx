@@ -113,7 +113,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     nowTs: clock.nowTs,
     helpers,
     activeHelperIds,
-    onComplete: ledger.record,
+    // No onComplete: a task's after-hours entry is written by the database
+    // when it becomes done, from this app or her phone (add-ticket-ledger.sql,
+    // KNOWN_GAPS.md O25), and the tickets listener below refreshes the ledger.
     isOnline,
     token: session.token,
     ready: session.status === "authed",
@@ -193,6 +195,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const pantryRef = useRef(pantry);
   pantryRef.current = pantry;
 
+  const ledgerRef = useRef(ledger);
+  ledgerRef.current = ledger;
+
   // Bumped to rebuild both channels after one closes unexpectedly. A closed
   // channel is removed from the socket and can't be subscribed again.
   const [realtimeEpoch, setRealtimeEpoch] = useState(0);
@@ -245,6 +250,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             console.log("[Realtime] Received tickets table postgres change:", payload);
             boardRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh board:", err);
+            });
+            // A task done or undone may have added or removed rest owed.
+            ledgerRef.current.refresh().catch((err) => {
+              console.error("[Realtime] Failed to refresh ledger:", err);
             });
           },
         )
