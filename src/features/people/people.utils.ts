@@ -124,3 +124,38 @@ export function cutoffsPerMonth(interval: PaydayInterval): 1 | 2 {
 
 export const findHelper = (id: string | null, helpers: Helper[]): Helper =>
   id === null ? UNASSIGNED_HELPER : (helpers.find((h) => h.id === id) ?? UNKNOWN_HELPER);
+
+// Renew the access token this long before it runs out (it lasts about an hour).
+export const RENEW_MARGIN_MS = 5 * 60_000;
+
+/** A JWT's issued-at and expiry in ms, or null when it can't be read. */
+export function jwtTimes(jwt: string): { iat: number; exp: number } | null {
+  try {
+    const part = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const { iat, exp } = JSON.parse(atob(part)) as { iat?: unknown; exp?: unknown };
+    if (typeof iat !== "number" || typeof exp !== "number" || exp <= iat) return null;
+    return { iat: iat * 1000, exp: exp * 1000 };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How long until `jwt` should be renewed (0: now), or null when it can't be
+ * read. A device clock that disagrees with the token (already "expired", or
+ * more time left than it ever had) falls back to the token's own lifetime;
+ * otherwise a clock set ahead would renew nonstop.
+ */
+export function msUntilRenewal(jwt: string, now = Date.now()): number | null {
+  const times = jwtTimes(jwt);
+  if (!times) return null;
+  const lifetime = times.exp - times.iat;
+  const left = times.exp - now;
+  return Math.max(0, (left > 0 && left <= lifetime ? left : lifetime) - RENEW_MARGIN_MS);
+}
+
+/** Whether `jwt` has run out, or nearly, by this device's clock (an unreadable one counts). */
+export function isDueForRenewal(jwt: string, now = Date.now()): boolean {
+  const times = jwtTimes(jwt);
+  return !times || times.exp - now < RENEW_MARGIN_MS;
+}
