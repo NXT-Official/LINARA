@@ -70,6 +70,9 @@ export function EditTaskModal({
 }) {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const cancelled = task.status === "cancelled";
+  // Finished: the record of what she did, to read, not to change (client
+  // feedback, 2026-10-02). Updates stay open; it's a conversation.
+  const locked = task.status === "done";
   const canCancel = !!onCancelTask && (task.status === "todo" || task.status === "blocked");
   const [helperId, setHelperId] = useState<string | null>(task.helperId);
   const assignee = helpers.find((h) => h.id === helperId);
@@ -181,72 +184,91 @@ export function EditTaskModal({
           )}
         </div>
       )}
-      <div className="mt-4 space-y-3">
-        <Field label="Title" error={errors.title}>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            aria-invalid={!!errors.title}
-            className={inputCls}
-          />
-        </Field>
-        <Field label="Assigned to">
-          <select
-            value={helperId ?? ""}
-            onChange={(e) => setHelperId(e.target.value || null)}
-            className={inputCls}
-          >
-            <option value="">Unassigned (decide later)</option>
-            {helpers.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.short} · {h.station}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {helperId === null && (
-          <p className="text-sm text-muted-foreground">
-            Stays on your board only. Nobody sees it on their phone until you assign it.
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Date" error={errors.date}>
+      {locked ? (
+        <dl className="mt-4 divide-y divide-border/70 text-sm">
+          {[
+            ["Title", task.title],
+            ["Assigned to", assignee ? `${assignee.short} · ${assignee.station}` : "Unassigned"],
+            [
+              "When",
+              `${parseISODate(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · ${task.time}`,
+            ],
+            ...(task.note ? [["House-standard note", task.note]] : []),
+          ].map(([term, value]) => (
+            <div key={term} className="flex items-baseline justify-between gap-4 py-2">
+              <dt className="shrink-0 text-muted-foreground">{term}</dt>
+              <dd className="min-w-0 text-right font-semibold text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <Field label="Title" error={errors.title}>
             <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-invalid={!!errors.date}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              aria-invalid={!!errors.title}
               className={inputCls}
             />
           </Field>
-          <Field label="Time" error={errors.time}>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              aria-invalid={!!errors.time}
+          <Field label="Assigned to">
+            <select
+              value={helperId ?? ""}
+              onChange={(e) => setHelperId(e.target.value || null)}
               className={inputCls}
+            >
+              <option value="">Unassigned (decide later)</option>
+              {helpers.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.short} · {h.station}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {helperId === null && (
+            <p className="text-sm text-muted-foreground">
+              Stays on your board only. Nobody sees it on their phone until you assign it.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date" error={errors.date}>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                aria-invalid={!!errors.date}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Time" error={errors.time}>
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                aria-invalid={!!errors.time}
+                className={inputCls}
+              />
+            </Field>
+          </div>
+          {(inTimeOff || outsideShift) && (
+            <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
+              {inTimeOff
+                ? `That's in ${helperName}'s approved time off.`
+                : `That's outside ${helperName}'s shift.`}{" "}
+              Doing it then counts as after-hours work and adds to rest owed.
+            </p>
+          )}
+          <Field label="House-standard note (optional)">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className={`${inputCls} resize-none`}
             />
           </Field>
         </div>
-        {(inTimeOff || outsideShift) && (
-          <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            {inTimeOff
-              ? `That's in ${helperName}'s approved time off.`
-              : `That's outside ${helperName}'s shift.`}{" "}
-            Doing it then counts as after-hours work and adds to rest owed.
-          </p>
-        )}
-        <Field label="House-standard note (optional)">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={`${inputCls} resize-none`}
-          />
-        </Field>
-      </div>
+      )}
       {token && (
         <div className="mt-5 border-t border-border/60 pt-4">
           <TaskUpdates token={token} ticketId={task.id} myUserId={myUserId} />
@@ -284,12 +306,14 @@ export function EditTaskModal({
         >
           Close
         </button>
-        <button
-          onClick={submit}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-        >
-          Save
-        </button>
+        {!locked && (
+          <button
+            onClick={submit}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+          >
+            Save
+          </button>
+        )}
       </div>
     </Modal>
   );
