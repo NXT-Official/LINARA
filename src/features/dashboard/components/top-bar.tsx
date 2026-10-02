@@ -89,7 +89,7 @@ export function TopBar() {
             <button
               onClick={() => {
                 logOut();
-                navigate({ to: "/login" });
+                navigate({ to: "/login", replace: true });
               }}
               title="Log out"
               aria-label="Log out"
