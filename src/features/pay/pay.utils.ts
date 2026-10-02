@@ -19,17 +19,25 @@
  * persisted or compared is computed in Postgres, in the household's timezone.
  */
 
-const CUTOFF_DISPLAY = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric" });
+// Pinned to UTC on purpose. An Intl formatter fixes its time zone when it is
+// built, at module load, while `new Date(...)` reads the zone each time it
+// parses. Parsing in local time and formatting in the zone captured at load
+// shifts the day whenever the two differ: CI (UTC) running the Asia/Manila
+// case printed "Jul 31 - Aug 14". UTC on both sides is the same in every zone.
+const CUTOFF_DISPLAY = new Intl.DateTimeFormat("en-PH", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
 
 /**
- * "Aug 1 - Aug 15" from two ISO dates -- local display only, not sent
- * anywhere. Safe under any client timezone: the `T00:00:00` suffix parses as
- * LOCAL midnight and Intl formats in that same local zone, so the day survives
- * the round trip. (It is only mixing the two -- local components in, UTC out --
- * that broke `currentCutoffRange`.)
+ * "Aug 1 - Aug 15" from two ISO dates -- display only, not sent anywhere.
+ * Safe under any client timezone: each date parses as UTC midnight (`Z`) and
+ * is formatted in UTC, so the day survives the round trip. (It is only mixing
+ * the two zones that breaks the day, as `currentCutoffRange` did.)
  */
 export function formatCutoffRange(cutoffStart: string, cutoffEnd: string): string {
-  const start = CUTOFF_DISPLAY.format(new Date(`${cutoffStart}T00:00:00`));
-  const end = CUTOFF_DISPLAY.format(new Date(`${cutoffEnd}T00:00:00`));
+  const start = CUTOFF_DISPLAY.format(new Date(`${cutoffStart}T00:00:00Z`));
+  const end = CUTOFF_DISPLAY.format(new Date(`${cutoffEnd}T00:00:00Z`));
   return `${start} – ${end}`;
 }
