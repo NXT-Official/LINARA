@@ -346,8 +346,11 @@ export const listTicketsFn = createServerFn({ method: "POST" })
 /**
  * Every ticket scheduled in [fromIso, toIso), whatever its status -- the
  * planner's week or month. Unlike listTicketsFn this includes finished tasks
- * from earlier days, so a past day still shows what happened on it. Evidence
- * photos aren't re-signed: the planner never shows them.
+ * from earlier days, so a past day still shows what happened on it.
+ *
+ * Evidence photos are re-signed in one batch call (a month can hold many).
+ * They used to be blanked here, so a task finished with a photo showed none
+ * on Schedule or in its Edit dialog (client feedback, 2026-10-02).
  */
 export const listTicketsBetweenFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; fromIso: string; toIso: string }) => data)
@@ -366,10 +369,35 @@ export const listTicketsBetweenFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    return (rows ?? []).map((row) => ({
-      ...row,
-      photo_evidence_url: null,
-    })) as unknown as TicketRow[];
+    const paths = (rows ?? []).map((row) =>
+      row.photo_evidence_url ? extractHouseholdEvidencePath(row.photo_evidence_url) : null,
+    );
+    const toSign = [...new Set(paths.filter((p): p is string => p !== null))];
+    const fresh = new Map<string, string>();
+    if (toSign.length > 0) {
+      const { data: signed, error: signError } = await authedClient.storage
+        .from(HOUSEHOLD_EVIDENCE_BUCKET)
+        .createSignedUrls(toSign, SIGNED_URL_EXPIRY_SECONDS);
+      if (signError) {
+        console.error(
+          "[listTicketsBetweenFn] Failed to re-sign evidence photos:",
+          signError.message,
+        );
+      }
+      for (const s of signed ?? []) {
+        if (s.path && s.signedUrl) fresh.set(s.path, s.signedUrl);
+      }
+    }
+
+    return (rows ?? []).map((row, i) => {
+      const path = paths[i];
+      return {
+        ...row,
+        // An unsigned photo (failed signing, or not one of ours) is left out
+        // rather than shown as a broken image.
+        photo_evidence_url: path ? (fresh.get(path) ?? null) : null,
+      };
+    }) as unknown as TicketRow[];
   });
 
 /**

@@ -36,6 +36,8 @@ export type Task = {
   emergency?: boolean;
   queuedForShift?: boolean; // waiting for Rosa's next working period
   startedAt?: number;
+  /** When it was finished (tickets.actual_end), for a done task. */
+  finishedAt?: number;
   createdBy?: string; // display name of admin who created it
   suggested?: boolean; // pending approval by an on-site admin (used for Remote-admin picks)
   pendingSync?: boolean; // offline pending status

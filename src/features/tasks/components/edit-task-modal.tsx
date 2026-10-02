@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, CheckCircle2, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
@@ -11,6 +11,7 @@ import {
   combineDateAndTime,
   displayTimeTo24h,
   householdNow,
+  householdTimeZone,
   isoToISODate,
   fmtHM12,
   parseHM,
@@ -108,7 +109,7 @@ export function EditTaskModal({
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
         <h3 className="font-display text-xl text-foreground">
-          {cancelled ? "Cancelled task" : "Edit task"}
+          {cancelled ? "Cancelled task" : task.status === "done" ? "Done task" : "Edit task"}
         </h3>
         <button
           onClick={onClose}
@@ -118,6 +119,48 @@ export function EditTaskModal({
           <X className="h-4 w-4" />
         </button>
       </div>
+      {task.status === "done" && (
+        // What finishing it left behind: when, by whom, and her photo (client
+        // feedback 2026-10-02: a task finished with a photo showed neither).
+        <div className="mt-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-foreground">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+            Done
+            {(() => {
+              const by = helpers.find((h) => h.id === task.helperId)?.short;
+              return by ? ` by ${by}` : "";
+            })()}
+            {task.finishedAt
+              ? ` · ${new Date(task.finishedAt).toLocaleString("en-US", {
+                  timeZone: householdTimeZone(),
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}`
+              : ""}
+          </p>
+          {task.photo ? (
+            <a
+              href={task.photo}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
+              aria-label="Open the photo full size"
+            >
+              <img
+                src={task.photo}
+                alt="Photo from finishing this task"
+                className="max-h-64 w-full object-cover"
+              />
+            </a>
+          ) : (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Camera className="h-3.5 w-3.5" /> No photo with this one.
+            </p>
+          )}
+        </div>
+      )}
       {cancelled && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
           <span>

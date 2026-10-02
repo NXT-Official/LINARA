@@ -1,4 +1,4 @@
-import { CalendarClock, Check, GripVertical, Plus, Repeat } from "lucide-react";
+import { CalendarClock, Camera, Check, GripVertical, Plus, Repeat } from "lucide-react";
 import type { DragEvent } from "react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
@@ -47,6 +47,9 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground">
         <Check className="h-3.5 w-3.5" /> Done
+        {task.photo && (
+          <Camera className="ml-1 h-3.5 w-3.5" aria-label="Photo attached" role="img" />
+        )}
       </span>
     );
   if (task.status === "cancelled")
