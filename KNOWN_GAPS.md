@@ -3214,6 +3214,30 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - PGlite test: `supabase/tests/pantry-roles.test.mjs` (23 checks, in `npm run test:sql`).
 - **Residual:** a runner can still add a line for a pantry item with any quantity and tick it bought, which raises that item's count by that much. Only a count, and visible on the list, so left alone.
 
+### C78. "Paid outside Linara" failed: its insert named a column that had been dropped
+
+- **Found / fixed:** 2026-10-02, client feedback (screenshot: column "payout_reference_id" of relation "payslips" does not exist).
+- **Was:** `add-payout-attempts.sql` drops `payslips.payout_reference_id`, but `record_offapp_payslip` in `add-pay-periods.sql` and `add-unpaid-leave-pay.sql` still inserted it. The PGlite tests kept the column in `base-schema.sql`, so they passed.
+- **Fix:** both inserts no longer name it (if the column still exists, its default fills it). `pay-periods.test.mjs` and `unpaid-leave-pay.test.mjs` drop the column first, as production has it; without the fix they fail. **Apply `add-unpaid-leave-pay.sql`**, which was also never applied live (the End employment error `unpaid_leave_due(uuid, date, boolean) does not exist`, same report).
+
+### C79. Service incentive leave was fixed to the law's minimum; the household couldn't be more generous
+
+- **Found / fixed:** 2026-10-02, client feedback: "Recorded leave should be a toggle ... if they want to follow 1 year rule, rule should be custom to manager."
+- **Fix:** `supabase/add-leave-policy.sql` (apply after `add-leave.sql`): `households.sil_waits_first_year` (default true, RA 10361) and `sil_days_per_year` (default 5, 5 to 30). Replaces `sil_service_year`, `sil_balance_days` and `leave_guard` with the household's rule; same signatures, so both apps' balances follow. People → Leave shows "Leave rules" for managers. The law is a floor: nothing can go below 5 days or past the first-year start. PGlite: `leave-policy.test.mjs` (14 checks).
+
+### C80. A receipt could only be attached by completing a task titled "palengke"
+
+- **Found / fixed:** 2026-10-02, client feedback: "Receipt attachment is not working."
+- **Was:** LINARA_MOBILE showed a receipt button only inside an open task whose title matched "palengke"/"marketing run" (`getActivePalengkeTicket`), saving to `tickets.photo_evidence_url`. With no such task there was no way to add one, and the web's dashed "No receipt yet" looked like a button but only displayed that task's photo.
+- **Fix:** `supabase/add-grocery-receipts.sql`: `grocery_receipts`, one row per receipt, task optional. The app's Pantry tab has a Resibo card whenever no run is open; a run's receipt is recorded there too. The web lists the latest six. PGlite: `grocery-receipts.test.mjs`.
+- **Storage:** photos are shrunk on the phone to 1200px at 80% JPEG (about 150 to 300 KB). Still open: no retention rule deletes old receipt or task photos.
+
+### C81. "Start new day" moved the board to tomorrow, and the Pass couldn't look at another day
+
+- **Found / fixed:** 2026-10-02, client feedback: unsure whether Start new day clears the board; couldn't move through dates on the Pass ("Pass features need to reflect what is on Schedule").
+- **Was:** the manual button rolled the board to `board_date + 1` (cleared pending Quick Utos, spawned tomorrow's routines). Pressed during the day, the Pass then showed tomorrow (the client's read "Saturday, October 3" on Friday) and nothing brought it back.
+- **Fix:** the manual button is gone; the automatic midnight rollover (C31) is unchanged. A `board_date` ahead of today snaps back on load. The Pass has ‹ › to step through days, showing that day's tasks the way Schedule loads them (`listTicketsBetweenFn`), with "Back to today". The header wraps on a phone instead of printing "End the day" over the date.
+
 ---
 
 ## Template for New Entries

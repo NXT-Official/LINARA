@@ -28,6 +28,8 @@ export type GroceryContextValue = {
    * from grocery_items, which has no photo column (see gap #2's writeup on
    * why a receipt naturally covers many items, not one row). */
   receiptPhoto: string | null;
+  /** Receipts snapped from the app after buying, newest first (any day). */
+  receipts: { id: string; url: string; createdAt: string; byName: string | null }[];
   addManual: (name: string, qty: number, unit: string) => void;
   /** Puts a low-stock suggestion on the real list, so her app shows it too. */
   addSuggestion: (item: GroceryItem) => void;
