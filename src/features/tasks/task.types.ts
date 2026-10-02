@@ -1,7 +1,8 @@
 import type { Station } from "@/features/people/people.types";
 import type { Weekday } from "@/lib/time";
 
-export type Status = "todo" | "in_progress" | "done" | "blocked";
+/** "cancelled" (add-cancelled-tasks.sql): kept for the record, off the board and every to-do count. */
+export type Status = "todo" | "in_progress" | "done" | "blocked" | "cancelled";
 export type Recurrence = "none" | "daily" | Weekday[];
 
 export type Task = {
@@ -21,10 +22,16 @@ export type Task = {
   routineId?: string;
   appointmentId?: string;
   appointmentTitle?: string;
-  scheduledDate?: string; // YYYY-MM-DD, for appointment prep tasks
+  /** YYYY-MM-DD. Read back only for appointment prep tasks; on a new task, the
+   * day it is planned for (addTask falls back to the board's day). */
+  scheduledDate?: string;
   leadMinutes?: number; // lead offset before the appointment, in minutes
-  /** Set when an appointment move shifted this task; movedFrom is "6:00 PM" / "Thu 6:00 PM". */
-  rescheduleNotice?: { movedFrom?: string; appointmentTitle: string };
+  /**
+   * Set when this task's time changed: with appointmentTitle when its
+   * appointment moved, with movedBy when a manager moved it by hand (O20).
+   * movedFrom is "6:00 PM" / "Thu 6:00 PM".
+   */
+  rescheduleNotice?: { movedFrom?: string; appointmentTitle?: string; movedBy?: string };
   afterHours?: boolean;
   emergency?: boolean;
   queuedForShift?: boolean; // waiting for Rosa's next working period
@@ -32,6 +39,9 @@ export type Task = {
   createdBy?: string; // display name of admin who created it
   suggested?: boolean; // pending approval by an on-site admin (used for Remote-admin picks)
   pendingSync?: boolean; // offline pending status
+  /** For a cancelled task: when (ISO) and by whom (name), from the trigger's stamp. */
+  cancelledAt?: string;
+  cancelledBy?: string;
 };
 
 // A recurring template that spawns a Task on matching weekdays.

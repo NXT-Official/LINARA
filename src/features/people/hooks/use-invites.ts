@@ -48,6 +48,8 @@ export interface HelperProfileRow {
   ended_on?: string | null;
   /** add-pay-periods.sql: her first day, and notice she gave from her app. */
   started_on?: string | null;
+  /** add-leave.sql: the unpaid-leave divisor, 365 by default. */
+  pay_days_per_year?: number;
   notice_last_day?: string | null;
   notice_note?: string | null;
   created_at: string;

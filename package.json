@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "deploy:functions": "supabase functions deploy --project-ref tueckhlrrupmnzhblewy",
     "deploy:functions:check": "supabase functions list --project-ref tueckhlrrupmnzhblewy",
-    "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs"
+    "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs && node supabase/tests/ticket-comments.test.mjs && node supabase/tests/leave.test.mjs && node supabase/tests/write-access.test.mjs && node supabase/tests/unpaid-leave-pay.test.mjs && node supabase/tests/cancelled-tasks.test.mjs && node supabase/tests/grocery-restock.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -48,9 +48,9 @@
     "@supabase/supabase-js": "^2.111.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.101.1",
-    "@tanstack/react-router": "^1.170.16",
-    "@tanstack/react-start": "^1.168.26",
-    "@tanstack/router-plugin": "^1.168.18",
+    "@tanstack/react-router": "^1.170.41",
+    "@tanstack/react-start": "^1.168.60",
+    "@tanstack/router-plugin": "^1.168.42",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

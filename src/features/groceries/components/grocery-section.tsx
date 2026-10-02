@@ -1,13 +1,24 @@
 import { Plus, ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
+
 import { useGrocery } from "../grocery-context";
 import { BudgetBar } from "./budget-bar";
 import { GroceryRow } from "./grocery-row";
 import { ReceiptSlot } from "./receipt-slot";
 
+type GroceryFilter = "all" | "to_buy" | "bought";
+const FILTER_CHIPS: { key: GroceryFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "to_buy", label: "To buy" },
+  { key: "bought", label: "Bought" },
+];
+
 export function GrocerySection() {
   const ctx = useGrocery();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<GroceryFilter>("all");
   const [name, setName] = useState("");
   const [qty, setQty] = useState("1");
   const [unit, setUnit] = useState("pcs");
@@ -16,8 +27,11 @@ export function GrocerySection() {
   useEffect(() => {
     setBudgetDraft(String(budget));
   }, [budget]);
-  const toBuy = ctx.display.filter((g) => !g.bought);
-  const bought = ctx.display.filter((g) => g.bought);
+  const toBuyCount = ctx.display.filter((g) => !g.bought).length;
+  const shown = ctx.display.filter((g) => matchesQuery(g.name, query));
+  const toBuy = filter === "bought" ? [] : shown.filter((g) => !g.bought);
+  const bought = filter === "to_buy" ? [] : shown.filter((g) => g.bought);
+  const filtering = query.trim() !== "" || filter !== "all";
   const submit = () => {
     if (!name.trim()) return;
     const n = parseFloat(qty);
@@ -41,7 +55,7 @@ export function GrocerySection() {
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          {toBuy.length} to buy
+          {toBuyCount} to buy
         </span>
       </div>
 
@@ -67,14 +81,35 @@ export function GrocerySection() {
         <BudgetBar compact />
       </div>
 
+      {ctx.display.length > 0 && (
+        <div className="mt-4">
+          <ListFilter
+            query={query}
+            onQuery={setQuery}
+            chips={FILTER_CHIPS}
+            active={filter}
+            onChip={setFilter}
+            label="Search grocery list"
+          />
+        </div>
+      )}
+
       <div className="mt-2 divide-y divide-border/70">
         {toBuy.length === 0 && bought.length === 0 && (
           <div className="py-4 text-center text-sm text-muted-foreground">
-            Pantry is stocked — nothing suggested. Add manual items below.
+            {filtering
+              ? "Nothing matches."
+              : "Pantry is stocked — nothing suggested. Add manual items below."}
           </div>
         )}
         {toBuy.map((g) => (
-          <GroceryRow key={g.id} item={g} onRemove={() => ctx.remove(g)} />
+          <GroceryRow
+            key={g.id}
+            item={g}
+            onRemove={() => ctx.remove(g)}
+            onEdit={(patch) => ctx.edit(g, patch)}
+            onAddSuggestion={() => ctx.addSuggestion(g)}
+          />
         ))}
       </div>
 

@@ -4,20 +4,17 @@ import { LogOut, Wifi, WifiOff } from "lucide-react";
 import { LogoMark } from "@/components/shared/logo";
 
 import { useAppStores } from "../app-store-context";
-import { EndOfDayToggle } from "./end-of-day-toggle";
 // DISABLED 2026-08-15 (see use-sim-clock.ts / KNOWN_GAPS.md C28) -- time
 // simulation caused real testing confusion. Re-enable by restoring this
 // import and the <SimClock> render below.
 // import { SimClock } from "./sim-clock";
 import { ViewAsSwitcher } from "./view-as-switcher";
 
-/** Brand, persona switcher, and (for on-site admins) the end-of-day toggle. */
+/** Brand, persona switcher, and log out. "End the day" lives on the Pass. */
 export function TopBar() {
-  const { session, board, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
-  const { currentAdminId, setCurrentAdminId, admins, adminType, status, logOut } = session;
+  const { session, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
+  const { currentAdminId, setCurrentAdminId, admins, status, logOut } = session;
   const navigate = useNavigate();
-  const { boardClosed, setClosed: onBoardClosedChange } = board;
-  const canEndDay = adminType === "primary" || adminType === "co";
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
@@ -88,7 +85,6 @@ export function TopBar() {
           )}
           {/* DISABLED 2026-08-15 -- see use-sim-clock.ts. */}
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
-          {canEndDay && <EndOfDayToggle closed={boardClosed} onChange={onBoardClosedChange} />}
           {status === "authed" && (
             <button
               onClick={() => {

@@ -1,12 +1,13 @@
 import {
   AlertCircle,
+  Ban,
+  CalendarOff,
   Check,
   ChevronDown,
   Coins,
   MessageCircle,
   Pencil,
   RotateCcw,
-  Trash2,
   X,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -14,13 +15,15 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { CappedList } from "@/components/shared/capped-list";
+import { LEAVE_KIND_LABEL, LEAVE_REASON_LABEL } from "@/features/leave/leave.constants";
+import type { LeaveRequest } from "@/features/leave/leave.types";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import type { Payslip } from "@/features/pay/pay.types";
 import { stationTone } from "@/features/people/people.constants";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
-import { householdTimeZone } from "@/lib/time";
+import { householdTimeZone, parseISODate } from "@/lib/time";
 import { taskWhen } from "@/features/tasks/task.utils";
 
 /** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
@@ -49,6 +52,9 @@ export function NeedsYou({
   owedPay = [],
   disputedPayments = [],
   notices = [],
+  pendingLeave = [],
+  leaveTaskCounts = {},
+  onDecideLeave,
 }: {
   blocked: Task[];
   /** Still To-do past their planned time (isPastDue). */
@@ -69,8 +75,20 @@ export function NeedsYou({
   disputedPayments?: { payslip: Payslip; name: string; left: boolean }[];
   /** Helpers who gave notice from their app. */
   notices?: Invite[];
+  /** Leave she asked for, waiting on a manager. */
+  pendingLeave?: LeaveRequest[];
+  /** Her unfinished tasks on each pending leave's days, by leave id. */
+  leaveTaskCounts?: Record<string, number>;
+  /** Absent for remote admins: only on-site managers decide leave. */
+  onDecideLeave?: (
+    id: string,
+    decision: "approved" | "declined",
+    opts: { unassignTasks: boolean },
+  ) => void;
 }) {
   const [replyId, setReplyId] = useState<string | null>(null);
+  // Leave ids whose tasks the manager chose to leave with her.
+  const [keepTasks, setKeepTasks] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const flagsCount = flaggedInvites.reduce((s, i) => s + i.flags.length, 0);
@@ -78,7 +96,12 @@ export function NeedsYou({
   // a missed payment, and years of history can't grow the box without end.
   const taskCount = blocked.length + pastDue.length;
   const requestCount =
-    disputedPayments.length + notices.length + owedPay.length + pendingVales.length + flagsCount;
+    disputedPayments.length +
+    notices.length +
+    owedPay.length +
+    pendingVales.length +
+    pendingLeave.length +
+    flagsCount;
   const total = taskCount + requestCount;
 
   if (total === 0) {
@@ -213,7 +236,7 @@ export function NeedsYou({
                       {confirmCancelId === t.id ? (
                         <>
                           <span className="text-xs text-foreground">
-                            Remove it from {helper.short}'s list?
+                            Cancel it? It stays on the Schedule, crossed out.
                           </span>
                           <button
                             onClick={() => setConfirmCancelId(null)}
@@ -243,7 +266,7 @@ export function NeedsYou({
                             onClick={() => setConfirmCancelId(t.id)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Cancel task
+                            <Ban className="h-3.5 w-3.5" /> Cancel task
                           </button>
                         </>
                       )}
@@ -404,6 +427,64 @@ export function NeedsYou({
                 </div>
               );
             })}
+            {pendingLeave.map((l) => {
+              const helper = findHelper(l.helperId, helpers);
+              const taskCount = leaveTaskCounts[l.id] ?? 0;
+              const unassignTasks = taskCount > 0 && !keepTasks[l.id];
+              return (
+                <div key={l.id} className="py-3.5 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2">
+                    <Avatar initials={helper.initials} />
+                    <span className="text-xs font-semibold text-foreground">{helper.short}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
+                      <CalendarOff className="h-3 w-3" /> {LEAVE_KIND_LABEL[l.kind]}
+                    </span>
+                  </div>
+                  <h4 className="mt-1.5 text-sm font-semibold text-foreground">
+                    {leaveDates(l)} · {l.days} {l.days === 1 ? "day" : "days"}
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {LEAVE_REASON_LABEL[l.reason]}
+                    {l.note ? ` · "${l.note}"` : ""}
+                  </p>
+                  {onDecideLeave && taskCount > 0 && (
+                    <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={unassignTasks}
+                        onChange={(e) =>
+                          setKeepTasks((prev) => ({ ...prev, [l.id]: !e.target.checked }))
+                        }
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                      />
+                      <span>
+                        <span className="font-semibold text-foreground">
+                          {taskCount} of {helper.short}'s{" "}
+                          {taskCount === 1 ? "task is" : "tasks are"} on those days.
+                        </span>{" "}
+                        Move {taskCount === 1 ? "it" : "them"} to Unassigned when you approve.
+                      </span>
+                    </label>
+                  )}
+                  {onDecideLeave && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => onDecideLeave(l.id, "approved", { unassignTasks })}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Approve
+                      </button>
+                      <button
+                        onClick={() => onDecideLeave(l.id, "declined", { unassignTasks: false })}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" /> Decline
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {flaggedInvites.map((inv) =>
               inv.flags.map((f) => {
                 const displayName = inv.claimedName || inv.name;
@@ -533,3 +614,16 @@ function NeedsYouGroup({
     </div>
   );
 }
+
+const shortDate = (iso: string) =>
+  parseISODate(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+/** "Mon, Oct 5" or "Mon, Oct 5 – Wed, Oct 7". */
+const leaveDates = (l: LeaveRequest) =>
+  l.startDate === l.endDate
+    ? shortDate(l.startDate)
+    : `${shortDate(l.startDate)} – ${shortDate(l.endDate)}`;

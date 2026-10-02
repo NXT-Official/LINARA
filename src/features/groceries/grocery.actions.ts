@@ -45,11 +45,15 @@ export const listGroceryItemsFn = createServerFn({ method: "POST" })
   });
 
 /** Adds a planned item to the list -- list curation, not shopping execution.
- * Always inserts unbought/uncosted; only LINARA_MOBILE ever sets those. */
+ * Always inserts unbought/uncosted; only LINARA_MOBILE ever sets those.
+ * `pantryItemId` links it to the low pantry item it restocks. */
 export const insertGroceryItemFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; name: string; qty: number; unit: string }) => data)
+  .validator(
+    (data: { token: string; name: string; qty: number; unit: string; pantryItemId?: string }) =>
+      data,
+  )
   .handler(async ({ data }) => {
-    const { token, name, qty, unit } = data;
+    const { token, name, qty, unit, pantryItemId } = data;
 
     const authedClient = createAuthedClient(token);
     const {
@@ -73,7 +77,14 @@ export const insertGroceryItemFn = createServerFn({ method: "POST" })
 
     const { data: row, error } = await authedClient
       .from("grocery_items")
-      .insert({ household_id: profile.household_id, name, qty, unit, bought: false })
+      .insert({
+        household_id: profile.household_id,
+        name,
+        qty,
+        unit,
+        pantry_item_id: pantryItemId ?? null,
+        bought: false,
+      })
       .select("id")
       .single();
 
@@ -82,6 +93,27 @@ export const insertGroceryItemFn = createServerFn({ method: "POST" })
     }
 
     return { id: row.id as string };
+  });
+
+/** Fixes a planned item's name or amount. The UI only offers it before it's bought. */
+export const updateGroceryItemFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; itemId: string; name: string; qty: number; unit: string }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { token, itemId, name, qty, unit } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("grocery_items")
+      .update({ name, qty, unit })
+      .eq("id", itemId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { itemId };
   });
 
 /** Removes a planned item. The web UI only ever calls this for `!bought`

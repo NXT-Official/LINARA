@@ -22,13 +22,20 @@ const longDate = (iso: string) =>
  * request is carried out by hand within 30 days
  * (supabase/add-account-deletion.sql), so this records it and shows it can
  * still be withdrawn.
+ *
+ * Kept out of the way on purpose (client feedback, 2026-10-02): the button
+ * sits behind "Account settings", and the request needs the manager's full
+ * name typed out.
  */
 export function AccountSection({
   token,
   activeHelperCount,
+  confirmName,
 }: {
   token: string | null;
   activeHelperCount: number;
+  /** What they type to confirm. Empty falls back to "delete my account". */
+  confirmName: string;
 }) {
   const [request, setRequest] = useState<AccountDeletionRequest | null>(null);
   const [asking, setAsking] = useState(false);
@@ -91,13 +98,25 @@ export function AccountSection({
           </button>
         </div>
       ) : (
-        <button
-          onClick={() => setAsking(true)}
-          disabled={!token}
-          className="mt-4 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
-        >
-          Delete my account
-        </button>
+        <details className="group mt-4">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            Account settings
+            <span className="ml-1 inline-block transition group-open:rotate-90">›</span>
+          </summary>
+          <div className="mt-3 rounded-2xl border border-border px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              Deleting your account removes your household&rsquo;s plans and lists. You&rsquo;ll be
+              asked to confirm.
+            </p>
+            <button
+              onClick={() => setAsking(true)}
+              disabled={!token}
+              className="mt-3 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
+            >
+              Delete my account
+            </button>
+          </div>
+        </details>
       )}
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
@@ -105,6 +124,7 @@ export function AccountSection({
         <DeleteAccountModal
           token={token}
           activeHelperCount={activeHelperCount}
+          confirmName={confirmName}
           onClose={() => setAsking(false)}
           onRequested={(r) => {
             setRequest(r);
@@ -116,17 +136,25 @@ export function AccountSection({
   );
 }
 
+/** Case and spacing don't count, so "maria  santos" matches "Maria Santos". */
+const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
 function DeleteAccountModal({
   token,
   activeHelperCount,
+  confirmName,
   onClose,
   onRequested,
 }: {
   token: string;
   activeHelperCount: number;
+  confirmName: string;
   onClose: () => void;
   onRequested: (request: AccountDeletionRequest) => void;
 }) {
+  const phrase = confirmName.trim() || "delete my account";
+  const [typed, setTyped] = useState("");
+  const confirmed = normalize(typed) === normalize(phrase);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +207,18 @@ function DeleteAccountModal({
             </span>
           </p>
         )}
+        <Field
+          label={`Type ${confirmName.trim() ? "your full name" : "this"}, ${phrase}, to confirm`}
+        >
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={typed.length > 0 && !confirmed}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+        </Field>
         <Field label="Anything we should know? (optional)">
           <input
             value={note}
@@ -204,7 +244,7 @@ function DeleteAccountModal({
         </button>
         <button
           onClick={submit}
-          disabled={submitting}
+          disabled={submitting || !confirmed}
           className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90 disabled:opacity-50"
         >
           {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

@@ -8,6 +8,7 @@ import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import type { PaymentTarget } from "@/features/pay/hooks/use-payslips";
+import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 import type { OffAppMethod, Payslip, PayoutChannelCode } from "@/features/pay/pay.types";
 
 import type { Helper, Invite } from "../people.types";
@@ -62,9 +63,20 @@ export function PastStaffSection({
   onWithdrawOffApp: (payslipId: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  const payslipsVersion = payslips.map((p) => `${p.id}:${p.payoutStatus}`).join(",");
+  // A final cutoff takes unpaid leave up to her last day, even leave that ran past it.
+  const finalLeave = useUnpaidLeaveDue(
+    token,
+    pastStaff.flatMap((inv) => {
+      const finalPeriod = (payPeriods.byHelper[inv.id] ?? []).find((p) => p.isFinal);
+      return finalPeriod && !finalPeriod.payslipId
+        ? [{ helperId: inv.id, cutoffEnd: finalPeriod.workedEnd, final: true }]
+        : [];
+    }),
+    payslipsVersion,
+  );
 
   if (pastStaff.length === 0) return null;
-  const payslipsVersion = payslips.map((p) => `${p.id}:${p.payoutStatus}`).join(",");
 
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
@@ -138,7 +150,12 @@ export function PastStaffSection({
                     label="Final pay"
                     estimate={
                       finalPeriod
-                        ? Math.max(0, periodEstimate(helper, finalPeriod) - unsettledVales)
+                        ? Math.max(
+                            0,
+                            periodEstimate(helper, finalPeriod) -
+                              unsettledVales -
+                              finalLeave(inv.id, finalPeriod.workedEnd).deduction,
+                          )
                         : undefined
                     }
                     onPayNow={onPayNow}

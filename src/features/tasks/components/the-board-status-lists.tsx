@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { Helper } from "@/features/people/people.types";
 import { parseTimeToMinutes, toHouseholdClock } from "@/lib/time";
 
+import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
 import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
@@ -17,10 +18,15 @@ export function TheBoardStatusLists({
   upcoming,
   helpers,
   nowTs,
+  onOpenTask,
+  onOpenPlan,
 }: {
   tasks: Task[];
   upcoming: Task[];
   helpers: Helper[];
+  onOpenTask?: (task: Task) => void;
+  /** Opens the planner on a later day (YYYY-MM-DD). */
+  onOpenPlan?: (dayIso: string) => void;
   nowTs: number;
 }) {
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
@@ -92,6 +98,7 @@ export function TheBoardStatusLists({
                 late={tab !== "done" && overdueId(t)}
                 isDoing={t.status === "in_progress"}
                 helpers={helpers}
+                onOpen={onOpenTask ? () => onOpenTask(t) : undefined}
               />
             </div>
           ))
@@ -104,6 +111,15 @@ export function TheBoardStatusLists({
             <div className="flex items-center gap-2 px-1 pt-2">
               <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
               <span className="h-px flex-1 bg-border" />
+              {onOpenPlan && taskDayIso(later[0]) && (
+                <button
+                  type="button"
+                  onClick={() => onOpenPlan(taskDayIso(later[0])!)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  See in the planner
+                </button>
+              )}
             </div>
             {later.map((t) => (
               <BoardTaskCard
@@ -113,6 +129,7 @@ export function TheBoardStatusLists({
                 late={false}
                 isDoing={false}
                 helpers={helpers}
+                onOpen={onOpenTask ? () => onOpenTask(t) : undefined}
               />
             ))}
           </>

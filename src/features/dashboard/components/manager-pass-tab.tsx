@@ -1,8 +1,10 @@
-import { Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { CalendarDays, Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
 import { RosaStatusChip } from "@/features/availability/components/rosa-status-chip";
+import type { LeaveRequest } from "@/features/leave/leave.types";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import type { Payslip } from "@/features/pay/pay.types";
 import type { Helper, Invite } from "@/features/people/people.types";
@@ -35,6 +37,14 @@ export type ManagerPassTabProps = {
   owedPay: { invite: Invite; count: number }[];
   disputedPayments: { payslip: Payslip; name: string; left: boolean }[];
   notices: Invite[];
+  pendingLeave: LeaveRequest[];
+  /** Absent for remote admins. */
+  leaveTaskCounts?: Record<string, number>;
+  onDecideLeave?: (
+    id: string,
+    decision: "approved" | "declined",
+    opts: { unassignTasks: boolean },
+  ) => void;
   helpers: Helper[];
   activeHelpers: Helper[];
   simDate: Date;
@@ -45,6 +55,9 @@ export type ManagerPassTabProps = {
   isRemote: boolean;
   canStartNewDay: boolean;
   onStartNewDay: () => void;
+  /** Ask to end the day (confirmed in a modal). Same people as Start new day. */
+  onEndDay: () => void;
+  onReopenDay: () => void;
   onReschedule: (id: string) => void;
   onEditTask: (task: Task) => void;
   onCancelTask: (id: string) => void;
@@ -53,6 +66,8 @@ export type ManagerPassTabProps = {
   onApproveSuggestion: (id: string) => void;
   onDismissSuggestion: (id: string) => void;
   onNewTask: () => void;
+  /** Quick Utos: a small ask, right now. Today's business, so it lives here. */
+  quickUtos?: ReactNode;
   /** Layout from the URL (`?view=`), or undefined to use this device's last choice. */
   view: PassMode | undefined;
   onViewChange: (mode: PassMode) => void;
@@ -75,6 +90,9 @@ export function ManagerPassTab({
   owedPay,
   disputedPayments,
   notices,
+  pendingLeave,
+  leaveTaskCounts,
+  onDecideLeave,
   helpers,
   activeHelpers,
   simDate,
@@ -85,6 +103,8 @@ export function ManagerPassTab({
   isRemote,
   canStartNewDay,
   onStartNewDay,
+  onEndDay,
+  onReopenDay,
   onReschedule,
   onEditTask,
   onCancelTask,
@@ -93,6 +113,7 @@ export function ManagerPassTab({
   onApproveSuggestion,
   onDismissSuggestion,
   onNewTask,
+  quickUtos,
   view,
   onViewChange,
 }: ManagerPassTabProps) {
@@ -108,6 +129,8 @@ export function ManagerPassTab({
     }
   }, []);
   const passMode = view ?? stored ?? "line";
+  const navigate = useNavigate();
+  const openPlan = (day: string) => void navigate({ to: "/manager/schedule", search: { day } });
   const updatePassMode = (m: PassMode) => {
     try {
       window.localStorage.setItem(PASS_MODE_KEY, m);
@@ -128,7 +151,7 @@ export function ManagerPassTab({
   // Only say something the counts above don't already say. Anything waiting
   // on a decision is Needs You's job, directly below.
   const dayNote = boardClosed
-    ? "The day is done. New tasks are being queued for tomorrow."
+    ? "The day is done. Anything you add for today waits until it reopens."
     : active.length === 0
       ? "Nothing on today's board yet."
       : counts.done === active.length
@@ -179,16 +202,24 @@ export function ManagerPassTab({
           <div className="flex shrink-0 flex-col items-end gap-2">
             {boardClosed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                <Moon className="h-3 w-3" /> Board closed
+                <Moon className="h-3 w-3" /> Day ended
               </span>
             )}
             {canStartNewDay && (
-              <button
-                onClick={onStartNewDay}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-              >
-                <Sunrise className="h-3.5 w-3.5" /> Start new day
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={boardClosed ? onReopenDay : onEndDay}
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                >
+                  {boardClosed ? "Reopen today" : "End the day"}
+                </button>
+                <button
+                  onClick={onStartNewDay}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+                >
+                  <Sunrise className="h-3.5 w-3.5" /> Start new day
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -231,6 +262,9 @@ export function ManagerPassTab({
         owedPay={owedPay}
         disputedPayments={disputedPayments}
         notices={notices}
+        pendingLeave={pendingLeave}
+        leaveTaskCounts={leaveTaskCounts}
+        onDecideLeave={onDecideLeave}
       />
 
       {/* Remote-admin OFW glance */}
@@ -267,16 +301,25 @@ export function ManagerPassTab({
                 : "By status, in time order."}
             </p>
           </div>
-          <button
-            onClick={onNewTask}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
-          >
-            <Plus className="h-3.5 w-3.5" /> New task
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* The Pass is today; planning the week or month happens on Schedule. */}
+            <Link
+              to="/manager/schedule"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft transition hover:bg-secondary/60"
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Plan ahead
+            </Link>
+            <button
+              onClick={onNewTask}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+            >
+              <Plus className="h-3.5 w-3.5" /> New task
+            </button>
+          </div>
         </div>
         {passMode === "line" ? (
           <div className="space-y-3">
-            {/* Tasks nobody has yet: managers only, until one is assigned (Edit). */}
+            {/* Tasks nobody has yet: managers only, until one is assigned (tap a task). */}
             {(active.some((t) => t.helperId === null) ||
               upcoming.some((t) => t.helperId === null)) && (
               <HelperLane
@@ -285,6 +328,8 @@ export function ManagerPassTab({
                 tasks={active.filter((t) => t.helperId === null)}
                 upcoming={upcoming.filter((t) => t.helperId === null)}
                 nowTs={nowTs}
+                onOpenTask={isRemote ? undefined : onEditTask}
+                onOpenPlan={openPlan}
               />
             )}
             {activeHelpers.length === 0 ? (
@@ -299,14 +344,25 @@ export function ManagerPassTab({
                   tasks={active.filter((t) => t.helperId === h.id)}
                   upcoming={upcoming.filter((t) => t.helperId === h.id)}
                   nowTs={nowTs}
+                  onOpenTask={isRemote ? undefined : onEditTask}
+                  onOpenPlan={openPlan}
                 />
               ))
             )}
           </div>
         ) : (
-          <TheBoardStatusLists tasks={active} upcoming={upcoming} helpers={helpers} nowTs={nowTs} />
+          <TheBoardStatusLists
+            tasks={active}
+            upcoming={upcoming}
+            helpers={helpers}
+            nowTs={nowTs}
+            onOpenTask={isRemote ? undefined : onEditTask}
+            onOpenPlan={openPlan}
+          />
         )}
       </section>
+
+      {quickUtos}
 
       {/* Compact spend / payday dials */}
       <SpendAndPayday />

@@ -40,6 +40,22 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
+### O23. Bought palengke items never go into pantry stock
+
+- **Found:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock").
+- **What's missing:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half exists. `LINARA_MOBILE`'s `setGroceryItemBought` (`services/api/grocery.ts`) and `completeTicket` touch only `grocery_items` and `tickets`. No code in either repo, and no trigger, writes `pantry_items.qty` from a purchase, even though `grocery_items.pantry_item_id` links the two.
+- **Blocks:** The pantry↔palengke reconciliation in `plan.md` §2.5. Low-stock items keep showing as low after they've been bought, so they're suggested again.
+- **Current workaround:** Someone sets the stock by hand, on the web Pantry page or with − / + on mobile.
+- **Fix written, not yet applied (2026-10-02):** `supabase/add-grocery-restock.sql` adds a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item, and unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Tested in `supabase/tests/grocery-restock.test.mjs`. Both apps can now create linked items: "Add to list" on a web suggestion, "Ilista sa palengke" on mobile.
+- **To close:** Apply `add-grocery-restock.sql` in the SQL editor, then move this to Closed Gaps. Owned by `LINARA`.
+
+### O24. The web "Hold to record a voice utos" button records nothing
+
+- **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
+- **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
+- **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
+- **Current workaround:** The button is removed (2026-10-02), so Quick Utos is presets and typed text only. Nothing pretends to record.
+- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos, and put the button back. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
 
 ---
 
@@ -3068,6 +3084,105 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Manual processing.** Requests are carried out by hand, so someone has to check `SELECT * FROM account_deletion_requests WHERE status = 'pending'`.
   - **Photos.** Files in Supabase Storage for deleted rows (pantry or appointment photos) aren't removed by the function.
   - **Not run live yet.** `DELETE FROM auth.users` inside the function hasn't been run on the live project. Check the first real one.
+
+### C68. Managers could only plan one day at a time (tester feedback)
+
+- **Found / fixed:** found in tester feedback 2026-10-01, fixed the same day.
+- **Was:** New task always landed on today's board, the only way to put a task on another day was opening it and changing its date, and nothing showed more than today plus a flat "Coming up" list.
+- **Fix:**
+  - **Plan ahead.** A new top section on Schedule (`src/features/tasks/components/task-planner.tsx`). Week view is a board of seven day columns (stacked on phones, with past days folded away); Month view is a calendar. Each day shows who has it off, its appointments and its tasks, and filters to one person or Unassigned.
+  - **Adding and moving.** Any day from today on takes a new task. A waiting or on-hold task drags to another day, keeping its time, with Undo and an out-of-shift warning. Any task opens to edit. Remote admins can look and suggest only.
+  - **New task has a Date.** On the Pass too, which links to the planner. A task planned for a later day skips the "she's off right now" wall (`use-send-gate.ts`), and a closed board no longer queues it; the form warns when the planned time is outside her shift instead.
+  - **Data.** `listTicketsBetweenFn` reads every ticket in the visible range, done ones included, and refetches whenever the board does, so Realtime changes reach it too. No schema change.
+- **Residual:**
+  - **Touch dragging.** Drag-and-drop is HTML5, so it works with a mouse but not reliably by touch (the mobile WebView). On a phone, a task moves by opening it and changing its date.
+  - **Routines.** Routine templates are still local-only (gap #4's closure notes), so the planner can't show a routine's future days before it spawns them. Partly addressed by C69: it now shows the routines this tab knows about.
+
+### C69. Plan ahead couldn't be put away, and Schedule mixed the calendar with its setup (tester feedback)
+
+- **Found / fixed:** found in tester feedback 2026-10-01, fixed the same day on `jamesDev-schedule-update`.
+- **Was:** Schedule stacked six things in one scroll: the planner (always open, no way to fold it), Shifts, Quick Utos, Routines, Appointments and "Queued for tomorrow". The planner sat on top of the rest, and a "right now" action (Quick Utos) sat on the planning page.
+- **Fix:**
+  - **Schedule tabs.** Plan, Appointments, Shifts, Routines (`manager-schedule-page.tsx`), kept in the URL as `?tab=` like the Pass's `?view=`. Plan is the default and is the planner alone. `?day=YYYY-MM-DD` opens it on a given week.
+  - **On the plan.** Prep tasks say which appointment they're for, and an appointment says how many prep tasks it has (tap it to open Appointments). A task planned outside its helper's shift, or on her day off, is marked "off shift". Routines show greyed on the later days they'll spawn on (`routineGhosts` in `planner.utils.ts`). Queued tasks already showed on their day with a "Queued" tag, so the separate "Queued for tomorrow" list is gone.
+  - **By person.** A third view next to Week and Month (`planner-people.tsx`): a row per helper (plus Unassigned), a column per day, her shift hours in the row label and her day off shaded. Dropping a task on another row reassigns it, with Undo. Add on a cell opens New task with that person picked.
+  - **Quick Utos moved to the Pass**, under The Line.
+  - **Pass to planner.** "Coming up" on The Line and The Board has "See in the planner", which opens the week of the first upcoming task.
+  - No schema change. `/manager/pass` and `/login` are untouched (O18).
+- **Residual:**
+  - **Routines are still local-only** (gap #4). Their greyed copies show only the routines this browser tab knows about, and disappear on reload along with the routines themselves.
+  - **Touch dragging** (see C68) also applies to reassigning on By person. On a phone, reassign by opening the task.
+  - **By person on phones** scrolls sideways inside its card (names stay pinned). It is readable but cramped; Week stays the better phone view.
+  - **Month view** shows tasks and appointments only, not routine copies or off-shift marks.
+
+### C70. Approved rest off showed on neither side's calendar, and didn't stop anyone reaching her (former Open Gap O19)
+
+- **Found / fixed:** found 2026-10-01 checking what the Schedule rework (C69) means for the helper's side, fixed the same day.
+- **Was:** `rest_off_requests` were only read on Money (web) and My Pay (helper app). Both calendars knew only the weekly rest day, and availability ignored approved rest off, so a manager could plan a task or send a Quick Utos into time they'd approved as hers.
+- **Fix:**
+  - **Web.** One time-off model (`src/features/shifts/time-off.ts`, `hooks/use-time-off.ts`) loaded once for the app, refreshed after a decision on Money and every five minutes. The planner shows approved and asked-for rest off on Week and By person and marks a task inside approved time off "time off". `statusFor` treats approved time off as off (her own Available opt-in still wins), the gate says it's her time off, and New/Edit task warn.
+  - **Helper app.** `deriveRosaStatus` treats an approved day off as off, and Today's Availability card says so. My Week lists each day's day off, approved or still waiting.
+  - Leave (LEAVE_PLAN.md) is meant to plug into the same `TimeOff` shape.
+- **Residual:**
+  - **Month views** (web planner and My Week's month grid) show a day off only as an outline on the phone and not at all on the web month.
+  - **Lag.** The web polls every five minutes, so a request made on her phone takes up to that long to appear on an open dashboard.
+  - **Device clock.** The helper app reads "today" from the phone, like the rest of that app, not the household's time zone.
+
+### C71. Moving or reassigning a task from the planner was silent on the helper's side (former Open Gap O20)
+
+- **Found / fixed:** found 2026-10-01 in the same review as C70, fixed the same day.
+- **Was:** only appointment moves wrote `tickets.reschedule_notice`. A planner drag, a By person hand-over or a date change in Edit task updated the ticket with no notice and no push, and the helper app's Realtime filter (`helper_id=eq.<her id>`) matches the row after the change, so a task handed to someone else stayed on the phone it left.
+- **Fix:**
+  - **Web.** `updateTicketFn` works out the change (`scheduleChange`): her task's time moved writes `reschedule_notice` with `movedBy` instead of `appointmentTitle`; a hand-over clears any old notice. If she's reachable right now (`isReachable`, from the same `reachableHelperIds` appointment moves use) she gets a push: "Inilipat ang task", or "Bagong task" for one handed to her. The board's notice reads "Moved from ... by Ana".
+  - **Helper app.** The moved-tasks banner says "Inilipat ni Ana." for a hand move. `useRealtimeSubscription` listens household-wide when it knows her household (`tickets_isolation` already lets her read those rows), so a task taken away disappears.
+  - **Contract.** `reschedule_notice.appointmentTitle` is now optional in both repos.
+- **Residual:**
+  - **Older installed builds** of the helper app read a hand-move notice as "dahil binago ang isang appointment" until they update.
+  - **Not tested on a device** yet (push and the household-wide Realtime filter).
+  - **More refetches.** Every ticket change in the household now refetches Today and My Week on each helper's phone. Fine at household scale.
+
+### C72. A helper's own session could write rows only a manager should (former Open Gap O22)
+
+- **Found / fixed:** found 2026-10-02 writing `supabase/add-leave.sql`, fixed the same day.
+- **Was:** `user_profiles`, `helper_profiles`, `vales`, `ledger_entries`, `payslips` and `rest_off_requests` each had one `FOR ALL` policy scoped only by household, and `households_update_budget` let anyone in the household update it. With Supabase's default table grants, a helper's own login used straight against the REST API could make herself a manager, raise her own rate, approve her own vale or rest off, change ledger minutes or a payslip, or close the board. Only the apps' code stood in the way.
+- **Fix:** `supabase/fix-helper-write-access.sql` (apply by hand, after every other migration).
+  - The household-wide policies keep their names but become `FOR SELECT`. Reads are unchanged, and so are the own-history read policies from C60.
+  - Writes are for primary and co-managers only (`is_household_manager()`), scoped to their household.
+  - A helper keeps the two direct writes her app makes: asking for a vale (a new pending, unsettled, undecided row for herself), and her own availability. A `BEFORE UPDATE` trigger on `helper_profiles` refuses any other column from her session; it skips managers and anything running inside a `SECURITY DEFINER` function, so claiming, notice and ending employment are unaffected.
+  - Checked first: every SQL function that writes these tables is `SECURITY DEFINER`, and the only direct writes in either app are the manager's on the web plus the helper's two above. No app code changed.
+  - PGlite test acting as each role: `supabase/tests/write-access.test.mjs` (25 checks, in `npm run test:sql`).
+- **Residual:**
+  - **Other tables stay household-wide:** `tickets`, `quick_utos`, `appointments`, `pantry_items` and `grocery_items`. Helpers write tickets and the pantry legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap.
+  - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
+
+### C73. There was no vacation or leave, only hour-level rest off in lieu (former Open Gap O21)
+
+- **Found / fixed:** found 2026-10-01 (asked whether an approved vacation shows on both sides), built 2026-10-02 in six steps. Plan, decisions and what each step did: `LEAVE_PLAN.md`; legal readings and deferred leave types: `LEGAL_CONSIDERATIONS.md`.
+- **Was:** nothing covered multi-day leave. RA 10361 gives a kasambahay with a year of service five days of paid service incentive leave a year; nothing tracked it, its use, or its pay. `rest_off_requests` (one date, a time window) was the only time off.
+- **Fix:**
+  - **Kinds:** service incentive leave (5 days per service year from her first anniversary), a day off in kind (from rest owed), unpaid leave, and an extra paid day the household gives. Whole days only.
+  - **Schema:** `supabase/add-leave.sql` (applied): `leave_requests`, `pay_days_per_year`, balances, and the request / record / decide / cancel / acknowledge functions. Read-only table; every write is a function.
+  - **Pay:** `supabase/add-unpaid-leave-pay.sql` (**apply by hand after add-leave.sql**): unpaid leave at `days × monthly_rate × 12 ÷ pay_days_per_year` comes off the payslip for the cutoff it ends in, settled like a vale and released on a failed payout; 13th-month pay counts basic pay less it.
+  - **Web:** Needs you decides leave and offers to move her tasks on those days to Unassigned; People shows balances, history and disputes, Record leave and the pay-days setting; leave shows on the planner, in availability and the gate; routines due on her leave spawn Unassigned; the Pay Dial, Money, Past staff, End employment and payslip history show the deduction.
+  - **App:** ask, cancel, confirm or dispute leave on My Pay; leave on My Week and Today; the deduction on My Pay's estimate and payslip history; leave on My Record, its PDF and the shared text.
+  - **Tests:** `supabase/tests/leave.test.mjs` and `unpaid-leave-pay.test.mjs` (PGlite, in `npm run test:sql`), `net-pay.test.ts` in both repos, and unit tests for the planner, Record leave, and the record PDF.
+- **Residual:**
+  - Not yet tried on a device or against the sandbox project.
+  - Half days, other legal leave (maternity, paternity, solo parent, VAWC, special leave for women) and public holidays are deferred (`LEGAL_CONSIDERATIONS.md`).
+  - A leave spanning two cutoffs comes off the later one whole rather than being split; contributions stay on the full monthly rate. Both noted in `LEGAL_CONSIDERATIONS.md` to confirm.
+  - Missed-period estimates on Money don't subtract unpaid leave (nor vale), since those come off whichever payment goes first; the payout itself always does.
+
+### C74. Cancelling a task deleted it, so it vanished from the planner and her week
+
+- **Found / fixed:** 2026-10-02, the user asked why a cancelled task wasn't visible anywhere.
+- **Was:** Needs you's "Cancel task" deleted the ticket. Nothing recorded that the task had been planned or who called it off, and it disappeared from her My Week without a word.
+- **Fix:** `supabase/add-cancelled-tasks.sql` (**apply by hand after add-unpaid-leave-pay.sql**).
+  - `tickets.status` gains `'cancelled'`. A trigger stamps `cancelled_at`, `cancelled_by` and `cancelled_by_name`, and clears them when the task is restored to To-do. `cancelled_by` has no foreign key: a second `tickets -> user_profiles` link would make both apps' `created_by_profile:user_profiles(full_name)` embed ambiguous and break every ticket query.
+  - `employment_end_preview` doesn't count cancelled tasks as open, and `end_helper_employment` neither hands them on nor deletes them.
+  - **Web:** cancelling (Needs you, or the new Cancel task in Edit task on the Schedule) sets the status, with Undo; Edit task on a cancelled one shows who and when, with Restore. The board leaves cancelled tasks out; the planner shows them crossed out with "Cancelled" and who did it, grey in the legend. She gets a push ("Kinansela ang task") if she's reachable. Until the migration is applied, the update is refused by the CHECK and the app falls back to the old delete.
+  - **App:** Today, the focus card, moved notices and the palengke step leave cancelled tasks out; My Week shows them crossed out as "Kinansela ng manager".
+  - PGlite test: `supabase/tests/cancelled-tasks.test.mjs` (in `npm run test:sql`).
+- **Residual:** a helper whose phone queued "done" offline for a task cancelled in the meantime will still mark it done when it syncs; that's left as the truthful outcome.
 
 ---
 

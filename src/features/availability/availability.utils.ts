@@ -1,6 +1,7 @@
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import { isMinuteInShift, isRestDay } from "@/features/shifts/shift.utils";
-import { toHouseholdClock, weekdayOf } from "@/lib/time";
+import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
+import { toHouseholdClock, toISODate, weekdayOf } from "@/lib/time";
 
 import { QUIET_END_HOUR, QUIET_START_HOUR } from "./availability.constants";
 import type { ManualAvailability, RosaStatus } from "./availability.types";
@@ -12,12 +13,17 @@ import type { ManualAvailability, RosaStatus } from "./availability.types";
  * (LINARA_MOBILE) and readable for any helper once fetched, not just
  * `currentHelperId` (see MULTI_HELPER_HANDLING.md). `manualFromRow()` below
  * converts a raw fetched row into the shape this expects.
+ *
+ * Approved time off (`timeOff`, KNOWN_GAPS O19) is off even mid-shift: the
+ * household gave that time to her. Her own "Available" opt-in still wins,
+ * because she set it.
  */
 export function statusFor(
   helperId: string | null,
   schedules: ScheduleStore,
   nowTs: number,
   manual?: ManualAvailability | null,
+  timeOff: TimeOff[] = [],
 ): RosaStatus {
   // Her shift, rest day and quiet hours are the household's clock (O9).
   const d = toHouseholdClock(nowTs);
@@ -29,8 +35,15 @@ export function statusFor(
   const minutes = h * 60 + d.getMinutes();
   const onShift = !isQuiet && !!schedule && isMinuteInShift(minutes, weekday, schedule);
   if (isQuiet) return { status: "off", until: null, quiet: true, restDay: restDayToday };
-  if (onShift) return { status: "on_shift", until: null, quiet: false, restDay: false };
-  if (manual && manual.availableUntil > nowTs) {
+  const optedIn = !!manual && manual.availableUntil > nowTs;
+  const inTimeOff = !!helperId && !!approvedTimeOffAt(timeOff, helperId, toISODate(d), minutes);
+  if (inTimeOff && !optedIn) {
+    return { status: "off", until: null, quiet: false, restDay: restDayToday, timeOff: true };
+  }
+  // Opted in during her time off: reachable, but still her time, so not on shift.
+  if (onShift && !inTimeOff)
+    return { status: "on_shift", until: null, quiet: false, restDay: false };
+  if (optedIn) {
     return {
       status: "available",
       until: manual.availableUntil,

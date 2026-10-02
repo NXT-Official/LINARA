@@ -11,6 +11,7 @@ import type { InviteStore } from "@/features/people/hooks/use-invites";
 import type { Session } from "@/features/people/hooks/use-session";
 import type { Helper } from "@/features/people/people.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
+import type { TimeOffStore } from "@/features/shifts/hooks/use-time-off";
 import type { TaskBoard } from "@/features/tasks/hooks/use-task-board";
 import type { UtosStore } from "@/features/utos/hooks/use-utos";
 
@@ -37,6 +38,8 @@ export type AppStores = {
   invites: InviteStore;
   pantry: PantryStore;
   schedules: ScheduleStore;
+  /** Every helper's approved and pending time off (rest off today; leave later). */
+  timeOff: TimeOffStore;
   vales: ValeStore;
   payslips: PayslipStore;
   /** Every claimed helper's pay periods and which are unpaid (add-pay-periods.sql). */

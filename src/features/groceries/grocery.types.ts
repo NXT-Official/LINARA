@@ -29,6 +29,11 @@ export type GroceryContextValue = {
    * why a receipt naturally covers many items, not one row). */
   receiptPhoto: string | null;
   addManual: (name: string, qty: number, unit: string) => void;
+  /** Puts a low-stock suggestion on the real list, so her app shows it too. */
+  addSuggestion: (item: GroceryItem) => void;
+  /** Fixes a not-yet-bought item's name or amount. */
+  edit: (item: GroceryItem, patch: { name: string; qty: number; unit: string }) => void;
+  refresh: () => Promise<void>;
   setBudget: (n: number) => void;
   /** Only meaningful for a not-yet-bought item -- curating the plan, not
    * erasing a helper's completed purchase. */

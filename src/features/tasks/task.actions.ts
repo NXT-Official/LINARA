@@ -3,6 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { createAuthedClient } from "@/lib/supabase";
 import { pushToHelper } from "@/features/notifications/push";
 
+import type { Status } from "./task.types";
+
 export interface HouseStandardSOP {
   title: string;
   description: string;
@@ -222,7 +224,7 @@ export interface TicketRow {
   title: string;
   notes: string | null;
   helper_id: string | null;
-  status: "todo" | "in_progress" | "done" | "blocked";
+  status: Status;
   photo_evidence_url: string | null;
   is_after_hours: boolean;
   emergency: boolean;
@@ -235,18 +237,26 @@ export interface TicketRow {
   appointment_id: string | null;
   appointment_title: string | null;
   lead_minutes: number | null;
-  /** oldStartIso since O14; older rows carry a server-formatted oldTime instead. */
+  /**
+   * oldStartIso since O14; older rows carry a server-formatted oldTime
+   * instead. An appointment move sets appointmentTitle; a manager moving the
+   * task by hand (O20) sets movedBy instead. Read by ../LINARA_MOBILE too.
+   */
   reschedule_notice: {
     oldStartIso?: string;
     oldTime?: string;
     oldDate?: string;
-    appointmentTitle: string;
+    appointmentTitle?: string;
+    movedBy?: string;
   } | null;
   scheduled_start: string;
   actual_start: string | null;
   actual_end: string | null;
   created_by: string | null;
   created_by_profile: { full_name: string } | null;
+  /** From add-cancelled-tasks.sql; absent before it is applied. */
+  cancelled_at?: string | null;
+  cancelled_by_name?: string | null;
 }
 
 const HOUSEHOLD_EVIDENCE_BUCKET = "household-evidence";
@@ -316,6 +326,8 @@ export const listTicketsFn = createServerFn({ method: "POST" })
       .from("tickets")
       .select("*, created_by_profile:user_profiles(full_name)")
       .or(`status.neq.done,scheduled_start.gte.${sinceIso}`)
+      // Cancelled tasks are for the planner's record, not the board.
+      .neq("status", "cancelled")
       .order("scheduled_start", { ascending: true });
 
     if (error) {
@@ -330,6 +342,76 @@ export const listTicketsFn = createServerFn({ method: "POST" })
     );
 
     return resigned as unknown as TicketRow[];
+  });
+
+/**
+ * Every ticket scheduled in [fromIso, toIso), whatever its status -- the
+ * planner's week or month. Unlike listTicketsFn this includes finished tasks
+ * from earlier days, so a past day still shows what happened on it. Evidence
+ * photos aren't re-signed: the planner never shows them.
+ */
+export const listTicketsBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const { token, fromIso, toIso } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { data: rows, error } = await authedClient
+      .from("tickets")
+      .select("*, created_by_profile:user_profiles(full_name)")
+      .gte("scheduled_start", fromIso)
+      .lt("scheduled_start", toIso)
+      .order("scheduled_start", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (rows ?? []).map((row) => ({
+      ...row,
+      photo_evidence_url: null,
+    })) as unknown as TicketRow[];
+  });
+
+/**
+ * A helper's unfinished tasks scheduled in [fromIso, toIso): what a leave over
+ * those days would leave without anyone (LEAVE_PLAN.md step 4).
+ */
+export const countOpenTasksBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { count, error } = await client
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("helper_id", data.helperId)
+      .not("status", "in", "(done,cancelled)")
+      .gte("scheduled_start", data.fromIso)
+      .lt("scheduled_start", data.toIso);
+    if (error) throw new Error(error.message);
+    return count ?? 0;
+  });
+
+/**
+ * Moves those same tasks to Unassigned, so they're on the managers' board to
+ * hand to someone else instead of on the phone of someone who's away. Their
+ * time stays as it was. Returns how many moved.
+ */
+export const unassignOpenTasksBetweenFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; fromIso: string; toIso: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client
+      .from("tickets")
+      // A notice about her schedule means nothing once the task isn't hers.
+      .update({ helper_id: null, reschedule_notice: null })
+      .eq("helper_id", data.helperId)
+      .not("status", "in", "(done,cancelled)")
+      .gte("scheduled_start", data.fromIso)
+      .lt("scheduled_start", data.toIso)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return rows?.length ?? 0;
   });
 
 /** Creates one ticket -- addTask, and each freshly spawned routine instance. */
@@ -430,7 +512,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
   });
 
 export interface TicketPatch {
-  status?: "todo" | "in_progress" | "done" | "blocked";
+  status?: Status;
   photoEvidenceUrl?: string | null;
   blockReason?: string | null;
   queued?: boolean;
@@ -446,9 +528,17 @@ export interface TicketPatch {
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
  * them are just a patch onto one ticket row. */
 export const updateTicketFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; ticketId: string; patch: TicketPatch }) => data)
+  .validator(
+    (data: {
+      token: string;
+      ticketId: string;
+      patch: TicketPatch;
+      /** Whoever has the task after this is reachable now (statusFor != off), so a move may ping her. */
+      notifyHelper?: boolean;
+    }) => data,
+  )
   .handler(async ({ data }) => {
-    const { token, ticketId, patch } = data;
+    const { token, ticketId, patch, notifyHelper } = data;
 
     const dbPatch: Record<string, unknown> = {};
     if (patch.status !== undefined) dbPatch.status = patch.status;
@@ -463,14 +553,99 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.helperId !== undefined) dbPatch.helper_id = patch.helperId;
 
     const authedClient = createAuthedClient(token);
+
+    // A change of time or hands is never silent on her side (plan.md 2.2,
+    // KNOWN_GAPS O20): the same notice an appointment move writes, which her
+    // app shows as "Inilipat" and in Today's "May binago sa schedule mo".
+    const change =
+      patch.scheduledStartIso !== undefined || patch.helperId !== undefined
+        ? await scheduleChange(authedClient, ticketId, patch)
+        : null;
+    if (change?.moved) {
+      dbPatch.reschedule_notice = { oldStartIso: change.oldStartIso, movedBy: change.movedBy };
+    } else if (change?.handedOver) {
+      // A notice about someone else's schedule means nothing to the new assignee.
+      dbPatch.reschedule_notice = null;
+    }
+
     const { error } = await authedClient.from("tickets").update(dbPatch).eq("id", ticketId);
 
     if (error) {
       throw new Error(error.message);
     }
 
+    if (patch.status === "cancelled" && notifyHelper) {
+      const { data: cancelled } = await authedClient
+        .from("tickets")
+        .select("title, helper_id")
+        .eq("id", ticketId)
+        .single();
+      if (cancelled?.helper_id) {
+        await pushToHelper(authedClient, cancelled.helper_id as string, {
+          title: "Kinansela ang task",
+          body: cancelled.title as string,
+          url: "/week",
+        });
+      }
+    }
+
+    if (change && notifyHelper && change.helperId && (change.moved || change.handedOver)) {
+      const from = change.movedBy ? ` mula kay ${change.movedBy}` : "";
+      await pushToHelper(
+        authedClient,
+        change.helperId,
+        change.handedOver
+          ? { title: `Bagong task${from}`, body: change.title, url: "/week" }
+          : { title: "Inilipat ang task", body: `${change.title}: binago ang oras.`, url: "/week" },
+      );
+    }
+
     return { ticketId };
   });
+
+/**
+ * What a patch does to a ticket's schedule: moved in time for the same
+ * helper, or handed to someone else. Done tasks and Unassigned ones concern
+ * no helper's day, so they're neither.
+ */
+export async function scheduleChange(
+  client: ReturnType<typeof createAuthedClient>,
+  ticketId: string,
+  patch: TicketPatch,
+) {
+  const { data: row, error } = await client
+    .from("tickets")
+    .select("title, status, helper_id, scheduled_start")
+    .eq("id", ticketId)
+    .single();
+  if (error || !row) return null;
+
+  const helperId: string | null = patch.helperId !== undefined ? patch.helperId : row.helper_id;
+  const live = row.status !== "done" && row.status !== "cancelled" && helperId !== null;
+  const handedOver = live && helperId !== row.helper_id;
+  const moved =
+    live &&
+    !handedOver &&
+    patch.scheduledStartIso !== undefined &&
+    new Date(patch.scheduledStartIso).getTime() !== new Date(row.scheduled_start).getTime();
+  if (!moved && !handedOver) return null;
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  const { data: me } = user
+    ? await client.from("user_profiles").select("full_name").eq("id", user.id).single()
+    : { data: null };
+
+  return {
+    title: row.title as string,
+    helperId,
+    moved,
+    handedOver,
+    oldStartIso: new Date(row.scheduled_start).toISOString(),
+    movedBy: (me?.full_name as string | null | undefined) ?? undefined,
+  };
+}
 
 /** dismissSuggestion/withdraw -- a suggested task a manager or remote admin
  * discards outright, not just marked done. */
@@ -706,4 +881,124 @@ export const getServerNowFn = createServerFn({ method: "POST" })
       serverNowIso: serverNow as string,
       householdToday: householdToday as string,
     };
+  });
+
+// --------------------------------------------------------------------------
+// Updates on a task (supabase/add-ticket-comments.sql): a thread the
+// household's managers and the assigned helper both read and add to. RLS
+// decides who sees what; the author is stamped by the database.
+// --------------------------------------------------------------------------
+
+export interface TicketComment {
+  id: string;
+  authorId: string | null;
+  authorName: string;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+}
+
+interface TicketCommentRow {
+  id: string;
+  author_id: string | null;
+  author_name: string;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+}
+
+const toComment = (row: TicketCommentRow): TicketComment => ({
+  id: row.id,
+  authorId: row.author_id,
+  authorName: row.author_name,
+  body: row.body,
+  createdAt: row.created_at,
+  editedAt: row.edited_at,
+});
+
+/** A task's updates, oldest first. Empty before the migration is applied. */
+export const listTicketCommentsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { data: rows, error } = await authedClient
+      .from("ticket_comments")
+      .select("id, author_id, author_name, body, created_at, edited_at")
+      .eq("ticket_id", data.ticketId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      if (/ticket_comments/.test(error.message)) return [];
+      throw new Error(error.message);
+    }
+    return ((rows ?? []) as TicketCommentRow[]).map(toComment);
+  });
+
+export interface CommentActivity {
+  count: number;
+  lastAt: string;
+  lastAuthorId: string | null;
+}
+
+/** How many days back the card badges look. Older threads still open in full. */
+const COMMENT_ACTIVITY_DAYS = 60;
+
+/**
+ * Per task: how many updates, and who wrote the latest, for the badges on
+ * task cards. RLS already limits it to the threads this user can see.
+ */
+export const listCommentActivityFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const since = new Date(Date.now() - COMMENT_ACTIVITY_DAYS * 86_400_000).toISOString();
+    const { data: rows, error } = await authedClient
+      .from("ticket_comments")
+      .select("ticket_id, author_id, created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: true });
+    if (error) {
+      if (/ticket_comments/.test(error.message)) return {};
+      throw new Error(error.message);
+    }
+    const activity: Record<string, CommentActivity> = {};
+    for (const row of (rows ?? []) as {
+      ticket_id: string;
+      author_id: string | null;
+      created_at: string;
+    }[]) {
+      const prev = activity[row.ticket_id];
+      activity[row.ticket_id] = {
+        count: (prev?.count ?? 0) + 1,
+        lastAt: row.created_at,
+        lastAuthorId: row.author_id,
+      };
+    }
+    return activity;
+  });
+
+export const addTicketCommentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ticketId: string; body: string }) => data)
+  .handler(async ({ data }) => {
+    const body = data.body.trim();
+    if (!body) throw new Error("Write something first.");
+    const authedClient = createAuthedClient(data.token);
+    const { data: row, error } = await authedClient
+      .from("ticket_comments")
+      .insert({ ticket_id: data.ticketId, body })
+      .select("id, author_id, author_name, body, created_at, edited_at")
+      .single();
+    if (error || !row) {
+      throw new Error(error?.message || "Couldn't post the update.");
+    }
+    return toComment(row as TicketCommentRow);
+  });
+
+/** Only the author's own: RLS refuses anyone else's quietly (0 rows). */
+export const deleteTicketCommentFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; commentId: string }) => data)
+  .handler(async ({ data }) => {
+    const authedClient = createAuthedClient(data.token);
+    const { error } = await authedClient.from("ticket_comments").delete().eq("id", data.commentId);
+    if (error) throw new Error(error.message);
+    return { commentId: data.commentId };
   });

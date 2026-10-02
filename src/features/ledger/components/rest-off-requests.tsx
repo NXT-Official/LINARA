@@ -34,10 +34,13 @@ export function RestOffRequests({
   helper,
   token,
   ready,
+  onDecided,
 }: {
   helper: Helper | null;
   token: string | null;
   ready: boolean;
+  /** After an approve or decline, so the calendars and availability catch up. */
+  onDecided?: () => void;
 }) {
   const [requests, setRequests] = useState<RestOffRequestRow[]>([]);
   const [balanceMin, setBalanceMin] = useState<number | null>(null);
@@ -68,6 +71,7 @@ export function RestOffRequests({
     try {
       const res = await decideRestOffRequestFn({ data: { token, requestId: id, decision } });
       await refresh();
+      onDecided?.();
       toast.success(
         decision === "approved"
           ? `Approved. ${fmtHoursMinutes(res.balanceAfter)} rest owed na lang ang natitira.`

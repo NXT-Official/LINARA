@@ -544,6 +544,9 @@ export interface EmploymentEndPreview {
   openTasks: number;
   pendingVales: number;
   unsettledValeTotal: number;
+  /** Unpaid leave her final pay would take (add-unpaid-leave-pay.sql). */
+  unpaidLeaveDays: number;
+  unpaidLeaveDeduction: number;
   pendingRestOff: number;
   futureRestOff: number;
   restOwedMinutes: number;
@@ -580,6 +583,8 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       openTasks: Number(r.open_tasks ?? 0),
       pendingVales: Number(r.pending_vales ?? 0),
       unsettledValeTotal: Number(r.unsettled_vale_total ?? 0),
+      unpaidLeaveDays: Number(r.unpaid_leave_days ?? 0),
+      unpaidLeaveDeduction: Number(r.unpaid_leave_deduction ?? 0),
       pendingRestOff: Number(r.pending_rest_off ?? 0),
       futureRestOff: Number(r.future_rest_off ?? 0),
       restOwedMinutes: Number(r.rest_owed_minutes ?? 0),
@@ -751,6 +756,12 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
     }
     const { error } = await client.auth.updateUser({ password: data.password });
     if (error) {
+      if (error.code === "same_password") {
+        throw new Error("Iba dapat ang bagong password sa dati mong password.");
+      }
+      if (error.code === "weak_password") {
+        throw new Error(`Masyadong mahina ang password. ${error.message}`);
+      }
       throw new Error(error.message);
     }
     await client.auth.signOut({ scope: "local" });

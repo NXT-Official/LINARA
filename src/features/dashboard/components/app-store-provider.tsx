@@ -4,6 +4,8 @@ import { useAppointments } from "@/features/appointments/hooks/use-appointments"
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
 import { useAvailability } from "@/features/availability/hooks/use-availability";
 import { GroceryProvider } from "@/features/groceries/components/grocery-provider";
+import { CommentActivityContext } from "@/features/tasks/comment-activity-context";
+import { useCommentActivity } from "@/features/tasks/hooks/use-comment-activity";
 import { useLedger } from "@/features/ledger/hooks/use-ledger";
 import { useVales } from "@/features/ledger/hooks/use-vales";
 import { usePantry } from "@/features/pantry/hooks/use-pantry";
@@ -13,6 +15,7 @@ import { useInvites } from "@/features/people/hooks/use-invites";
 import { useSession } from "@/features/people/hooks/use-session";
 import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
+import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
 import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
@@ -61,6 +64,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     token: session.token,
     refresh: invites.refresh,
   });
+  const timeOff = useTimeOff({ token: session.token, ready: session.status === "authed" });
   const vales = useVales({ token: session.token, ready: session.status === "authed" });
   const payslips = usePayslips({ token: session.token, ready: session.status === "authed" });
   const claimedHelperIds = useMemo(
@@ -81,6 +85,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     schedules,
     currentHelperId,
     helperProfiles: invites.helperProfiles,
+    timeOff: timeOff.list,
   });
   const ledger = useLedger({
     rosaStatus: availability.status,
@@ -102,6 +107,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [_utosChannelStatus, setUtosChannelStatus] = useState<string>("INITIALIZING");
 
   const activeHelperIds = useMemo(() => activeHelpers.map((h) => h.id), [activeHelpers]);
+  // Read at call time: reachability is worked out below, after the board exists.
+  const reachableRef = useRef<string[]>([]);
   const board = useTaskBoard({
     nowTs: clock.nowTs,
     helpers,
@@ -110,6 +117,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
     token: session.token,
     ready: session.status === "authed",
+    isReachable: (helperId) => reachableRef.current.includes(helperId),
+    timeOff: timeOff.list,
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment
@@ -120,11 +129,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       activeHelpers
         .filter((h) => {
           const row = invites.helperProfiles.find((p) => p.id === h.id);
-          return statusFor(h.id, schedules, clock.nowTs, manualFromRow(row)).status !== "off";
+          return (
+            statusFor(h.id, schedules, clock.nowTs, manualFromRow(row), timeOff.list).status !==
+            "off"
+          );
         })
         .map((h) => h.id),
-    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs],
+    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, timeOff.list],
   );
+  reachableRef.current = reachableHelperIds;
 
   const appointments = useAppointments({
     token: session.token,
@@ -490,6 +503,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     invites,
     pantry,
     schedules,
+    timeOff,
     vales,
     payslips,
     payPeriods,
@@ -525,16 +539,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     },
   };
 
+  const commentActivity = useCommentActivity({
+    token: session.token,
+    myUserId: session.userId,
+    ready: session.status === "authed",
+  });
+
   return (
     <AppStoreContext.Provider value={value}>
-      <GroceryProvider
-        pantry={pantry}
-        token={session.token}
-        ready={session.status === "authed"}
-        receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
-      >
-        {children}
-      </GroceryProvider>
+      <CommentActivityContext.Provider value={commentActivity}>
+        <GroceryProvider
+          pantry={pantry}
+          token={session.token}
+          ready={session.status === "authed"}
+          receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
+        >
+          {children}
+        </GroceryProvider>
+      </CommentActivityContext.Provider>
     </AppStoreContext.Provider>
   );
 }

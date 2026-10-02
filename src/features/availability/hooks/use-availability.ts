@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
+import type { TimeOff } from "@/features/shifts/time-off";
 
 import { manualFromRow, statusFor } from "../availability.utils";
 import type { RosaStatus } from "../availability.types";
@@ -24,6 +25,7 @@ export function useAvailability({
   schedules,
   currentHelperId,
   helperProfiles,
+  timeOff,
 }: {
   nowTs: number;
   schedules: ScheduleStore;
@@ -31,11 +33,12 @@ export function useAvailability({
    * until a real helper has claimed their account (see app-store-provider.tsx). */
   currentHelperId: string | null;
   helperProfiles: HelperProfileRow[];
+  timeOff: TimeOff[];
 }): Availability {
   const status = useMemo(() => {
     const row = helperProfiles.find((p) => p.id === currentHelperId);
-    return statusFor(currentHelperId, schedules, nowTs, manualFromRow(row));
-  }, [nowTs, schedules, currentHelperId, helperProfiles]);
+    return statusFor(currentHelperId, schedules, nowTs, manualFromRow(row), timeOff);
+  }, [nowTs, schedules, currentHelperId, helperProfiles, timeOff]);
 
   return { status };
 }

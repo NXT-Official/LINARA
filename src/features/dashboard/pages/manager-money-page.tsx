@@ -7,14 +7,25 @@ import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card
 import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
+import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage() {
-  const { ledger, helper, helpers, activeHelpers, invites, payslips, payPeriods, vales, session } =
-    useAppStores();
+  const {
+    ledger,
+    helper,
+    helpers,
+    activeHelpers,
+    invites,
+    payslips,
+    payPeriods,
+    vales,
+    session,
+    timeOff,
+  } = useAppStores();
   const canPay = session.adminType === "primary" || session.adminType === "co";
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
@@ -33,6 +44,14 @@ export function ManagerMoneyPage() {
     )
     .reduce((sum, v) => sum + v.amount, 0);
   const payslipsVersion = payslips.payslips.map((p) => `${p.id}:${p.payoutStatus}`).join(",");
+  // What this cutoff's payout will take for unpaid leave, from Postgres.
+  const unpaidLeaveDue = useUnpaidLeaveDue(
+    session.token,
+    selectedHelper && currentPeriod
+      ? [{ helperId: selectedHelper.id, cutoffEnd: currentPeriod.workedEnd }]
+      : [],
+    `${payslipsVersion}|${timeOff.leave.map((l) => `${l.id}:${l.status}`).join(",")}`,
+  );
 
   // Keyed on the SELECTED helper's interval, not the household default -- see
   // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
@@ -79,7 +98,12 @@ export function ManagerMoneyPage() {
         cutoff={cutoff}
         estimate={
           selectedHelper && currentPeriod
-            ? Math.max(0, periodEstimate(selectedHelper, currentPeriod) - unsettledVales)
+            ? Math.max(
+                0,
+                periodEstimate(selectedHelper, currentPeriod) -
+                  unsettledVales -
+                  unpaidLeaveDue(selectedHelper.id, currentPeriod.workedEnd).deduction,
+              )
             : undefined
         }
         onPayNow={payslips.payNow}
@@ -103,6 +127,7 @@ export function ManagerMoneyPage() {
         helper={selectedHelper}
         token={session.token}
         ready={session.status === "authed"}
+        onDecided={timeOff.reload}
       />
       <AfterHoursLedger
         entries={helperLedgerEntries}

@@ -1,10 +1,15 @@
-import { Mic, Send, Zap } from "lucide-react";
+import { Send, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { Helper } from "@/features/people/people.types";
 
 import { QUICK_UTOS_PRESETS } from "../utos.constants";
 
+/**
+ * Presets and a typed one-liner. The "Hold to record a voice utos" button
+ * that used to sit here sent a fixed placeholder string, not audio, so it's
+ * gone until real recording exists (KNOWN_GAPS.md O24).
+ */
 export function QuickUtosLauncher({
   onSend,
   helperName,
@@ -21,7 +26,6 @@ export function QuickUtosLauncher({
   onSelectHelper: (helperId: string) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [holding, setHolding] = useState(false);
 
   // Sorted by name for the picker only -- not reordering the shared
   // activeHelpers array, so lane order elsewhere (Pass board, task/routine/
@@ -97,40 +101,6 @@ export function QuickUtosLauncher({
           className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" /> Send
-        </button>
-      </div>
-
-      {/* Voice utos */}
-      <div className="mt-3">
-        <button
-          onMouseDown={() => setHolding(true)}
-          onTouchStart={() => setHolding(true)}
-          onMouseUp={() => {
-            if (holding) {
-              onSend("🎙️ Voice utos · 0:04");
-              setHolding(false);
-            }
-          }}
-          onMouseLeave={() => {
-            if (holding) {
-              onSend("🎙️ Voice utos · 0:04");
-              setHolding(false);
-            }
-          }}
-          onTouchEnd={() => {
-            if (holding) {
-              onSend("🎙️ Voice utos · 0:04");
-              setHolding(false);
-            }
-          }}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-soft transition ${
-            holding
-              ? "border-accent bg-accent text-accent-foreground"
-              : "border-border bg-background text-foreground hover:border-accent/50"
-          }`}
-        >
-          <Mic className="h-4 w-4" />{" "}
-          {holding ? "Recording… release to send" : "Hold to record a voice utos"}
         </button>
       </div>
 

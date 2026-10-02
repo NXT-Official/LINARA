@@ -107,12 +107,19 @@ export function EndEmploymentModal({
     : 1;
   const components = payComponentsForCutoff(helper.monthlyRate, helper.paydayInterval, share);
   const finalNet = current
-    ? netPayForCutoff(helper.monthlyRate, helper.paydayInterval, current.unsettledValeTotal, share)
+    ? netPayForCutoff(
+        helper.monthlyRate,
+        helper.paydayInterval,
+        current.unsettledValeTotal,
+        share,
+        current.unpaidLeaveDeduction,
+      )
     : 0;
   const daysWorked = current ? daysInclusive(current.finalCutoffStart, current.finalCutoffEnd) : 0;
   const thirteenth = current
     ? thirteenthMonthEstimate(
-        current.basePaidThisYear + (current.finalCutoffPaid ? 0 : components.basePay),
+        current.basePaidThisYear +
+          (current.finalCutoffPaid ? 0 : components.basePay - current.unpaidLeaveDeduction),
       )
     : 0;
 
@@ -219,6 +226,9 @@ export function EndEmploymentModal({
                     {fmtPeso(components.statutoryEmployeeShare)}
                     {current.unsettledValeTotal > 0
                       ? ` − vale ${fmtPeso(current.unsettledValeTotal)}`
+                      : ""}
+                    {current.unpaidLeaveDeduction > 0
+                      ? ` − unpaid leave ${fmtPeso(current.unpaidLeaveDeduction)} (${current.unpaidLeaveDays} ${current.unpaidLeaveDays === 1 ? "day" : "days"})`
                       : ""}
                     . You'll pay it from Past staff on this page, by GCash or Maya.
                   </p>

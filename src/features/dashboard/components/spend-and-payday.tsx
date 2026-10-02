@@ -28,7 +28,7 @@ import type { Helper } from "@/features/people/people.types";
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
   const { spent, budget, remaining } = useGrocery();
-  const { vales, payslips, payPeriods, activeHelpers, session } = useAppStores();
+  const { vales, payslips, payPeriods, activeHelpers, session, timeOff } = useAppStores();
 
   const scoped = helperOverride ? [helperOverride] : activeHelpers;
   const payroll = useHouseholdPayroll({
@@ -38,6 +38,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
     vales: vales.vales,
     payslips: payslips.payslips,
     payPeriods: payPeriods.byHelper,
+    leaveVersion: timeOff.leave,
   });
   const isHouseholdView = !helperOverride;
 
@@ -78,6 +79,8 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
       : 0;
 
   const valeDeductionsTotal = rows.reduce((sum, r) => sum + r.valeDeductions, 0);
+  // Unpaid leave comes out of pay like a vale (LEAVE_PLAN.md step 5).
+  const unpaidLeaveTotal = rows.reduce((sum, r) => sum + r.unpaidLeaveDeduction, 0);
   const paidCount = rows.filter((r) => r.state === "paid").length;
 
   const payPct = settledPct;
@@ -239,7 +242,13 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 -{fmtPeso(valeDeductionsTotal)} vale
               </span>
             )}
-            {valeDeductionsTotal > 0 && restOwedMin > 0 && <span>·</span>}
+            {valeDeductionsTotal > 0 && unpaidLeaveTotal > 0 && <span>·</span>}
+            {unpaidLeaveTotal > 0 && (
+              <span className="text-destructive inline-flex items-center gap-0.5">
+                -{fmtPeso(unpaidLeaveTotal)} unpaid leave
+              </span>
+            )}
+            {(valeDeductionsTotal > 0 || unpaidLeaveTotal > 0) && restOwedMin > 0 && <span>·</span>}
             {restOwedMin > 0 && (
               // Time, not pesos, and deliberately NOT part of net pay -- it is
               // redeemed as time off, not added to the payout. The figure is
@@ -252,6 +261,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
             {needsReviewCount === 0 &&
               inFlightTotal === 0 &&
               valeDeductionsTotal === 0 &&
+              unpaidLeaveTotal === 0 &&
               restOwedMin === 0 && (
                 <span className="text-muted-foreground inline-flex items-center gap-1">
                   Normal cutoff cycle

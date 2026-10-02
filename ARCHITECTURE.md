@@ -705,6 +705,7 @@ CREATE TABLE public.helper_profiles (
     phone TEXT,
     created_by UUID REFERENCES public.user_profiles(id),
     started_on DATE, -- her first working day; first pay period starts here (add-pay-periods.sql)
+    pay_days_per_year INT NOT NULL DEFAULT 365 CHECK (pay_days_per_year IN (261, 313, 365)), -- unpaid-leave divisor (add-leave.sql)
     notice_last_day DATE, -- notice she gave from her app (give_notice)
     notice_note TEXT,
     notice_given_at TIMESTAMP WITH TIME ZONE,
@@ -762,7 +763,13 @@ CREATE TABLE public.tickets (
     -- NULL = Unassigned: on the managers' board only until one assigns it
     -- (supabase/add-unassigned-tasks.sql).
     helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked')) DEFAULT 'todo',
+    -- 'cancelled' (supabase/add-cancelled-tasks.sql): kept for the record, off
+    -- the board, Today and every to-do count. Trigger tickets_stamp_cancel sets
+    -- cancelled_at / cancelled_by / cancelled_by_name, and clears them on restore.
+    status TEXT NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'blocked', 'cancelled')) DEFAULT 'todo',
+    cancelled_at TIMESTAMPTZ,
+    cancelled_by UUID, -- no FK on purpose: a 2nd tickets -> user_profiles link breaks the creator embed
+    cancelled_by_name TEXT,
     sop_id UUID REFERENCES public.house_sops(id) ON DELETE SET NULL,
     photo_evidence_url TEXT,
     is_after_hours BOOLEAN NOT NULL DEFAULT FALSE,
@@ -781,6 +788,48 @@ CREATE TABLE public.tickets (
     actual_start TIMESTAMP WITH TIME ZONE,
     actual_end TIMESTAMP WITH TIME ZONE,
     created_by UUID REFERENCES public.user_profiles(id)
+);
+
+-- Updates on a task (supabase/add-ticket-comments.sql). Read and written by
+-- the household's managers and the task's assigned helper only
+-- (can_see_ticket_thread); author_id/author_name are stamped by a trigger.
+CREATE TABLE public.ticket_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    author_name TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL CHECK (char_length(btrim(body)) BETWEEN 1 AND 1000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    edited_at TIMESTAMPTZ
+);
+
+-- Leave and days off (supabase/add-leave.sql, LEAVE_PLAN.md). Whole days:
+-- 'sil' (RA 10361 service incentive leave, 5 a service year after the first),
+-- 'in_kind' (time off in lieu, debited from rest_owed_balance_minutes),
+-- 'unpaid', 'extra_paid'. RLS is SELECT-only (household, plus her own after
+-- she leaves); every write goes through request_leave / record_leave /
+-- decide_leave_request / cancel_leave_request / ack_leave, which lock her
+-- helper_profiles row and share one rule check (leave_guard).
+CREATE TABLE public.leave_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('sil', 'in_kind', 'unpaid', 'extra_paid')),
+    reason TEXT NOT NULL DEFAULT 'other' CHECK (reason IN ('vacation', 'sick', 'family', 'other')),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL CHECK (end_date >= start_date),
+    days INT NOT NULL CHECK (days > 0), -- working days, snapshotted at approval
+    minutes INT NOT NULL DEFAULT 0, -- in_kind debit, snapshotted at approval
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined', 'cancelled')),
+    requested_by UUID, decided_by UUID, decided_at TIMESTAMPTZ, decline_reason TEXT,
+    cancelled_by UUID, cancelled_at TIMESTAMPTZ,
+    helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- manager-recorded leave
+    helper_ack_at TIMESTAMPTZ, helper_ack_note TEXT,
+    -- Unpaid only: the payslip that deducted it, like vales. A leave comes off
+    -- whole from the cutoff it ends in (her final cutoff also takes leave
+    -- running past her last day, up to it); a failed payout releases it.
+    settled_in_payslip_id UUID REFERENCES public.payslips(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
 -- 5. Appointments Table (Schedule Anchors)
@@ -941,6 +990,10 @@ CREATE TABLE public.payslips (
     base_pay NUMERIC(10,2) NOT NULL,
     statutory_employee_share NUMERIC(10,2) NOT NULL,
     vale_deductions NUMERIC(10,2) NOT NULL DEFAULT 0,
+    -- Unpaid leave it deducted, snapshotted (supabase/add-unpaid-leave-pay.sql):
+    -- days x monthly_rate x 12 / pay_days_per_year. net_pay subtracts it.
+    unpaid_leave_days INT NOT NULL DEFAULT 0,
+    unpaid_leave_deduction NUMERIC(10,2) NOT NULL DEFAULT 0,
     net_pay NUMERIC(10,2) NOT NULL,
     currency TEXT NOT NULL DEFAULT 'PHP',
     payout_provider TEXT NOT NULL DEFAULT 'xendit',
@@ -1049,6 +1102,16 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- rest_off_requests_own_read / tickets_own_read / households_own_history_read,
 -- each an EXISTS through helper_profiles.user_id = auth.uid(). Additive SELECT
 -- policies; every write still goes through the household-scoped ones.
+
+-- Who may WRITE (supabase/fix-helper-write-access.sql, KNOWN_GAPS C72). The
+-- household-wide FOR ALL policies on user_profiles, helper_profiles, vales,
+-- ledger_entries, payslips and rest_off_requests below are now read-only
+-- (same names, FOR SELECT). Writes are for primary and co-managers only
+-- (is_household_manager()), except a helper's two direct writes: a new
+-- pending vale for herself, and her own helper_profiles.manual_status /
+-- manual_available_until (trigger helper_profiles_zz_guard_own_update).
+-- households_update_budget is manager-only too. Everything else goes through
+-- SECURITY DEFINER functions, which run as their owner.
 
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every
@@ -1361,11 +1424,9 @@ All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative 
 
 `GroceryCtx` coordinates between Pantry stocking and the active Palengke checklist:
 
-- `pantryAutoSuggestions` are populated dynamically on load by selecting `pantry_items` where `qty <= par`.
-- `manualGroceryItems` contains manual purchases added to the list.
-- Once a helper completes a Palengke Run task, the client triggers a transaction:
-  1. Sets `bought = true` on the `grocery_items` rows.
-  2. Increments `qty` in `pantry_items` to match the required `par` limits.
+- Suggestions are derived on load from `pantry_items` where `qty <= par`. They exist only in the manager's browser until "Add to list" saves them as `grocery_items` rows linked by `pantry_item_id` (the helper's "Ilista sa palengke" does the same on mobile).
+- Manual items are typed in by either side and have no `pantry_item_id`.
+- Restocking is a database trigger, not client code (`supabase/add-grocery-restock.sql`, KNOWN_GAPS.md O23). When a linked `grocery_items` row's `bought` flips to true, its `qty` is added to the pantry item. Flipping it back takes the same amount off, never below 0. Unlinked items restock nothing.
 
 ---
 

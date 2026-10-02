@@ -26,6 +26,8 @@ function toPayslip(row: PayslipRow): Payslip {
     basePay: Number(row.base_pay),
     statutoryEmployeeShare: Number(row.statutory_employee_share),
     valeDeductions: Number(row.vale_deductions),
+    unpaidLeaveDays: Number(row.unpaid_leave_days ?? 0),
+    unpaidLeaveDeduction: Number(row.unpaid_leave_deduction ?? 0),
     netPay: Number(row.net_pay),
     kind: row.kind ?? "regular",
     payoutProvider: row.payout_provider ?? "xendit",

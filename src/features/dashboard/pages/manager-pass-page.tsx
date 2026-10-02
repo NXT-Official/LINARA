@@ -2,12 +2,16 @@ import { useState } from "react";
 
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
+import { useOpenTaskCounts } from "@/features/leave/hooks/use-open-task-counts";
 import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
+import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
+import { toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
+import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
 import { StartNewDayModal } from "../components/start-new-day-modal";
 
@@ -33,6 +37,8 @@ export function ManagerPassPage({
     activeHelpers,
     utos,
     utosRecipientId,
+    timeOff,
+    setUtosRecipientId,
     clock,
     startNewDay,
     previewNewDay,
@@ -63,6 +69,7 @@ export function ManagerPassPage({
   const {
     tasks,
     boardClosed,
+    setClosed,
     simDate,
     addTask,
     rescheduleTask,
@@ -81,6 +88,7 @@ export function ManagerPassPage({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [confirmingNewDay, setConfirmingNewDay] = useState(false);
+  const [confirmingEndDay, setConfirmingEndDay] = useState(false);
   const [newDayPreview, setNewDayPreview] = useState<{
     pendingUtos: number;
     routinesRespawning: number;
@@ -114,6 +122,11 @@ export function ManagerPassPage({
   const active = onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs));
   const upcoming = onBoard.filter((t) => isLaterThanToday(t, clock.nowTs));
   const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
+  const pendingLeave = timeOff.leave.filter((l) => l.status === "pending");
+  const leaveTaskCounts = useOpenTaskCounts(
+    canOverride ? session.token : null,
+    pendingLeave.map((l) => ({ key: l.id, ...l })),
+  );
   const gate = useSendGate({
     authorName,
     isRemote,
@@ -123,6 +136,7 @@ export function ManagerPassPage({
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,
+    timeOff: timeOff.list,
     onSendUtos: utos.send,
     onAddTask: addTask,
   });
@@ -144,6 +158,11 @@ export function ManagerPassPage({
         owedPay={owedPay}
         disputedPayments={disputedPayments}
         notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
+        pendingLeave={pendingLeave}
+        leaveTaskCounts={leaveTaskCounts}
+        onDecideLeave={
+          canOverride ? (id, d, opts) => void timeOff.decideLeave(id, d, opts) : undefined
+        }
         helpers={helpers}
         activeHelpers={activeHelpers}
         simDate={simDate}
@@ -154,6 +173,8 @@ export function ManagerPassPage({
         isRemote={isRemote}
         canStartNewDay={canStartNewDay}
         onStartNewDay={openNewDayConfirm}
+        onEndDay={() => setConfirmingEndDay(true)}
+        onReopenDay={() => setClosed(false)}
         onReschedule={rescheduleTask}
         onEditTask={setEditing}
         onCancelTask={cancelTask}
@@ -162,6 +183,15 @@ export function ManagerPassPage({
         onApproveSuggestion={approveSuggestion}
         onDismissSuggestion={dismissSuggestion}
         onNewTask={() => setOpen(true)}
+        quickUtos={
+          <QuickUtosLauncher
+            onSend={gate.sendUtos}
+            helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
+            activeHelpers={activeHelpers}
+            selectedHelperId={utosRecipientId}
+            onSelectHelper={setUtosRecipientId}
+          />
+        }
         view={view}
         onViewChange={onViewChange}
       />
@@ -170,6 +200,9 @@ export function ManagerPassPage({
         <NewTaskModal
           activeHelpers={activeHelpers}
           isRemote={isRemote}
+          defaultDate={toISODate(simDate)}
+          scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
           onClose={() => setOpen(false)}
           onAdd={(t, opts) => {
             gate.addTask(t, opts);
@@ -182,9 +215,12 @@ export function ManagerPassPage({
           task={editing}
           helpers={activeHelpers}
           scheduleFor={schedules.scheduleFor}
+          timeOff={timeOff.list}
+          token={session.token}
+          myUserId={session.userId}
           onClose={() => setEditing(null)}
           onSave={(edit) => {
-            editTask(editing.id, edit);
+            void editTask(editing.id, edit);
             setEditing(null);
           }}
         />
@@ -197,6 +233,15 @@ export function ManagerPassPage({
           canOverride={canOverride}
           onCancel={gate.cancel}
           onChoose={gate.resolve}
+        />
+      )}
+      {confirmingEndDay && (
+        <EndDayModal
+          onConfirm={() => {
+            setClosed(true);
+            setConfirmingEndDay(false);
+          }}
+          onCancel={() => setConfirmingEndDay(false)}
         />
       )}
       {confirmingNewDay && (

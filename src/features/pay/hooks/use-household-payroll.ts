@@ -8,6 +8,7 @@ import { netPayForCutoff, workedShareOfCutoff } from "../net-pay";
 import { getHouseholdCutoffFn, type HouseholdCutoff } from "../pay.actions";
 import type { PayPeriod, Payslip } from "../pay.types";
 import { payslipCovering } from "../payslip-match";
+import { useUnpaidLeaveDue } from "./use-unpaid-leave-due";
 
 /**
  * What this cutoff owes, per helper and for the household as a whole.
@@ -69,6 +70,10 @@ export interface HelperPayroll {
    */
   netPay: number;
   valeDeductions: number;
+  /** Unpaid leave this cutoff takes (LEAVE_PLAN.md step 5): what Postgres
+   * says the payout will deduct while due, the payslip's snapshot after. */
+  unpaidLeaveDays: number;
+  unpaidLeaveDeduction: number;
   restOwedMinutes: number;
   state: PayrollState;
   payslip: Payslip | null;
@@ -113,6 +118,7 @@ export function useHouseholdPayroll({
   vales,
   payslips,
   payPeriods = {},
+  leaveVersion,
 }: {
   token: string | null;
   ready: boolean;
@@ -123,6 +129,9 @@ export function useHouseholdPayroll({
   /** Each helper's pay periods (usePayPeriods), so a first cutoff she started
    * partway through shows the pro-rated amount the payout will send. */
   payPeriods?: Record<string, PayPeriod[]>;
+  /** Changes when leave does (the leave list), so an approval refetches what
+   * the cutoff will deduct for it. */
+  leaveVersion?: unknown;
 }): HouseholdPayroll {
   const [cutoffs, setCutoffs] = useState<Partial<Record<PaydayInterval, HouseholdCutoff>>>({});
   const [restOwed, setRestOwed] = useState<Record<string, number>>({});
@@ -208,6 +217,22 @@ export function useHouseholdPayroll({
     };
   }, [ready, token, helperIdKey]);
 
+  // Each helper's current cutoff ends on its own date (a monthly helper's
+  // isn't a semi-monthly one's).
+  const cutoffEndFor = (helper: Helper) =>
+    (payPeriods[helper.id] ?? []).find((p) => p.isCurrent)?.workedEnd ??
+    cutoffs[helper.paydayInterval]?.cutoffEnd;
+  // One object per change of leave or payslips: what the lookup refetches on.
+  const refetchOn = useMemo(() => [leaveVersion, payslips], [leaveVersion, payslips]);
+  const unpaidLeave = useUnpaidLeaveDue(
+    ready ? token : null,
+    helpers.flatMap((h) => {
+      const cutoffEnd = cutoffEndFor(h);
+      return cutoffEnd ? [{ helperId: h.id, cutoffEnd }] : [];
+    }),
+    refetchOn,
+  );
+
   return useMemo(() => {
     const rows: HelperPayroll[] = helpers.map((helper) => {
       const cutoff = cutoffs[helper.paydayInterval] ?? null;
@@ -233,6 +258,7 @@ export function useHouseholdPayroll({
         : 1;
 
       const state = stateFor(payslip);
+      const leave = unpaidLeave(helper.id, period?.workedEnd ?? cutoff?.cutoffEnd);
 
       return {
         helper,
@@ -244,9 +270,13 @@ export function useHouseholdPayroll({
                 helper.paydayInterval,
                 unsettledVales,
                 workedShare,
+                leave.deduction,
               )
             : (payslip?.netPay ?? 0),
         valeDeductions: state === "due" ? unsettledVales : (payslip?.valeDeductions ?? 0),
+        unpaidLeaveDays: state === "due" ? leave.days : (payslip?.unpaidLeaveDays ?? 0),
+        unpaidLeaveDeduction:
+          state === "due" ? leave.deduction : (payslip?.unpaidLeaveDeduction ?? 0),
         restOwedMinutes: restOwed[helper.id] ?? 0,
         state,
         payslip,
@@ -265,5 +295,5 @@ export function useHouseholdPayroll({
       restOwedMinutesTotal: rows.reduce((sum, r) => sum + r.restOwedMinutes, 0),
       loading: rows.some((r) => r.cutoff === null),
     };
-  }, [helpers, vales, payslips, cutoffs, restOwed, payPeriods]);
+  }, [helpers, vales, payslips, cutoffs, restOwed, payPeriods, unpaidLeave]);
 }
