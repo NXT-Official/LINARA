@@ -26,6 +26,14 @@ export type LeaveRequest = {
 };
 
 /** One helper's leave balances, from the same Postgres functions the approval checks use. */
+/** The household's service incentive leave rule (supabase/add-leave-policy.sql). */
+export type LeavePolicy = {
+  /** True: SIL from her second service year, as RA 10361 has it. False: from day one. */
+  silWaitsFirstYear: boolean;
+  /** 5 by law; a household may give more. */
+  silDaysPerYear: number;
+};
+
 export type LeaveBalance = {
   helperId: string;
   /** Service incentive leave left in the current service year. */

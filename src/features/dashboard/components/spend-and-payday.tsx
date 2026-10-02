@@ -4,6 +4,7 @@ import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { useAppStores } from "../app-store-context";
 import { fmtHoursMinutes } from "@/features/ledger/ledger.utils";
 import { useHouseholdPayroll } from "@/features/pay/hooks/use-household-payroll";
+import { formatCutoffRange } from "@/features/pay/pay.utils";
 import type { Helper } from "@/features/people/people.types";
 
 /**
@@ -155,6 +156,12 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
           <div className="space-y-1">
             <span className="text-xs font-bold text-muted-foreground block">
               {isHouseholdView ? "Payroll due this cutoff" : "Due this cutoff"}
+              {/* Which cutoff, so "this cutoff" isn't a guess (client
+                  feedback 2026-10-02). One helper has one; the household
+                  view can span two intervals, so it names none. */}
+              {!isHouseholdView && rows[0]?.cutoff
+                ? ` · ${formatCutoffRange(rows[0].cutoff.cutoffStart, rows[0].cutoff.cutoffEnd)}`
+                : ""}
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {/* While the cutoff is unknown, show nothing rather than a

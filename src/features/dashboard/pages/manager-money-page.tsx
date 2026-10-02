@@ -6,6 +6,7 @@ import { RestOffRequests } from "@/features/ledger/components/rest-off-requests"
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
 import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
+import { PayrollSummary } from "@/features/pay/components/payroll-summary";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 
@@ -63,8 +64,20 @@ export function ManagerMoneyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="sr-only">Money</h1>
+      <h1 className="sr-only">Money</h1>
+      <PayrollSummary
+        selectedId={selectedHelper?.id ?? null}
+        onSelect={(id) => {
+          setPickedPayHelperId(id);
+          document
+            .getElementById("pay-details")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
+      <div
+        id="pay-details"
+        className="flex scroll-mt-20 flex-wrap items-center justify-between gap-2"
+      >
         {/* Every figure below this line is about ONE helper, and which one is
             a decision the manager has to be able to see they are making --
             these are wage, vale and payout numbers, and mistaking whose they

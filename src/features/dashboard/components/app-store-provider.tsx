@@ -21,7 +21,7 @@ import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
 import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
-import { clearAllUtosForHelpersFn, listUtosForHelpersFn } from "@/features/utos/utos.actions";
+import { clearAllUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
 import { getQueue, removeFromQueue } from "@/lib/offline-queue";
 import { parseISODate, toISODate } from "@/lib/time";
@@ -387,12 +387,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // "Start new day," manual or automatic: clears every active helper's
+  // The day rollover, run automatically once the household's day has moved
+  // on (there used to be a manual "Start new day" too; it moved the board to
+  // TOMORROW, which confused the client, 2026-10-02). Clears every active helper's
   // pending Quick Utos household-wide -- not just utosRecipientId's, which
   // is all clearUtosForHelperFn used to cover (KNOWN_GAPS.md C30) -- and
   // rolls the board to targetDate, then refreshes utos so the current
-  // recipient's list reflects the clear. Shared by the manual `startNewDay`
-  // composite below and the auto-rollover effect further down.
+  // recipient's list reflects the clear.
   const runDayRollover = async (
     targetDate: Date,
   ): Promise<{ routinesRespawned: number; utosCleared: boolean }> => {
@@ -518,25 +519,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
     isOfflineSimulated,
     setOfflineSimulated,
-    startNewDay: async () => {
-      const target = new Date(board.simDate);
-      target.setDate(target.getDate() + 1);
-      const { routinesRespawned, utosCleared } = await runDayRollover(target);
-      toast.success(
-        `Bagong araw! ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} na-respawn` +
-          (utosCleared ? ", Quick Utos na-clear." : "."),
-      );
-    },
-    previewNewDay: async () => {
-      const target = new Date(board.simDate);
-      target.setDate(target.getDate() + 1);
-      const helperIds = activeHelpers.map((h) => h.id);
-      const pendingUtos =
-        helperIds.length > 0 && session.token
-          ? (await listUtosForHelpersFn({ data: { token: session.token, helperIds } })).length
-          : 0;
-      return { pendingUtos, routinesRespawning: board.previewRespawnCount(target) };
-    },
   };
 
   const commentActivity = useCommentActivity({

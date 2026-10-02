@@ -38,6 +38,10 @@ const settledIn = async (leaveId) =>
     .settled_in_payslip_id;
 
 await db.exec(readFileSync(resolve(HERE, "base-schema.sql"), "utf8"));
+// add-payout-attempts.sql drops this column live; without it here, an insert
+// that still named it passed these tests and failed in production (client
+// feedback 2026-10-02: "Paid outside Linara" errored).
+await db.exec(`ALTER TABLE payslips DROP COLUMN payout_reference_id`);
 await db.exec(readFileSync(`${REPO}/add-employment-end.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-pay-periods.sql`, "utf8"));
 // What add-leave.sql and record_payout_attempt_result read beyond those, as in

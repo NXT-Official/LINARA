@@ -8,6 +8,7 @@ import {
   getHouseholdBudgetFn,
   insertGroceryItemFn,
   listGroceryItemsFn,
+  listGroceryReceiptsFn,
   setGroceryItemBoughtFn,
   updateGroceryItemFn,
   updateHouseholdBudgetFn,
@@ -55,6 +56,7 @@ export function useGroceryList({
 }): GroceryContextValue {
   const [items, setItems] = useState<GroceryItem[]>([]);
   const [budget, setBudgetState] = useState(1500);
+  const [receipts, setReceipts] = useState<GroceryContextValue["receipts"]>([]);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
   const pantryItems = pantry.items;
@@ -67,6 +69,10 @@ export function useGroceryList({
     ]);
     setItems(rows.map(toGroceryItem));
     setBudgetState(householdBudget.budget);
+    // Separate so a receipt problem never blanks the list.
+    listGroceryReceiptsFn({ data: { token } })
+      .then(setReceipts)
+      .catch((err) => console.error("[useGroceryList] Failed to load receipts:", err));
   }, [token]);
 
   useEffect(() => {
@@ -205,6 +211,7 @@ export function useGroceryList({
     spent,
     remaining: budget - spent,
     receiptPhoto,
+    receipts,
     addManual,
     addSuggestion,
     edit,

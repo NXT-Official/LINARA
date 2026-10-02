@@ -1332,7 +1332,24 @@ CREATE TABLE public.households (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL DEFAULT 'My Household',
     petty_cash_budget NUMERIC(10,2) NOT NULL DEFAULT 1500,
+    -- The household's service incentive leave rule (add-leave-policy.sql):
+    -- RA 10361 by default, more generous if the manager says so, never less.
+    sil_waits_first_year BOOLEAN NOT NULL DEFAULT true,
+    sil_days_per_year INT NOT NULL DEFAULT 5 CHECK (sil_days_per_year BETWEEN 5 AND 30),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Palengke receipts (add-grocery-receipts.sql): one per shopping trip, task or
+-- no task. The photo is in household-evidence under
+-- "<household_id>/receipts/". Household reads; anyone adds their own; the
+-- uploader or a manager deletes; nobody edits.
+CREATE TABLE public.grocery_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    storage_path TEXT NOT NULL CHECK (split_part(storage_path, '/', 1) = household_id::text),
+    uploaded_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;

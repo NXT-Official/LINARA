@@ -7,6 +7,15 @@ export const LEAVE_KIND_LABEL: Record<LeaveKind, string> = {
   extra_paid: "Extra paid day",
 };
 
+/** The SIL line under the form, for the household's rule. */
+export function silHint(policy: { silWaitsFirstYear: boolean; silDaysPerYear: number } | null) {
+  if (!policy) return LEAVE_KIND_HINT.sil;
+  const days = `${policy.silDaysPerYear} days a service year`;
+  return policy.silWaitsFirstYear
+    ? `Paid. ${days} after her first year (RA 10361).`
+    : `Paid. ${days} from her first day (your household's rule; the law starts after a year).`;
+}
+
 /** What each kind costs, for the forms. */
 export const LEAVE_KIND_HINT: Record<LeaveKind, string> = {
   sil: "Paid. 5 days a service year after her first year (RA 10361).",

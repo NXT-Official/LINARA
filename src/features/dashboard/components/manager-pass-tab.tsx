@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CalendarDays, Columns3, Moon, Plus, Sunrise, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Columns3, Moon, Plus, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { RosaStatus } from "@/features/availability/availability.types";
@@ -47,15 +47,21 @@ export type ManagerPassTabProps = {
   ) => void;
   helpers: Helper[];
   activeHelpers: Helper[];
-  simDate: Date;
+  /** The day shown: today, or one picked with the arrows. */
+  shownDate: Date;
+  isToday: boolean;
+  /** Another day's tasks are still loading. */
+  dayLoading: boolean;
+  onShiftDay: (days: number) => void;
+  onToday: () => void;
   boardClosed: boolean;
   rosaStatus: RosaStatus;
   helperName: string;
   authorName: string;
   isRemote: boolean;
-  canStartNewDay: boolean;
-  onStartNewDay: () => void;
-  /** Ask to end the day (confirmed in a modal). Same people as Start new day. */
+  /** Primary and co-managers. */
+  canEndDay: boolean;
+  /** Ask to end the day (confirmed in a modal). */
   onEndDay: () => void;
   onReopenDay: () => void;
   onReschedule: (id: string) => void;
@@ -95,14 +101,17 @@ export function ManagerPassTab({
   onDecideLeave,
   helpers,
   activeHelpers,
-  simDate,
+  shownDate,
+  isToday,
+  dayLoading,
+  onShiftDay,
+  onToday,
   boardClosed,
   rosaStatus,
   helperName,
   authorName,
   isRemote,
-  canStartNewDay,
-  onStartNewDay,
+  canEndDay,
   onEndDay,
   onReopenDay,
   onReschedule,
@@ -150,13 +159,21 @@ export function ManagerPassTab({
   );
   // Only say something the counts above don't already say. Anything waiting
   // on a decision is Needs You's job, directly below.
-  const dayNote = boardClosed
-    ? "The day is done. Anything you add for today waits until it reopens."
-    : active.length === 0
-      ? "Nothing on today's board yet."
-      : counts.done === active.length
-        ? "Everything on today's board is done."
-        : null;
+  const dayNote = dayLoading
+    ? "Loading that day…"
+    : !isToday
+      ? active.length === 0
+        ? "Nothing planned that day."
+        : null
+      : boardClosed
+        ? "The day is done. Anything you add for today waits until it reopens."
+        : active.length === 0
+          ? "Nothing on today's board yet."
+          : counts.done === active.length
+            ? "Everything on today's board is done."
+            : null;
+  const dayBtn =
+    "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 
   return (
     <>
@@ -193,33 +210,55 @@ export function ManagerPassTab({
 
       {/* Status line */}
       <section className="rounded-3xl bg-card p-5 shadow-soft sm:p-7">
-        <div className="flex items-start justify-between gap-3">
-          {/* The date, once. It used to appear three times: a "The Pass ·
-              Today" eyebrow, a date pill, and the weekday again below. */}
-          <h2 className="min-w-0 font-display text-2xl leading-tight text-foreground">
-            {formatSimDate(simDate)}
-          </h2>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            {boardClosed && (
+        {/* Wraps on a phone: the date keeps its own line, and the day's
+            actions go under it instead of printing over it. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onShiftDay(-1)}
+              aria-label="Previous day"
+              className={dayBtn}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {/* The date, once. It used to appear three times: a "The Pass ·
+                Today" eyebrow, a date pill, and the weekday again below. */}
+            <h2 className="min-w-0 font-display text-2xl leading-tight text-foreground">
+              {formatSimDate(shownDate)}
+            </h2>
+            <button
+              type="button"
+              onClick={() => onShiftDay(1)}
+              aria-label="Next day"
+              className={dayBtn}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {!isToday && (
+              <button
+                type="button"
+                onClick={onToday}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+              >
+                Back to today
+              </button>
+            )}
+            {isToday && boardClosed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                 <Moon className="h-3 w-3" /> Day ended
               </span>
             )}
-            {canStartNewDay && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={boardClosed ? onReopenDay : onEndDay}
-                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                >
-                  {boardClosed ? "Reopen today" : "End the day"}
-                </button>
-                <button
-                  onClick={onStartNewDay}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-                >
-                  <Sunrise className="h-3.5 w-3.5" /> Start new day
-                </button>
-              </div>
+            {isToday && canEndDay && (
+              <button
+                type="button"
+                onClick={boardClosed ? onReopenDay : onEndDay}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                {boardClosed ? "Reopen today" : "End the day"}
+              </button>
             )}
           </div>
         </div>
