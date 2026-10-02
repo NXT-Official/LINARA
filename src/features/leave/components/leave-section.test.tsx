@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Helper } from "@/features/people/people.types";
@@ -18,6 +18,8 @@ vi.mock("../leave.actions", () => ({
       restOwedMinutes: 520,
     },
   ]),
+  getLeavePolicyFn: vi.fn(async () => ({ silWaitsFirstYear: true, silDaysPerYear: 5 })),
+  setLeavePolicyFn: vi.fn(async ({ data }: { data: { policy: unknown } }) => data.policy),
 }));
 
 // Two of Rosa's tasks fall on whatever days Record leave is given.
@@ -84,6 +86,22 @@ describe("LeaveSection", () => {
     expect(screen.getByText(/8h 40m rest owed/)).toBeTruthy();
   });
 
+  it("shows the household's leave rules, and saves a change", async () => {
+    const actions = await import("../leave.actions");
+    renderSection();
+    const wait = await screen.findByRole("checkbox", {
+      name: /starts after her first year/,
+    });
+    expect((wait as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(wait);
+    await waitFor(() =>
+      expect(actions.setLeavePolicyFn).toHaveBeenCalledWith({
+        data: { token: "token", policy: { silWaitsFirstYear: false, silDaysPerYear: 5 } },
+      }),
+    );
+    expect(await screen.findByText(/from her first day, sooner than the law/)).toBeTruthy();
+  });
+
   it("flags a recorded leave she disputes", () => {
     renderSection();
     expect(screen.getByText('Rosa disputes this: "Isang araw lang"')).toBeTruthy();
@@ -101,7 +119,7 @@ describe("LeaveSection", () => {
     const onRecord = vi.fn(async () => true);
     renderSection({ onRecord });
     fireEvent.click(screen.getByRole("button", { name: /record leave/i }));
-    const move = await screen.findByRole("checkbox");
+    const move = await within(await screen.findByRole("dialog")).findByRole("checkbox");
     expect(screen.getByText(/2 of Rosa's unfinished tasks are on these days/)).toBeTruthy();
     expect((move as HTMLInputElement).checked).toBe(true);
 
@@ -118,7 +136,7 @@ describe("LeaveSection", () => {
     const onRecord = vi.fn(async () => true);
     renderSection({ onRecord });
     fireEvent.click(screen.getByRole("button", { name: /record leave/i }));
-    fireEvent.click(await screen.findByRole("checkbox"));
+    fireEvent.click(await within(await screen.findByRole("dialog")).findByRole("checkbox"));
     fireEvent.click(screen.getAllByRole("button", { name: /record leave/i }).at(-1)!);
     await waitFor(() =>
       expect(onRecord).toHaveBeenCalledWith(expect.objectContaining({ unassignTasks: false })),

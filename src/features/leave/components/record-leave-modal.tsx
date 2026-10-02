@@ -25,6 +25,7 @@ export function RecordLeaveModal({
   defaultDate,
   onClose,
   onRecord,
+  silHintText,
 }: {
   helperName: string;
   helperId: string;
@@ -35,6 +36,8 @@ export function RecordLeaveModal({
   onClose: () => void;
   /** Resolves true once saved; the form stays open on a refusal so it can be fixed. */
   onRecord: (input: RecordLeaveInput) => Promise<boolean>;
+  /** The SIL line for the household's rule, when known. */
+  silHintText?: string;
 }) {
   const [kind, setKind] = useState<LeaveKind>("sil");
   const [reason, setReason] = useState<LeaveReason>("sick");
@@ -93,7 +96,9 @@ export function RecordLeaveModal({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-muted-foreground">{LEAVE_KIND_HINT[kind]}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {kind === "sil" && silHintText ? silHintText : LEAVE_KIND_HINT[kind]}
+          </p>
         </Field>
         <Field label="Reason">
           <select

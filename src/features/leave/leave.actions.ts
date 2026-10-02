@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
 
-import type { LeaveBalance, LeaveKind, LeaveReason, LeaveRequest } from "./leave.types";
+import type {
+  LeaveBalance,
+  LeaveKind,
+  LeavePolicy,
+  LeaveReason,
+  LeaveRequest,
+} from "./leave.types";
 
 /**
  * Leave (supabase/add-leave.sql). Reads are plain selects under RLS; every
@@ -153,4 +159,67 @@ export const setPayDaysPerYearFn = createServerFn({ method: "POST" })
       .update({ pay_days_per_year: data.payDaysPerYear })
       .eq("id", data.helperId);
     if (error) throw new Error(error.message);
+  });
+
+/**
+ * The household's SIL rule, or null before add-leave-policy.sql is applied
+ * (People then hides the setting and the law's rule applies).
+ */
+export const getLeavePolicyFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }): Promise<LeavePolicy | null> => {
+    const client = createAuthedClient(data.token);
+    const { data: row, error } = await client
+      .from("households")
+      .select("sil_waits_first_year, sil_days_per_year")
+      .limit(1)
+      .maybeSingle();
+    if (error?.code === "42703") return null;
+    if (error) throw new Error(error.message);
+    if (!row) return null;
+    return {
+      silWaitsFirstYear: Boolean(row.sil_waits_first_year),
+      silDaysPerYear: Number(row.sil_days_per_year),
+    };
+  });
+
+/**
+ * Sets the household's SIL rule. Managers only, here and in the database
+ * (households_update_budget); the database also keeps days at 5 or more.
+ */
+export const setLeavePolicyFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; policy: LeavePolicy }) => {
+    const days = data.policy.silDaysPerYear;
+    if (!Number.isInteger(days) || days < 5 || days > 30) {
+      throw new Error("Service incentive leave is 5 to 30 days a year");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const {
+      data: { user },
+      error: authError,
+    } = await client.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+
+    const { data: profile, error: profileError } = await client
+      .from("user_profiles")
+      .select("household_id, user_type")
+      .eq("id", user.id)
+      .single();
+    if (profileError || !profile) throw new Error("Unauthorized: Profile not found");
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can change the leave rules");
+    }
+
+    const { error } = await client
+      .from("households")
+      .update({
+        sil_waits_first_year: data.policy.silWaitsFirstYear,
+        sil_days_per_year: data.policy.silDaysPerYear,
+      })
+      .eq("id", profile.household_id);
+    if (error) throw new Error(error.message);
+    return data.policy;
   });

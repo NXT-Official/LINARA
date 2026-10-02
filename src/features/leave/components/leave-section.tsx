@@ -7,14 +7,16 @@ import type { Helper } from "@/features/people/people.types";
 import type { RecordLeaveInput } from "@/features/shifts/hooks/use-time-off";
 import { parseISODate } from "@/lib/time";
 
-import { getLeaveBalancesFn } from "../leave.actions";
+import { getLeaveBalancesFn, getLeavePolicyFn, setLeavePolicyFn } from "../leave.actions";
 import {
   LEAVE_KIND_LABEL,
   LEAVE_REASON_LABEL,
   LEAVE_STATUS_LABEL,
   PAY_DAYS_OPTIONS,
+  silHint,
 } from "../leave.constants";
-import type { LeaveBalance, LeaveRequest } from "../leave.types";
+import type { LeaveBalance, LeavePolicy, LeaveRequest } from "../leave.types";
+import { LeaveRules } from "./leave-rules";
 import { RecordLeaveModal } from "./record-leave-modal";
 
 const SHOWN = 5;
@@ -60,7 +62,25 @@ export function LeaveSection({
 }) {
   const [balances, setBalances] = useState<Record<string, LeaveBalance>>({});
   const [recordingFor, setRecordingFor] = useState<Helper | null>(null);
+  // null until loaded, and stays null before add-leave-policy.sql is applied.
+  const [policy, setPolicy] = useState<LeavePolicy | null>(null);
   const helperKey = helpers.map((h) => h.id).join(",");
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    getLeavePolicyFn({ data: { token } })
+      .then((p) => !cancelled && setPolicy(p))
+      .catch((err) => console.error("[LeaveSection] Failed to load leave rules:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const changePolicy = async (next: LeavePolicy) => {
+    if (!token) return;
+    setPolicy(await setLeavePolicyFn({ data: { token, policy: next } }));
+  };
 
   // Refetched whenever the leave list changes: an approval or a cancel moves them.
   useEffect(() => {
@@ -74,7 +94,7 @@ export function LeaveSection({
     return () => {
       cancelled = true;
     };
-  }, [token, helperKey, leave]);
+  }, [token, helperKey, leave, policy]);
 
   if (helpers.length === 0) return null;
 
@@ -94,6 +114,8 @@ export function LeaveSection({
         </span>
       </div>
 
+      {policy && <LeaveRules policy={policy} canChange={canManage} onChange={changePolicy} />}
+
       <div className="divide-y divide-border/70">
         {helpers.map((h) => {
           const b = balances[h.id];
@@ -108,7 +130,7 @@ export function LeaveSection({
                     {!b
                       ? "Loading…"
                       : b.silYearEnd
-                        ? `${b.silDays} of 5 SIL days left until ${shortDate(b.silYearEnd)}`
+                        ? `${b.silDays} of ${policy?.silDaysPerYear ?? 5} SIL days left until ${shortDate(b.silYearEnd)}`
                         : b.silEligibleFrom
                           ? `SIL starts ${longDate(b.silEligibleFrom)}`
                           : "SIL starts after a year of service"}
@@ -205,6 +227,7 @@ export function LeaveSection({
           defaultDate={todayIso}
           onClose={() => setRecordingFor(null)}
           onRecord={onRecord}
+          silHintText={silHint(policy)}
         />
       )}
     </section>
