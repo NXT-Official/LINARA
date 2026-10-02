@@ -1,7 +1,8 @@
 import { AlertCircle, Check, Package, Plus } from "lucide-react";
 import { useState } from "react";
 
-import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
+import { ListFilter } from "@/components/shared/list-filter";
+import { matchesQuery } from "@/components/shared/list-filter.utils";
 
 import type { PantryStore } from "../hooks/use-pantry";
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
