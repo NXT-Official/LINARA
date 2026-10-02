@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, ArrowLeft, Home, Loader2, Smartphone, UserRound } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
@@ -30,6 +30,12 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(false);
+
+  // Signed in (already, or just now): into the app. Replace, so Back from the
+  // app goes to wherever the visitor came from, not to this form.
+  useEffect(() => {
+    if (session.status === "authed") navigate({ to: "/manager/pass", replace: true });
+  }, [session.status, navigate]);
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -70,7 +76,6 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
           return;
         }
         toast.success("Tagumpay! Nagawa na ang household mo.");
-        navigate({ to: "/manager/pass" });
       } else {
         const result = await session.logIn({ email: email.trim(), password });
         if (result === "confirmation_pending") {
@@ -89,7 +94,6 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
           return;
         }
         toast.success("Welcome back!");
-        navigate({ to: "/manager/pass" });
       }
     } catch (err) {
       console.error(err);
@@ -112,7 +116,6 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         householdName: householdName.trim() || undefined,
       });
       toast.success("Tapos na! Nagawa na ang household mo.");
-      navigate({ to: "/manager/pass" });
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "May error na naganap.";
@@ -121,6 +124,14 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
       setLoading(false);
     }
   };
+
+  if (session.status === "loading" || session.status === "authed") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (session.status === "needs_bootstrap") {
     return (

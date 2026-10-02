@@ -31,11 +31,11 @@ function RequireManagerAuth({ children }: { children: React.ReactNode }) {
   const { session } = useAppStores();
   const navigate = useNavigate();
 
+  // Replace, not push: a pushed /login leaves this page behind it, so the
+  // browser's Back would land here and bounce straight back to /login.
   useEffect(() => {
-    if (session.status === "anon") {
-      navigate({ to: "/login" });
-    } else if (session.status === "needs_bootstrap") {
-      navigate({ to: "/login" });
+    if (session.status === "anon" || session.status === "needs_bootstrap") {
+      navigate({ to: "/login", replace: true });
     }
   }, [session.status, navigate]);
 
