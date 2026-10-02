@@ -27,7 +27,13 @@ export default tseslint.config(
   {
     // Config files and the SQL test runners (supabase/tests) run in Node,
     // not the browser.
-    files: ["*.config.{js,ts}", "src/server.ts", "src/start.ts", "supabase/tests/**/*.mjs"],
+    files: [
+      "*.config.{js,ts}",
+      "src/server.ts",
+      "src/start.ts",
+      "supabase/tests/**/*.mjs",
+      "e2e/**/*.ts",
+    ],
     languageOptions: { globals: globals.node },
   },
   // Spread the recommended configurations directly at the array level,
@@ -92,6 +98,27 @@ export default tseslint.config(
       // 5. Block unsafe RegExp constructs (prevents ReDoS - Regular Expression Denial of Service)
       "prefer-regex-literals": "error",
     },
+  },
+  {
+    // security/detect-object-injection flags every obj[key], and can't see
+    // TypeScript key types. All its hits were reviewed for QA (2026-10-02):
+    // lookups by a typed union (CATEGORY_LABEL[c]), numeric indexes, and
+    // reads by database id. None takes a key from user input into a write,
+    // which is what the rule is after. Turned off rather than 40 per-line
+    // disables that would hide a real one; review new obj[userInput] writes.
+    rules: { "security/detect-object-injection": "off" },
+  },
+  {
+    // Tests, the SQL test runners and the browser tests read and write fixed
+    // files in this repo.
+    files: ["**/*.test.{ts,tsx}", "supabase/tests/**/*.mjs", "e2e/**/*.ts"],
+    rules: { "security/detect-non-literal-fs-filename": "off" },
+  },
+  {
+    // Vendored shadcn/ui, kept as generated: its files export variants next
+    // to components, and chart.tsx writes theme CSS (from code, not data).
+    files: ["src/components/ui/**"],
+    rules: { "react-refresh/only-export-components": "off", "react/no-danger": "off" },
   },
   eslintPluginPrettier,
 );

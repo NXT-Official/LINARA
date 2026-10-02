@@ -180,9 +180,6 @@ export const routeUtosFn = createServerFn({ method: "POST" })
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {
-      console.log(
-        `[ServerAction:routeUtosFn] Performing local mock classification for: "${prompt}"`,
-      );
       // Simulate small server-side network delay
       await new Promise((resolve) => setTimeout(resolve, 500));
 

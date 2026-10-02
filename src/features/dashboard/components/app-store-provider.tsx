@@ -95,10 +95,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ready: session.status === "authed",
   });
 
-  // Physical and simulated online/offline tracking
-  const [isPhysicalOnline, setIsPhysicalOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  // Physical and simulated online/offline tracking. Starts online on both
+  // sides, and the effect below reads the browser after mount: Node 21+ has a
+  // `navigator` with no `onLine`, so reading it here rendered "Offline" on
+  // the server and nothing in the browser (React #418 on every manager page,
+  // QA 2026-10-02).
+  const [isPhysicalOnline, setIsPhysicalOnline] = useState(true);
   const [isOfflineSimulated, setOfflineSimulated] = useState(false);
 
   const isOnline = isPhysicalOnline && !isOfflineSimulated;
@@ -245,9 +247,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             table: "tickets",
             filter: `household_id=eq.${session.householdId}`,
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload: any) => {
-            console.log("[Realtime] Received tickets table postgres change:", payload);
+          () => {
             boardRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh board:", err);
             });
@@ -268,9 +268,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             table: "appointments",
             filter: `household_id=eq.${session.householdId}`,
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload: any) => {
-            console.log("[Realtime] Received appointments table postgres change:", payload);
+          () => {
             appointmentsRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh appointments:", err);
             });
@@ -286,16 +284,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             table: "pantry_items",
             filter: `household_id=eq.${session.householdId}`,
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload: any) => {
-            console.log("[Realtime] Received pantry_items table postgres change:", payload);
+          () => {
             pantryRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh pantry:", err);
             });
           },
         )
-        .subscribe((status, err) => {
-          console.log(`[Realtime] household-board-channel status: ${status}`, err || "");
+        .subscribe((status) => {
           setBoardChannelStatus(status);
           rebuildIfClosed(status);
         });
@@ -319,16 +314,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             table: "quick_utos",
             filter: `recipient_id=eq.${utosRecipientId}`,
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (payload: any) => {
-            console.log("[Realtime] Received quick_utos table postgres change:", payload);
+          () => {
             utosRef.current.refresh().catch((err) => {
               console.error("[Realtime] Failed to refresh quick utos:", err);
             });
           },
         )
-        .subscribe((status, err) => {
-          console.log(`[Realtime] quick-utos-channel status: ${status}`, err || "");
+        .subscribe((status) => {
           setUtosChannelStatus(status);
           rebuildIfClosed(status);
         });
@@ -346,8 +338,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     try {
       const items = await getQueue();
       if (items.length === 0) return;
-
-      console.log(`[Offline Sync] Synchronizing ${items.length} queued offline actions...`);
 
       for (const item of items) {
         if (item.action === "update_status") {
@@ -384,6 +374,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     };
 
     if (typeof window !== "undefined") {
+      setIsPhysicalOnline(navigator.onLine);
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
     }

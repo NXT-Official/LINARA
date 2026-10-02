@@ -49,6 +49,8 @@ function promoteMockVoiceTask(transcript: string, requestedStation?: Station) {
   }
 
   const cleanTitle = transcript
+    // Anchored, and no repetition inside a repetition: linear, not a ReDoS risk.
+    // eslint-disable-next-line security/detect-unsafe-regex
     .replace(/^(ah,?\s*)?(kailangan ko pala|paki|please)/gi, "")
     .trim()
     .split(/[,.]/)[0]

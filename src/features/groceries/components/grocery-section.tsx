@@ -1,10 +1,11 @@
 import { Plus, ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
+import { ListFilter } from "@/components/shared/list-filter";
+import { matchesQuery } from "@/components/shared/list-filter.utils";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
-import { groupByPantryCategory } from "@/features/pantry/pantry.utils";
+import { groupByPantryCategory, parseAmount } from "@/features/pantry/pantry.utils";
 
 import { useGrocery } from "../grocery-context";
 import { BudgetBar } from "./budget-bar";
@@ -27,6 +28,7 @@ export function GrocerySection() {
   const [name, setName] = useState("");
   const [qty, setQty] = useState("1");
   const [unit, setUnit] = useState("pcs");
+  const [addError, setAddError] = useState<string | null>(null);
   const [budgetDraft, setBudgetDraft] = useState(String(ctx.budget));
   const budget = ctx.budget;
   useEffect(() => {
@@ -39,9 +41,11 @@ export function GrocerySection() {
   const filtering = query.trim() !== "" || filter !== "all";
   const toBuyGroups = groupByPantryCategory(toBuy, pantry.items, PANTRY_CATEGORIES);
   const submit = () => {
-    if (!name.trim()) return;
-    const n = parseFloat(qty);
-    ctx.addManual(name, isNaN(n) ? 1 : n, unit);
+    const n = parseAmount(qty);
+    if (!name.trim()) return setAddError("Type what to buy.");
+    if (n === null || n === 0) return setAddError("Qty: a number above 0.");
+    setAddError(null);
+    ctx.addManual(name, n, unit);
     setName("");
     setQty("1");
     setUnit("pcs");
@@ -126,6 +130,7 @@ export function GrocerySection() {
                   onRemove={() => ctx.remove(g)}
                   onEdit={(patch) => ctx.edit(g, patch)}
                   onAddSuggestion={() => ctx.addSuggestion(g)}
+                  onToggleBought={() => ctx.toggleBought(g)}
                 />
               ))}
             </div>
@@ -140,7 +145,7 @@ export function GrocerySection() {
           </div>
           <div className="divide-y divide-border/70">
             {bought.map((g) => (
-              <GroceryRow key={g.id} item={g} />
+              <GroceryRow key={g.id} item={g} onToggleBought={() => ctx.toggleBought(g)} />
             ))}
           </div>
         </div>
@@ -189,6 +194,11 @@ export function GrocerySection() {
         >
           <Plus className="h-3.5 w-3.5" /> Add
         </button>
+        {addError && (
+          <p role="alert" className="basis-full text-xs font-semibold text-destructive">
+            {addError}
+          </p>
+        )}
       </div>
     </section>
   );

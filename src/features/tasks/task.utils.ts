@@ -112,3 +112,20 @@ export function movedFromLabel(oldIso: string, newIso: string): string {
   if (days < 6.5) return `${weekdayOf(before)} ${time}`;
   return `${before.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`;
 }
+
+/**
+ * What's missing from a new or edited task, per field; empty when it can be
+ * saved. Shown under each field once Save is pressed (QA, 2026-10-02: an
+ * empty title just left the dialog sitting there).
+ */
+export function taskFormErrors(form: {
+  title: string;
+  date: string;
+  time: string;
+}): Partial<Record<"title" | "date" | "time", string>> {
+  const errors: Partial<Record<"title" | "date" | "time", string>> = {};
+  if (!form.title.trim()) errors.title = "Give the task a name.";
+  if (!form.date) errors.date = "Pick a day.";
+  if (!form.time) errors.time = "Pick a time.";
+  return errors;
+}

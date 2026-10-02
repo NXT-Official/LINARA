@@ -314,7 +314,31 @@ bun run format:check
 
 # Execute TypeScript type checker
 bun run typecheck
+
+# Unit tests (Vitest), and the SQL migration tests (PGlite)
+bun run test
+bun run test:sql
+
+# Browser QA (Playwright): every page, phone and desktop width
+bun run test:e2e
 ```
+
+### 11.1 Browser QA (Playwright)
+
+`bun run test:e2e` opens every page in Chromium at desktop and phone width and fails on
+console errors, uncaught exceptions (e.g. React hydration error #418), and sideways scroll.
+First time on a machine: `npx playwright install chromium`.
+
+- **Which site:** `E2E_BASE_URL`. Unset, it starts the dev server on 8080. The dev server
+  hides production-only UI (the Offline badge was the #418 cause), so before a release run
+  it against a built preview (`bun run build`, then `PORT=5198 node .output/server/index.mjs`
+  and `E2E_BASE_URL=http://localhost:5198`) or the deployed site.
+- **Signed-in checks:** set `E2E_MANAGER_EMAIL` and `E2E_MANAGER_PASSWORD` to a test manager
+  account (in your shell, never in a committed file). Without them only the signed-out checks
+  run. The signed-in checks open forms and cancel them; they never save, delete, or pay, and
+  any payout request is blocked and fails the run.
+- **Results:** `playwright-report/` (`npx playwright show-report`) with traces and screenshots
+  for failures.
 
 ---
 

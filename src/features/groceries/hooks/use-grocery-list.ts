@@ -8,6 +8,7 @@ import {
   getHouseholdBudgetFn,
   insertGroceryItemFn,
   listGroceryItemsFn,
+  setGroceryItemBoughtFn,
   updateGroceryItemFn,
   updateHouseholdBudgetFn,
   type GroceryItemRow,
@@ -158,6 +159,17 @@ export function useGroceryList({
       });
   };
 
+  /** Ticks it bought, or unticks it; the pantry count follows in the database. */
+  const toggleBought = (item: GroceryItem) => {
+    if (!token || isSuggestion(item)) return;
+    setGroceryItemBoughtFn({ data: { token, itemId: item.id, bought: !item.bought } })
+      .then(() => Promise.all([refresh(), pantry.refresh()]))
+      .catch((err) => {
+        console.error("[useGroceryList] Failed to tick grocery item:", err);
+        toast.error("Couldn't update the item. Try again.");
+      });
+  };
+
   const remove = (item: GroceryItem) => {
     if (isSuggestion(item)) {
       // Dismiss this suggestion until pantry qty changes and it re-qualifies.
@@ -199,5 +211,6 @@ export function useGroceryList({
     refresh,
     setBudget,
     remove,
+    toggleBought,
   };
 }

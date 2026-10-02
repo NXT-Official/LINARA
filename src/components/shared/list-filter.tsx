@@ -64,9 +64,3 @@ export function ListFilter<K extends string>({
     </div>
   );
 }
-
-/** Case-insensitive "contains", for the search box. */
-export function matchesQuery(name: string, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  return !q || name.toLowerCase().includes(q);
-}

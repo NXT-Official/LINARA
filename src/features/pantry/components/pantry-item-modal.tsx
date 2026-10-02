@@ -2,13 +2,19 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
-import { CATEGORY_LABEL } from "../pantry.utils";
+import { CATEGORY_LABEL, pantryItemErrors, parseAmount } from "../pantry.utils";
 
+import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
+
+const INPUT =
+  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
 
 /**
  * Add a pantry item, or edit one (`initial`). Editing leaves the stock
- * count alone: that's the row's − / + and its own number field.
+ * count alone: that's the row's − / + and its own number field. Save says
+ * what's wrong, field by field, rather than staying greyed out (QA,
+ * 2026-10-02).
  */
 export function PantryItemModal({
   initial,
@@ -24,7 +30,21 @@ export function PantryItemModal({
   const [unit, setUnit] = useState(initial?.unit ?? "pcs");
   const [par, setPar] = useState(String(initial?.par ?? 1));
   const [category, setCategory] = useState<PantryCategory>(initial?.category ?? "Pantry");
-  const valid = name.trim().length > 0 && !isNaN(parseFloat(qty)) && !isNaN(parseFloat(par));
+  // Errors show once she's tried to save, and then follow her typing.
+  const [tried, setTried] = useState(false);
+  const errors = tried ? pantryItemErrors({ name, qty, unit, par }) : {};
+
+  const save = () => {
+    setTried(true);
+    if (Object.keys(pantryItemErrors({ name, qty, unit, par })).length > 0) return;
+    onSave({
+      name: name.trim(),
+      qty: parseAmount(qty) ?? 0,
+      unit: unit.trim() || "pcs",
+      par: parseAmount(par) ?? 0,
+      category,
+    });
+  };
 
   return (
     <Modal onClose={onClose}>
@@ -41,56 +61,56 @@ export function PantryItemModal({
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Name</span>
+        <Field label="Name" error={errors.name}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Toilet paper"
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            aria-invalid={!!errors.name}
+            className={INPUT}
           />
-        </label>
+        </Field>
         <div className={`grid gap-2 ${initial ? "grid-cols-2" : "grid-cols-3"}`}>
           {!initial && (
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-                On hand
-              </span>
+            <Field label="On hand" error={errors.qty}>
               <input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
-                inputMode="decimal"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
+                aria-invalid={!!errors.qty}
+                className={`${INPUT} tabular-nums`}
               />
-            </label>
+            </Field>
           )}
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
+          <Field label="Unit">
             <input
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
               placeholder="pcs, kg, L"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              className={INPUT}
             />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-              Buy more at
-            </span>
+          </Field>
+          <Field label="Buy more at" error={errors.par}>
             <input
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
               value={par}
               onChange={(e) => setPar(e.target.value)}
-              inputMode="decimal"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums outline-none focus:border-primary"
+              aria-invalid={!!errors.par}
+              className={`${INPUT} tabular-nums`}
             />
-          </label>
+          </Field>
         </div>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Category</span>
+        <Field label="Category">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as PantryCategory)}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            className={INPUT}
           >
             {PANTRY_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -98,7 +118,7 @@ export function PantryItemModal({
               </option>
             ))}
           </select>
-        </label>
+        </Field>
       </div>
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
@@ -108,16 +128,7 @@ export function PantryItemModal({
           Cancel
         </button>
         <button
-          disabled={!valid}
-          onClick={() =>
-            onSave({
-              name: name.trim(),
-              qty: parseFloat(qty),
-              unit: unit.trim() || "pcs",
-              par: parseFloat(par),
-              category,
-            })
-          }
+          onClick={save}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           {initial ? "Save" : "Add"}

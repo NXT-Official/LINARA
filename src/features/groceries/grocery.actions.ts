@@ -4,12 +4,12 @@ import { createAuthedClient } from "@/lib/supabase";
 
 // --------------------------------------------------------------------------
 // Grocery list (`grocery_items`) -- closes the "spend dial reads real data"
-// half of KNOWN_GAPS.md gap #2. Execution actions (marking bought, entering
-// actual cost, attaching a receipt) are deliberately NOT here -- that's
-// LINARA_MOBILE's job (it already writes grocery_items for real, and
-// receipts for real onto tickets.photo_evidence_url), not this app's. This
-// file only supports what a manager legitimately does from the web app:
-// curate the list (add/remove planned items) and read real state.
+// half of KNOWN_GAPS.md gap #2. Entering actual cost and attaching a receipt
+// are LINARA_MOBILE's job (it writes grocery_items and
+// tickets.photo_evidence_url for real). From the web a manager curates the
+// list (add/fix/remove planned items) and can tick an item bought, for when
+// she did the shopping herself: the palengke is shared work (client
+// feedback, 2026-10-02), and QA found no way to tick one here.
 // --------------------------------------------------------------------------
 
 export interface GroceryItemRow {
@@ -114,6 +114,29 @@ export const updateGroceryItemFn = createServerFn({ method: "POST" })
     }
 
     return { itemId };
+  });
+
+/**
+ * Ticks an item bought, or unticks a mis-tap. Same write as LINARA_MOBILE's
+ * setGroceryItemBought: unticking clears the cost, and the database's
+ * grocery_restock_pantry trigger moves the linked pantry count either way.
+ */
+export const setGroceryItemBoughtFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; itemId: string; bought: boolean }) => data)
+  .handler(async ({ data }) => {
+    const { token, itemId, bought } = data;
+
+    const authedClient = createAuthedClient(token);
+    const { error } = await authedClient
+      .from("grocery_items")
+      .update(bought ? { bought } : { bought, actual_cost: null })
+      .eq("id", itemId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { itemId, bought };
   });
 
 /** Removes a planned item. The web UI only ever calls this for `!bought`

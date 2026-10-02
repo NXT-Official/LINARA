@@ -110,3 +110,26 @@ export function groupByPantryCategory<T extends { pantryItemId?: string }>(
   }
   return sections.filter((s) => s.items.length > 0);
 }
+
+/** A count typed into a form: a finite number, zero or more, else null. */
+export function parseAmount(raw: string): number | null {
+  if (raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+export type PantryItemDraft = { name: string; qty: string; unit: string; par: string };
+
+/**
+ * What's wrong with a pantry item form, per field; empty when it can be
+ * saved. Units fall back to "pcs", so a blank one isn't an error.
+ */
+export function pantryItemErrors(
+  draft: PantryItemDraft,
+): Partial<Record<"name" | "qty" | "par", string>> {
+  const errors: Partial<Record<"name" | "qty" | "par", string>> = {};
+  if (!draft.name.trim()) errors.name = "Give it a name.";
+  if (parseAmount(draft.qty) === null) errors.qty = "A number, 0 or more.";
+  if (parseAmount(draft.par) === null) errors.par = "A number, 0 or more.";
+  return errors;
+}

@@ -7,9 +7,11 @@ import type { GroceryItem } from "../grocery.types";
 type Patch = { name: string; qty: number; unit: string };
 
 /**
- * One item. Bought/cost are real, set by LINARA_MOBILE (see KNOWN_GAPS.md
- * Closed Gap C13). The handlers are only passed for not-yet-bought items:
- * curating the plan, not touching a helper's completed purchase. A
+ * One item. Bought/cost are real, mostly set by LINARA_MOBILE (see
+ * KNOWN_GAPS.md Closed Gap C13); `onToggleBought` lets a manager who did the
+ * shopping tick it here too. Edit and remove are only passed for
+ * not-yet-bought items: curating the plan, not touching a completed
+ * purchase. A
  * suggestion (from a low pantry item) lives only in this browser until it's
  * added, so it says so and offers "Add to list".
  */
@@ -18,12 +20,14 @@ export function GroceryRow({
   onRemove,
   onEdit,
   onAddSuggestion,
+  onToggleBought,
   tone,
 }: {
   item: GroceryItem;
   onRemove?: () => void;
   onEdit?: (patch: Patch) => void;
   onAddSuggestion?: () => void;
+  onToggleBought?: () => void;
   tone?: "light";
 }) {
   const suggested = item.id.startsWith("sug-");
@@ -45,17 +49,35 @@ export function GroceryRow({
   const canEdit = !!onEdit && !suggested && !item.bought;
   return (
     <div className={`flex items-center gap-2 py-2.5 ${tone === "light" ? "px-2" : ""}`}>
-      <div
-        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-          item.bought
-            ? "border-primary bg-primary text-primary-foreground"
-            : suggested
-              ? "border-dashed border-border bg-card text-transparent"
-              : "border-border bg-card text-transparent"
-        }`}
-      >
-        <Check className="h-3.5 w-3.5" />
-      </div>
+      {onToggleBought && !suggested ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={item.bought}
+          aria-label={`Bought ${item.name}`}
+          onClick={onToggleBought}
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${
+            item.bought
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-transparent hover:border-primary hover:text-primary/40"
+          }`}
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+      ) : (
+        <div
+          aria-hidden
+          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+            item.bought
+              ? "border-primary bg-primary text-primary-foreground"
+              : suggested
+                ? "border-dashed border-border bg-card text-transparent"
+                : "border-border bg-card text-transparent"
+          }`}
+        >
+          <Check className="h-3.5 w-3.5" />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <div
           className={`flex items-center gap-1.5 text-sm ${item.bought ? "text-muted-foreground" : "text-foreground"}`}
