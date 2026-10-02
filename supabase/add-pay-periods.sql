@@ -490,13 +490,13 @@ BEGIN
         INSERT INTO public.payslips (
             helper_id, kind, cutoff_start, cutoff_end, base_pay, statutory_employee_share,
             vale_deductions, net_pay, payout_provider, payout_channel_code,
-            payout_reference_id, payout_status, requested_by, confirmed_at,
+            payout_status, requested_by, confirmed_at,
             paid_on, manual_note, helper_ack
         )
         VALUES (
             p_helper_id, p_kind, v_target.cutoff_start, v_target.cutoff_end, v_base, v_statutory,
             v_vales, v_net, 'manual', p_method,
-            gen_random_uuid()::text, 'succeeded', auth.uid(), timezone('utc', now()),
+            'succeeded', auth.uid(), timezone('utc', now()),
             p_paid_on, NULLIF(TRIM(p_note), ''), 'pending'
         )
         RETURNING id INTO v_id;
