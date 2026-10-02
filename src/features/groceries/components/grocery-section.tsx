@@ -2,6 +2,9 @@ import { Plus, ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
+import { useAppStores } from "@/features/dashboard/app-store-context";
+import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
+import { groupByPantryCategory } from "@/features/pantry/pantry.utils";
 
 import { useGrocery } from "../grocery-context";
 import { BudgetBar } from "./budget-bar";
@@ -15,8 +18,10 @@ const FILTER_CHIPS: { key: GroceryFilter; label: string }[] = [
   { key: "bought", label: "Bought" },
 ];
 
+/** The grocery list, grouped by the pantry shelf each line restocks. */
 export function GrocerySection() {
   const ctx = useGrocery();
+  const { pantry } = useAppStores();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<GroceryFilter>("all");
   const [name, setName] = useState("");
@@ -32,6 +37,7 @@ export function GrocerySection() {
   const toBuy = filter === "bought" ? [] : shown.filter((g) => !g.bought);
   const bought = filter === "to_buy" ? [] : shown.filter((g) => g.bought);
   const filtering = query.trim() !== "" || filter !== "all";
+  const toBuyGroups = groupByPantryCategory(toBuy, pantry.items, PANTRY_CATEGORIES);
   const submit = () => {
     if (!name.trim()) return;
     const n = parseFloat(qty);
@@ -94,22 +100,36 @@ export function GrocerySection() {
         </div>
       )}
 
-      <div className="mt-2 divide-y divide-border/70">
+      <div className="mt-2 space-y-3">
         {toBuy.length === 0 && bought.length === 0 && (
           <div className="py-4 text-center text-sm text-muted-foreground">
             {filtering
               ? "Nothing matches."
-              : "Pantry is stocked — nothing suggested. Add manual items below."}
+              : pantry.items.length === 0
+                ? "Set up the pantry above, and anything running low will show up here."
+                : "Nothing is running low. Add anything else you need below."}
           </div>
         )}
-        {toBuy.map((g) => (
-          <GroceryRow
-            key={g.id}
-            item={g}
-            onRemove={() => ctx.remove(g)}
-            onEdit={(patch) => ctx.edit(g, patch)}
-            onAddSuggestion={() => ctx.addSuggestion(g)}
-          />
+        {toBuyGroups.map(({ section, items }) => (
+          <div key={section.key}>
+            {/* One heading is noise; sections only help once there are two. */}
+            {toBuyGroups.length > 1 && (
+              <div className="px-1 pt-1 text-xs font-semibold text-muted-foreground">
+                {section.label}
+              </div>
+            )}
+            <div className="divide-y divide-border/70">
+              {items.map((g) => (
+                <GroceryRow
+                  key={g.id}
+                  item={g}
+                  onRemove={() => ctx.remove(g)}
+                  onEdit={(patch) => ctx.edit(g, patch)}
+                  onAddSuggestion={() => ctx.addSuggestion(g)}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 

@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
+import { CATEGORY_LABEL } from "../pantry.utils";
 
 import { Modal } from "@/components/shared/modal";
 
@@ -52,7 +53,9 @@ export function PantryItemModal({
         <div className={`grid gap-2 ${initial ? "grid-cols-2" : "grid-cols-3"}`}>
           {!initial && (
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+              <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                On hand
+              </span>
               <input
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
@@ -71,7 +74,9 @@ export function PantryItemModal({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Par</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              Buy more at
+            </span>
             <input
               value={par}
               onChange={(e) => setPar(e.target.value)}
@@ -89,7 +94,7 @@ export function PantryItemModal({
           >
             {PANTRY_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {CATEGORY_LABEL[c]}
               </option>
             ))}
           </select>

@@ -5,19 +5,22 @@ import { ListFilter, matchesQuery } from "@/components/shared/list-filter";
 
 import type { PantryStore } from "../hooks/use-pantry";
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
+import { CATEGORY_LABEL } from "../pantry.utils";
 import { PantryItemModal } from "./pantry-item-modal";
 import { PantryRow } from "./pantry-row";
+import { PantryStarter } from "./pantry-starter";
 
 type PantryFilter = "all" | "low" | PantryCategory;
 const FILTER_CHIPS: { key: PantryFilter; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "low", label: "Low" },
-  ...PANTRY_CATEGORIES.map((c) => ({ key: c, label: c })),
+  { key: "low", label: "Running low" },
+  ...PANTRY_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c] })),
 ];
 
 /**
  * Stock levels grouped by category, lows first, with search and a filter.
- * Shown to managers and the Cook alike.
+ * Shown to managers and the Cook alike. An empty pantry offers the usual
+ * staples to start from instead of a blank card.
  */
 export function PantrySection({ pantry }: { pantry: PantryStore }) {
   const {
@@ -25,6 +28,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
     adjust: onAdjust,
     setQty: onSetQty,
     add: onAdd,
+    addMany,
     edit: onEdit,
     remove: onRemove,
   } = pantry;
@@ -56,11 +60,11 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
             <h2 className="font-display text-xl text-foreground">Pantry</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Shared with the Cook. Keep supplies at or above par.
+            Shared with your helper. What runs low goes on the grocery list.
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          {lowCount > 0 ? (
+          {items.length === 0 ? null : lowCount > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-[oklch(0.42_0.12_50)]">
               <AlertCircle className="h-3 w-3" /> {lowCount} running low
             </span>
@@ -92,18 +96,16 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {items.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Nothing in the pantry yet. Add what you keep at home.
-          </p>
-        )}
+        {items.length === 0 && <PantryStarter onAdd={addMany} onAddOwn={() => setAdding(true)} />}
         {items.length > 0 && grouped.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">Nothing matches.</p>
         )}
         {grouped.map((g) => (
           <div key={g.cat}>
-            <div className="mb-2 px-1 text-xs font-semibold text-muted-foreground">{g.cat}</div>
-            <div className="space-y-2">
+            <div className="px-1 text-xs font-semibold text-muted-foreground">
+              {CATEGORY_LABEL[g.cat]}
+            </div>
+            <div className="divide-y divide-border/60">
               {g.items.map((i) => (
                 <PantryRow
                   key={i.id}

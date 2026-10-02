@@ -2,7 +2,8 @@ import { Search, X } from "lucide-react";
 
 /**
  * Search box plus filter chips over a list. Pantry and the grocery list use
- * it (client feedback, 2026-10-02: lists need search and filter).
+ * it (client feedback, 2026-10-02: lists need search and filter). The chips
+ * are soft rectangles, not pills: they act (DESIGN.md, Pills-Mean-Status).
  */
 export function ListFilter<K extends string>({
   query,
@@ -50,7 +51,7 @@ export function ListFilter<K extends string>({
             type="button"
             onClick={() => onChip(chip.key)}
             aria-pressed={chip.key === active}
-            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+            className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
               chip.key === active
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:text-foreground"
