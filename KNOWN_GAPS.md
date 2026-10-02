@@ -24,19 +24,11 @@ the bottom.
 - **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
 - **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
 
-### O17. The web dashboard never refreshes its access token, so a manager session dies after about an hour
-
-- **Found:** 2026-10-01, while putting the manager dashboard inside `LINARA_MOBILE` (a WebView, `app/manager.tsx`).
-- **What's missing:** `use-session.ts` stores `linara_manager_token` and `linara_manager_refresh_token` in localStorage, but nothing ever reads the refresh token. Every Supabase client in `src/lib/supabase.ts` has `autoRefreshToken: false`, and the access token is read into React state once, on mount. When the JWT expires (Supabase default: 1 hour), server functions start failing with an expired JWT until the manager reloads, and even a reload only works if `getManagerProfileFn` still accepts the token. Otherwise `use-session.ts` clears it and the manager has to log in again.
-- **Blocks:** Any manager who leaves a tab open, in a browser or in the app.
-- **Current workaround:** In `LINARA_MOBILE` the native Supabase client owns the session and refreshes it. `app/manager.tsx` writes each new token into the page's localStorage and reloads the page, roughly once an hour. On plain web there's no workaround.
-- **To close:** Refresh in `use-session.ts` (`supabase.auth.refreshSession` with the stored refresh token before expiry, then persist and `setToken`), and send the fresh token to every store. Owned by `LINARA`.
-
 ### O18. The mobile app's manager side is the web dashboard in a WebView, not native screens
 
 - **Found:** 2026-10-01. The client wants managers in the APK too. For the demo, `LINARA_MOBILE/app/manager.tsx` loads the deployed dashboard (`MANAGER_DASHBOARD_URL` in `lib/env.ts`, defaulting to `https://linara-delta.vercel.app`) for accounts whose `user_type` is a manager type, and hands the page the app's session. A native rebuild comes later.
 - **What's missing:** Native manager screens. `LINARA_MOBILE/AGENTS.md` used to say the mobile client is helper-facing only; that's no longer true.
-- **Known limits of the WebView:** no offline use (a retry screen instead); no manager push notifications (`use-push-notifications.ts` skips managers, which is fine today because every push goes to a helper); the page reloads when the token refreshes (O17). A manager who signs up on the in-app dashboard but closes it before creating their household has no `user_profiles` row, so on the next launch they land on the helper tabs. Signing in again and choosing "New manager? Set up your household" gets them back.
+- **Known limits of the WebView:** no offline use (a retry screen instead); no manager push notifications (`use-push-notifications.ts` skips managers, which is fine today because every push goes to a helper); the page reloads when the app refreshes the token (the page itself leaves renewal to the app there, C75). A manager who signs up on the in-app dashboard but closes it before creating their household has no `user_profiles` row, so on the next launch they land on the helper tabs. Signing in again and choosing "New manager? Set up your household" gets them back.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
@@ -3183,6 +3175,19 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **App:** Today, the focus card, moved notices and the palengke step leave cancelled tasks out; My Week shows them crossed out as "Kinansela ng manager".
   - PGlite test: `supabase/tests/cancelled-tasks.test.mjs` (in `npm run test:sql`).
 - **Residual:** a helper whose phone queued "done" offline for a task cancelled in the meantime will still mark it done when it syncs; that's left as the truthful outcome.
+
+### C75. The web dashboard never refreshed its access token, so a manager session died after about an hour (former Open Gap O17)
+
+- **Found / fixed:** found 2026-10-01 putting the dashboard in `LINARA_MOBILE`'s WebView; fixed 2026-10-02 after client feedback ("if login session is still active, proper redirection back into the app").
+- **Was:** `use-session.ts` stored `linara_manager_refresh_token` but never used it. Once the access token expired (about an hour), server functions failed until a reload, and a reload with the expired token cleared the session, so a manager coming back later had to log in again.
+- **Fix:**
+  - `refreshManagerSessionFn` (`people.actions.ts`) trades the refresh token for a new session on a throwaway client. Supabase refusing it (4xx other than 429) comes back as `expired`; anything else throws, to retry.
+  - `use-session.ts` renews five minutes before expiry, again when a tab comes back from the background past that point (timers stall during sleep), and retries every minute while offline. A refusal logs the manager out. On load, an expired stored token is renewed before restoring the session, and a token that looked fine but was refused gets one renewal and retry.
+  - Several tabs share the one stored session: a tab takes a newer token another tab already stored rather than spending the refresh token again.
+  - Timing falls back to the token's own lifetime when the device clock disagrees with it, so a clock set ahead can't renew nonstop (`msUntilRenewal`, `isDueForRenewal` in `people.utils.ts`, tested in `session-renewal.test.ts`).
+  - Inside the mobile WebView (user agent contains `LinaraApp`) the page doesn't renew: the app owns the session there and keeps handing the page fresh tokens, as before.
+  - Same change: `/login` forwards a signed-in manager into the app, and the auth redirects replace the history entry, so the browser's Back from the dashboard leaves to the landing page instead of bouncing back to `/login`.
+- **Residual:** a failed restore on load (offline, say) still clears the stored session, as before; in the WebView that clear is what tells the app to hand over a fresh token. Browser-tested 2026-10-02 against the sandbox project with a real manager sign-in: a junk stored token renews on reload, the timer renews after a simulated 56 minutes and the dashboard keeps loading, and a refused refresh token lands on `/login`. Not yet tried in a real tab left open overnight.
 
 ---
 

@@ -1,18 +1,67 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   finishBootstrapFn,
   getManagerProfileFn,
   managerLoginFn,
   managerSignUpFn,
+  refreshManagerSessionFn,
 } from "../people.actions";
 import type { Admin, AdminType } from "../people.types";
 import { setHouseholdTimeZone } from "@/lib/time";
+import { isDueForRenewal, msUntilRenewal } from "../people.utils";
 
 const TOKEN_KEY = "linara_manager_token";
 const REFRESH_KEY = "linara_manager_refresh_token";
 const USER_ID_KEY = "linara_manager_user_id";
 const HOUSEHOLD_ID_KEY = "linara_manager_household_id";
+
+// Offline, or Supabase down: try again after this long.
+const RENEW_RETRY_MS = 60_000;
+
+/**
+ * Inside LINARA_MOBILE's WebView (app/manager.tsx) the app renews the session
+ * itself and hands the page each new token, so the page leaves it alone there.
+ */
+function inMobileApp(): boolean {
+  return navigator.userAgent.includes("LinaraApp");
+}
+
+type Renewal = { status: "ok"; token: string } | { status: "expired" } | { status: "failed" };
+
+/**
+ * Trades the stored refresh token for a new session and stores it
+ * (KNOWN_GAPS.md C75). `held` is the access token this tab has: when another
+ * tab has already stored a newer one, that's taken instead, since each
+ * refresh token works once. "expired" means log in again; "failed" means try
+ * again later.
+ */
+async function renewStoredSession(held: string): Promise<Renewal> {
+  if (inMobileApp()) return { status: "failed" };
+  const newerElsewhere = () => {
+    const stored = window.localStorage.getItem(TOKEN_KEY);
+    return stored && stored !== held ? stored : null;
+  };
+  const already = newerElsewhere();
+  if (already) return { status: "ok", token: already };
+
+  const refreshToken = window.localStorage.getItem(REFRESH_KEY);
+  if (!refreshToken) return { status: "expired" };
+  try {
+    const result = await refreshManagerSessionFn({ data: { refreshToken } });
+    if (result.status === "expired") {
+      // Another tab may have used this refresh token a moment ago.
+      const raced = newerElsewhere();
+      return raced ? { status: "ok", token: raced } : result;
+    }
+    window.localStorage.setItem(TOKEN_KEY, result.accessToken);
+    window.localStorage.setItem(REFRESH_KEY, result.refreshToken);
+    return { status: "ok", token: result.accessToken };
+  } catch (err) {
+    console.error("[useSession] Couldn't renew the manager session:", err);
+    return { status: "failed" };
+  }
+}
 
 export type SessionStatus = "loading" | "anon" | "needs_bootstrap" | "authed";
 
@@ -109,8 +158,32 @@ export function useSession(): Session {
       return;
     }
     setToken(stored);
-    getManagerProfileFn({ data: { token: stored } })
-      .then((result) => {
+
+    // A manager coming back after the token's hour is up holds an expired
+    // one: renew it first. If the profile still won't load with a token that
+    // looked fine (a wrong device clock, say), renew once and try again.
+    const restore = async () => {
+      let current = stored;
+      let renewed = false;
+      if (isDueForRenewal(stored)) {
+        renewed = true;
+        const renewal = await renewStoredSession(stored);
+        if (renewal.status === "ok") current = renewal.token;
+      }
+      try {
+        return { profile: await getManagerProfileFn({ data: { token: current } }), current };
+      } catch (err) {
+        if (renewed) throw err;
+        const renewal = await renewStoredSession(stored);
+        if (renewal.status !== "ok") throw err;
+        const profile = await getManagerProfileFn({ data: { token: renewal.token } });
+        return { profile, current: renewal.token };
+      }
+    };
+
+    restore()
+      .then(({ profile: result, current }) => {
+        setToken(current);
         setUserId(result.userId);
         if (result.status === "needs_bootstrap") {
           setStatus("needs_bootstrap");
@@ -196,6 +269,45 @@ export function useSession(): Session {
     setAdmin(null);
     setStatus("anon");
   }, []);
+
+  // Renew shortly before the token runs out. Timers stall while a laptop
+  // sleeps or a tab sits in the background, so coming back to the tab checks
+  // too.
+  const renewingRef = useRef(false);
+  useEffect(() => {
+    if (!token || (status !== "authed" && status !== "needs_bootstrap") || inMobileApp()) return;
+    const wait = msUntilRenewal(token);
+    if (wait === null) return;
+    const due = Date.now() + wait;
+    let cancelled = false;
+    let timer = 0;
+
+    const renew = async () => {
+      if (renewingRef.current) return;
+      renewingRef.current = true;
+      const renewal = await renewStoredSession(token).finally(() => {
+        renewingRef.current = false;
+      });
+      if (cancelled) return;
+      if (renewal.status === "ok") setToken(renewal.token);
+      else if (renewal.status === "expired") logOut();
+      else timer = window.setTimeout(() => void renew(), RENEW_RETRY_MS);
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() < due) return;
+      window.clearTimeout(timer);
+      void renew();
+    };
+
+    timer = window.setTimeout(() => void renew(), wait);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [token, status, logOut]);
 
   const admins = admin ? [admin] : [];
 

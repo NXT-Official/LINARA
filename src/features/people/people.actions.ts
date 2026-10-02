@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { supabaseClient, createAuthedClient } from "@/lib/supabase";
 
@@ -346,6 +346,42 @@ export const managerLoginFn = createServerFn({ method: "POST" })
       fullName: profile.full_name,
       userType: profile.user_type,
       timeZone: await householdTimeZoneOf(authedClient, profile.household_id),
+    };
+  });
+
+/**
+ * 6b. Refresh Manager Session Endpoint (Server Function)
+ * Trades the stored refresh token for a new access token before the old one
+ * (about an hour) runs out -- KNOWN_GAPS.md C75. A throwaway client, like
+ * completePasswordResetFn's, so the session never lingers server-side.
+ * "expired" means Supabase refused the refresh token (signed out, revoked,
+ * already used): the manager has to log in again. Anything else throws,
+ * and the caller can try again later.
+ */
+export const refreshManagerSessionFn = createServerFn({ method: "POST" })
+  .validator((data: { refreshToken: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createClient(
+      process.env.SUPABASE_URL || "",
+      process.env.SUPABASE_ANON_KEY || "",
+      {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      },
+    );
+    const { data: refreshed, error } = await client.auth.refreshSession({
+      refresh_token: data.refreshToken,
+    });
+    // 4xx is a refusal; 5xx and rate limits (429) are worth another try.
+    if (error && isAuthApiError(error) && error.status >= 400 && error.status < 500) {
+      if (error.status !== 429) return { status: "expired" as const };
+    }
+    if (error || !refreshed.session) {
+      throw new Error(error?.message || "Couldn't refresh the session");
+    }
+    return {
+      status: "ok" as const,
+      accessToken: refreshed.session.access_token,
+      refreshToken: refreshed.session.refresh_token,
     };
   });
 
