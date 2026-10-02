@@ -5,15 +5,16 @@ import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { useOpenTaskCounts } from "@/features/leave/hooks/use-open-task-counts";
 import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
 import { NewTaskModal } from "@/features/tasks/components/new-task-modal";
+import { usePlannerTasks } from "@/features/tasks/hooks/use-planner-tasks";
+import { addDays } from "@/features/tasks/planner.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
 import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
-import { toISODate } from "@/lib/time";
+import { parseISODate, startOfDayIso, toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
 import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
-import { StartNewDayModal } from "../components/start-new-day-modal";
 
 /** Today at a glance: what needs a decision, then the day itself. */
 export function ManagerPassPage({
@@ -40,8 +41,6 @@ export function ManagerPassPage({
     timeOff,
     setUtosRecipientId,
     clock,
-    startNewDay,
-    previewNewDay,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
 
@@ -81,47 +80,44 @@ export function ManagerPassPage({
 
   const isRemote = adminType === "remote";
   const canOverride = adminType === "primary" || adminType === "co";
-  const canStartNewDay = adminType === "primary" || adminType === "co";
+  const canEndDay = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
   const rosaStatus = availability.status;
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
-  const [confirmingNewDay, setConfirmingNewDay] = useState(false);
   const [confirmingEndDay, setConfirmingEndDay] = useState(false);
-  const [newDayPreview, setNewDayPreview] = useState<{
-    pendingUtos: number;
-    routinesRespawning: number;
-  } | null>(null);
-  const [startingNewDay, setStartingNewDay] = useState(false);
 
-  const openNewDayConfirm = () => {
-    setConfirmingNewDay(true);
-    setNewDayPreview(null);
-    previewNewDay()
-      .then(setNewDayPreview)
-      .catch((err) => {
-        console.error("[ManagerPassPage] Failed to load new-day preview:", err);
-        setNewDayPreview({ pendingUtos: 0, routinesRespawning: 0 });
-      });
-  };
-
-  const confirmNewDay = async () => {
-    setStartingNewDay(true);
-    try {
-      await startNewDay();
-    } finally {
-      setStartingNewDay(false);
-      setConfirmingNewDay(false);
-    }
+  // Which day the Pass shows (client feedback 2026-10-02: "I should be able
+  // to move through dates from Pass view"). Today is the live board; another
+  // day reads the same tasks Schedule shows for it.
+  const todayIso = toISODate(simDate);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
+  const shownIso = pickedDay ?? todayIso;
+  const isToday = shownIso === todayIso;
+  const shownDate = parseISODate(shownIso);
+  const otherDay = usePlannerTasks({
+    token: isToday ? null : session.token,
+    fromIso: startOfDayIso(shownDate),
+    toIso: startOfDayIso(addDays(shownDate, 1)),
+    helpers,
+    boardTasks: tasks,
+  });
+  const shiftDay = (n: number) => {
+    const next = toISODate(addDays(shownDate, n));
+    setPickedDay(next === todayIso ? null : next);
   };
 
   // The Pass is day-by-day: anything scheduled for a later day sits in
   // "Coming up" and counts toward none of today's numbers.
   const onBoard = tasks.filter((t) => !t.queued && !t.suggested);
-  const active = onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs));
-  const upcoming = onBoard.filter((t) => isLaterThanToday(t, clock.nowTs));
-  const pastDue = active.filter((t) => isPastDue(t, clock.nowTs));
+  const active = isToday
+    ? onBoard.filter((t) => !isLaterThanToday(t, clock.nowTs))
+    : (otherDay.tasks ?? []).filter((t) => !t.queued && !t.suggested);
+  const upcoming = isToday ? onBoard.filter((t) => isLaterThanToday(t, clock.nowTs)) : [];
+  const pastDue = onBoard
+    .filter((t) => !isLaterThanToday(t, clock.nowTs))
+    .filter((t) => isPastDue(t, clock.nowTs));
   const pendingLeave = timeOff.leave.filter((l) => l.status === "pending");
   const leaveTaskCounts = useOpenTaskCounts(
     canOverride ? session.token : null,
@@ -165,14 +161,17 @@ export function ManagerPassPage({
         }
         helpers={helpers}
         activeHelpers={activeHelpers}
-        simDate={simDate}
+        shownDate={shownDate}
+        isToday={isToday}
+        dayLoading={!isToday && otherDay.tasks === null}
+        onShiftDay={shiftDay}
+        onToday={() => setPickedDay(null)}
         boardClosed={boardClosed}
         rosaStatus={rosaStatus}
         helperName={helper?.name ?? "your helper"}
         authorName={authorName}
         isRemote={isRemote}
-        canStartNewDay={canStartNewDay}
-        onStartNewDay={openNewDayConfirm}
+        canEndDay={canEndDay}
         onEndDay={() => setConfirmingEndDay(true)}
         onReopenDay={() => setClosed(false)}
         onReschedule={rescheduleTask}
@@ -200,7 +199,7 @@ export function ManagerPassPage({
         <NewTaskModal
           activeHelpers={activeHelpers}
           isRemote={isRemote}
-          defaultDate={toISODate(simDate)}
+          defaultDate={shownIso < todayIso ? todayIso : shownIso}
           scheduleFor={schedules.scheduleFor}
           timeOff={timeOff.list}
           onClose={() => setOpen(false)}
@@ -242,14 +241,6 @@ export function ManagerPassPage({
             setConfirmingEndDay(false);
           }}
           onCancel={() => setConfirmingEndDay(false)}
-        />
-      )}
-      {confirmingNewDay && (
-        <StartNewDayModal
-          preview={newDayPreview}
-          loading={startingNewDay}
-          onConfirm={confirmNewDay}
-          onCancel={() => setConfirmingNewDay(false)}
         />
       )}
     </>

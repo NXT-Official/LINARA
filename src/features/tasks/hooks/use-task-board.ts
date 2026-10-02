@@ -198,7 +198,19 @@ export function useTaskBoard({
         // new Date object, and setSimDate's identity feeds refresh's own
         // useCallback deps (which this effect depends on) -- an unguarded
         // update here would re-run this effect every time it resolves.
-        const persisted = parseISODate(res.boardDate);
+        // A board_date AHEAD of today was left by the old manual "Start new
+        // day", which moved the board to tomorrow (client feedback
+        // 2026-10-02: the Pass read Saturday on a Friday). The Pass is today,
+        // so come back to it; the rollover effect below still moves it
+        // forward at midnight.
+        const today = householdNow();
+        const ahead = res.boardDate > toISODate(today);
+        const persisted = ahead ? today : parseISODate(res.boardDate);
+        if (ahead) {
+          setBoardDateFn({ data: { token, date: toISODate(today) } }).catch(() => {
+            // A remote admin can't write it; a manager's next load will.
+          });
+        }
         setSimDate((prev) => (toISODate(prev) === toISODate(persisted) ? prev : persisted));
       })
       .catch((err) => {
@@ -510,9 +522,7 @@ export function useTaskBoard({
   };
 
   /** Which of today's local routines haven't already spawned a live ticket
-   * for `targetDate`'s weekday -- the pure half of startNewDay(), reused by
-   * previewRespawnCount() below so the confirmation modal's preview can't
-   * drift from what actually spawns. */
+   * for `targetDate`'s weekday -- the pure half of startNewDay(). */
   const routinesToSpawn = (targetDate: Date): Routine[] => {
     const wd = weekdayOf(targetDate);
     const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
@@ -524,10 +534,6 @@ export function useTaskBoard({
         (!employed || employed.has(r.helperId)),
     );
   };
-
-  /** How many routines would respawn if startNewDay(targetDate) ran right
-   * now -- no mutation, for the "Start new day" confirmation preview. */
-  const previewRespawnCount = (targetDate: Date): number => routinesToSpawn(targetDate).length;
 
   /** Roll the board to `targetDate`: respawn matching routines and persist
    * the new board_date (KNOWN_GAPS.md C31) alongside the existing
@@ -597,7 +603,6 @@ export function useTaskBoard({
     addRoutine,
     removeRoutine,
     startNewDay,
-    previewRespawnCount,
     refresh,
   };
 }
