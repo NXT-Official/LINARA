@@ -107,6 +107,8 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
     emergency: row.emergency || undefined,
     queuedForShift: row.queued_for_shift || undefined,
     startedAt: row.actual_start ? new Date(row.actual_start).getTime() : undefined,
+    finishedAt:
+      row.status === "done" && row.actual_end ? new Date(row.actual_end).getTime() : undefined,
     createdBy: row.created_by_profile?.full_name ?? undefined,
     suggested: row.suggested || undefined,
     cancelledAt: row.cancelled_at ?? undefined,
