@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PANTRY_CATEGORIES } from "./pantry.types";
 import {
   groupByPantryCategory,
+  pantryItemErrors,
   STARTER_ITEMS,
   STARTER_ORDER,
   stockState,
@@ -99,5 +100,24 @@ describe("unitFor", () => {
 describe("STARTER_ORDER", () => {
   it("covers every category the starter list uses", () => {
     for (const item of STARTER_ITEMS) expect(STARTER_ORDER).toContain(item.category);
+  });
+});
+
+describe("pantryItemErrors", () => {
+  const ok = { name: "Bigas", qty: "10", unit: "kg", par: "5" };
+
+  it("passes a filled-in item, decimals and zero included", () => {
+    expect(pantryItemErrors(ok)).toEqual({});
+    expect(pantryItemErrors({ ...ok, qty: "0", par: "0.5" })).toEqual({});
+  });
+
+  it("names each field that's wrong (QA: empty name, Qty abc, Par -5)", () => {
+    expect(pantryItemErrors({ name: "  ", qty: "abc", unit: "", par: "-5" })).toEqual({
+      name: "Give it a name.",
+      qty: "A number, 0 or more.",
+      par: "A number, 0 or more.",
+    });
+    expect(pantryItemErrors({ ...ok, qty: "" }).qty).toBeDefined();
+    expect(pantryItemErrors({ ...ok, par: "Infinity" }).par).toBeDefined();
   });
 });

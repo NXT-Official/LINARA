@@ -38,4 +38,6 @@ export type GroceryContextValue = {
   /** Only meaningful for a not-yet-bought item -- curating the plan, not
    * erasing a helper's completed purchase. */
   remove: (item: GroceryItem) => void;
+  /** Ticks a listed item bought, or unticks it. Not for suggestions. */
+  toggleBought: (item: GroceryItem) => void;
 };

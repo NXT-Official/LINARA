@@ -28,7 +28,6 @@ export const generateSopFn = createServerFn({ method: "POST" })
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {
-      console.log(`[ServerAction:generateSopFn] Generating mock SOP for: "${prompt}"`);
       // Simulate minimal server-side delay for authentic UX loading
       await new Promise((resolve) => setTimeout(resolve, 600));
 

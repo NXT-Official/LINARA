@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { Task } from "./task.types";
-import { byStart, isLaterThanToday, isPastDue, movedFromLabel, taskWhen } from "./task.utils";
+import {
+  byStart,
+  isLaterThanToday,
+  isPastDue,
+  movedFromLabel,
+  taskFormErrors,
+  taskWhen,
+} from "./task.utils";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -119,5 +126,21 @@ describe("movedFromLabel", () => {
 
   it("uses the date when it moved a week or more", () => {
     expect(movedFromLabel(at(1, 18), at(9, 18))).toBe("Oct 1, 6:00 PM");
+  });
+});
+
+describe("taskFormErrors", () => {
+  it("passes a task with a name, day and time", () => {
+    expect(taskFormErrors({ title: "Fold laundry", date: "2026-10-02", time: "08:00" })).toEqual(
+      {},
+    );
+  });
+
+  it("names what's missing, and treats a blank title as missing", () => {
+    expect(taskFormErrors({ title: "   ", date: "", time: "" })).toEqual({
+      title: "Give the task a name.",
+      date: "Pick a day.",
+      time: "Pick a time.",
+    });
   });
 });

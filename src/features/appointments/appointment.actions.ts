@@ -63,7 +63,6 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {
-      console.log(`[ServerAction:parseSchedulerFn] Generating mock schedule for: "${prompt}"`);
       // Simulate small delay
       await new Promise((resolve) => setTimeout(resolve, 800));
 

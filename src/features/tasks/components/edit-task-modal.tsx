@@ -20,6 +20,7 @@ import {
 } from "@/lib/time";
 
 import type { Task } from "../task.types";
+import { taskFormErrors } from "../task.utils";
 import { TaskUpdates } from "./task-updates";
 
 export type TaskEdit = {
@@ -31,7 +32,7 @@ export type TaskEdit = {
 };
 
 const inputCls =
-  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
+  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
 
 /**
  * Edit a task's what, when and who. A task can be left Unassigned and given
@@ -89,9 +90,12 @@ export function EditTaskModal({
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
 
-  const canSave = title.trim() !== "" && date !== "" && time !== "";
+  // Errors show once Save is pressed, then follow the typing.
+  const [tried, setTried] = useState(false);
+  const errors = tried ? taskFormErrors({ title, date, time }) : {};
   const submit = () => {
-    if (!canSave) return;
+    setTried(true);
+    if (Object.keys(taskFormErrors({ title, date, time })).length > 0) return;
     onSave({
       title: title.trim(),
       note: note.trim() || undefined,
@@ -135,8 +139,13 @@ export function EditTaskModal({
         </div>
       )}
       <div className="mt-4 space-y-3">
-        <Field label="Title">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+        <Field label="Title" error={errors.title}>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-invalid={!!errors.title}
+            className={inputCls}
+          />
         </Field>
         <Field label="Assigned to">
           <select
@@ -158,19 +167,21 @@ export function EditTaskModal({
           </p>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date">
+          <Field label="Date" error={errors.date}>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              aria-invalid={!!errors.date}
               className={inputCls}
             />
           </Field>
-          <Field label="Time">
+          <Field label="Time" error={errors.time}>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
+              aria-invalid={!!errors.time}
               className={inputCls}
             />
           </Field>
@@ -232,7 +243,6 @@ export function EditTaskModal({
         </button>
         <button
           onClick={submit}
-          disabled={!canSave}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           Save

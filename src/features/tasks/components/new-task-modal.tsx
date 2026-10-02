@@ -18,6 +18,7 @@ import {
 } from "@/lib/time";
 
 import type { Recurrence, Task } from "../task.types";
+import { taskFormErrors } from "../task.utils";
 
 export function NewTaskModal({
   activeHelpers,
@@ -51,6 +52,9 @@ export function NewTaskModal({
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
   const [days, setDays] = useState<Weekday[]>([]);
   const [sendLive, setSendLive] = useState(false);
+  // Errors show once Save is pressed, then follow the typing.
+  const [tried, setTried] = useState(false);
+  const errors = tried ? taskFormErrors({ title, date, time }) : {};
 
   // Planning never bypasses her boundaries silently, same as Edit.
   const schedule = helperId ? scheduleFor?.(helperId) : undefined;
@@ -68,7 +72,8 @@ export function NewTaskModal({
   };
 
   const submit = () => {
-    if (!title.trim() || !date || !time) return;
+    setTried(true);
+    if (Object.keys(taskFormErrors({ title, date, time })).length > 0) return;
     const [h, m] = time.split(":").map(Number);
     const suffix = h >= 12 ? "PM" : "AM";
     const hr = ((h + 11) % 12) + 1;
@@ -99,6 +104,7 @@ export function NewTaskModal({
         </h3>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -110,12 +116,13 @@ export function NewTaskModal({
         </p>
       )}
       <div className="mt-4 space-y-3">
-        <Field label="Title">
+        <Field label="Title" error={errors.title}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Fold laundry"
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            aria-invalid={!!errors.title}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
           />
         </Field>
         <Field label="Assign to">
@@ -133,21 +140,23 @@ export function NewTaskModal({
           </select>
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date">
+          <Field label="Date" error={errors.date}>
             <input
               type="date"
               value={date}
               min={todayIso < defaultDate ? todayIso : defaultDate}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              aria-invalid={!!errors.date}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
             />
           </Field>
-          <Field label="Time">
+          <Field label="Time" error={errors.time}>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              aria-invalid={!!errors.time}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
             />
           </Field>
         </div>
@@ -241,7 +250,6 @@ export function NewTaskModal({
         </button>
         <button
           onClick={submit}
-          disabled={!title.trim() || !date || !time}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
           {isRemote ? (sendLive ? "Send live" : "Send to on-site manager") : "Add to board"}
