@@ -18,12 +18,14 @@ import type {
   ThirteenthMonth,
 } from "../pay.types";
 import { formatCutoffRange } from "../pay.utils";
+import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
 const longDay = (ymd: string) =>
   new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 
 type Recording = { target: PaymentTarget; label: string; estimate: number };
+type Paying = Recording & { channel: PayoutChannelCode };
 
 /**
  * Pay periods that closed with nothing paid (KNOWN_GAPS.md O16), and her
@@ -61,7 +63,8 @@ export function MissedPeriodsCard({
   ) => Promise<unknown>;
 }) {
   const [thirteenth, setThirteenth] = useState<ThirteenthMonth | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  /** The payment whose confirm step is open; nothing is sent until it's confirmed. */
+  const [paying, setPaying] = useState<Paying | null>(null);
   const [recording, setRecording] = useState<Recording | null>(null);
 
   useEffect(() => {
@@ -75,49 +78,31 @@ export function MissedPeriodsCard({
     };
   }, [token, helper.id, payslipsVersion]);
 
-  const pay = async (key: string, channel: PayoutChannelCode, target: PaymentTarget) => {
-    setBusy(key);
-    try {
-      const result = await onPayNow(helper.id, channel, target);
-      if (result?.status === "needs_review") {
-        toast.warning("Couldn't confirm the payout. It's held for review; check Xendit first.");
-      } else {
-        toast.success(`Sent via ${channel === "PH_GCASH" ? "GCash" : "Maya"}.`);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The payout didn't go through.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const showThirteenth = thirteenth && thirteenth.amount > 0;
   if (missed.length === 0 && !showThirteenth) return null;
   // Before vale: whatever is still owed comes off only the first payment.
   const missedTotal = missed.reduce((sum, p) => sum + periodEstimate(helper, p), 0);
 
   // A plain function, not a component: defined per render, it would remount.
-  const actions = ({ id, target, label, estimate }: Recording & { id: string }) =>
+  const actions = ({ target, label, estimate }: Recording) =>
     canPay ? (
       <div className="mt-2 flex flex-wrap gap-2">
         <button
-          onClick={() => pay(`${id}-g`, "PH_GCASH", target)}
-          disabled={busy !== null}
+          onClick={() => setPaying({ target, label, estimate, channel: "PH_GCASH" })}
+          aria-label={`Pay ${label} via GCash`}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-60"
         >
-          <Smartphone className="h-3.5 w-3.5" /> {busy === `${id}-g` ? "Sending…" : "GCash"}
+          <Smartphone className="h-3.5 w-3.5" /> GCash
         </button>
         <button
-          onClick={() => pay(`${id}-m`, "PH_PAYMAYA", target)}
-          disabled={busy !== null}
+          onClick={() => setPaying({ target, label, estimate, channel: "PH_PAYMAYA" })}
+          aria-label={`Pay ${label} via Maya`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
         >
-          <Smartphone className="h-3.5 w-3.5 text-accent" />{" "}
-          {busy === `${id}-m` ? "Sending…" : "Maya"}
+          <Smartphone className="h-3.5 w-3.5 text-accent" /> Maya
         </button>
         <button
           onClick={() => setRecording({ target, label, estimate })}
-          disabled={busy !== null}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
           <Banknote className="h-3.5 w-3.5" /> Paid outside Linara
@@ -168,7 +153,6 @@ export function MissedPeriodsCard({
                     </p>
                   )}
                   {actions({
-                    id: period.fullStart,
                     target: { cutoffStart: period.fullStart },
                     label,
                     estimate,
@@ -206,7 +190,6 @@ export function MissedPeriodsCard({
               </p>
               {thirteenth.payable &&
                 actions({
-                  id: "13th",
                   target: { kind: "thirteenth_month" },
                   label: `13th-month pay ${thirteenth.year}`,
                   estimate: thirteenth.amount,
@@ -216,6 +199,17 @@ export function MissedPeriodsCard({
         </div>
       )}
 
+      {paying && (
+        <PayoutConfirmModal
+          helperName={helper.short}
+          phone={helper.phone}
+          channel={paying.channel}
+          periodLabel={paying.label}
+          estimate={paying.estimate}
+          onClose={() => setPaying(null)}
+          onConfirm={() => onPayNow(helper.id, paying.channel, paying.target)}
+        />
+      )}
       {recording && (
         <RecordPaymentModal
           helperName={helper.short}

@@ -24,6 +24,7 @@ import {
 import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
 import { payslipCovering } from "../payslip-match";
+import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
 /** Where an outside-Linara payment stands with her. */
@@ -120,6 +121,7 @@ export function PayslipHistory({
   /** Takes back an outside-Linara record she hasn't confirmed. */
   onWithdrawOffApp?: (payslipId: string) => Promise<void>;
 }) {
+  /** The channel whose confirm step is open; nothing is sent until it's confirmed. */
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -174,24 +176,6 @@ export function PayslipHistory({
     }
   };
 
-  const pay = async (channelCode: PayoutChannelCode) => {
-    setPaying(channelCode);
-    try {
-      const result = await onPayNow(helper.id, channelCode);
-      if (result?.status === "needs_review") {
-        toast.warning(
-          "Hindi makumpirma ang payout — naka-hold para i-review. Tignan sa Xendit bago ulitin.",
-        );
-      } else {
-        toast.success(`Payout sent via ${channelCode === "PH_GCASH" ? "GCash" : "Maya"}.`);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Hindi na-send ang payout. Subukan ulit.");
-    } finally {
-      setPaying(null);
-    }
-  };
-
   return (
     <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
@@ -241,20 +225,20 @@ export function PayslipHistory({
         ) : (
           <div className="flex gap-2">
             <button
-              onClick={() => pay("PH_GCASH")}
+              onClick={() => setPaying("PH_GCASH")}
               disabled={paying !== null}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
             >
               <Smartphone className="h-3.5 w-3.5" />
-              {paying === "PH_GCASH" ? "Sending…" : "Pay via GCash"}
+              Pay via GCash
             </button>
             <button
-              onClick={() => pay("PH_PAYMAYA")}
+              onClick={() => setPaying("PH_PAYMAYA")}
               disabled={paying !== null}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
             >
               <Smartphone className="h-3.5 w-3.5 text-accent" />
-              {paying === "PH_PAYMAYA" ? "Sending…" : "Pay via Maya"}
+              Pay via Maya
             </button>
             {onRecordOffApp && (
               <button
@@ -268,6 +252,17 @@ export function PayslipHistory({
           </div>
         )}
       </div>
+      {paying && cutoff && (
+        <PayoutConfirmModal
+          helperName={helper.short}
+          phone={helper.phone}
+          channel={paying}
+          periodLabel={formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd)}
+          estimate={estimate}
+          onClose={() => setPaying(null)}
+          onConfirm={() => onPayNow(helper.id, paying)}
+        />
+      )}
       {recording && cutoff && onRecordOffApp && (
         <RecordPaymentModal
           helperName={helper.short}
