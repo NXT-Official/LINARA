@@ -745,6 +745,59 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Who keeps the pantry: "lead" (in charge of stock and the palengke list) or
+ * "runner" (buys what's on it). Client feedback 2026-10-02. Manager-gated
+ * here like the wage; the database also keeps a helper from changing her own
+ * (helper_profiles_guard_own_update), and enforces what each can do
+ * (supabase/add-pantry-roles.sql).
+ */
+export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperId: string; pantryRole: "lead" | "runner" }) => {
+    if (data.pantryRole !== "lead" && data.pantryRole !== "runner") {
+      throw new Error("Unknown pantry role");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const { token, helperId, pantryRole } = data;
+
+    const authedClient = createAuthedClient(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("user_type")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Unauthorized: Profile not found");
+    }
+
+    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+      throw new Error("Forbidden: Only managers can change who keeps the pantry");
+    }
+
+    const { error } = await authedClient
+      .from("helper_profiles")
+      .update({ pantry_role: pantryRole })
+      .eq("id", helperId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { helperId, pantryRole };
+  });
+
+/**
  * 13. Request Password Reset Endpoint (Server Function)
  * Shared by managers (web /login) and helpers (LINARA_MOBILE sign-in, which
  * calls Supabase directly with the same redirect). Supabase only sends mail

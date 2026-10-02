@@ -32,6 +32,7 @@ The system coordinates three key actors with distinct permission boundaries:
 | **Override Helper Off-Hours**  | Yes (With logged friction) | Yes (With logged friction) | No                                            | N/A                     |
 | **View Money & Pay Ledger**    | Yes                        | Yes                        | Yes                                           | Yes (Own record only)   |
 | **Access "My Notes"**          | No                         | No                         | No                                            | Yes (Private to Helper) |
+| **Keep Pantry & Palengke List** | Yes                       | Yes                        | Yes                                           | If the manager puts her in charge; otherwise buys from the list and says what ran out |
 
 ---
 

@@ -41,6 +41,7 @@ export function PeoplePage() {
         onInvite={(data) => invites.create(data, authorName)}
         onCancelInvite={invites.cancel}
         onUpdateWage={invites.updateWage}
+        onSetPantryRole={invites.setPantryRole}
         helpers={helpers}
         activeHelpers={activeHelpers}
         token={session.token}

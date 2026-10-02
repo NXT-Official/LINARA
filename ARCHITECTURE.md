@@ -256,6 +256,10 @@ Frontend interfaces block actions based on active user scopes:
 | **Approve Vales & Cash Requests**   |       Yes       |    Yes     |   Yes (Provides Funds)    |           No           |
 | **Review Receipts & Evidence URLS** |       Yes       |    Yes     |     Yes (Focus Area)      | Yes (Own records only) |
 | **Claim Accounts & Write Notes**    |       No        |     No     |            No             |          Yes           |
+| **Keep Pantry & Palengke List**     |       Yes       |    Yes     |            Yes            |  If set "In charge"¹   |
+| **Buy From List, Say "Ubos na"**    |       Yes       |    Yes     |            Yes            |          Yes           |
+
+¹ Per helper, set by a manager in People (`helper_profiles.pantry_role`, `supabase/add-pantry-roles.sql`). Any number of helpers can be in charge; the rest buy from the list.
 
 ---
 
@@ -712,6 +716,7 @@ CREATE TABLE public.helper_profiles (
     ended_on DATE, -- her last working day, once the employment has ended
     ended_at TIMESTAMP WITH TIME ZONE,
     ended_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    pantry_role TEXT NOT NULL DEFAULT 'runner' CHECK (pantry_role IN ('lead', 'runner')), -- who keeps the pantry (add-pantry-roles.sql)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -1112,6 +1117,15 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- manual_available_until (trigger helper_profiles_zz_guard_own_update).
 -- households_update_budget is manager-only too. Everything else goes through
 -- SECURITY DEFINER functions, which run as their owner.
+
+-- Who keeps the pantry (supabase/add-pantry-roles.sql, KNOWN_GAPS C77).
+-- pantry_items and grocery_items stay household-wide for managers and for
+-- helpers with helper_profiles.pantry_role = 'lead'. A 'runner' helper's own
+-- writes pass BEFORE triggers (pantry_items_guard_runner,
+-- grocery_items_guard_runner) that allow only: a pantry count set to zero,
+-- a new unbought line for a pantry item, and bought / actual_cost on a line.
+-- Writes from another trigger (the restock when she ticks a line bought) and
+-- from SECURITY DEFINER functions are let through.
 
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every

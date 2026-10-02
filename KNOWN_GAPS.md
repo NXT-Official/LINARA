@@ -3144,7 +3144,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - Checked first: every SQL function that writes these tables is `SECURITY DEFINER`, and the only direct writes in either app are the manager's on the web plus the helper's two above. No app code changed.
   - PGlite test acting as each role: `supabase/tests/write-access.test.mjs` (25 checks, in `npm run test:sql`).
 - **Residual:**
-  - **Other tables stay household-wide:** `tickets`, `quick_utos`, `appointments`, `pantry_items` and `grocery_items`. Helpers write tickets and the pantry legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap.
+  - **Other tables stay household-wide:** `tickets`, `quick_utos` and `appointments`. Helpers write tickets legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap. `pantry_items` and `grocery_items` now have per-helper rules (C77).
   - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
 
 ### C73. There was no vacation or leave, only hour-level rest off in lieu (former Open Gap O21)
@@ -3200,6 +3200,19 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - **Web:** no longer records task entries itself (`onComplete` is now optional and unused), and refreshes the ledger on every ticket change. Quick Utos entries are still written by the web.
   - PGlite test: `supabase/tests/ticket-ledger.test.mjs` (17 checks, in `npm run test:sql`).
 - **Residual:** between applying the SQL and deploying the web change, a manager's Done on the web counts twice; apply and deploy together. Quick Utos entries still only record for the first active helper (MULTI_HELPER_HANDLING.md, Ledger).
+
+### C77. Every helper could change the whole pantry and palengke list; the manager couldn't say who keeps it
+
+- **Found / fixed:** 2026-10-02, client feedback: "manager should be able to assign which staff can do mayor doma stuff ... or just someone to fulfil the checklist", since households trust staff differently.
+- **Was:** `pantry_items` and `grocery_items` had one household-wide `FOR ALL` policy (C72's residual), and `LINARA_MOBILE` gave every helper the full Pantry tab: counts, items, the starter list, adding and removing palengke lines.
+- **Fix:** `supabase/add-pantry-roles.sql` (**apply by hand, after fix-helper-write-access.sql, and before the web change is deployed**; with or without add-grocery-restock.sql).
+  - `helper_profiles.pantry_role`: `lead` (in charge: everything, as before) or `runner` (buys from the list). New helpers start as runners; everyone employed when the SQL runs becomes a lead, so nobody loses anything that day. Any number of leads.
+  - Every helper can say something ran out: the count goes to zero and the item goes on the list ("Ubos na"). No level without that.
+  - `BEFORE` triggers hold a runner's own writes to exactly that, plus ticking lines bought and their cost. Writes from the restock trigger (`add-grocery-restock.sql`, O23) and `SECURITY DEFINER` functions pass. She can't raise her own role: `helper_profiles_guard_own_update` (C72) only lets her change her availability.
+  - **Web:** People shows "Pantry: In charge / Buys from the list" on each helper, changeable by primary and co-managers (`updateHelperPantryRoleFn`). Hidden until the column exists.
+  - **Mobile:** the Pantry tab hides adding, editing, counts and removing for a runner, and the starter list; she sees "Ubos na". Her role is its own read (`getMyPantryRole`), re-checked whenever she opens the tab, and falls back to `lead` while the column doesn't exist, so the app works whichever ships first.
+  - PGlite test: `supabase/tests/pantry-roles.test.mjs` (23 checks, in `npm run test:sql`).
+- **Residual:** a runner can still add a line for a pantry item with any quantity and tick it bought, which raises that item's count by that much. Only a count, and visible on the list, so left alone.
 
 ---
 
