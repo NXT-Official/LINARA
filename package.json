@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "deploy:functions": "supabase functions deploy --project-ref tueckhlrrupmnzhblewy",
     "deploy:functions:check": "supabase functions list --project-ref tueckhlrrupmnzhblewy",
+    "test:e2e": "playwright test",
     "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs && node supabase/tests/ticket-comments.test.mjs && node supabase/tests/leave.test.mjs && node supabase/tests/write-access.test.mjs && node supabase/tests/unpaid-leave-pay.test.mjs && node supabase/tests/cancelled-tasks.test.mjs && node supabase/tests/grocery-restock.test.mjs && node supabase/tests/ticket-ledger.test.mjs && node supabase/tests/pantry-roles.test.mjs"
   },
   "dependencies": {
@@ -72,6 +73,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "1.63.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.16.5",
