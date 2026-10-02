@@ -581,6 +581,25 @@ export const updateTicketFn = createServerFn({ method: "POST" })
 
     const authedClient = createAuthedClient(token);
 
+    // A finished task is the record of what she did: its title, assignee,
+    // time and note stay as they were (client feedback, 2026-10-02). Status
+    // changes still go through, so a mis-ticked Done can be undone.
+    const editsRecord =
+      patch.title !== undefined ||
+      patch.notes !== undefined ||
+      patch.helperId !== undefined ||
+      patch.scheduledStartIso !== undefined;
+    if (editsRecord && patch.status === undefined) {
+      const { data: current } = await authedClient
+        .from("tickets")
+        .select("status")
+        .eq("id", ticketId)
+        .single();
+      if (current?.status === "done") {
+        throw new Error("A finished task can't be changed.");
+      }
+    }
+
     // A change of time or hands is never silent on her side (plan.md 2.2,
     // KNOWN_GAPS O20): the same notice an appointment move writes, which her
     // app shows as "Inilipat" and in Today's "May binago sa schedule mo".
