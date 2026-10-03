@@ -89,6 +89,7 @@ yarn-error.log*
 pnpm-debug.log*
 bun-debug.log*
 terminal_log.log
+/feedback_local/*
 
 # ========================================================================
 # 8. LOCAL AI TOOL SETTINGS
