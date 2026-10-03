@@ -1,4 +1,10 @@
+import { existsSync } from "node:fs";
+
 import { defineConfig, devices } from "@playwright/test";
+
+// The test accounts, kept out of git by .gitignore's `.env.*`. Variables
+// already set in the shell win.
+if (existsSync(".env.e2e")) process.loadEnvFile(".env.e2e");
 
 /**
  * Browser QA (QA, 2026-10-02: the client's Playwright crawl found what unit
@@ -10,6 +16,9 @@ import { defineConfig, devices } from "@playwright/test";
  *   deployed site before a release.
  * - E2E_MANAGER_EMAIL / E2E_MANAGER_PASSWORD: a test manager account. Without
  *   them only the signed-out checks run. Never commit them.
+ * - E2E_STAFF_EMAIL / E2E_STAFF_PASSWORD: a house-staff account, for the
+ *   check that staff are sent to the app, not the dashboard.
+ * - Any of these can go in .env.e2e (gitignored) instead of the shell.
  *
  * The signed-in checks read and open dialogs; they don't save, delete, or
  * pay (e2e/manager.spec.ts says what each one touches).
