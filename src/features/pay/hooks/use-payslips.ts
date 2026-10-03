@@ -9,7 +9,7 @@ import {
   withdrawOffAppPaymentFn,
   type PayslipRow,
 } from "../pay.actions";
-import type { OffAppMethod, Payslip, PayoutChannelCode, PayslipKind } from "../pay.types";
+import type { ManualPayment, Payslip, PayoutChannelCode, PayslipKind } from "../pay.types";
 
 /** Which payment: a missed period by its start, or 13th-month pay. Omitted
  * means the current cutoff (or, for someone who has left, the final one). */
@@ -140,7 +140,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
   /** A payment made outside Linara, for her to confirm in her app. */
   const recordOffApp = async (
     helperId: string,
-    payment: { method: OffAppMethod; paidOn: string; note?: string },
+    payment: ManualPayment,
     target: PaymentTarget = {},
   ) => {
     if (!token) throw new Error("Not authenticated");

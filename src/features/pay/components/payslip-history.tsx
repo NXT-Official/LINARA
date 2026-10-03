@@ -17,13 +17,15 @@ import type { Helper } from "@/features/people/people.types";
 import type { HouseholdCutoff } from "../pay.actions";
 import {
   METHOD_LABEL,
-  type OffAppMethod,
+  type ManualPayment,
   type Payslip,
   type PayoutChannelCode,
 } from "../pay.types";
 import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
 import { payslipCovering } from "../payslip-match";
+import { XENDIT_PAYOUTS_ON } from "../payout-mode";
+import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
@@ -114,10 +116,7 @@ export function PayslipHistory({
    *  moving -- see that module for why the two states get different fuses. */
   onReconcile: (payslipId: string) => Promise<{ status: string; changed: boolean }>;
   /** Records this cutoff as paid outside Linara (cash, bank, other). */
-  onRecordOffApp?: (
-    helperId: string,
-    payment: { method: OffAppMethod; paidOn: string; note?: string },
-  ) => Promise<unknown>;
+  onRecordOffApp?: (helperId: string, payment: ManualPayment) => Promise<unknown>;
   /** Takes back an outside-Linara record she hasn't confirmed. */
   onWithdrawOffApp?: (payslipId: string) => Promise<void>;
 }) {
@@ -125,6 +124,8 @@ export function PayslipHistory({
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [recording, setRecording] = useState(false);
+  // Paying her GCash / Maya directly (KNOWN_GAPS O35).
+  const [payingDirect, setPayingDirect] = useState(false);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
   if (!helper) return null;
@@ -224,22 +225,35 @@ export function PayslipHistory({
           </div>
         ) : (
           <div className="flex gap-2">
-            <button
-              onClick={() => setPaying("PH_GCASH")}
-              disabled={paying !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              Pay via GCash
-            </button>
-            <button
-              onClick={() => setPaying("PH_PAYMAYA")}
-              disabled={paying !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
-            >
-              <Smartphone className="h-3.5 w-3.5 text-accent" />
-              Pay via Maya
-            </button>
+            {!XENDIT_PAYOUTS_ON && onRecordOffApp && (
+              <button
+                onClick={() => setPayingDirect(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                Pay by GCash or Maya
+              </button>
+            )}
+            {XENDIT_PAYOUTS_ON && (
+              <>
+                <button
+                  onClick={() => setPaying("PH_GCASH")}
+                  disabled={paying !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  Pay via GCash
+                </button>
+                <button
+                  onClick={() => setPaying("PH_PAYMAYA")}
+                  disabled={paying !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
+                >
+                  <Smartphone className="h-3.5 w-3.5 text-accent" />
+                  Pay via Maya
+                </button>
+              </>
+            )}
             {onRecordOffApp && (
               <button
                 onClick={() => setRecording(true)}
@@ -261,6 +275,19 @@ export function PayslipHistory({
           estimate={estimate}
           onClose={() => setPaying(null)}
           onConfirm={() => onPayNow(helper.id, paying)}
+        />
+      )}
+      {payingDirect && cutoff && onRecordOffApp && (
+        <PayDirectModal
+          helperId={helper.id}
+          helperName={helper.short}
+          periodLabel={formatCutoffRange(cutoff.cutoffStart, cutoff.cutoffEnd)}
+          onClose={() => setPayingDirect(false)}
+          onSubmit={async (payment) => {
+            const result = await onRecordOffApp(helper.id, payment);
+            toast.success(`Recorded. ${helper.short} will be asked to confirm it arrived.`);
+            return result;
+          }}
         />
       )}
       {recording && cutoff && onRecordOffApp && (
