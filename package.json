@@ -17,6 +17,8 @@
     "deploy:functions": "supabase functions deploy --project-ref tueckhlrrupmnzhblewy",
     "deploy:functions:check": "supabase functions list --project-ref tueckhlrrupmnzhblewy",
     "test:e2e": "playwright test",
+    "qa": "node scripts/qa.mjs",
+    "qa:fast": "node scripts/qa.mjs --fast",
     "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs && node supabase/tests/ticket-comments.test.mjs && node supabase/tests/leave.test.mjs && node supabase/tests/write-access.test.mjs && node supabase/tests/unpaid-leave-pay.test.mjs && node supabase/tests/cancelled-tasks.test.mjs && node supabase/tests/grocery-restock.test.mjs && node supabase/tests/ticket-ledger.test.mjs && node supabase/tests/pantry-roles.test.mjs && node supabase/tests/leave-policy.test.mjs && node supabase/tests/grocery-receipts.test.mjs"
   },
   "dependencies": {

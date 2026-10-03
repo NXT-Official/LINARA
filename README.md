@@ -321,6 +321,10 @@ bun run test:sql
 
 # Browser QA (Playwright): every page, phone and desktop width
 bun run test:e2e
+
+# Everything above against a production build, with a report (see 11.2)
+bun run qa
+bun run qa:fast   # typecheck, lint, unit tests only
 ```
 
 ### 11.1 Browser QA (Playwright)
@@ -334,11 +338,21 @@ First time on a machine: `npx playwright install chromium`.
   it against a built preview (`bun run build`, then `PORT=5198 node .output/server/index.mjs`
   and `E2E_BASE_URL=http://localhost:5198`) or the deployed site.
 - **Signed-in checks:** set `E2E_MANAGER_EMAIL` and `E2E_MANAGER_PASSWORD` to a test manager
-  account (in your shell, never in a committed file). Without them only the signed-out checks
-  run. The signed-in checks open forms and cancel them; they never save, delete, or pay, and
-  any payout request is blocked and fails the run.
+  account, and `E2E_STAFF_EMAIL` / `E2E_STAFF_PASSWORD` to a house-staff one, in your shell or
+  in `.env.e2e` (gitignored; never in a committed file). Without them only the signed-out
+  checks run. The signed-in checks open forms and cancel them; they never save, delete, or
+  pay, and any payout request is blocked and fails the run.
 - **Results:** `playwright-report/` (`npx playwright show-report`) with traces and screenshots
   for failures.
+
+### 11.2 Local QA pass
+
+`bun run qa` runs what the client's QA bot checks, on your machine: typecheck, lint, unit
+and SQL tests, a production build, then the browser tests against that build on port 8091
+(so it doesn't clash with `bun run dev`). Every step runs even after a failure. It writes
+`qa-reports/<time>/report.md` (and `qa-reports/latest.md`) with a log per step, and exits 1
+if anything failed. About four minutes; `bun run qa:fast` is the first three steps. The
+mobile repo has the same command (`../LINARA_MOBILE`, without browser tests).
 
 ---
 

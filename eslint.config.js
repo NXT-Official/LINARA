@@ -33,6 +33,7 @@ export default tseslint.config(
       "src/start.ts",
       "supabase/tests/**/*.mjs",
       "e2e/**/*.ts",
+      "scripts/**/*.mjs",
     ],
     languageOptions: { globals: globals.node },
   },
@@ -109,9 +110,9 @@ export default tseslint.config(
     rules: { "security/detect-object-injection": "off" },
   },
   {
-    // Tests, the SQL test runners and the browser tests read and write fixed
-    // files in this repo.
-    files: ["**/*.test.{ts,tsx}", "supabase/tests/**/*.mjs", "e2e/**/*.ts"],
+    // Tests, the SQL test runners, the browser tests and the QA script read
+    // and write fixed files in this repo.
+    files: ["**/*.test.{ts,tsx}", "supabase/tests/**/*.mjs", "e2e/**/*.ts", "scripts/**/*.mjs"],
     rules: { "security/detect-non-literal-fs-filename": "off" },
   },
   {
