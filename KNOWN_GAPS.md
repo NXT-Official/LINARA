@@ -42,6 +42,70 @@ the bottom.
 
 ---
 
+### O26. Every AI feature answers from a mock; no provider is chosen
+
+- **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
+- **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
+- **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
+- **Current workaround:** The mocks. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
+- **To close:** Pick a provider, put the calls behind one shared helper in `supabase/functions/_shared/` with the mocks kept as a fallback, set the key as a Supabase Edge Function secret (never Vercel, `VITE_` or `EXPO_PUBLIC_`), and name the provider in the privacy policy (`src/features/legal/privacy-policy.tsx` says nothing is sent to an AI company). Owned by `LINARA`.
+
+### O27. The manager app has no English / Filipino toggle
+
+- **Found:** 2026-09-30 (decided during the design refresh), logged 2026-10-03.
+- **What's missing:** `PRODUCT.md` (Capabilities and Constraints; Accessibility) commits to a full English / Filipino toggle for all three manager types. The web copy is English with some Tagalog (toasts, the staff sign-in screen), and there's no i18n layer.
+- **Blocks:** Lola / relative managers who'd rather read Filipino; nothing technical.
+- **Current workaround:** None.
+- **To close:** Pull manager-facing strings into a catalogue, add the toggle, and translate. The helper app (`LINARA_MOBILE`) is already Filipino-first and isn't part of this. Owned by `LINARA`.
+
+### O28. Receipt and task photos are kept forever
+
+- **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
+- **What's missing:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deletes them, and neither the schema nor the docs say how long they should be kept.
+- **Blocks:** Nothing yet. Storage grows with every finished task and receipt.
+- **Current workaround:** None.
+- **To close:** Decide a retention period with the client (receipts aren't payslips, so RA 10361's payslip retention doesn't set it; check `LEGAL_CONSIDERATIONS.md`), then a scheduled job that removes older objects and the rows' URLs. Owned by `LINARA`.
+
+### O29. A manager can't attach a receipt from the web
+
+- **Found:** 2026-10-02 (C80), logged 2026-10-03.
+- **What's missing:** Receipts are added only in `LINARA_MOBILE`'s Pantry tab (the Resibo card). The web's `receipt-slot.tsx` lists the latest receipts and has no upload. A manager who did the shopping can tick items bought on the web (LW-5) but can't add the receipt.
+- **Blocks:** The manager-does-the-shopping case, end to end.
+- **Current workaround:** Add it from a helper's phone, or not at all.
+- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does. Owned by `LINARA`.
+
+### O30. No list view of tasks
+
+- **Found:** 2026-10-02, client feedback (asked for "list view"; no more detail was recorded), logged 2026-10-03.
+- **What's missing:** The Schedule has Week, By person and Month; the Pass shows today's lanes. There's no plain list of tasks.
+- **Blocks:** Nothing.
+- **Current workaround:** Week view.
+- **To close:** Ask the client what the list is for (all upcoming? search results? one helper's?), then add it as another Schedule view. Owned by `LINARA`.
+
+### O31. Helpers can't edit a task
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web.
+- **Blocks:** A helper fixing a wrong time herself.
+- **Current workaround:** She comments, and a manager edits.
+- **To close:** Decide what she may change (probably time and note, not who it's for), then an app edit screen and a `BEFORE UPDATE` guard on `tickets` like C72's, since today her updates are held to status columns. The time-change notice and ledger rules (C71, C76) must still fire. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
+
+### O32. Search and filters exist only on the Pantry and Grocery list
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** `ListFilter` is used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule, the Pass, Money's payslips and People have no search.
+- **Blocks:** Finding an old task or payslip in a busy household.
+- **Current workaround:** Scrolling, or Month view.
+- **To close:** Add `ListFilter` where lists get long, starting with the Schedule. Owned by `LINARA`.
+
+### O33. Staff can't change the grocery budget (waiting on the client)
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
+- **Blocks:** Nothing until the client confirms.
+- **Current workaround:** A manager sets it on the web.
+- **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

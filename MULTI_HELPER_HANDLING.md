@@ -145,11 +145,11 @@ removing a working mobile feature:
   living in screens, not hooks. `DignityHeader`/`RosaAvailControl` needed no
   changes — same UI, real data underneath now.
 
-**Status as of this write-up: code complete on both repos, migration not
-yet applied live** (confirmed via the same unauthenticated-PostgREST
-`42703` "column does not exist" check used throughout this project) — the
-usual "session has no service-role key" posture. Apply
-`supabase/add-helper-manual-availability.sql` before relying on this.
+**Status: applied and live.** `add-helper-manual-availability.sql` has been
+run: a read of `helper_profiles.manual_status, manual_available_until` as the
+test manager returned both columns (2026-10-03). This section used to say
+the migration wasn't applied yet; that was true when it was written
+(2026-08-15).
 
 ### Pay Dial / payslips — fixed
 
