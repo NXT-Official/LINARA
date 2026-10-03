@@ -4,10 +4,10 @@ import { createAuthedClient } from "@/lib/supabase";
 import type { PaydayInterval } from "@/features/people/people.types";
 
 import { payComponentsForCutoff, workedShareOfCutoff } from "./net-pay";
+import { XENDIT_PAYOUTS_ON } from "./payout-mode";
 
 import type {
   HelperAck,
-  OffAppMethod,
   PaymentMethod,
   PayoutChannelCode,
   PayoutStatus,
@@ -403,7 +403,7 @@ export const recordOffAppPaymentFn = createServerFn({ method: "POST" })
     (data: {
       token: string;
       helperId: string;
-      method: OffAppMethod;
+      method: PaymentMethod;
       paidOn: string;
       note?: string;
       cutoffStart?: string;
@@ -433,6 +433,56 @@ export const recordOffAppPaymentFn = createServerFn({ method: "POST" })
       throw new Error(error?.message || "Couldn't record the payment");
     }
     return { payslipId: rows[0].payslip_id as string, netPay: Number(rows[0].net_pay) };
+  });
+
+/**
+ * What she'll be owed for a period, worked out the way record_offapp_payslip
+ * will record it: base pay less her statutory share, approved vales not yet
+ * settled, and unpaid leave (13th-month: its own amount, nothing taken off).
+ * Writes nothing. The manager sends exactly this when paying her GCash or
+ * Maya directly (PayDirectModal, KNOWN_GAPS O35), so it has to be the
+ * payslip's figure, not the dashboard's estimate.
+ */
+export const previewPaymentFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; helperId: string; cutoffStart?: string; kind?: PayslipKind }) => data,
+  )
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const kind = data.kind ?? "regular";
+    if (kind === "thirteenth_month") {
+      const { data: rows, error } = await client.rpc("thirteenth_month_due", {
+        p_helper_id: data.helperId,
+      });
+      if (error || !rows?.[0]) throw new Error(error?.message || "No 13th-month pay is due");
+      return { netPay: Math.max(0, Number(rows[0].amount)) };
+    }
+    const { basePay, statutoryShare } = await componentsForPayment(
+      client,
+      data.helperId,
+      kind,
+      data.cutoffStart,
+    );
+    const cutoff = await readHelperPayCutoff(client, data.helperId, data.cutoffStart);
+    const { data: vales, error: valeError } = await client
+      .from("vales")
+      .select("amount")
+      .eq("helper_id", data.helperId)
+      .eq("status", "approved")
+      .is("settled_in_payslip_id", null);
+    if (valeError) throw new Error(valeError.message);
+    const { data: leave, error: leaveError } = await client
+      .rpc("unpaid_leave_due", {
+        p_helper_id: data.helperId,
+        p_cutoff_end: cutoff.cutoffEnd,
+        p_final: cutoff.isFinal,
+      })
+      .maybeSingle();
+    if (leaveError) throw new Error(leaveError.message);
+    const valeTotal = (vales ?? []).reduce((sum, v) => sum + Number(v.amount), 0);
+    const leaveTotal = Number((leave as { deduction?: number } | null)?.deduction ?? 0);
+    const net = Math.max(0, basePay - statutoryShare - valeTotal - leaveTotal);
+    return { netPay: Math.round(net * 100) / 100 };
   });
 
 /** Takes back a payment recorded outside Linara that she hasn't confirmed. */
@@ -517,6 +567,11 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    // Off unless the build turns it on: households pay her directly and
+    // Linara records it (payout-mode.ts, KNOWN_GAPS O35).
+    if (!XENDIT_PAYOUTS_ON) {
+      throw new Error("Paying through Linara is turned off. Pay her GCash or Maya directly.");
+    }
     const { token, helperId, channelCode } = data;
     const kind = data.kind ?? "regular";
     const authedClient = createAuthedClient(token);

@@ -36,6 +36,7 @@ Linara coordinates three key administrative stakeholders and the household staff
 | **Edit Schedules & Rest Days** | Yes                        | Yes                        | View-Only                                     | View-Only               |
 | **Assign / Approve Tickets**   | Yes (Live)                 | Yes (Live)                 | Suggested by default, Live on urgent override | View-Only / Claimable   |
 | **Approve Vales & Budgets**    | Yes                        | Yes                        | Yes (Usually funding source)                  | No                      |
+| **Pay Wages**                  | Yes                        | Yes                        | Yes                                           | No                      |
 | **Override Helper Off-Hours**  | Yes (With logged friction) | Yes (With logged friction) | No                                            | N/A                     |
 | **View Money & Pay Ledger**    | Yes                        | Yes                        | Yes                                           | Yes (Own record only)   |
 | **Access "My Notes"**          | No                         | No                         | No                                            | Yes (Private to Helper) |
@@ -407,6 +408,7 @@ Set these in the Vercel project's **Settings → Environment Variables**.
 | `SUPABASE_ANON_KEY` | same `define` block, build time | Always |
 | `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see §12.4) |
 | `SITE_URL` | same `define` block, build time — absolute origin for `og:image`/`og:url` in [`__root.tsx`](src/routes/__root.tsx) | Optional — falls back to Vercel's `VERCEL_PROJECT_PRODUCTION_URL`; set it once a custom domain (e.g. linara.ph) is live so link previews use that domain |
+| `XENDIT_PAYOUTS` | same `define` block, build time ([payout-mode.ts](src/features/pay/payout-mode.ts)) | Unset (off): households pay her GCash / Maya directly and Linara records it (KNOWN_GAPS O35). `on` brings back paying through Linara's Xendit account, client and server |
 | `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled |
 | `XENDIT_API_URL` | same file | Optional — defaults to `https://api.xendit.co` |
 | `REGIONAL_MINIMUM_WAGE` | [people.actions.ts](src/features/people/people.actions.ts) — server-only, runtime | Required (defaults to `6000.00` if unset) |

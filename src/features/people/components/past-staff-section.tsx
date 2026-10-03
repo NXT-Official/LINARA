@@ -9,7 +9,7 @@ import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import type { PaymentTarget } from "@/features/pay/hooks/use-payslips";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
-import type { OffAppMethod, Payslip, PayoutChannelCode } from "@/features/pay/pay.types";
+import type { ManualPayment, Payslip, PayoutChannelCode } from "@/features/pay/pay.types";
 
 import type { Helper, Invite } from "../people.types";
 import { findHelper, initialsOf } from "../people.utils";
@@ -57,7 +57,7 @@ export function PastStaffSection({
   onReconcile: (payslipId: string) => Promise<{ status: string; changed: boolean }>;
   onRecordOffApp: (
     helperId: string,
-    payment: { method: OffAppMethod; paidOn: string; note?: string },
+    payment: ManualPayment,
     target?: PaymentTarget,
   ) => Promise<unknown>;
   onWithdrawOffApp: (payslipId: string) => Promise<void>;

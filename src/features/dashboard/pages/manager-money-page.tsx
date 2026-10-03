@@ -27,7 +27,8 @@ export function ManagerMoneyPage() {
     session,
     timeOff,
   } = useAppStores();
-  const canPay = session.adminType === "primary" || session.adminType === "co";
+  // Every manager role pays, a remote admin included (KNOWN_GAPS O34).
+  const canPay = session.adminType !== null;
 
   // Whose pay is being viewed -- defaults to helper (currentHelperId) until
   // explicitly switched. Local to this page: unlike the Quick Utos

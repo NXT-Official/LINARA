@@ -6,6 +6,12 @@ export type PayoutChannelCode = "PH_GCASH" | "PH_PAYMAYA";
 /** How a household paid outside Linara, recorded after the fact. */
 export type OffAppMethod = "CASH" | "BANK_TRANSFER" | "OTHER";
 export type PaymentMethod = PayoutChannelCode | OffAppMethod;
+/**
+ * A payment the household made itself and Linara records: cash, a bank
+ * transfer, or straight to her GCash / Maya (supabase/add-direct-gcash-pay.sql,
+ * KNOWN_GAPS O35), where the note carries the reference number.
+ */
+export type ManualPayment = { method: PaymentMethod; paidOn: string; note?: string };
 /** A regular cutoff, or 13th-month pay (RA 10361 Sec. 25). */
 export type PayslipKind = "regular" | "thirteenth_month";
 /** Her answer to a payment recorded outside Linara; null for a Xendit payout. */

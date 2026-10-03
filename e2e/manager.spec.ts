@@ -66,11 +66,14 @@ test.describe("manager", () => {
     await expect(boxes.first()).toBeVisible();
   });
 
-  test("paying asks first, and Cancel sends nothing", async ({ page }) => {
-    const payoutCalls: string[] = [];
+  test("paying shows where to send it, and Cancel records nothing", async ({ page }) => {
+    // Linara moves no money (KNOWN_GAPS O35): no payout through Xendit, and
+    // nothing recorded until "I've sent it".
+    const calls: string[] = [];
     await page.route("**/_serverFn/**", (route) => {
-      if (serverFnName(route.request().url()) === "initiatePayoutFn") {
-        payoutCalls.push(route.request().url());
+      const name = serverFnName(route.request().url());
+      if (name === "initiatePayoutFn" || name === "recordOffAppPaymentFn") {
+        calls.push(name);
         return route.abort();
       }
       return route.continue();
@@ -78,16 +81,20 @@ test.describe("manager", () => {
 
     await page.goto("/manager/money");
     await settle(page);
-    const pay = page.getByRole("button", { name: /Pay via GCash|via GCash$/ });
+    await expect(page.getByRole("button", { name: /Pay via GCash|via GCash$/ })).toHaveCount(0);
+    const pay = page.getByRole("button", { name: /by GCash or Maya$/ });
     test.skip((await pay.count()) === 0, "Nothing to pay right now.");
 
     await pay.first().click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText(/via GCash\?/)).toBeVisible();
-    await expect(dialog.getByText("Number")).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: /^Pay .+ by (GCash|Maya)$/ })).toBeVisible();
+    // Her number (saved by her, or from the invite), or how to get one.
+    await expect(
+      dialog.getByText(/(GCash|Maya) number|no (GCash|Maya) number/).first(),
+    ).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
-    expect(payoutCalls).toEqual([]);
+    expect(calls).toEqual([]);
   });
 
   test("the household menu lists your households and how to add one", async ({ page }) => {

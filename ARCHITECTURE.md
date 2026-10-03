@@ -1014,6 +1014,608 @@ CREATE TABLE public.invite_flags (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 12b. Where a helper wants her pay sent (supabase/add-direct-gcash-pay.sql)
+--
+-- Hers, portable across households: only her session writes it; managers of
+-- a household she works or worked in read it (can_pay_person()). Her QR is in
+-- household-evidence at payout/<user_id>/..., written only by her. The manager
+-- sends from their own GCash / Maya and "I've sent it" records a payslip via
+-- record_offapp_payslip (method PH_GCASH / PH_PAYMAYA): Linara moves no money
+-- (KNOWN_GAPS O35). Paying through Linara's Xendit account is off unless
+-- XENDIT_PAYOUTS=on.
+CREATE TABLE public.helper_payout_accounts (
+    user_id UUID PRIMARY KEY REFERENCES public.user_profiles(id) ON DELETE CASCADE,
+    method TEXT NOT NULL CHECK (method IN ('PH_GCASH', 'PH_PAYMAYA')),
+    account_name TEXT NOT NULL CHECK (btrim(account_name) <> ''),
+    account_number TEXT NOT NULL CHECK (account_number ~ '^09[0-9]{9}
+--
+-- Real as of KNOWN_GAPS.md Closed Gap C21 (was architecture.md Section
+-- 5.3's "Future Phase 3" placeholder). One table, not a separate
+-- payslips/payment_confirmations split -- a payslip here always implies an
+-- intended payout, so base_pay/statutory_employee_share/vale_deductions/
+-- net_pay (snapshotted at payout time, not recomputed live later) live
+-- alongside payout_status/payout_external_id tracking on the same row,
+-- same "denormalize a historical snapshot" reasoning as ledger_entries'
+-- title/kind (Closed Gap C10). vales.settled_in_payslip_id (added by the
+-- same migration) marks which payslip already deducted an approved vale,
+-- so SpendAndPayday's/DigitalPayslip's live "next payday" estimates don't
+-- double-count a vale forever after it's actually been paid out. See
+-- supabase/add-payslips-table.sql for the full column-by-column rationale
+-- and the initiate_payslip SECURITY DEFINER RPC (atomic payslip-insert +
+-- vale-settlement, same pattern as create_appointment_with_preps).
+CREATE TABLE public.payslips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    helper_id UUID REFERENCES public.helper_profiles(id) ON DELETE CASCADE NOT NULL,
+    cutoff_start DATE NOT NULL,
+    cutoff_end DATE NOT NULL,
+    base_pay NUMERIC(10,2) NOT NULL,
+    statutory_employee_share NUMERIC(10,2) NOT NULL,
+    vale_deductions NUMERIC(10,2) NOT NULL DEFAULT 0,
+    -- Unpaid leave it deducted, snapshotted (supabase/add-unpaid-leave-pay.sql):
+    -- days x monthly_rate x 12 / pay_days_per_year. net_pay subtracts it.
+    unpaid_leave_days INT NOT NULL DEFAULT 0,
+    unpaid_leave_deduction NUMERIC(10,2) NOT NULL DEFAULT 0,
+    net_pay NUMERIC(10,2) NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'PHP',
+    payout_provider TEXT NOT NULL DEFAULT 'xendit',
+    kind TEXT NOT NULL DEFAULT 'regular' CHECK (kind IN ('regular', 'thirteenth_month')),
+    -- CASH/BANK_TRANSFER/OTHER: a payment recorded as made outside Linara
+    -- (payout_provider = 'manual'), see supabase/add-pay-periods.sql.
+    payout_channel_code TEXT NOT NULL CHECK (payout_channel_code IN ('PH_GCASH', 'PH_PAYMAYA', 'CASH', 'BANK_TRANSFER', 'OTHER')),
+    payout_reference_id TEXT NOT NULL UNIQUE,
+    payout_external_id TEXT,
+    payout_status TEXT NOT NULL CHECK (payout_status IN ('pending_send', 'processing', 'succeeded', 'failed')) DEFAULT 'pending_send',
+    failure_reason TEXT,
+    requested_by UUID REFERENCES public.user_profiles(id),
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    confirmed_at TIMESTAMP WITH TIME ZONE,
+    paid_on DATE, -- manual payments: the day it was handed over
+    manual_note TEXT,
+    helper_ack TEXT CHECK (helper_ack IN ('pending', 'confirmed', 'disputed')), -- her answer to a manual payment
+    helper_ack_at TIMESTAMP WITH TIME ZONE,
+    helper_ack_note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- --------------------------------------------------
+-- INDEXES FOR ENHANCED QUERY PERFORMANCE
+-- --------------------------------------------------
+CREATE INDEX idx_tickets_household_helper ON public.tickets(household_id, helper_id);
+CREATE INDEX idx_helper_profiles_invite ON public.helper_profiles(invite_code) WHERE invite_code IS NOT NULL;
+CREATE INDEX idx_quick_utos_recipient_created ON public.quick_utos(recipient_id, created_at);
+CREATE INDEX idx_user_profiles_household ON public.user_profiles(household_id);
+
+-- --------------------------------------------------
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- --------------------------------------------------
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.helper_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.house_sops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ledger_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pantry_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.grocery_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quick_utos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.helper_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invite_flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payslips ENABLE ROW LEVEL SECURITY;
+
+-- Recursion-safe household lookup, used by every isolation policy below.
+-- A naive `(SELECT household_id FROM public.user_profiles WHERE id = auth.uid())`
+-- inline subquery applied ON public.user_profiles' own policy re-triggers
+-- that same policy to evaluate the subquery, forever (Postgres error 42P17,
+-- "infinite recursion detected in policy"). SECURITY DEFINER runs this
+-- function's internal SELECT with RLS bypassed, breaking the cycle. See
+-- supabase/fix-household-rls-recursion.sql for the incident this fixed —
+-- confirmed live against every table that used the old inline-subquery
+-- pattern, discovered while wiring up LINARA_MOBILE's storage RLS.
+CREATE OR REPLACE FUNCTION public.current_household_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT household_id FROM public.user_profiles WHERE id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION public.current_household_id() TO authenticated, anon;
+
+-- General Tenant (Household) Isolation Policies
+CREATE POLICY user_profiles_isolation ON public.user_profiles
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY helper_profiles_isolation ON public.helper_profiles
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY house_sops_isolation ON public.house_sops
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY tickets_isolation ON public.tickets
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY appointments_isolation ON public.appointments
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY pantry_items_isolation ON public.pantry_items
+    FOR ALL USING (household_id = public.current_household_id());
+
+CREATE POLICY grocery_items_isolation ON public.grocery_items
+    FOR ALL USING (household_id = public.current_household_id());
+
+-- Helper Private Notes Policy (The Privacy Wall)
+-- Prevents any non-owner (including managers) from reading/writing notes.
+-- Set-valued since supabase/add-employment-end.sql: the old scalar subquery
+-- errored once a helper had a second employment.
+CREATE POLICY helper_notes_privacy ON public.helper_notes
+    FOR ALL USING (
+        helper_id IN (
+            SELECT hp.id FROM public.helper_profiles hp
+            WHERE hp.user_id = auth.uid()
+        )
+    );
+
+-- Her own history, in every household she has worked for (read-only,
+-- supabase/add-employment-end.sql): user_profiles_self_read (id = auth.uid()),
+-- helper_profiles_own_read (user_id = auth.uid()), and payslips_own_read /
+-- rest_off_requests_own_read / tickets_own_read / households_own_history_read,
+-- each an EXISTS through helper_profiles.user_id = auth.uid(). Additive SELECT
+-- policies; every write still goes through the household-scoped ones.
+
+-- Who may WRITE (supabase/fix-helper-write-access.sql, KNOWN_GAPS C72). The
+-- household-wide FOR ALL policies on user_profiles, helper_profiles, vales,
+-- ledger_entries, payslips and rest_off_requests below are now read-only
+-- (same names, FOR SELECT). Writes are for primary and co-managers only
+-- (is_household_manager()), except a helper's two direct writes: a new
+-- pending vale for herself, and her own helper_profiles.manual_status /
+-- manual_available_until (trigger helper_profiles_zz_guard_own_update).
+-- households_update_budget is manager-only too. Everything else goes through
+-- SECURITY DEFINER functions, which run as their owner.
+
+-- Who keeps the pantry (supabase/add-pantry-roles.sql, KNOWN_GAPS C77).
+-- pantry_items and grocery_items stay household-wide for managers and for
+-- helpers with helper_profiles.pantry_role = 'lead'. A 'runner' helper's own
+-- writes pass BEFORE triggers (pantry_items_guard_runner,
+-- grocery_items_guard_runner) that allow only: a pantry count set to zero,
+-- a new unbought line for a pantry item, and bought / actual_cost on a line.
+-- Writes from another trigger (the restock when she ticks a line bought) and
+-- from SECURITY DEFINER functions are let through.
+
+-- What each manager role may write (supabase/add-household-managers.sql,
+-- KNOWN_GAPS O2; plan.md 1.2). RESTRICTIVE policies, so they only narrow the
+-- permissive ones above and change nothing for helpers or on-site managers:
+--   * tickets: a remote_admin inserts only suggested = true, or emergency =
+--     true for a helper on shift right now (helper_on_shift_now(), the
+--     rest-owed trigger's rule); never updates or deletes.
+--   * quick_utos: a remote_admin inserts only emergency, on shift; no update
+--     or delete.
+--   * appointments, invite_flags: no remote_admin writes.
+--   * payout_attempts: direct writes by primary / co-managers only (the pay
+--     functions and the Xendit webhook bypass RLS). The old FOR ALL policy
+--     let a helper's session write one.
+-- And widened: vales_manager_update and households_update_budget use
+-- is_household_admin() (any manager role), so a remote admin approves vales
+-- and sets the budget; trigger households_remote_admin_guard keeps her to
+-- petty_cash_budget on that row. user_profiles_household_managers_read lets
+-- the household see its managers' names while they're switched elsewhere.
+
+-- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
+-- policy at all until the recursion fix — meaning default-deny for every
+-- role, including legitimate managers and claimed helpers. None of the
+-- three carry household_id directly, so each is scoped by joining through
+-- helper_profiles, which does.
+CREATE POLICY quick_utos_isolation ON public.quick_utos
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = quick_utos.recipient_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+CREATE POLICY vales_isolation ON public.vales
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = vales.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+CREATE POLICY ledger_entries_isolation ON public.ledger_entries
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = ledger_entries.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+-- payslips is scoped the same way (no household_id column of its own).
+-- The xendit-payout-webhook Edge Function writes to this table with the
+-- service-role key, bypassing this policy entirely -- there is no
+-- household-scoped user session on an inbound webhook call to check it
+-- against.
+CREATE POLICY payslips_isolation ON public.payslips
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = payslips.helper_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+-- invite_flags is scoped the same way as quick_utos/vales/ledger_entries
+-- for authenticated, in-household callers (covers the manager-side wage
+-- compliance warning insert in inviteHelperFn, and lets managers read
+-- flags for their own household's invites). The anonymous flag path
+-- (a claimant flagging a term mismatch before they've claimed an
+-- account, POST /api/helpers/claim/flag — Section 7.1) has no auth.uid()
+-- for this policy to check against; it goes through the flag_invite()
+-- SECURITY DEFINER function below instead, which bypasses this policy
+-- entirely and re-validates the invite_code itself rather than trusting
+-- the caller.
+CREATE POLICY invite_flags_isolation ON public.invite_flags
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.helper_profiles hp
+            WHERE hp.id = invite_flags.invite_id
+              AND hp.household_id = public.current_household_id()
+        )
+    );
+
+-- --------------------------------------------------
+-- CLAIM-FLOW SECURITY DEFINER FUNCTIONS
+-- --------------------------------------------------
+-- The invite/claim handshake (Section 7.1) has three steps that run
+-- before the caller has a usable household_id for RLS to check against:
+-- looking up an invite by code (anonymous), flagging a term mismatch
+-- (anonymous), and writing a brand-new helper's own first user_profiles
+-- row (authenticated, but current_household_id() has nothing to look up
+-- yet — see below). All three previously ran as direct table calls from
+-- people.actions.ts and all three always failed under RLS. Fixed by
+-- supabase/fix-claim-flow-rls-gaps.sql, discovered auditing the
+-- household recursion fix above. See that file for the full incident
+-- notes.
+--
+-- lookup_pending_invite / flag_invite: anonymous callers have no
+-- auth.uid(), so no household-scoped policy on helper_profiles or
+-- invite_flags can ever admit them (current_household_id() resolves to
+-- NULL for a NULL auth.uid(), and `household_id = NULL` is never true).
+-- These SECURITY DEFINER functions validate the invite_code internally
+-- instead of relying on a blanket anon-facing table policy.
+CREATE OR REPLACE FUNCTION public.lookup_pending_invite(p_invite_code TEXT)
+RETURNS TABLE (
+    id UUID,
+    household_id UUID,
+    name TEXT,
+    station TEXT,
+    monthly_rate NUMERIC,
+    shift_start TIME,
+    shift_end TIME,
+    weekly_rest_day INTEGER
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+    SELECT id, household_id, name, station, monthly_rate, shift_start, shift_end, weekly_rest_day
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+$$;
+
+GRANT EXECUTE ON FUNCTION public.lookup_pending_invite(TEXT) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.flag_invite(p_invite_code TEXT, p_field TEXT, p_note TEXT)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_invite_id UUID;
+    v_flag_id UUID;
+BEGIN
+    SELECT id INTO v_invite_id
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+
+    IF v_invite_id IS NULL THEN
+        RAISE EXCEPTION 'Invitation code not found';
+    END IF;
+
+    INSERT INTO public.invite_flags (invite_id, field, note)
+    VALUES (v_invite_id, p_field, p_note)
+    RETURNING id INTO v_flag_id;
+
+    RETURN v_flag_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.flag_invite(TEXT, TEXT, TEXT) TO anon, authenticated;
+
+-- claim_helper_invite: a newly authenticated helper inserting their own
+-- first user_profiles row hits a bootstrap problem, not an anonymity
+-- problem. Postgres uses a FOR ALL policy's USING clause as its WITH
+-- CHECK when no separate WITH CHECK is given, so this INSERT is checked
+-- against user_profiles_isolation's `household_id =
+-- current_household_id()` — but current_household_id() looks up the
+-- caller's *existing* user_profiles row, which doesn't exist until this
+-- INSERT completes. The check can never pass. This SECURITY DEFINER
+-- function creates the user_profiles row and activates the matching
+-- helper_profiles row atomically, bypassing that bootstrap deadlock.
+-- auth.uid() still reflects the calling JWT inside a SECURITY DEFINER
+-- function, so this can only ever act on the authenticated caller's own
+-- account.
+CREATE OR REPLACE FUNCTION public.claim_helper_invite(p_invite_code TEXT)
+RETURNS TABLE (helper_id UUID, household_id UUID, full_name TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_helper public.helper_profiles%ROWTYPE;
+    v_uid UUID := auth.uid();
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO v_helper
+    FROM public.helper_profiles
+    WHERE invite_code = p_invite_code
+      AND status = 'PENDING_CLAIM';
+
+    IF v_helper.id IS NULL THEN
+        RAISE EXCEPTION 'Invitation code not found or already claimed';
+    END IF;
+
+    INSERT INTO public.user_profiles (id, household_id, full_name, user_type)
+    VALUES (v_uid, v_helper.household_id, v_helper.name, 'helper');
+
+    UPDATE public.helper_profiles
+    SET user_id = v_uid, status = 'ACTIVE'
+    WHERE id = v_helper.id;
+
+    RETURN QUERY SELECT v_helper.id, v_helper.household_id, v_helper.name;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_helper_invite(TEXT) TO authenticated;
+
+-- --------------------------------------------------
+-- HOUSEHOLDS TABLE + MANAGER BOOTSTRAP
+-- --------------------------------------------------
+-- household_id was, until now, a bare UUID repeated on every table with no
+-- owning row -- fine while nothing needed a household display name or a
+-- home for household-level settings, but the manager-facing invite/auth
+-- work below needs one. Confirmed additive and safe for LINARA_MOBILE,
+-- which only ever consumes household_id as an opaque UUID via the RPCs
+-- above, never queries a households table directly.
+-- petty_cash_budget (added by supabase/add-household-petty-cash-budget.sql)
+-- closes KNOWN_GAPS.md gap #2's budget half -- one recurring household-level
+-- allocation, manager-writable from LINARA (grocery.actions.ts), read by
+-- both apps (LINARA_MOBILE's use-palengke-budget.ts already anticipated
+-- this in its own doc comment before it existed). See Closed Gap C13.
+CREATE TABLE public.households (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL DEFAULT 'My Household',
+    petty_cash_budget NUMERIC(10,2) NOT NULL DEFAULT 1500,
+    -- The household's service incentive leave rule (add-leave-policy.sql):
+    -- RA 10361 by default, more generous if the manager says so, never less.
+    sil_waits_first_year BOOLEAN NOT NULL DEFAULT true,
+    sil_days_per_year INT NOT NULL DEFAULT 5 CHECK (sil_days_per_year BETWEEN 5 AND 30),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Palengke receipts (add-grocery-receipts.sql): one per shopping trip, task or
+-- no task. The photo is in household-evidence under
+-- "<household_id>/receipts/". Household reads; anyone adds their own; the
+-- uploader or a manager deletes; nobody edits.
+CREATE TABLE public.grocery_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    storage_path TEXT NOT NULL CHECK (split_part(storage_path, '/', 1) = household_id::text),
+    uploaded_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY households_isolation ON public.households
+    FOR SELECT USING (id = public.current_household_id());
+-- No INSERT policy: household *creation* only ever happens through
+-- bootstrap_manager_household() below, SECURITY DEFINER, bypasses RLS (the
+-- chicken-and-egg deadlock comment just below explains why). Updating an
+-- *existing* household's budget has no such deadlock, so it gets a plain
+-- household-scoped UPDATE policy instead of needing its own RPC:
+CREATE POLICY households_update_budget ON public.households
+    FOR UPDATE USING (id = public.current_household_id())
+    WITH CHECK (id = public.current_household_id());
+-- Manager-only enforcement for that UPDATE happens in application code
+-- (updateHouseholdBudgetFn), matching insertHouseSopFn/decideValeFn's
+-- existing pattern of doing role checks in the server function rather than
+-- encoding roles into RLS.
+
+-- bootstrap_manager_household: the same current_household_id() chicken-
+-- and-egg deadlock that claim_helper_invite() solves for helpers applies
+-- identically to a brand-new manager's own first user_profiles row --
+-- inserting it is checked against household_id = current_household_id(),
+-- which needs an existing row to resolve, which doesn't exist yet. Same
+-- fix, same technique.
+CREATE OR REPLACE FUNCTION public.bootstrap_manager_household(
+    p_full_name TEXT,
+    p_household_name TEXT DEFAULT NULL
+)
+RETURNS TABLE (user_id UUID, household_id UUID, full_name TEXT, user_type TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_existing public.user_profiles%ROWTYPE;
+    v_household_id UUID;
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Idempotent: a page refresh mid-flow, or the confirm-email-then-log-in
+    -- flow calling this a second time at first login, returns the
+    -- already-bootstrapped profile instead of erroring on a duplicate insert.
+    SELECT * INTO v_existing FROM public.user_profiles WHERE id = v_uid;
+    IF v_existing.id IS NOT NULL THEN
+        RETURN QUERY SELECT v_existing.id, v_existing.household_id, v_existing.full_name, v_existing.user_type;
+        RETURN;
+    END IF;
+
+    INSERT INTO public.households (name)
+    VALUES (COALESCE(NULLIF(TRIM(p_household_name), ''), 'My Household'))
+    RETURNING id INTO v_household_id;
+
+    INSERT INTO public.user_profiles (id, household_id, full_name, user_type)
+    VALUES (v_uid, v_household_id, p_full_name, 'primary_manager');
+
+    RETURN QUERY SELECT v_uid, v_household_id, p_full_name, 'primary_manager'::TEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.bootstrap_manager_household(TEXT, TEXT) TO authenticated;
+-- Not granted to anon (unlike lookup_pending_invite/flag_invite above):
+-- this must only ever run for a caller who has already completed
+-- auth.signUp/signIn, exactly mirroring claim_helper_invite's pattern.
+
+-- --------------------------------------------------
+-- REALTIME PUBLICATION
+-- --------------------------------------------------
+-- `LINARA_MOBILE`'s use-realtime-subscription.ts and this app's
+-- app-store-provider.tsx both subscribe via
+-- supabase.channel(...).on('postgres_changes', ...) against these tables.
+-- `.subscribe()` succeeds with no error even when a table isn't in this
+-- publication -- it just never delivers events, which read as "works after
+-- an app restart, never live" (see KNOWN_GAPS.md C23). Any new table that
+-- needs a live client-side listener needs to be added here too; creating
+-- the table or writing the listener alone does not imply it.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.quick_utos, public.tickets;
+ALTER TABLE public.quick_utos REPLICA IDENTITY FULL;
+ALTER TABLE public.tickets REPLICA IDENTITY FULL;
+```
+
+---
+
+## 9. State and Context Handling
+
+### 9.1 The Simulated Clock (`simOffsetMs`)
+
+To facilitate accurate shift transitions and testing of off-hours alerts, simulated time offsets are kept globally:
+
+```typescript
+interface ClockState {
+  simOffsetMs: number; // Milliseconds between local system and simulated time
+  getCurrentTime: () => Date; // Returns new Date(Date.now() + simOffsetMs)
+}
+```
+
+All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative to `getCurrentTime()` rather than the user's unadjusted machine time.
+
+### 9.2 The Grocery State Context
+
+`GroceryCtx` coordinates between Pantry stocking and the active Palengke checklist:
+
+- Suggestions are derived on load from `pantry_items` where `qty <= par`. They exist only in the manager's browser until "Add to list" saves them as `grocery_items` rows linked by `pantry_item_id` (the helper's "Ilista sa palengke" does the same on mobile).
+- Manual items are typed in by either side and have no `pantry_item_id`.
+- Restocking is a database trigger, not client code (`supabase/add-grocery-restock.sql`, KNOWN_GAPS.md C82). When a linked `grocery_items` row's `bought` flips to true, its `qty` is added to the pantry item. Flipping it back takes the same amount off, never below 0. Unlinked items restock nothing.
+
+---
+
+## 10. Error Handling Strategy
+
+### 10.1 Authentication & Credential Anomalies
+
+- **Session Expiry:** A client interceptor captures HTTP `401 Unauthorized` responses and triggers GoTrue's session refresh. If token refresh fails, local cache is purged, and the user is redirected to `<AuthScreen />` displaying an error toast: `"Session expired. Please log in again."`
+- **Handshake Wage Flagging:** During the claiming process, if a helper notices incorrect terms (such as wage rates below their verbal agreements) and taps `"Something's not right?"`, the registration process is suspended, and the mismatch is reported in the manager's `<NeedsYou />` panel.
+
+### 10.2 Invalid & Empty API Responses
+
+- **Reachability Warnings:** When dispatching a Quick Uto while the recipient is `Off`, the API interrupts and returns a reachability warning:
+  ```json
+  {
+    "error": "RECIPIENT_UNAVAILABLE",
+    "message": "Rosa is currently Off-Shift. Proceeding will trigger off-hours logs.",
+    "accrualRate": "30m"
+  }
+  ```
+  The client catches this to display the friction modal, forcing the manager to confirm the override parameters before executing the request.
+- **Network Failure Resilience:** In-progress ticket updates are captured inside local IndexedDB. If an image upload fails, the task state is kept in the client queue and retried when network state transitions back to online.
+
+---
+
+## 11. Local Deployment Model
+
+### 11.1 Local Environment Variables (`.env`)
+
+Copy `.env.example` to `.env` in the project's root folder and fill in the Supabase URL and anon key:
+
+```env
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=your_supabase_anon_key
+REGIONAL_MINIMUM_WAGE=6000.00
+USE_MOCK_AI=true
+```
+
+That file is for local development only. In production the values are split between two stores that never see each other: **Vercel** (the web app's build and server functions) and **Supabase Edge Function secrets** (`supabase/functions/*`). `README.md` §12 lists which variable goes where. Scheduled jobs (the nightly Quick Utos purge) run in Postgres with `pg_cron` and need no secret.
+
+### 11.2 Run & Verification Procedures
+
+#### 1. Setup Dependencies
+
+Verify your Bun environment is active, then install dependencies:
+
+```bash
+bun install
+```
+
+#### 2. Apply Database Schema
+
+Execute the normalization SQL script defined in Section 8 of this document directly onto your local PostgreSQL instance or via the Supabase SQL editor.
+
+#### 3. Run Development Server
+
+Start the local server using:
+
+```bash
+bun dev
+```
+
+The application will boot and run on `http://localhost:8080`. Open multiple browser tabs (tab 1 as `Sir Ben`, tab 2 as `Ate Rosa`) to test live handshakes, real-time ticket movements, and inventory counters.
+
+#### 4. Project Build & Checks
+
+To test compilation, linting, and formatting:
+
+```bash
+# Build the application output and edge servers
+bun run build
+
+# Run linting tests and check types
+bun run lint
+bun run typecheck
+bun run format:check
+```
+
+_Note: Never edit [`src/routeTree.gen.ts`](src/routeTree.gen.ts) manually; TanStack Router updates this automatically on change during `bun dev`._
+),
+    qr_path TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 13. Payslips (Real Payout Records)
 --
 -- Real as of KNOWN_GAPS.md Closed Gap C21 (was architecture.md Section

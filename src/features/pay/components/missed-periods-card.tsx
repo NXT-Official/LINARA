@@ -11,13 +11,15 @@ import { daysWorked } from "../net-pay";
 import { periodEstimate } from "../period-estimate";
 import { getThirteenthMonthFn } from "../pay.actions";
 import type {
-  OffAppMethod,
+  ManualPayment,
   PayPeriod,
   Payslip,
   PayoutChannelCode,
   ThirteenthMonth,
 } from "../pay.types";
 import { formatCutoffRange } from "../pay.utils";
+import { XENDIT_PAYOUTS_ON } from "../payout-mode";
+import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
@@ -58,7 +60,7 @@ export function MissedPeriodsCard({
   ) => Promise<{ status: Payslip["payoutStatus"] }>;
   onRecordOffApp: (
     helperId: string,
-    payment: { method: OffAppMethod; paidOn: string; note?: string },
+    payment: ManualPayment,
     target: PaymentTarget,
   ) => Promise<unknown>;
 }) {
@@ -66,6 +68,8 @@ export function MissedPeriodsCard({
   /** The payment whose confirm step is open; nothing is sent until it's confirmed. */
   const [paying, setPaying] = useState<Paying | null>(null);
   const [recording, setRecording] = useState<Recording | null>(null);
+  // Paying her GCash / Maya directly (KNOWN_GAPS O35).
+  const [payingDirect, setPayingDirect] = useState<Recording | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -87,20 +91,33 @@ export function MissedPeriodsCard({
   const actions = ({ target, label, estimate }: Recording) =>
     canPay ? (
       <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          onClick={() => setPaying({ target, label, estimate, channel: "PH_GCASH" })}
-          aria-label={`Pay ${label} via GCash`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-60"
-        >
-          <Smartphone className="h-3.5 w-3.5" /> GCash
-        </button>
-        <button
-          onClick={() => setPaying({ target, label, estimate, channel: "PH_PAYMAYA" })}
-          aria-label={`Pay ${label} via Maya`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
-        >
-          <Smartphone className="h-3.5 w-3.5 text-accent" /> Maya
-        </button>
+        {!XENDIT_PAYOUTS_ON && (
+          <button
+            onClick={() => setPayingDirect({ target, label, estimate })}
+            aria-label={`Pay ${label} by GCash or Maya`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          >
+            <Smartphone className="h-3.5 w-3.5" /> GCash or Maya
+          </button>
+        )}
+        {XENDIT_PAYOUTS_ON && (
+          <>
+            <button
+              onClick={() => setPaying({ target, label, estimate, channel: "PH_GCASH" })}
+              aria-label={`Pay ${label} via GCash`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-60"
+            >
+              <Smartphone className="h-3.5 w-3.5" /> GCash
+            </button>
+            <button
+              onClick={() => setPaying({ target, label, estimate, channel: "PH_PAYMAYA" })}
+              aria-label={`Pay ${label} via Maya`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
+            >
+              <Smartphone className="h-3.5 w-3.5 text-accent" /> Maya
+            </button>
+          </>
+        )}
         <button
           onClick={() => setRecording({ target, label, estimate })}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
@@ -208,6 +225,20 @@ export function MissedPeriodsCard({
           estimate={paying.estimate}
           onClose={() => setPaying(null)}
           onConfirm={() => onPayNow(helper.id, paying.channel, paying.target)}
+        />
+      )}
+      {payingDirect && (
+        <PayDirectModal
+          helperId={helper.id}
+          helperName={helper.short}
+          periodLabel={payingDirect.label}
+          target={payingDirect.target}
+          onClose={() => setPayingDirect(null)}
+          onSubmit={async (payment) => {
+            const result = await onRecordOffApp(helper.id, payment, payingDirect.target);
+            toast.success(`Recorded. ${helper.short} will be asked to confirm it arrived.`);
+            return result;
+          }}
         />
       )}
       {recording && (

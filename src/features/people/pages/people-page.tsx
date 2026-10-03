@@ -89,7 +89,7 @@ export function PeoplePage() {
           payPeriods={payPeriods}
           vales={vales.vales}
           token={session.token}
-          canPay={canInvite}
+          canPay={adminType !== null}
           onPayNow={payslips.payNow}
           onReconcile={payslips.reconcile}
           onRecordOffApp={payslips.recordOffApp}

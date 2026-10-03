@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
       "process.env.SUPABASE_URL": JSON.stringify(env.SUPABASE_URL),
       "process.env.SUPABASE_ANON_KEY": JSON.stringify(env.SUPABASE_ANON_KEY),
       "process.env.USE_MOCK_AI": JSON.stringify(env.USE_MOCK_AI),
+      // "on" brings back paying through Linara's Xendit account (KNOWN_GAPS O35).
+      "process.env.XENDIT_PAYOUTS": JSON.stringify(env.XENDIT_PAYOUTS),
       "process.env.SITE_URL": JSON.stringify(siteUrl.replace(/\/+$/, "")),
     },
     plugins: [
