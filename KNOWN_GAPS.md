@@ -121,18 +121,19 @@ the bottom.
 - **Current workaround:** Until it's applied, a remote admin's Pay is refused by the database ("only managers can pay a helper").
 - **To close:** Apply `add-remote-admin-pay.sql` (after `add-pay-periods.sql`, `add-unpaid-leave-pay.sql` and `add-household-managers.sql`), then move this to Closed Gaps. Owned by `LINARA`.
 
-### O35. Nothing collects the money a payout sends: Linara's own Xendit balance pays every helper
+### O35. Nothing collects the money a payout sends: Linara's own Xendit balance paid every helper
 
 - **Found:** 2026-10-03, when the client asked how linked cards are handled.
-- **What's missing:** There are no linked cards or any other money coming in. `initiatePayoutFn` (`src/features/pay/pay.actions.ts`) sends `POST /v2/payouts` with Linara's single `XENDIT_SECRET_WRITE_KEY`, to the helper's GCash / Maya number on her profile, from that account's balance. No code charges the household, saves a payment method, or keeps a balance per household. In the sandbox that's invisible (test mode doesn't check the balance, `E1_XENDIT_VERIFICATION.md`); with real money, Linara would be paying every salary itself.
-- **Blocks:** Real payouts for any real household. Also the OFW case (O34): the remote admin is the one who should be funding them.
-- **Current workaround:** Sandbox only. A household can pay on its own and press "Paid outside Linara", which moves no money.
-- **To close:** Choose how money comes in, and get the legal side confirmed before any of it holds or moves a household's money (`LEGAL_CONSIDERATIONS.md`). Options Xendit supports in the Philippines:
-  1. **A saved method, charged at Pay:** the manager links GCash (`GCASH_LINK_AND_PAY`, which Xendit has to activate) or a card once (Payments API `PAY_AND_SAVE`, then payment tokens); pressing Pay charges it, and the payout goes when the charge succeeds.
-  2. **Pay in, then pay out, each time:** a checkout for the net pay at Pay, no saved method.
-  3. **A balance per household:** a xenPlatform sub-account per household, topped up by the household; payouts use `for-user-id` from its own balance. Each managed sub-account needs its own onboarding documents, and has a monthly fee per active sub-account.
-  4. **Don't move money:** Linara works out the pay and opens the manager's own GCash / bank; "Paid outside Linara" records it. Nothing to license, but no one-tap payout.
-  Owned by `LINARA` (the server holds the Xendit key, ARCHITECTURE.md).
+- **Was:** No linked cards or any money coming in. `initiatePayoutFn` (`src/features/pay/pay.actions.ts`) sends `POST /v2/payouts` with Linara's single `XENDIT_SECRET_WRITE_KEY`, to the helper's GCash / Maya, from that account's balance; nothing charged the household. In the sandbox that's invisible (test mode doesn't check the balance); with real money Linara would pay every salary itself.
+- **Decided (client, 2026-10-03):** Linara shouldn't hold or move money. The household pays her GCash or Maya directly and Linara keeps the record. Xendit stays in the code, off, for the "debit in advance" option written up for the client (charge the household's saved GCash / card a few days before payday, pay out on payday once it settles: GCash settles in 2 calendar days, cards in about a week).
+- **Fix written, not yet applied (2026-10-03):** `supabase/add-direct-gcash-pay.sql`, tested in `supabase/tests/direct-gcash-pay.test.mjs`.
+  - `helper_payout_accounts`: where she wants to be paid, written only by her; managers of a household she works (or worked) in read it. Her QR goes to `payout/<her user id>/` in household-evidence, which only she can write.
+  - `record_offapp_payslip` accepts `PH_GCASH` and `PH_PAYMAYA`.
+  - **Web:** "Pay by GCash or Maya" (Money, missed periods, past staff) shows the exact amount (`previewPaymentFn`, the payslip's own figure, to the centavo), her number, name and QR, with copy buttons; "I've sent it" records it with the reference number, and she's asked to confirm. Before she saves her own, the invite's number is shown as unconfirmed. "Pay via GCash / Maya" through Xendit is hidden and refused server-side unless `XENDIT_PAYOUTS=on` (`payout-mode.ts`).
+  - **Mobile:** My Pay has "Where to send my pay" (GCash or Maya, name, optional QR from her gallery). The existing "Natanggap mo ba?" asks her to confirm.
+- **Current workaround:** Until the SQL is applied, the Pay screen shows the number from her invite (unconfirmed) and recording a GCash / Maya payment is refused; "Paid outside Linara" (cash, bank, other) still works.
+- **Still open:** GCash has no public way to open a send with the amount filled in, so the manager copies the number and amount (or scans her QR). A manager can still type a different number into GCash; the name check on GCash's confirm screen and her "did you receive it?" are the safeguards.
+- **To close:** Apply `add-direct-gcash-pay.sql` (after `add-pay-periods.sql`, `add-unpaid-leave-pay.sql` and `add-household-managers.sql`), have the test helper save a number in the app and the test manager pay it, then move this to Closed Gaps. Owned by both: the SQL and web in `LINARA`, the screen in `LINARA_MOBILE`.
 
 ## Closed Gaps
 
