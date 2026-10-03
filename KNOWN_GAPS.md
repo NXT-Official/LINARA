@@ -32,15 +32,6 @@ the bottom.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
-### O23. Bought palengke items never go into pantry stock
-
-- **Found:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock").
-- **What's missing:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half exists. `LINARA_MOBILE`'s `setGroceryItemBought` (`services/api/grocery.ts`) and `completeTicket` touch only `grocery_items` and `tickets`. No code in either repo, and no trigger, writes `pantry_items.qty` from a purchase, even though `grocery_items.pantry_item_id` links the two.
-- **Blocks:** The pantry↔palengke reconciliation in `plan.md` §2.5. Low-stock items keep showing as low after they've been bought, so they're suggested again.
-- **Current workaround:** Someone sets the stock by hand, on the web Pantry page or with − / + on mobile.
-- **Fix written, not yet applied (2026-10-02):** `supabase/add-grocery-restock.sql` adds a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item, and unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Tested in `supabase/tests/grocery-restock.test.mjs`. Both apps can now create linked items: "Add to list" on a web suggestion, "Ilista sa palengke" on mobile.
-- **To close:** Apply `add-grocery-restock.sql` in the SQL editor, then move this to Closed Gaps. Owned by `LINARA`.
-
 ### O24. The web "Hold to record a voice utos" button records nothing
 
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
@@ -3208,7 +3199,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** `supabase/add-pantry-roles.sql` (**apply by hand, after fix-helper-write-access.sql, and before the web change is deployed**; with or without add-grocery-restock.sql).
   - `helper_profiles.pantry_role`: `lead` (in charge: everything, as before) or `runner` (buys from the list). New helpers start as runners; everyone employed when the SQL runs becomes a lead, so nobody loses anything that day. Any number of leads.
   - Every helper can say something ran out: the count goes to zero and the item goes on the list ("Ubos na"). No level without that.
-  - `BEFORE` triggers hold a runner's own writes to exactly that, plus ticking lines bought and their cost. Writes from the restock trigger (`add-grocery-restock.sql`, O23) and `SECURITY DEFINER` functions pass. She can't raise her own role: `helper_profiles_guard_own_update` (C72) only lets her change her availability.
+  - `BEFORE` triggers hold a runner's own writes to exactly that, plus ticking lines bought and their cost. Writes from the restock trigger (`add-grocery-restock.sql`, C82) and `SECURITY DEFINER` functions pass. She can't raise her own role: `helper_profiles_guard_own_update` (C72) only lets her change her availability.
   - **Web:** People shows "Pantry: In charge / Buys from the list" on each helper, changeable by primary and co-managers (`updateHelperPantryRoleFn`). Hidden until the column exists.
   - **Mobile:** the Pantry tab hides adding, editing, counts and removing for a runner, and the starter list; she sees "Ubos na". Her role is its own read (`getMyPantryRole`), re-checked whenever she opens the tab, and falls back to `lead` while the column doesn't exist, so the app works whichever ships first.
   - PGlite test: `supabase/tests/pantry-roles.test.mjs` (23 checks, in `npm run test:sql`).
@@ -3237,6 +3228,12 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-02, client feedback: unsure whether Start new day clears the board; couldn't move through dates on the Pass ("Pass features need to reflect what is on Schedule").
 - **Was:** the manual button rolled the board to `board_date + 1` (cleared pending Quick Utos, spawned tomorrow's routines). Pressed during the day, the Pass then showed tomorrow (the client's read "Saturday, October 3" on Friday) and nothing brought it back.
 - **Fix:** the manual button is gone; the automatic midnight rollover (C31) is unchanged. A `board_date` ahead of today snaps back on load. The Pass has ‹ › to step through days, showing that day's tasks the way Schedule loads them (`listTicketsBetweenFn`), with "Back to today". The header wraps on a phone instead of printing "End the day" over the date.
+
+### C82. Bought palengke items never went into pantry stock (former Open Gap O23)
+
+- **Found / fixed:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock"). Applied 2026-10-03.
+- **Was:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half existed: nothing in either repo wrote `pantry_items.qty` from a purchase, although `grocery_items.pantry_item_id` links the two. Low-stock items stayed low after they were bought, so they were suggested again.
+- **Fix:** `supabase/add-grocery-restock.sql`, a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item; unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Ticked from the app, or from the web Pantry's Bought checkbox (QA LW-5). PGlite test: `supabase/tests/grocery-restock.test.mjs`.
 
 ---
 

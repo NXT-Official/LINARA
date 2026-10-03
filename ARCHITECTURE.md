@@ -1457,7 +1457,7 @@ All system triggers (e.g., quiet-hours, night-purges, shifts) validate relative 
 
 - Suggestions are derived on load from `pantry_items` where `qty <= par`. They exist only in the manager's browser until "Add to list" saves them as `grocery_items` rows linked by `pantry_item_id` (the helper's "Ilista sa palengke" does the same on mobile).
 - Manual items are typed in by either side and have no `pantry_item_id`.
-- Restocking is a database trigger, not client code (`supabase/add-grocery-restock.sql`, KNOWN_GAPS.md O23). When a linked `grocery_items` row's `bought` flips to true, its `qty` is added to the pantry item. Flipping it back takes the same amount off, never below 0. Unlinked items restock nothing.
+- Restocking is a database trigger, not client code (`supabase/add-grocery-restock.sql`, KNOWN_GAPS.md C82). When a linked `grocery_items` row's `bought` flips to true, its `qty` is added to the pantry item. Flipping it back takes the same amount off, never below 0. Unlinked items restock nothing.
 
 ---
 
