@@ -321,6 +321,10 @@ bun run test:sql
 
 # Browser QA (Playwright): every page, phone and desktop width
 bun run test:e2e
+
+# Everything above against a production build, with a report (see 11.2)
+bun run qa
+bun run qa:fast   # typecheck, lint, unit tests only
 ```
 
 ### 11.1 Browser QA (Playwright)
@@ -334,11 +338,36 @@ First time on a machine: `npx playwright install chromium`.
   it against a built preview (`bun run build`, then `PORT=5198 node .output/server/index.mjs`
   and `E2E_BASE_URL=http://localhost:5198`) or the deployed site.
 - **Signed-in checks:** set `E2E_MANAGER_EMAIL` and `E2E_MANAGER_PASSWORD` to a test manager
-  account (in your shell, never in a committed file). Without them only the signed-out checks
-  run. The signed-in checks open forms and cancel them; they never save, delete, or pay, and
-  any payout request is blocked and fails the run.
+  account, and `E2E_STAFF_EMAIL` / `E2E_STAFF_PASSWORD` to a house-staff one, in your shell or
+  in `.env.e2e` (gitignored; never in a committed file). Without them only the signed-out
+  checks run. The signed-in checks open forms and cancel them; they never save, delete, or
+  pay, and any payout request is blocked and fails the run.
 - **Results:** `playwright-report/` (`npx playwright show-report`) with traces and screenshots
   for failures.
+
+### 11.2 Local QA pass
+
+`bun run qa` runs what the client's QA bot checks, on your machine: typecheck, lint, unit
+and SQL tests, a production build, then the browser tests against that build on port 8091
+(so it doesn't clash with `bun run dev`). Every step runs even after a failure. About four
+minutes.
+
+- `bun run qa:fast`: typecheck, lint and unit tests, about a minute.
+- `bun run qa:live`: the browser tests against the deployed site (`QA_LIVE_URL`, default
+  https://linara-delta.vercel.app). Read-only, like the local ones.
+- **Issues:** every failure becomes an issue with an ID (`W-1`; mobile's are `M-1`) kept in
+  `qa-reports/issues.json` across runs. It's marked fixed when a run of the same check no
+  longer finds it; a fast run doesn't close what it didn't check, and the live site's issues
+  are tracked apart from this machine's.
+- **Report:** `qa-reports/latest.md` (and `qa-reports/<time>/` with a log per step): each
+  check, open issues (new ones flagged), what was fixed since the last run, and the last
+  lines of whatever failed.
+- **Before every push**, a git hook runs `qa:fast` and stops the push if it fails
+  (`git push --no-verify` skips it once). `bun install` turns it on (`.githooks/`,
+  `scripts/install-hooks.mjs`).
+
+The mobile repo has the same commands and hook (`../LINARA_MOBILE`, without browser tests).
+The runner, `scripts/qa-runner.mjs`, is the same file in both; change both.
 
 ---
 

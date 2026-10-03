@@ -48,6 +48,7 @@ build/
 coverage/
 playwright-report/
 test-results/
+qa-reports/
 
 # ========================================================================
 # 6. IDE, EDITOR, & OPERATING SYSTEM JUNK
