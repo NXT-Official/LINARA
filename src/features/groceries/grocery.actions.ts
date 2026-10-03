@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
+import { signEvidencePhotos } from "@/lib/evidence-photo";
 
 // --------------------------------------------------------------------------
 // Grocery list (`grocery_items`) -- closes the "spend dial reads real data"
@@ -253,13 +254,17 @@ export type GroceryReceiptRow = {
   id: string;
   /** Signed for 15 minutes; refetch rather than store it. */
   url: string;
+  /** The 480px copy for the list; null for receipts from before thumbnails. */
+  thumbUrl: string | null;
   createdAt: string;
   byName: string | null;
 };
 
 /**
  * The household's latest palengke receipts (supabase/add-grocery-receipts.sql),
- * each with a fresh signed URL. Empty before that migration is applied.
+ * each with a fresh signed URL and thumbnail. Empty before that migration is
+ * applied. Receipts older than 60 days are deleted, row and photo, by the
+ * nightly purge (supabase/add-evidence-photo-retention.sql).
  */
 export const listGroceryReceiptsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
@@ -275,21 +280,23 @@ export const listGroceryReceiptsFn = createServerFn({ method: "POST" })
     if (error?.code === "42P01" || error?.code === "PGRST205") return [];
     if (error) throw new Error(error.message);
 
-    const signed = await Promise.all(
-      (rows ?? []).map(async (row) => {
-        const { data: link } = await authedClient.storage
-          .from("household-evidence")
-          .createSignedUrl(row.storage_path as string, 900);
-        const profile = row.uploaded_by_profile as unknown as { full_name: string } | null;
-        return link
-          ? {
+    const signed = await signEvidencePhotos(
+      authedClient,
+      (rows ?? []).map((row) => row.storage_path as string),
+    );
+    return (rows ?? []).flatMap((row) => {
+      const photo = signed.get(row.storage_path as string);
+      const profile = row.uploaded_by_profile as unknown as { full_name: string } | null;
+      return photo
+        ? [
+            {
               id: row.id as string,
-              url: link.signedUrl,
+              url: photo.url,
+              thumbUrl: photo.thumbUrl,
               createdAt: row.created_at as string,
               byName: profile?.full_name ?? null,
-            }
-          : null;
-      }),
-    );
-    return signed.filter((r): r is GroceryReceiptRow => r !== null);
+            },
+          ]
+        : [];
+    });
   });

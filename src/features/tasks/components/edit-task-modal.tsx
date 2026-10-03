@@ -1,8 +1,9 @@
-import { AlertTriangle, Ban, Camera, CheckCircle2, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, CheckCircle2, Download, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { photoFilename, savePhotoUrl, TASK_PHOTO_DAYS } from "@/lib/evidence-photo";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
@@ -31,6 +32,8 @@ export type TaskEdit = {
   /** null = Unassigned. */
   helperId: string | null;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const inputCls =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
@@ -144,22 +147,42 @@ export function EditTaskModal({
               : ""}
           </p>
           {task.photo ? (
-            <a
-              href={task.photo}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
-              aria-label="Open the photo full size"
-            >
-              <img
-                src={task.photo}
-                alt="Photo from finishing this task"
-                className="max-h-64 w-full object-cover"
-              />
-            </a>
+            <>
+              <a
+                href={task.photo}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
+                aria-label="Open the photo full size"
+              >
+                <img
+                  src={task.photo}
+                  alt="Photo from finishing this task"
+                  className="max-h-64 w-full object-cover"
+                />
+              </a>
+              {/* Photos are deleted after a while (KNOWN_GAPS.md O28); what
+                  the task was, who did it and when stay. A palengke run's
+                  photo is its receipt, kept as long as receipts are. */}
+              <p className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  Photos are kept{" "}
+                  {task.photo.includes("/receipts/") ? "2 months" : `${TASK_PHOTO_DAYS} days`}.
+                </span>
+                <a
+                  href={savePhotoUrl(task.photo, photoFilename("task", task.finishedAt))}
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" /> Save photo
+                </a>
+              </p>
+            </>
           ) : (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Camera className="h-3.5 w-3.5" /> No photo with this one.
+              <Camera className="h-3.5 w-3.5" />
+              {task.finishedAt && Date.now() - task.finishedAt > TASK_PHOTO_DAYS * DAY_MS
+                ? `No photo now. Photos are kept ${TASK_PHOTO_DAYS} days.`
+                : "No photo with this one."}
             </p>
           )}
         </div>

@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
+import { ListFilter } from "@/components/shared/list-filter";
 import type { Appointment } from "@/features/appointments/appointment.types";
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
@@ -24,16 +25,20 @@ import {
 } from "@/lib/time";
 
 import { usePlannerTasks } from "../hooks/use-planner-tasks";
+import { useTaskSearch } from "../hooks/use-task-search";
 import {
   addDays,
   cellKey,
   groupByDay,
   isOutsideShift,
+  matchesPlanStatus,
+  PLAN_STATUSES,
   planDays,
   planLabel,
   routineGhosts,
   stepAnchor,
   taskDayIso,
+  type PlanStatus,
   type PlanView,
   type RoutineGhost,
 } from "../planner.utils";
@@ -42,6 +47,7 @@ import { PlannerDayColumn, type PlannerDrag } from "./planner-day-column";
 import { PlannerMonth } from "./planner-month";
 import { TaskToneLegend } from "./planner-tone-legend";
 import { PlannerPeople, type PeopleRow } from "./planner-people";
+import { PlannerSearchResults } from "./planner-search-results";
 
 const VIEW_KEY = "linara.planView";
 const VIEWS: { key: PlanView; label: string }[] = [
@@ -51,6 +57,12 @@ const VIEWS: { key: PlanView; label: string }[] = [
 ];
 /** "all", "unassigned", or a helper id. */
 type Who = string;
+const STATUS_CHIPS: { key: PlanStatus; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "open", label: "To do" },
+  { key: "done", label: "Done" },
+  { key: "cancelled", label: "Cancelled" },
+];
 
 const dayName = (iso: string) =>
   parseISODate(iso).toLocaleDateString("en-US", {
@@ -68,6 +80,10 @@ const NO_TIME_OFF: TimeOff[] = [];
  * dragged to another day (or, by person, to someone else); any day from today
  * on takes a new task. Reads every task in range, done ones included, so a
  * past day shows what happened, and shows the routines later days will spawn.
+ *
+ * The status chips narrow whichever view is showing. Typing in the search box
+ * looks through every date instead (KNOWN_GAPS.md O32), and the results
+ * stand in for the calendar until it's cleared.
  */
 export function TaskPlanner({
   token,
@@ -85,6 +101,7 @@ export function TaskPlanner({
   onOpenAppointment,
   onMove,
   usePlan = usePlannerTasks,
+  useSearch = useTaskSearch,
 }: {
   token: string | null;
   nowTs: number;
@@ -108,6 +125,8 @@ export function TaskPlanner({
   onMove?: (task: Task, scheduledStartIso: string, helperId: string | null) => Promise<boolean>;
   /** Where the tasks come from. Tests and the dev fixture pass their own. */
   usePlan?: typeof usePlannerTasks;
+  /** Where search results come from; tests pass their own. */
+  useSearch?: typeof useTaskSearch;
 }) {
   const todayIso = toISODate(toHouseholdClock(nowTs));
 
@@ -134,6 +153,8 @@ export function TaskPlanner({
     if (initialDay) setAnchor(parseISODate(initialDay));
   }, [initialDay]);
   const [who, setWho] = useState<Who>("all");
+  const [status, setStatus] = useState<PlanStatus>("all");
+  const [query, setQuery] = useState("");
   // Phones stack the week, so days already gone would push today off screen.
   const [showEarlier, setShowEarlier] = useState(false);
 
@@ -154,9 +175,17 @@ export function TaskPlanner({
     [who],
   );
   const shown = useMemo(
-    () => (tasks ?? []).filter((t) => matchesWho(t.helperId)),
-    [tasks, matchesWho],
+    () => (tasks ?? []).filter((t) => matchesWho(t.helperId) && matchesPlanStatus(t, status)),
+    [tasks, matchesWho, status],
   );
+  const search = useSearch({
+    token,
+    query,
+    helper: who,
+    statuses: PLAN_STATUSES[status],
+    helpers,
+    boardTasks,
+  });
   const tasksByDay = useMemo(() => groupByDay(shown), [shown]);
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, Appointment[]>();
@@ -173,7 +202,10 @@ export function TaskPlanner({
     return map;
   }, [tasks]);
   // Filtered by who each copy will go to, which time off can make Unassigned.
+  // A copy is a task to come, so the Done and Cancelled chips hide them.
+  const showGhosts = status === "all" || status === "open";
   const ghosts = useMemo(() => {
+    if (!showGhosts) return new Map<string, RoutineGhost[]>();
     const all = routineGhosts(
       routines,
       days,
@@ -188,7 +220,7 @@ export function TaskPlanner({
       if (mine.length > 0) out.set(day, mine);
     }
     return out;
-  }, [routines, days, todayIso, tasks, activeHelpers, timeOff, matchesWho]);
+  }, [routines, days, todayIso, tasks, activeHelpers, timeOff, matchesWho, showGhosts]);
 
   /** Why a task's time is one its helper has off, if it is. */
   const offLabel = (t: Task): string | null => {
@@ -320,7 +352,9 @@ export function TaskPlanner({
   }, [ghosts]);
 
   const showingThisPeriod = days.some((d) => toISODate(d) === todayIso);
-  const appointmentsShown = who === "all" ? appointmentsByDay : new Map<string, Appointment[]>();
+  // Appointments aren't anyone's task, nor done or cancelled: only on the unfiltered plan.
+  const appointmentsShown =
+    who === "all" && status === "all" ? appointmentsByDay : new Map<string, Appointment[]>();
 
   return (
     <section className="space-y-3" aria-labelledby="plan-heading">
@@ -407,89 +441,118 @@ export function TaskPlanner({
         </div>
       </div>
 
-      {drag && view !== "month" && (
-        <p className="hidden px-1 text-sm text-muted-foreground lg:block">
-          {view === "people"
-            ? "Drag a task to another day, or to someone else's row to hand it over. Tap one to change anything else."
-            : "Drag a task to another day to move it. Tap one to change anything else."}
-        </p>
-      )}
+      <div className="px-1">
+        <ListFilter
+          query={query}
+          onQuery={setQuery}
+          chips={STATUS_CHIPS}
+          active={status}
+          onChip={setStatus}
+          label="Search tasks on every date"
+        />
+      </div>
 
-      <TaskToneLegend />
-
-      {view === "week" ? (
-        <div className="grid gap-3 lg:grid-cols-7 lg:gap-2">
-          {!showEarlier && days.some((d) => toISODate(d) < todayIso) && (
-            <button
-              type="button"
-              onClick={() => setShowEarlier(true)}
-              className="rounded-2xl border border-dashed border-border px-3 py-2.5 text-left text-sm font-semibold text-primary hover:bg-secondary/50 lg:hidden"
-            >
-              Show earlier days ({days.filter((d) => toISODate(d) < todayIso).length})
-            </button>
-          )}
-          {days.map((day) => {
-            const iso = toISODate(day);
-            const isPast = iso < todayIso;
-            return (
-              <PlannerDayColumn
-                key={iso}
-                dayIso={iso}
-                label={String(day.getDate())}
-                weekday={weekdayOf(day)}
-                isToday={iso === todayIso}
-                isPast={isPast}
-                tasks={tasksByDay.get(iso) ?? []}
-                ghosts={ghosts.get(iso)}
-                appointments={appointmentsShown.get(iso) ?? []}
-                prepCounts={prepCounts}
-                offToday={offOn(day)}
-                timeOffNotes={timeOffNotes(iso)}
-                helpers={helpers}
-                nowTs={nowTs}
-                offLabel={offLabel}
-                drag={drag}
-                onOpenTask={onOpenTask}
-                onOpenAppointment={onOpenAppointment}
-                onAdd={isPast ? undefined : () => onAddOn(iso)}
-                className={isPast && !showEarlier ? "hidden lg:flex" : "flex"}
-              />
-            );
-          })}
-        </div>
-      ) : view === "people" ? (
-        <PlannerPeople
-          days={days}
-          todayIso={todayIso}
-          rows={peopleRows}
-          tasksByCell={tasksByCell}
-          ghostsByCell={ghostsByCell}
-          appointmentsByDay={appointmentsShown}
-          prepCounts={prepCounts}
+      {search.active ? (
+        <PlannerSearchResults
+          query={query}
+          tasks={search.tasks}
           helpers={helpers}
           nowTs={nowTs}
-          scheduleFor={scheduleFor}
-          timeOff={timeOff.filter((o) => matchesWho(o.helperId))}
-          offLabel={offLabel}
-          drag={drag}
           onOpenTask={onOpenTask}
-          onOpenAppointment={onOpenAppointment}
-          onAdd={onAddOn}
-        />
-      ) : (
-        <PlannerMonth
-          days={days}
-          month={anchor.getMonth()}
-          todayIso={todayIso}
-          nowTs={nowTs}
-          tasksByDay={tasksByDay}
-          appointmentsByDay={appointmentsShown}
-          drag={drag}
-          onOpenDay={(day) => {
-            setAnchor(day);
+          onShowDay={(day) => {
+            setQuery("");
+            setAnchor(parseISODate(day));
             changeView("week");
+            setShowEarlier(true);
           }}
         />
+      ) : (
+        <>
+          {drag && view !== "month" && (
+            <p className="hidden px-1 text-sm text-muted-foreground lg:block">
+              {view === "people"
+                ? "Drag a task to another day, or to someone else's row to hand it over. Tap one to change anything else."
+                : "Drag a task to another day to move it. Tap one to change anything else."}
+            </p>
+          )}
+
+          <TaskToneLegend />
+
+          {view === "week" ? (
+            <div className="grid gap-3 lg:grid-cols-7 lg:gap-2">
+              {!showEarlier && days.some((d) => toISODate(d) < todayIso) && (
+                <button
+                  type="button"
+                  onClick={() => setShowEarlier(true)}
+                  className="rounded-2xl border border-dashed border-border px-3 py-2.5 text-left text-sm font-semibold text-primary hover:bg-secondary/50 lg:hidden"
+                >
+                  Show earlier days ({days.filter((d) => toISODate(d) < todayIso).length})
+                </button>
+              )}
+              {days.map((day) => {
+                const iso = toISODate(day);
+                const isPast = iso < todayIso;
+                return (
+                  <PlannerDayColumn
+                    key={iso}
+                    dayIso={iso}
+                    label={String(day.getDate())}
+                    weekday={weekdayOf(day)}
+                    isToday={iso === todayIso}
+                    isPast={isPast}
+                    tasks={tasksByDay.get(iso) ?? []}
+                    ghosts={ghosts.get(iso)}
+                    appointments={appointmentsShown.get(iso) ?? []}
+                    prepCounts={prepCounts}
+                    offToday={offOn(day)}
+                    timeOffNotes={timeOffNotes(iso)}
+                    helpers={helpers}
+                    nowTs={nowTs}
+                    offLabel={offLabel}
+                    drag={drag}
+                    onOpenTask={onOpenTask}
+                    onOpenAppointment={onOpenAppointment}
+                    onAdd={isPast ? undefined : () => onAddOn(iso)}
+                    className={isPast && !showEarlier ? "hidden lg:flex" : "flex"}
+                  />
+                );
+              })}
+            </div>
+          ) : view === "people" ? (
+            <PlannerPeople
+              days={days}
+              todayIso={todayIso}
+              rows={peopleRows}
+              tasksByCell={tasksByCell}
+              ghostsByCell={ghostsByCell}
+              appointmentsByDay={appointmentsShown}
+              prepCounts={prepCounts}
+              helpers={helpers}
+              nowTs={nowTs}
+              scheduleFor={scheduleFor}
+              timeOff={timeOff.filter((o) => matchesWho(o.helperId))}
+              offLabel={offLabel}
+              drag={drag}
+              onOpenTask={onOpenTask}
+              onOpenAppointment={onOpenAppointment}
+              onAdd={onAddOn}
+            />
+          ) : (
+            <PlannerMonth
+              days={days}
+              month={anchor.getMonth()}
+              todayIso={todayIso}
+              nowTs={nowTs}
+              tasksByDay={tasksByDay}
+              appointmentsByDay={appointmentsShown}
+              drag={drag}
+              onOpenDay={(day) => {
+                setAnchor(day);
+                changeView("week");
+              }}
+            />
+          )}
+        </>
       )}
     </section>
   );

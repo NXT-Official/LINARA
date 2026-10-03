@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
+import { extractHouseholdEvidencePath, signEvidencePhotos } from "@/lib/evidence-photo";
 import { pushToHelper } from "@/features/notifications/push";
 
+import { TASK_SEARCH_LIMIT } from "./planner.utils";
 import type { Status } from "./task.types";
 
 export interface HouseStandardSOP {
@@ -225,6 +227,8 @@ export interface TicketRow {
   helper_id: string | null;
   status: Status;
   photo_evidence_url: string | null;
+  /** Its 480px thumbnail, signed alongside it on read; null for older photos. */
+  photo_thumb_url?: string | null;
   is_after_hours: boolean;
   emergency: boolean;
   suggested: boolean;
@@ -258,51 +262,33 @@ export interface TicketRow {
   cancelled_by_name?: string | null;
 }
 
-const HOUSEHOLD_EVIDENCE_BUCKET = "household-evidence";
-// Matches LINARA_MOBILE's media-upload.ts SIGNED_URL_EXPIRY_SECONDS -- both
-// sides agree on a 15-minute window for the private-bucket security model
-// documented in architecture.md 5.1.
-const SIGNED_URL_EXPIRY_SECONDS = 900;
-
-/**
- * A Supabase Storage signed URL embeds its own storage path -- only the
- * trailing `?token=...` expires. Recovers that path from an already-expired
- * `household-evidence` signed URL so it can be re-signed fresh. Returns null
- * for anything that isn't a signed URL for this bucket (e.g. a leftover
- * pre-C12 PHOTO_POOL mock string), so callers know to leave it untouched.
- */
-function extractHouseholdEvidencePath(url: string): string | null {
-  const match = url.match(/\/storage\/v1\/object\/sign\/household-evidence\/([^?]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
 /**
  * Closes KNOWN_GAPS.md gap #13: `tickets.photo_evidence_url` stores the
  * signed URL LINARA_MOBILE's uploadEvidenceImage() returned at upload time,
- * which expires 15 minutes later. Re-signs it fresh from its embedded
- * storage path on every read instead. A resign failure (or a URL that isn't
- * one of ours) falls back to the stored value rather than failing the whole
- * board fetch over one bad photo.
+ * which expires 15 minutes later. Re-signs it, and its thumbnail, fresh from
+ * its embedded storage path on every read instead, in one batch call. A photo
+ * that can't be signed (deleted after 30 days, or not one of ours) comes back
+ * as no photo rather than a broken image.
  */
-async function resignPhotoEvidenceUrl(
+async function withSignedPhotos<T extends { photo_evidence_url: string | null }>(
   authedClient: ReturnType<typeof createAuthedClient>,
-  url: string | null,
-): Promise<string | null> {
-  if (!url) return url;
-
-  const path = extractHouseholdEvidencePath(url);
-  if (!path) return url;
-
-  const { data, error } = await authedClient.storage
-    .from(HOUSEHOLD_EVIDENCE_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS);
-
-  if (error || !data) {
-    console.error("[listTicketsFn] Failed to re-sign evidence photo:", error?.message);
-    return url;
-  }
-
-  return data.signedUrl;
+  rows: T[],
+): Promise<(T & { photo_thumb_url: string | null })[]> {
+  const paths = rows.map((row) =>
+    row.photo_evidence_url ? extractHouseholdEvidencePath(row.photo_evidence_url) : null,
+  );
+  const signed = await signEvidencePhotos(
+    authedClient,
+    paths.filter((p): p is string => p !== null),
+  );
+  return rows.map((row, i) => {
+    const photo = paths[i] ? signed.get(paths[i]) : undefined;
+    return {
+      ...row,
+      photo_evidence_url: photo?.url ?? null,
+      photo_thumb_url: photo?.thumbUrl ?? null,
+    };
+  });
 }
 
 /**
@@ -333,14 +319,7 @@ export const listTicketsFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    const resigned = await Promise.all(
-      (rows ?? []).map(async (row) => ({
-        ...row,
-        photo_evidence_url: await resignPhotoEvidenceUrl(authedClient, row.photo_evidence_url),
-      })),
-    );
-
-    return resigned as unknown as TicketRow[];
+    return (await withSignedPhotos(authedClient, rows ?? [])) as unknown as TicketRow[];
   });
 
 /**
@@ -369,35 +348,43 @@ export const listTicketsBetweenFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    const paths = (rows ?? []).map((row) =>
-      row.photo_evidence_url ? extractHouseholdEvidencePath(row.photo_evidence_url) : null,
-    );
-    const toSign = [...new Set(paths.filter((p): p is string => p !== null))];
-    const fresh = new Map<string, string>();
-    if (toSign.length > 0) {
-      const { data: signed, error: signError } = await authedClient.storage
-        .from(HOUSEHOLD_EVIDENCE_BUCKET)
-        .createSignedUrls(toSign, SIGNED_URL_EXPIRY_SECONDS);
-      if (signError) {
-        console.error(
-          "[listTicketsBetweenFn] Failed to re-sign evidence photos:",
-          signError.message,
-        );
-      }
-      for (const s of signed ?? []) {
-        if (s.path && s.signedUrl) fresh.set(s.path, s.signedUrl);
-      }
+    return (await withSignedPhotos(authedClient, rows ?? [])) as unknown as TicketRow[];
+  });
+
+/**
+ * Tasks on any date whose title or note contains `query`, newest first, for
+ * the Schedule's search (KNOWN_GAPS.md O32: finding an old task). `helper` is
+ * "all", "unassigned" or a helper id; `statuses` narrows to those (empty: any).
+ * Cancelled ones are included, as the planner shows them.
+ */
+export const searchTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; query: string; helper: string; statuses: Status[] }) => data)
+  .handler(async ({ data }) => {
+    // PostgREST's or() is comma- and paren-delimited, and * and % are
+    // wildcards: searching for any of those means nothing here, so drop them.
+    const words = data.query
+      .replace(/[,()"\\%_*.:]/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (words.length < 2) return [] as TicketRow[];
+
+    const authedClient = createAuthedClient(data.token);
+    let request = authedClient
+      .from("tickets")
+      .select("*, created_by_profile:user_profiles(full_name)")
+      .or(`title.ilike.*${words}*,notes.ilike.*${words}*`)
+      .order("scheduled_start", { ascending: false })
+      .limit(TASK_SEARCH_LIMIT);
+    if (data.helper === "unassigned") request = request.is("helper_id", null);
+    else if (data.helper !== "all") request = request.eq("helper_id", data.helper);
+    if (data.statuses.length > 0) request = request.in("status", data.statuses);
+
+    const { data: rows, error } = await request;
+    if (error) {
+      throw new Error(error.message);
     }
 
-    return (rows ?? []).map((row, i) => {
-      const path = paths[i];
-      return {
-        ...row,
-        // An unsigned photo (failed signing, or not one of ours) is left out
-        // rather than shown as a broken image.
-        photo_evidence_url: path ? (fresh.get(path) ?? null) : null,
-      };
-    }) as unknown as TicketRow[];
+    return (await withSignedPhotos(authedClient, rows ?? [])) as unknown as TicketRow[];
   });
 
 /**

@@ -29,7 +29,13 @@ export type GroceryContextValue = {
    * why a receipt naturally covers many items, not one row). */
   receiptPhoto: string | null;
   /** Receipts snapped from the app after buying, newest first (any day). */
-  receipts: { id: string; url: string; createdAt: string; byName: string | null }[];
+  receipts: {
+    id: string;
+    url: string;
+    thumbUrl: string | null;
+    createdAt: string;
+    byName: string | null;
+  }[];
   addManual: (name: string, qty: number, unit: string) => void;
   /** Puts a low-stock suggestion on the real list, so her app shows it too. */
   addSuggestion: (item: GroceryItem) => void;

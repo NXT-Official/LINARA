@@ -16,6 +16,8 @@ export type Task = {
   station: Station;
   status: Status;
   photo?: string;
+  /** The 480px copy of `photo` for cards; absent for photos from before thumbnails. */
+  photoThumb?: string;
   blockReason?: string;
   queued?: boolean;
   recurrence?: Recurrence;

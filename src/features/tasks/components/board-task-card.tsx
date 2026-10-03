@@ -114,7 +114,12 @@ export function BoardTaskCard({
           )}
           {showPhoto && task.photo && (
             <div className="mt-2 overflow-hidden rounded-xl">
-              <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
+              <img
+                src={task.photoThumb ?? task.photo}
+                alt=""
+                className="h-28 w-full object-cover"
+                loading="lazy"
+              />
             </div>
           )}
         </div>

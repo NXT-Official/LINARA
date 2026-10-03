@@ -11,7 +11,7 @@ import type { Task } from "../task.types";
 import { TaskPlanner } from "./task-planner";
 
 // The planner reads through usePlan here; the real server functions never load.
-vi.mock("../task.actions", () => ({ listTicketsBetweenFn: vi.fn() }));
+vi.mock("../task.actions", () => ({ listTicketsBetweenFn: vi.fn(), searchTicketsFn: vi.fn() }));
 
 const rosa: Helper = { ...UNKNOWN_HELPER, id: "h1", name: "Rosa Dela Cruz", short: "Rosa" };
 const lita: Helper = { ...UNKNOWN_HELPER, id: "h2", name: "Lita Santos", short: "Lita" };
@@ -348,5 +348,66 @@ describe("TaskPlanner, by person", () => {
     const { onAddOn } = byPerson();
     fireEvent.click(screen.getByRole("button", { name: "Add task for Lita on Fri 2" }));
     expect(onAddOn).toHaveBeenCalledWith("2026-10-02", "h2");
+  });
+});
+
+describe("TaskPlanner, search and filters", () => {
+  // From March: outside any week the planner has loaded.
+  const marchLaundry = task({
+    id: "march",
+    title: "Laundry for the fiesta",
+    status: "done",
+    scheduledStart: "2026-03-14T01:00:00.000Z",
+  });
+
+  it("narrows the week to done tasks, and drops appointments while filtered", () => {
+    renderPlanner();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByText("Hang the laundry")).toBeNull();
+    expect(within(day(/^Tue 29$/)).getByText("Wash the windows")).toBeTruthy();
+    expect(screen.queryByText("Dentist")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "To do" }));
+    expect(screen.getByText("Hang the laundry")).toBeTruthy();
+    expect(screen.queryByText("Wash the windows")).toBeNull();
+  });
+
+  it("searches every date, in place of the calendar, with the person and status chosen", () => {
+    const useSearch = vi.fn(({ query }: { query: string }) =>
+      query.trim().length >= 2
+        ? { active: true, tasks: [marchLaundry] }
+        : { active: false, tasks: [] as Task[] },
+    );
+    const onOpenTask = vi.fn();
+    renderPlanner({ useSearch, onOpenTask });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search tasks on every date" }), {
+      target: { value: "laundry" },
+    });
+
+    expect(useSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: "laundry", helper: "all", statuses: ["done"] }),
+    );
+    expect(screen.getByText(/1 task matches “laundry”, on any date/)).toBeTruthy();
+    const march = screen.getByRole("region", { name: "Sat, Mar 14, 2026" });
+    expect(screen.queryByText("Sep 28 – Oct 4")).toBeTruthy(); // the header still says where the calendar is
+    expect(screen.queryByRole("region", { name: /^Thu 1, today$/ })).toBeNull();
+
+    fireEvent.click(within(march).getByText("Laundry for the fiesta"));
+    expect(onOpenTask).toHaveBeenCalledWith(marchLaundry);
+
+    fireEvent.click(within(march).getByRole("button", { name: "Show in week" }));
+    expect(screen.getByText("Mar 9 – Mar 15")).toBeTruthy();
+    expect(
+      (screen.getByRole("searchbox", { name: "Search tasks on every date" }) as HTMLInputElement)
+        .value,
+    ).toBe("");
+  });
+
+  it("says when nothing matches", () => {
+    renderPlanner({ useSearch: () => ({ active: true, tasks: [] }) });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search tasks on every date" }), {
+      target: { value: "kalabasa" },
+    });
+    expect(screen.getByText("No task on any date matches “kalabasa”.")).toBeTruthy();
   });
 });

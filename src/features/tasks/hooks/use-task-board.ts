@@ -81,6 +81,7 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
     station: helper.station,
     status: row.status,
     photo: row.photo_evidence_url ?? undefined,
+    photoThumb: row.photo_thumb_url ?? undefined,
     blockReason: row.block_reason ?? undefined,
     queued: row.queued || undefined,
     recurrence: decodeRecurrence(row.recurrence),

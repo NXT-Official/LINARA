@@ -12,11 +12,28 @@ import {
   weekdayOf,
 } from "@/lib/time";
 
-import type { Routine, Task } from "./task.types";
+import type { Routine, Status, Task } from "./task.types";
 import { byStart, isPastDue, routineAssignee, routineMatches } from "./task.utils";
 
 /** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
 export type PlanView = "week" | "people" | "month";
+
+/** The Schedule's status chips (KNOWN_GAPS.md O32). */
+export type PlanStatus = "all" | "open" | "done" | "cancelled";
+
+/** What each chip keeps; empty keeps everything. Open is anything not yet settled. */
+export const PLAN_STATUSES: Record<PlanStatus, Status[]> = {
+  all: [],
+  open: ["todo", "in_progress", "blocked"],
+  done: ["done"],
+  cancelled: ["cancelled"],
+};
+
+/** Most results the Schedule's search shows; it asks for a narrower word past this. */
+export const TASK_SEARCH_LIMIT = 50;
+
+export const matchesPlanStatus = (t: Pick<Task, "status">, filter: PlanStatus): boolean =>
+  filter === "all" || PLAN_STATUSES[filter].includes(t.status);
 
 export const addDays = (d: Date, n: number): Date =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);

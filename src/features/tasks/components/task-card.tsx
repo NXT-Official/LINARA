@@ -50,7 +50,12 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       )}
       {task.photo && (
         <div className="mt-3 overflow-hidden rounded-xl">
-          <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
+          <img
+            src={task.photoThumb ?? task.photo}
+            alt=""
+            className="h-28 w-full object-cover"
+            loading="lazy"
+          />
         </div>
       )}
       <div className="mt-3 flex items-center justify-between">

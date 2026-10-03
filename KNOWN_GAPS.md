@@ -65,13 +65,17 @@ the bottom.
 - **Current workaround:** None.
 - **To close:** Pull manager-facing strings into a catalogue, add the toggle, and translate. The helper app (`LINARA_MOBILE`) is already Filipino-first and isn't part of this. Owned by `LINARA`.
 
-### O28. Receipt and task photos are kept forever
+### O28. Receipt and task photos were kept forever
 
 - **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
-- **What's missing:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deletes them, and neither the schema nor the docs say how long they should be kept.
-- **Blocks:** Nothing yet. Storage grows with every finished task and receipt.
-- **Current workaround:** None.
-- **To close:** Decide a retention period with the client (receipts aren't payslips, so RA 10361's payslip retention doesn't set it; check `LEGAL_CONSIDERATIONS.md`), then a scheduled job that removes older objects and the rows' URLs. Owned by `LINARA`.
+- **Was:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deleted them, and neither the schema nor the docs said how long they should be kept.
+- **Decided (team, 2026-10-03; NOT yet approved by the client):** task completion photos are kept **30 days**, receipt photos **60 days** (a palengke run's photo is its receipt, so 60). The amounts that matter outlive the pictures in rows that are never purged: what was bought and what it cost (`grocery_items`), and the task, who did it, when, and its comments. A manager who wants a photo for longer saves it from the web. **Revisit once the client has approved (or changed) these periods** -- they're two constants: `TASK_PHOTO_DAYS` / `RECEIPT_PHOTO_DAYS` in `src/lib/evidence-photo.ts` (UI copy) and the defaults of `release_expired_evidence()` (the actual purge). Wage records are a separate question (RA 10361, `LEGAL_CONSIDERATIONS.md` "Records"); nothing here touches payslips or payout QR codes.
+- **Fix, built 2026-10-03, NOT yet applied:**
+  - `supabase/add-evidence-photo-retention.sql`: `release_expired_evidence()` picks `<household>/tickets/` files older than 30 days and `<household>/receipts/` files older than 60 by the file's own upload time, nulls `tickets.photo_evidence_url` and deletes the `grocery_receipts` rows pointing at them, and returns the paths. Going by file age also sweeps thumbnails and files no row ever pointed at. Service role only. PGlite: `supabase/tests/evidence-retention.test.mjs` (15 checks).
+  - `supabase/functions/purge-expired-evidence`: removes those files through the Storage API (Supabase refuses `DELETE` on `storage.objects` from SQL). Called nightly at 02:30 Manila by the `purge-expired-evidence` pg_cron job via pg_net, authenticated by `x-purge-secret` (`verify_jwt = false`, `config.toml`). A failed removal is picked up again the next night.
+  - **Thumbnails** (option B, made on the phone): `LINARA_MOBILE/services/media-upload.ts` also uploads a 480px, 70% JPEG copy at `<name>.thumb.jpg` (about 25 to 45 KB), best effort. The web signs both in one call (`signEvidencePhotos`) and cards, the OFW glance and the receipt list show the thumbnail, falling back to the full photo for older uploads.
+  - **Save locally:** the task dialog's photo and the receipt viewer have "Save photo" / "Save receipt", a download of the same signed URL (`savePhotoUrl`, Storage's `download` parameter), and say how long photos are kept. In the APK's manager WebView the link opens the phone's browser, which saves it (`app/manager.tsx` sends non-dashboard URLs out).
+- **To close:** apply the SQL above the `@schedule` line; set `EVIDENCE_PURGE_SECRET`, deploy `purge-expired-evidence`, add the two Vault secrets and run the `@schedule` part (all spelled out in the SQL file's comments and `supabase/DEPLOYMENTS.md`); invoke the job once (`SELECT net.http_post(...)` from the schedule, or wait a night) and check `net._http_response` says `released`/`removed`. Build a mobile APK so new photos get thumbnails. Test Save on a phone in the WebView. Then move this to Closed Gaps. Owned by `LINARA` (SQL, function, web) and `LINARA_MOBILE` (thumbnail upload).
 
 ### O29. A manager can't attach a receipt from the web
 
@@ -79,7 +83,7 @@ the bottom.
 - **What's missing:** Receipts are added only in `LINARA_MOBILE`'s Pantry tab (the Resibo card). The web's `receipt-slot.tsx` lists the latest receipts and has no upload. A manager who did the shopping can tick items bought on the web (LW-5) but can't add the receipt.
 - **Blocks:** The manager-does-the-shopping case, end to end.
 - **Current workaround:** Add it from a helper's phone, or not at all.
-- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does. Owned by `LINARA`.
+- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does: 1200px at 80% JPEG plus a 480px `<name>.thumb.jpg` (O28), re-encoded through a canvas so the camera's EXIF/GPS is dropped. Owned by `LINARA`.
 
 ### O30. No list view of tasks
 
@@ -96,14 +100,6 @@ the bottom.
 - **Blocks:** A helper fixing a wrong time herself.
 - **Current workaround:** She comments, and a manager edits.
 - **To close:** Decide what she may change (probably time and note, not who it's for), then an app edit screen and a `BEFORE UPDATE` guard on `tickets` like C72's, since today her updates are held to status columns. The time-change notice and ledger rules (C71, C76) must still fire. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
-
-### O32. Search and filters exist only on the Pantry and Grocery list
-
-- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** `ListFilter` is used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule, the Pass, Money's payslips and People have no search.
-- **Blocks:** Finding an old task or payslip in a busy household.
-- **Current workaround:** Scrolling, or Month view.
-- **To close:** Add `ListFilter` where lists get long, starting with the Schedule. Owned by `LINARA`.
 
 ### O33. Staff can't change the grocery budget (waiting on the client)
 
@@ -3313,7 +3309,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-02, client feedback: "Receipt attachment is not working."
 - **Was:** LINARA_MOBILE showed a receipt button only inside an open task whose title matched "palengke"/"marketing run" (`getActivePalengkeTicket`), saving to `tickets.photo_evidence_url`. With no such task there was no way to add one, and the web's dashed "No receipt yet" looked like a button but only displayed that task's photo.
 - **Fix:** `supabase/add-grocery-receipts.sql`: `grocery_receipts`, one row per receipt, task optional. The app's Pantry tab has a Resibo card whenever no run is open; a run's receipt is recorded there too. The web lists the latest six. PGlite: `grocery-receipts.test.mjs`.
-- **Storage:** photos are shrunk on the phone to 1200px at 80% JPEG (about 150 to 300 KB). Still open: no retention rule deletes old receipt or task photos.
+- **Storage:** photos are shrunk on the phone to 1200px at 80% JPEG (about 150 to 300 KB). Retention (60 days for receipts) is O28.
 
 ### C81. "Start new day" moved the board to tomorrow, and the Pass couldn't look at another day
 
@@ -3326,6 +3322,13 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-02, while reviewing client feedback ("Palengke items purchased, goes to Pantry stock"). Applied 2026-10-03.
 - **Was:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half existed: nothing in either repo wrote `pantry_items.qty` from a purchase, although `grocery_items.pantry_item_id` links the two. Low-stock items stayed low after they were bought, so they were suggested again.
 - **Fix:** `supabase/add-grocery-restock.sql`, a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item; unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Ticked from the app, or from the web Pantry's Bought checkbox (QA LW-5). PGlite test: `supabase/tests/grocery-restock.test.mjs`.
+
+### C83. Search and filters existed only on the Pantry and Grocery list (former Open Gap O32)
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03. **Fixed:** 2026-10-04 (web only, no SQL).
+- **Was:** `ListFilter` was used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule loads just the week or month on screen, so an old task could only be found by paging back through it.
+- **Fix:** the Schedule (`task-planner.tsx`) has a search box and status chips (All / To do / Done / Cancelled). The chips narrow Week, By person and Month, alongside the person picker; routines still to come show under All and To do only, and appointments only when nothing is filtered. Typing two or more letters searches task titles and notes on **every date** (`searchTicketsFn`: newest first, the 50 most recent, with the same person and status), and the results replace the calendar until the box is cleared: grouped by day, a task opens as on the calendar, and "Show in week" jumps there. Checked against the sandbox project (case-insensitive match, person and status filters accepted). Tests in `task-planner.test.tsx`.
+- **Not added, on purpose:** the Pass shows one day, and People a household's few helpers, so neither has a list long enough to search. Money's payslip history is per helper, about 24 a year; give it a year filter once a real helper has more than a year of payslips.
 
 ---
 
