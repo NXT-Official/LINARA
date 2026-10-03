@@ -4,6 +4,10 @@ export const MANAGER_EMAIL = process.env.E2E_MANAGER_EMAIL ?? "";
 export const MANAGER_PASSWORD = process.env.E2E_MANAGER_PASSWORD ?? "";
 export const HAS_MANAGER = Boolean(MANAGER_EMAIL && MANAGER_PASSWORD);
 
+export const STAFF_EMAIL = process.env.E2E_STAFF_EMAIL ?? "";
+export const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? "";
+export const HAS_STAFF = Boolean(STAFF_EMAIL && STAFF_PASSWORD);
+
 /** Every manager page; the crawl visits each. */
 export const MANAGER_ROUTES = [
   "/manager/pass",
