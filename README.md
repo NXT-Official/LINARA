@@ -36,6 +36,7 @@ Linara coordinates three key administrative stakeholders and the household staff
 | **Edit Schedules & Rest Days** | Yes                        | Yes                        | View-Only                                     | View-Only               |
 | **Assign / Approve Tickets**   | Yes (Live)                 | Yes (Live)                 | Suggested by default, Live on urgent override | View-Only / Claimable   |
 | **Approve Vales & Budgets**    | Yes                        | Yes                        | Yes (Usually funding source)                  | No                      |
+| **Pay Wages**                  | Yes                        | Yes                        | Yes                                           | No                      |
 | **Override Helper Off-Hours**  | Yes (With logged friction) | Yes (With logged friction) | No                                            | N/A                     |
 | **View Money & Pay Ledger**    | Yes                        | Yes                        | Yes                                           | Yes (Own record only)   |
 | **Access "My Notes"**          | No                         | No                         | No                                            | Yes (Private to Helper) |

@@ -113,14 +113,26 @@ the bottom.
 - **Current workaround:** A manager sets it on the web.
 - **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
 
-### O34. Can a remote admin pay wages? (`plan.md` §1.2 doesn't say)
+### O34. A remote admin couldn't pay wages
 
-- **Found:** 2026-10-03, while building O2's manager roles.
-- **Settled the same day:** co-managers manage helpers (invite, wage, pantry role, end employment), as the code already let them. `plan.md` §1.2 and `README.md` now split the row: Manage Admins is primary-only, Manage Helpers is primary and co.
-- **Still open:** the table has no row for paying wages. Today only primary and co-managers can (`initiate_payslip` and the other pay functions check `user_type`; the Money page's `canPay`), while a remote admin may approve vales and the budget because she's "usually the funding source".
-- **Blocks:** An OFW parent paying the helper's salary from abroad.
-- **Current workaround:** An on-site manager presses Pay.
-- **To close:** Decide. If yes: admit `remote_admin` in the pay functions (`initiate_payslip`, `record_payout_attempt_result`, `pay_target`, the off-app record/withdraw ones) and in `canPay`, and add a "Pay wages" row to the table. Owned by `LINARA`.
+- **Found:** 2026-10-03, while building O2's manager roles. `plan.md` §1.2 had no row for paying.
+- **Decided (client, 2026-10-03):** co-managers manage helpers (`plan.md` and `README.md` split "Manage Admins & Helpers"), and a remote admin pays wages (new "Pay Wages" row: primary, co and remote).
+- **Fix written, not yet applied (2026-10-03):** `supabase/add-remote-admin-pay.sql`. Every payment goes through `pay_target()` (the GCash / Maya payout via `initiate_payslip`, and "Paid outside Linara"), plus `withdraw_offapp_payslip()`; the SQL reads each one's live definition and adds `remote_admin` to its role list, nothing else, and refuses if that list isn't there. PGlite: `supabase/tests/remote-admin-pay.test.mjs`. Web: Money and Past staff show Pay to every manager role.
+- **Current workaround:** Until it's applied, a remote admin's Pay is refused by the database ("only managers can pay a helper").
+- **To close:** Apply `add-remote-admin-pay.sql` (after `add-pay-periods.sql`, `add-unpaid-leave-pay.sql` and `add-household-managers.sql`), then move this to Closed Gaps. Owned by `LINARA`.
+
+### O35. Nothing collects the money a payout sends: Linara's own Xendit balance pays every helper
+
+- **Found:** 2026-10-03, when the client asked how linked cards are handled.
+- **What's missing:** There are no linked cards or any other money coming in. `initiatePayoutFn` (`src/features/pay/pay.actions.ts`) sends `POST /v2/payouts` with Linara's single `XENDIT_SECRET_WRITE_KEY`, to the helper's GCash / Maya number on her profile, from that account's balance. No code charges the household, saves a payment method, or keeps a balance per household. In the sandbox that's invisible (test mode doesn't check the balance, `E1_XENDIT_VERIFICATION.md`); with real money, Linara would be paying every salary itself.
+- **Blocks:** Real payouts for any real household. Also the OFW case (O34): the remote admin is the one who should be funding them.
+- **Current workaround:** Sandbox only. A household can pay on its own and press "Paid outside Linara", which moves no money.
+- **To close:** Choose how money comes in, and get the legal side confirmed before any of it holds or moves a household's money (`LEGAL_CONSIDERATIONS.md`). Options Xendit supports in the Philippines:
+  1. **A saved method, charged at Pay:** the manager links GCash (`GCASH_LINK_AND_PAY`, which Xendit has to activate) or a card once (Payments API `PAY_AND_SAVE`, then payment tokens); pressing Pay charges it, and the payout goes when the charge succeeds.
+  2. **Pay in, then pay out, each time:** a checkout for the net pay at Pay, no saved method.
+  3. **A balance per household:** a xenPlatform sub-account per household, topped up by the household; payouts use `for-user-id` from its own balance. Each managed sub-account needs its own onboarding documents, and has a monthly fee per active sub-account.
+  4. **Don't move money:** Linara works out the pay and opens the manager's own GCash / bank; "Paid outside Linara" records it. Nothing to license, but no one-tap payout.
+  Owned by `LINARA` (the server holds the Xendit key, ARCHITECTURE.md).
 
 ## Closed Gaps
 
