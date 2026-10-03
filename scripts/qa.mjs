@@ -5,10 +5,13 @@
  *   npm run qa:fast    typecheck, lint, unit tests (also the pre-push hook)
  *   npm run qa:live    browser tests against the deployed site (QA_LIVE_URL,
  *                      default https://linara-delta.vercel.app)
+ *   npm run qa:deep    build, then e2e/deep: a task and a pantry item made,
+ *                      changed and removed for real in the test household
  *
  * Local browser tests run against the production build on port 8091 (a dev
- * server hides production-only UI and would clash with `npm run dev`). Both
- * kinds sign in with the test accounts in .env.e2e and change no data.
+ * server hides production-only UI and would clash with `npm run dev`). They
+ * sign in with the test accounts in .env.e2e and change no data, except
+ * qa:deep, which deletes what it makes (e2e/deep/cleanup.ts).
  * Issues, IDs and the report: scripts/qa-runner.mjs.
  */
 import { createWriteStream, existsSync } from "node:fs";
@@ -17,11 +20,7 @@ import { join } from "node:path";
 
 import { run, runQa } from "./qa-runner.mjs";
 
-const mode = process.argv.includes("--live")
-  ? "live"
-  : process.argv.includes("--fast")
-    ? "fast"
-    : "full";
+const mode = ["live", "fast", "deep"].find((m) => process.argv.includes(`--${m}`)) ?? "full";
 const PREVIEW_PORT = 8091;
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 const LIVE_URL = (process.env.QA_LIVE_URL ?? "https://linara-delta.vercel.app").replace(/\/+$/, "");
@@ -72,13 +71,18 @@ async function startPreview(outDir) {
   throw new Error(`vite preview didn't answer on ${PREVIEW_URL} within a minute`);
 }
 
-const browserTests = (baseUrl) => async (ctx) => {
-  const result = await run("npx playwright test --reporter=line", {
-    ...ctx,
-    extraEnv: { E2E_BASE_URL: baseUrl },
-  });
-  return { ...result, note: accountsNote };
-};
+const browserTests =
+  (baseUrl, { deep = false } = {}) =>
+  async (ctx) => {
+    const result = await run(
+      `npx playwright test --reporter=line${deep ? " --project=deep" : ""}`,
+      {
+        ...ctx,
+        extraEnv: { E2E_BASE_URL: baseUrl, ...(deep ? { E2E_DEEP: "1" } : {}) },
+      },
+    );
+    return { ...result, note: accountsNote };
+  };
 
 const steps = {
   typecheck: { name: "Typecheck", slug: "typecheck", cmd: "npm run typecheck", parse: "typecheck" },
@@ -86,28 +90,30 @@ const steps = {
   unit: { name: "Unit tests", slug: "unit", cmd: "npm test", parse: "vitest" },
   sql: { name: "Database tests", slug: "sql", cmd: "npm run test:sql", parse: "sqlRunner" },
   build: { name: "Build", slug: "build", cmd: "npm run build" },
-  e2e: {
-    name: "Browser tests",
-    slug: "e2e",
-    parse: "playwright",
-    needs: "build",
-    exec: async (ctx) => {
-      const stop = await startPreview(ctx.outDir);
-      try {
-        return await browserTests(PREVIEW_URL)(ctx);
-      } finally {
-        await stop();
-      }
-    },
-  },
+  e2e: { name: "Browser tests", slug: "e2e", parse: "playwright", needs: "build" },
+  deep: { name: "Deep checks", slug: "e2e-deep", parse: "playwright", needs: "build" },
   // Its own slug, so the live site's issues stay apart from this machine's.
   live: { name: "Live site", slug: "e2e-live", parse: "playwright", exec: browserTests(LIVE_URL) },
 };
+
+// The local browser steps run against the build, served for the step.
+for (const key of ["e2e", "deep"]) {
+  const tests = browserTests(PREVIEW_URL, { deep: key === "deep" });
+  steps[key].exec = async (ctx) => {
+    const stop = await startPreview(ctx.outDir);
+    try {
+      return await tests(ctx);
+    } finally {
+      await stop();
+    }
+  };
+}
 
 const plan = {
   full: ["typecheck", "lint", "unit", "sql", "build", "e2e"],
   fast: ["typecheck", "lint", "unit"],
   live: ["live"],
+  deep: ["build", "deep"],
 }[mode];
 
 process.exit(
