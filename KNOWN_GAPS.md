@@ -21,8 +21,14 @@ the bottom.
 - **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).
 - **What's missing:** `plan.md` §1.2, `README.md` §2 and `home-management-concept.md` §9 describe three admin types, with the OFW remote admin called "the killer differentiator". The schema supports them (`user_profiles.user_type IN ('primary_manager','co_manager','remote_admin','helper')`), and the UI for them exists (`remote-glance.tsx`, the suggestions inbox, `ViewAsSwitcher`, the remote branch in `use-send-gate.ts`). But nothing creates a second admin: `use-session.ts` builds `admins` as `admin ? [admin] : []` (just the signed-in user), `updateAdminType` is a `console.warn` stub, and there's no admin invite. The landing page ("Perfect for busy parents or OFW families managing from abroad") promises a mode nobody can reach.
 - **Blocks:** Any demo or marketing of OFW mode, multi-admin attribution ("from [name]"), and the remote-suggestion approval flow.
-- **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
-- **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
+- **Current workaround:** None until the SQL below is applied.
+- **Fix written, not yet applied (2026-10-03):** `supabase/add-household-managers.sql`, tested in `supabase/tests/household-managers.test.mjs` (in `npm run test:sql`).
+  - **Model:** `household_managers` (one row per manager per household, with that household's role, one primary each) and `manager_invites` (8-character single-use codes, 7 days). `user_profiles.household_id` / `user_type` stay the household the account is in right now, so every policy and function that reads them is unchanged; `switch_household()` moves the account between its memberships. One active household per account (user's choice): a switch on one device moves the others, and the web reloads when it notices. A helper account can't be a manager anywhere (separate logins, user's choice).
+  - **Roles:** the primary manager invites co-managers and remote admins, changes roles, hands primary over (one primary, user's choice) and removes managers; anyone else can leave. Any manager can start another household (`create_household`). Account deletion now goes through every household the person manages: one with another manager keeps everything and, if they were primary, its longest-standing co-manager takes over.
+  - **Enforced in the database** (user's choice), not only in server code: RESTRICTIVE policies keep a remote admin to suggested tasks, or urgent ones while the helper is on shift (never overriding her off-hours), urgent Quick Utos on shift, no appointment / invite-flag / payout-attempt writes; she may approve vales and set the budget (`plan.md`: usually the funding source). Also closes a hole: `payout_attempts_isolation` let a helper's session write payout attempts.
+  - **Web** (works before the SQL is applied; the new parts stay hidden until then): household switcher in the top bar (switch, New household, Join with a code), a Managers section on People (roster, invite codes, role, make primary, remove, leave), sign-up and the setup screen can join with a code, the send gate holds a remote admin to the same rules, and the unused `INITIAL_ADMINS` mock and "View as" switcher are gone.
+  - **Mobile:** no change needed: `getAccountKind()` only checks that `user_type` is a manager type, and the WebView keeps working through a switch.
+- **To close:** Apply `add-household-managers.sql` in the SQL editor (after `add-account-deletion.sql`, `fix-helper-write-access.sql` and `add-ticket-ledger.sql`), invite a second manager on the deployed site, then move this to Closed Gaps. Owned by `LINARA`.
 
 ### O18. The mobile app's manager side is the web dashboard in a WebView, not native screens
 
@@ -105,6 +111,14 @@ the bottom.
 - **Blocks:** Nothing until the client confirms.
 - **Current workaround:** A manager sets it on the web.
 - **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
+
+### O34. Co-managers can manage helpers, though `plan.md` says only the primary manager can
+
+- **Found:** 2026-10-03, while building O2's manager roles.
+- **What's missing:** `plan.md` §1.2's first row, "Manage Admins & Helpers", is primary-only. Managers (O2) follow it. Helpers don't: inviting one (`inviteHelperFn`), changing her wage (`updateHelperWageFn`) or pantry role, and ending her employment (`end_helper_employment` and the other SECURITY DEFINER functions in `add-employment-end.sql` / `add-cancelled-tasks.sql`) all admit a co-manager too, as does `helper_profiles`' manager write policy (`is_household_manager()`).
+- **Blocks:** Nothing until a household has a co-manager (possible once O2's SQL is applied).
+- **Current workaround:** None; it's the code's behaviour today.
+- **To close:** Decide which is right. If the plan: limit those functions and policies to `primary_manager` (and hide the buttons for co-managers). If the code: change `plan.md` §1.2 to "Manage Admins: primary; Manage Helpers: primary and co". Also open in that table: whether a remote admin may pay wages through Linara; today only primary and co-managers can (`initiate_payslip`). Owned by `LINARA`.
 
 ## Closed Gaps
 
