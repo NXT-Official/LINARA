@@ -21,7 +21,8 @@ if (existsSync(".env.e2e")) process.loadEnvFile(".env.e2e");
  * - Any of these can go in .env.e2e (gitignored) instead of the shell.
  *
  * The signed-in checks read and open dialogs; they don't save, delete, or
- * pay (e2e/manager.spec.ts says what each one touches).
+ * pay (e2e/manager.spec.ts says what each one touches). The exception is
+ * e2e/deep, which only runs with E2E_DEEP=1 (e2e/deep/cleanup.ts).
  */
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:8080";
 const AUTH_FILE = "test-results/.auth/manager.json";
@@ -41,14 +42,28 @@ export default defineConfig({
     { name: "sign-in", testMatch: /sign-in\.setup\.ts/ },
     {
       name: "desktop",
+      testIgnore: /deep\//,
       use: { ...devices["Desktop Chrome"], storageState: AUTH_FILE },
       dependencies: ["sign-in"],
     },
     {
       name: "phone",
+      testIgnore: /deep\//,
       use: { ...devices["Pixel 7"], storageState: AUTH_FILE },
       dependencies: ["sign-in"],
     },
+    // e2e/deep writes to the test household (and deletes it again), so only
+    // when asked (E2E_DEEP=1, npm run qa:deep), and once: desktop only.
+    ...(process.env.E2E_DEEP
+      ? [
+          {
+            name: "deep",
+            testMatch: /deep\/.*\.spec\.ts/,
+            use: { ...devices["Desktop Chrome"], storageState: AUTH_FILE },
+            dependencies: ["sign-in"],
+          },
+        ]
+      : []),
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
