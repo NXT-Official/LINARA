@@ -89,4 +89,29 @@ test.describe("manager", () => {
     await expect(dialog).toBeHidden();
     expect(payoutCalls).toEqual([]);
   });
+
+  test("the household menu lists your households and how to add one", async ({ page }) => {
+    await page.goto("/manager/pass");
+    await settle(page);
+    const menu = page.getByRole("button", { name: /^Household: / });
+    await expect(menu).toBeVisible();
+    await menu.click();
+    await expect(page.getByRole("menuitem", { name: /New household/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Join with a code/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
+
+  test("People lists the managers; the primary can invite one", async ({ page }) => {
+    await page.goto("/manager/people");
+    await settle(page);
+    await expect(page.getByRole("heading", { name: "Managers" })).toBeVisible();
+    await expect(page.getByText("You", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: /Invite a manager/ }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("radio", { name: /Co-manager/ })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: /Remote admin/ })).toBeVisible();
+    // Closing without "Make a code" makes nothing.
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  });
 });
