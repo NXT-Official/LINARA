@@ -296,7 +296,9 @@ export const decideValeFn = createServerFn({ method: "POST" })
       throw new Error("Unauthorized: Profile not found");
     }
 
-    if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
+    // A remote admin too: plan.md 1.2, "usually the funding source"
+    // (supabase/add-household-managers.sql lets the database agree).
+    if (!["primary_manager", "co_manager", "remote_admin"].includes(profile.user_type)) {
       throw new Error("Forbidden: Only managers can decide vale requests");
     }
 

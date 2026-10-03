@@ -6,10 +6,11 @@ import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
 import { toHouseholdClock, toISODate } from "@/lib/time";
 
 import { AccountSection } from "../components/account-section";
+import { ManagersSection } from "../components/managers-section";
 import { PastStaffSection } from "../components/past-staff-section";
 import { PeopleSection } from "../components/people-section";
 
-/** The household roster: admins, helpers and their leave, pending invites, past staff, and your own account. */
+/** The household roster: managers, helpers and their leave, pending invites, past staff, and your own account. */
 export function PeoplePage() {
   const {
     session,
@@ -23,7 +24,7 @@ export function PeoplePage() {
     timeOff,
     clock,
   } = useAppStores();
-  const { admins, currentAdmin, adminType } = session;
+  const { currentAdmin, adminType } = session;
   const canInvite = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
 
@@ -33,29 +34,30 @@ export function PeoplePage() {
   return (
     <>
       <h1 className="sr-only">People</h1>
-      <PeopleSection
-        admins={admins}
-        currentAdmin={currentAdmin}
-        invites={current}
-        canInvite={canInvite}
-        onInvite={(data) => invites.create(data, authorName)}
-        onCancelInvite={invites.cancel}
-        onUpdateWage={invites.updateWage}
-        onSetPantryRole={invites.setPantryRole}
-        helpers={helpers}
-        activeHelpers={activeHelpers}
-        token={session.token}
-        onEndEmployment={async (id, lastDay, reassignTo) => {
-          await invites.endEmployment(id, lastDay, reassignTo);
-          // Her open tasks moved or went, and pending vales were declined.
-          await Promise.all([
-            board.refresh(),
-            vales.refresh(),
-            payslips.refresh(),
-            payPeriods.refresh(),
-          ]);
-        }}
-      />
+      <ManagersSection />
+      <div className="mt-6">
+        <PeopleSection
+          invites={current}
+          canInvite={canInvite}
+          onInvite={(data) => invites.create(data, authorName)}
+          onCancelInvite={invites.cancel}
+          onUpdateWage={invites.updateWage}
+          onSetPantryRole={invites.setPantryRole}
+          helpers={helpers}
+          activeHelpers={activeHelpers}
+          token={session.token}
+          onEndEmployment={async (id, lastDay, reassignTo) => {
+            await invites.endEmployment(id, lastDay, reassignTo);
+            // Her open tasks moved or went, and pending vales were declined.
+            await Promise.all([
+              board.refresh(),
+              vales.refresh(),
+              payslips.refresh(),
+              payPeriods.refresh(),
+            ]);
+          }}
+        />
+      </div>
       <div className="mt-6">
         <LeaveSection
           helpers={activeHelpers}

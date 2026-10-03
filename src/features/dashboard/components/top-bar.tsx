@@ -2,18 +2,18 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Wifi, WifiOff } from "lucide-react";
 
 import { LogoMark } from "@/components/shared/logo";
+import { HouseholdSwitcher } from "@/features/people/components/household-switcher";
 
 import { useAppStores } from "../app-store-context";
 // DISABLED 2026-08-15 (see use-sim-clock.ts / KNOWN_GAPS.md C28) -- time
 // simulation caused real testing confusion. Re-enable by restoring this
 // import and the <SimClock> render below.
 // import { SimClock } from "./sim-clock";
-import { ViewAsSwitcher } from "./view-as-switcher";
 
-/** Brand, persona switcher, and log out. "End the day" lives on the Pass. */
+/** Brand, household switcher, and log out. "End the day" lives on the Pass. */
 export function TopBar() {
   const { session, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
-  const { currentAdminId, setCurrentAdminId, admins, status, logOut } = session;
+  const { status, logOut } = session;
   const navigate = useNavigate();
 
   return (
@@ -34,18 +34,6 @@ export function TopBar() {
             </span>
           </span>
         </Link>
-
-        {/* Only a household with more than one admin has anyone to switch to.
-            On a phone it takes its own full-width row. */}
-        {admins.length > 1 && (
-          <div className="order-last w-full sm:order-none sm:w-auto">
-            <ViewAsSwitcher
-              admins={admins}
-              currentAdminId={currentAdminId}
-              onSelectAdmin={setCurrentAdminId}
-            />
-          </div>
-        )}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Being online is the normal case and says nothing; only a real
@@ -83,6 +71,7 @@ export function TopBar() {
               )}
             </button>
           )}
+          {status === "authed" && <HouseholdSwitcher />}
           {/* DISABLED 2026-08-15 -- see use-sim-clock.ts. */}
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
           {status === "authed" && (

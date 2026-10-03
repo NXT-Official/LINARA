@@ -236,8 +236,8 @@ export function NewTaskModal({
             className="mt-0.5 h-4 w-4 accent-primary"
           />
           <span className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Send live · urgent</span> — skip
-            approval and drop it straight on the board (still attributed to you).
+            <span className="font-semibold text-foreground">Send live · urgent</span>: straight to
+            her if she's on shift. If she's off, it goes to the on-site managers instead.
           </span>
         </label>
       )}

@@ -1,14 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  claimManagerInviteFn,
+  createHouseholdFn,
+  leaveHouseholdFn,
+  listMyHouseholdsFn,
+  managerRosterFn,
+  removeManagerFn,
+  setManagerRoleFn,
+  switchHouseholdFn,
+  type ActiveHousehold,
+} from "../household.actions";
+import {
   finishBootstrapFn,
   getManagerProfileFn,
   managerLoginFn,
   managerSignUpFn,
   refreshManagerSessionFn,
 } from "../people.actions";
-import type { Admin, AdminType } from "../people.types";
+import type {
+  Admin,
+  AdminType,
+  HouseholdSummary,
+  ManagerMember,
+  ManagerRole,
+} from "../people.types";
 import { setHouseholdTimeZone } from "@/lib/time";
+import { managerRoleType } from "../people.constants";
 import { isDueForRenewal, msUntilRenewal } from "../people.utils";
 
 const TOKEN_KEY = "linara_manager_token";
@@ -18,6 +36,9 @@ const HOUSEHOLD_ID_KEY = "linara_manager_household_id";
 
 // Offline, or Supabase down: try again after this long.
 const RENEW_RETRY_MS = 60_000;
+// How often an open, visible dashboard checks it's still in the household
+// the account is in (a switch on another device moves the whole account).
+const HOUSEHOLD_CHECK_MS = 120_000;
 
 /**
  * Inside LINARA_MOBILE's WebView (app/manager.tsx) the app renews the session
@@ -65,17 +86,7 @@ async function renewStoredSession(held: string): Promise<Renewal> {
 
 export type SessionStatus = "loading" | "anon" | "needs_bootstrap" | "authed";
 
-// user_profiles.user_type (DB vocabulary) -> AdminType (UI vocabulary).
-// people.constants.ts's labels/permissions and every consumer of
-// Admin.type are keyed on the UI side, so this mapping has to happen once,
-// right here, wherever a real profile row becomes an Admin.
-const USER_TYPE_TO_ADMIN_TYPE: Record<string, AdminType> = {
-  primary_manager: "primary",
-  co_manager: "co",
-  remote_admin: "remote",
-};
-
-function buildAdmin(fullName: string, userType: string): Admin {
+function buildAdmin(id: string, fullName: string, userType: string): Admin {
   const trimmed = fullName.trim() || "Manager";
   const short = trimmed.split(" ")[0] || trimmed;
   const initials =
@@ -86,34 +97,64 @@ function buildAdmin(fullName: string, userType: string): Admin {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "M";
+  // people.constants.ts's labels and every consumer of Admin.type are keyed
+  // on the UI side, so the database role is mapped once, here.
+  const type = managerRoleType[userType as ManagerRole] ?? "primary";
   return {
-    id: "me",
+    id,
     name: trimmed,
     short,
     initials,
-    type: USER_TYPE_TO_ADMIN_TYPE[userType] ?? "primary",
-    location: "On-site",
+    type,
+    location: type === "remote" ? "Remote" : "On-site",
   };
+}
+
+/**
+ * After a switch, a new household or a claimed code: the account is in a
+ * different household now, so the whole dashboard loads again for it.
+ */
+function enterHousehold(result: ActiveHousehold) {
+  if (result.householdId) window.localStorage.setItem(HOUSEHOLD_ID_KEY, result.householdId);
+  else window.localStorage.removeItem(HOUSEHOLD_ID_KEY);
+  window.location.assign("/manager/pass");
 }
 
 export type Session = {
   status: SessionStatus;
+  /** Everyone who manages the household you're in; just you until it loads. */
   admins: Admin[];
-  currentAdminId: string;
-  /** No-op: Phase 1 has exactly one manager per session, nothing to switch to. */
-  setCurrentAdminId: (id: string) => void;
   currentAdmin: Admin | null;
   adminType: AdminType | null;
-  /** No-op: no updateUserType RPC exists yet; co-manager role changes are out of Phase 1 scope. */
-  updateAdminType: (id: string, type: AdminType) => void;
   token: string | null;
   userId: string | null;
   householdId: string | null;
+  /**
+   * supabase/add-household-managers.sql is applied: households, the roster
+   * and manager invites are real. False before then, and the dashboard
+   * stays one manager, one household.
+   */
+  multiManager: boolean;
+  /** Every household this account manages, the current one marked. */
+  households: HouseholdSummary[];
+  /** The household you're in, by name (null until the list loads). */
+  householdName: string | null;
+  managers: ManagerMember[];
+  refreshManagers: () => Promise<void>;
+  /** These reload the dashboard into the household they leave the account in. */
+  switchHousehold: (householdId: string) => Promise<void>;
+  createHousehold: (name: string) => Promise<void>;
+  joinHousehold: (code: string, fullName?: string) => Promise<void>;
+  leaveHousehold: () => Promise<void>;
+  setManagerRole: (userId: string, role: ManagerRole) => Promise<void>;
+  removeManager: (userId: string) => Promise<void>;
   signUp: (data: {
     fullName: string;
     householdName?: string;
     email: string;
     password: string;
+    /** Join that household with a manager code instead of starting one. */
+    inviteCode?: string;
   }) => Promise<"authed" | "confirmation_pending">;
   logIn: (data: {
     email: string;
@@ -133,8 +174,19 @@ export function useSession(): Session {
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const [multiManager, setMultiManager] = useState(false);
+  const [households, setHouseholds] = useState<HouseholdSummary[]>([]);
+  const [managers, setManagers] = useState<ManagerMember[]>([]);
+  // The newest token, without re-running effects at every renewal.
+  const tokenRef = useRef<string | null>(null);
+  tokenRef.current = token;
 
-  const persist = (accessToken: string, refreshToken: string, uid: string, hhId?: string) => {
+  const persist = (
+    accessToken: string,
+    refreshToken: string,
+    uid: string,
+    hhId?: string | null,
+  ) => {
     window.localStorage.setItem(TOKEN_KEY, accessToken);
     window.localStorage.setItem(REFRESH_KEY, refreshToken);
     window.localStorage.setItem(USER_ID_KEY, uid);
@@ -191,7 +243,7 @@ export function useSession(): Session {
         }
         setHouseholdTimeZone(result.timeZone);
         setHouseholdId(result.householdId);
-        setAdmin(buildAdmin(result.fullName, result.userType));
+        setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
         setStatus("authed");
       })
       .catch((err) => {
@@ -217,7 +269,7 @@ export function useSession(): Session {
     setToken(result.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
-    setAdmin(buildAdmin(result.fullName, result.userType));
+    setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
     setStatus("authed");
     return "authed";
   }, []);
@@ -242,7 +294,7 @@ export function useSession(): Session {
     setToken(result.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
-    setAdmin(buildAdmin(result.fullName, result.userType));
+    setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
     setStatus("authed");
     return "authed";
   }, []);
@@ -254,7 +306,7 @@ export function useSession(): Session {
       window.localStorage.setItem(HOUSEHOLD_ID_KEY, result.householdId);
       setHouseholdTimeZone(result.timeZone);
       setHouseholdId(result.householdId);
-      setAdmin(buildAdmin(result.fullName, result.userType));
+      setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
       setStatus("authed");
     },
     [token],
@@ -309,23 +361,118 @@ export function useSession(): Session {
     };
   }, [token, status, logOut]);
 
-  const admins = admin ? [admin] : [];
+  // Your households and this household's managers, once signed in to one.
+  const refreshManagers = useCallback(async () => {
+    const current = tokenRef.current;
+    if (!current) return;
+    const [mine, roster] = await Promise.all([
+      listMyHouseholdsFn({ data: { token: current } }),
+      managerRosterFn({ data: { token: current } }),
+    ]);
+    setMultiManager(mine.available && roster.available);
+    setHouseholds(mine.households);
+    setManagers(roster.managers);
+  }, []);
+
+  useEffect(() => {
+    if (status !== "authed" || !householdId) return;
+    refreshManagers().catch((err) => {
+      console.error("[useSession] Couldn't load households and managers:", err);
+    });
+  }, [status, householdId, refreshManagers]);
+
+  // A switch made in another tab, or on another device (one active
+  // household per account), moves this dashboard too.
+  useEffect(() => {
+    if (status !== "authed" || !householdId) return;
+    let lastCheck = Date.now();
+    const check = async () => {
+      const current = tokenRef.current;
+      if (!current || document.visibilityState !== "visible") return;
+      lastCheck = Date.now();
+      try {
+        const profile = await getManagerProfileFn({ data: { token: current } });
+        const now = profile.status === "authed" ? profile.householdId : null;
+        if (now !== householdId) enterHousehold({ householdId: now, userType: "", timeZone: null });
+      } catch {
+        // Offline or a stale token: the renewal effect handles that.
+      }
+    };
+    const onVisible = () => {
+      if (Date.now() - lastCheck > 30_000) void check();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === HOUSEHOLD_ID_KEY && e.newValue && e.newValue !== householdId) {
+        window.location.reload();
+      }
+    };
+    const timer = window.setInterval(() => void check(), HOUSEHOLD_CHECK_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [status, householdId]);
+
+  const withToken = <A extends unknown[], R>(fn: (token: string, ...args: A) => Promise<R>) => {
+    return async (...args: A) => {
+      const current = tokenRef.current;
+      if (!current) throw new Error("Not signed in");
+      return fn(current, ...args);
+    };
+  };
+
+  const switchHousehold = withToken(async (t, id: string) => {
+    enterHousehold(await switchHouseholdFn({ data: { token: t, householdId: id } }));
+  });
+  const createHousehold = withToken(async (t, name: string) => {
+    enterHousehold(await createHouseholdFn({ data: { token: t, name } }));
+  });
+  const joinHousehold = withToken(async (t, code: string, fullName?: string) => {
+    enterHousehold(await claimManagerInviteFn({ data: { token: t, code, fullName } }));
+  });
+  const leaveHousehold = withToken(async (t) => {
+    enterHousehold(await leaveHouseholdFn({ data: { token: t } }));
+  });
+  const setManagerRole = withToken(async (t, id: string, role: ManagerRole) => {
+    await setManagerRoleFn({ data: { token: t, userId: id, role } });
+    // Handing over primary changes your own role: load as the new you.
+    if (role === "primary_manager") window.location.reload();
+    else await refreshManagers();
+  });
+  const removeManager = withToken(async (t, id: string) => {
+    await removeManagerFn({ data: { token: t, userId: id } });
+    await refreshManagers();
+  });
+
+  const admins =
+    multiManager && managers.length > 0
+      ? managers.map((m) => buildAdmin(m.userId, m.fullName, m.role))
+      : admin
+        ? [admin]
+        : [];
 
   return {
     status,
     admins,
-    currentAdminId: admin?.id ?? "",
-    setCurrentAdminId: () => {},
     currentAdmin: admin,
     adminType: admin?.type ?? null,
-    updateAdminType: () => {
-      console.warn(
-        "updateAdminType has no backend yet -- co-manager role changes are out of scope for Phase 1.",
-      );
-    },
     token,
     userId,
     householdId,
+    multiManager,
+    households,
+    householdName: households.find((h) => h.isCurrent)?.name ?? null,
+    managers,
+    refreshManagers,
+    switchHousehold,
+    createHousehold,
+    joinHousehold,
+    leaveHousehold,
+    setManagerRole,
+    removeManager,
     signUp,
     logIn,
     finishBootstrap,
