@@ -1,0 +1,12 @@
+#!/bin/sh
+# Before every push: typecheck, lint and unit tests (npm run qa:fast, about a
+# minute). A failure stops the push; qa-reports/latest.md says what broke.
+# It checks the files on disk, uncommitted changes included.
+# Skip once with `git push --no-verify`. Turned on by `npm install`
+# (scripts/install-hooks.mjs).
+echo "pre-push: npm run qa:fast (skip with git push --no-verify)"
+npm run --silent qa:fast || {
+  echo ""
+  echo "Push stopped: fix the failures above, or git push --no-verify."
+  exit 1
+}

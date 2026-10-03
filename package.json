@@ -19,7 +19,9 @@
     "test:e2e": "playwright test",
     "qa": "node scripts/qa.mjs",
     "qa:fast": "node scripts/qa.mjs --fast",
-    "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs && node supabase/tests/ticket-comments.test.mjs && node supabase/tests/leave.test.mjs && node supabase/tests/write-access.test.mjs && node supabase/tests/unpaid-leave-pay.test.mjs && node supabase/tests/cancelled-tasks.test.mjs && node supabase/tests/grocery-restock.test.mjs && node supabase/tests/ticket-ledger.test.mjs && node supabase/tests/pantry-roles.test.mjs && node supabase/tests/leave-policy.test.mjs && node supabase/tests/grocery-receipts.test.mjs"
+    "qa:live": "node scripts/qa.mjs --live",
+    "test:sql": "node supabase/tests/pay-periods.test.mjs && node supabase/tests/privacy.test.mjs && node supabase/tests/ticket-comments.test.mjs && node supabase/tests/leave.test.mjs && node supabase/tests/write-access.test.mjs && node supabase/tests/unpaid-leave-pay.test.mjs && node supabase/tests/cancelled-tasks.test.mjs && node supabase/tests/grocery-restock.test.mjs && node supabase/tests/ticket-ledger.test.mjs && node supabase/tests/pantry-roles.test.mjs && node supabase/tests/leave-policy.test.mjs && node supabase/tests/grocery-receipts.test.mjs",
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

@@ -349,10 +349,25 @@ First time on a machine: `npx playwright install chromium`.
 
 `bun run qa` runs what the client's QA bot checks, on your machine: typecheck, lint, unit
 and SQL tests, a production build, then the browser tests against that build on port 8091
-(so it doesn't clash with `bun run dev`). Every step runs even after a failure. It writes
-`qa-reports/<time>/report.md` (and `qa-reports/latest.md`) with a log per step, and exits 1
-if anything failed. About four minutes; `bun run qa:fast` is the first three steps. The
-mobile repo has the same command (`../LINARA_MOBILE`, without browser tests).
+(so it doesn't clash with `bun run dev`). Every step runs even after a failure. About four
+minutes.
+
+- `bun run qa:fast`: typecheck, lint and unit tests, about a minute.
+- `bun run qa:live`: the browser tests against the deployed site (`QA_LIVE_URL`, default
+  https://linara-delta.vercel.app). Read-only, like the local ones.
+- **Issues:** every failure becomes an issue with an ID (`W-1`; mobile's are `M-1`) kept in
+  `qa-reports/issues.json` across runs. It's marked fixed when a run of the same check no
+  longer finds it; a fast run doesn't close what it didn't check, and the live site's issues
+  are tracked apart from this machine's.
+- **Report:** `qa-reports/latest.md` (and `qa-reports/<time>/` with a log per step): each
+  check, open issues (new ones flagged), what was fixed since the last run, and the last
+  lines of whatever failed.
+- **Before every push**, a git hook runs `qa:fast` and stops the push if it fails
+  (`git push --no-verify` skips it once). `bun install` turns it on (`.githooks/`,
+  `scripts/install-hooks.mjs`).
+
+The mobile repo has the same commands and hook (`../LINARA_MOBILE`, without browser tests).
+The runner, `scripts/qa-runner.mjs`, is the same file in both; change both.
 
 ---
 
