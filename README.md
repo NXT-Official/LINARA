@@ -360,7 +360,7 @@ minutes.
 - `bun run qa:deep`: build, then `e2e/deep` (about a minute), the checks that change data.
   A task is made on the Pass, reloaded, moved, found on the Schedule and cancelled; a pantry
   item that's run out is suggested, added to the list, ticked bought (the pantry count goes
-  up, C82), unticked and removed. The task is Unassigned so no helper is notified. Every row
+  up, C82), unticked and removed; and a helper's GCash is paid directly (her test number saved, the Pay screen shows it and the exact amount, "I've sent it" records it), then withdrawn. The task is Unassigned so no helper is notified. Every row
   is named `QA deep test … (delete me)` and deleted afterwards, and before each run, through
   the API as the test manager (`e2e/deep/cleanup.ts`). Never part of `qa` or the hook.
 - **Issues:** every failure becomes an issue with an ID (`W-1`; mobile's are `M-1`) kept in

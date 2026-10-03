@@ -117,23 +117,22 @@ the bottom.
 
 - **Found:** 2026-10-03, while building O2's manager roles. `plan.md` §1.2 had no row for paying.
 - **Decided (client, 2026-10-03):** co-managers manage helpers (`plan.md` and `README.md` split "Manage Admins & Helpers"), and a remote admin pays wages (new "Pay Wages" row: primary, co and remote).
-- **Fix written, not yet applied (2026-10-03):** `supabase/add-remote-admin-pay.sql`. Every payment goes through `pay_target()` (the GCash / Maya payout via `initiate_payslip`, and "Paid outside Linara"), plus `withdraw_offapp_payslip()`; the SQL reads each one's live definition and adds `remote_admin` to its role list, nothing else, and refuses if that list isn't there. PGlite: `supabase/tests/remote-admin-pay.test.mjs`. Web: Money and Past staff show Pay to every manager role.
-- **Current workaround:** Until it's applied, a remote admin's Pay is refused by the database ("only managers can pay a helper").
-- **To close:** Apply `add-remote-admin-pay.sql` (after `add-pay-periods.sql`, `add-unpaid-leave-pay.sql` and `add-household-managers.sql`), then move this to Closed Gaps. Owned by `LINARA`.
+- **Fix, applied 2026-10-03:** `supabase/add-remote-admin-pay.sql`. Every payment goes through `pay_target()` (the GCash / Maya payout via `initiate_payslip`, and "Paid outside Linara"), plus `withdraw_offapp_payslip()`; the SQL reads each one's live definition and adds `remote_admin` to its role list, nothing else, and refuses if that list isn't there. PGlite: `supabase/tests/remote-admin-pay.test.mjs`. Web: Money and Past staff show Pay to every manager role.
+- **To close:** Pay as a real remote admin on the deployed site (needs a second manager test account, as O2 does), then move this to Closed Gaps. Owned by `LINARA`.
 
 ### O35. Nothing collects the money a payout sends: Linara's own Xendit balance paid every helper
 
 - **Found:** 2026-10-03, when the client asked how linked cards are handled.
 - **Was:** No linked cards or any money coming in. `initiatePayoutFn` (`src/features/pay/pay.actions.ts`) sends `POST /v2/payouts` with Linara's single `XENDIT_SECRET_WRITE_KEY`, to the helper's GCash / Maya, from that account's balance; nothing charged the household. In the sandbox that's invisible (test mode doesn't check the balance); with real money Linara would pay every salary itself.
 - **Decided (client, 2026-10-03):** Linara shouldn't hold or move money. The household pays her GCash or Maya directly and Linara keeps the record. Xendit stays in the code, off, for the "debit in advance" option written up for the client (charge the household's saved GCash / card a few days before payday, pay out on payday once it settles: GCash settles in 2 calendar days, cards in about a week).
-- **Fix written, not yet applied (2026-10-03):** `supabase/add-direct-gcash-pay.sql`, tested in `supabase/tests/direct-gcash-pay.test.mjs`.
+- **Fix, applied 2026-10-03:** `supabase/add-direct-gcash-pay.sql`, tested in `supabase/tests/direct-gcash-pay.test.mjs`.
   - `helper_payout_accounts`: where she wants to be paid, written only by her; managers of a household she works (or worked) in read it. Her QR goes to `payout/<her user id>/` in household-evidence, which only she can write.
   - `record_offapp_payslip` accepts `PH_GCASH` and `PH_PAYMAYA`.
   - **Web:** "Pay by GCash or Maya" (Money, missed periods, past staff) shows the exact amount (`previewPaymentFn`, the payslip's own figure, to the centavo), her number, name and QR, with copy buttons; "I've sent it" records it with the reference number, and she's asked to confirm. Before she saves her own, the invite's number is shown as unconfirmed. "Pay via GCash / Maya" through Xendit is hidden and refused server-side unless `XENDIT_PAYOUTS=on` (`payout-mode.ts`).
   - **Mobile:** My Pay has "Where to send my pay" (GCash or Maya, name, optional QR from her gallery). The existing "Natanggap mo ba?" asks her to confirm.
-- **Current workaround:** Until the SQL is applied, the Pay screen shows the number from her invite (unconfirmed) and recording a GCash / Maya payment is refused; "Paid outside Linara" (cash, bank, other) still works.
+- **Verified on the deployed site (2026-10-03):** `e2e/deep/pay.spec.ts` (in `npm run qa:deep`): the test helper saves a GCash number through the API, the test manager's Pay screen shows it, "I've sent it" records a `manual` / `PH_GCASH` payslip with `helper_ack` pending and the reference, at exactly the amount shown; then it's withdrawn and the number deleted.
 - **Still open:** GCash has no public way to open a send with the amount filled in, so the manager copies the number and amount (or scans her QR). A manager can still type a different number into GCash; the name check on GCash's confirm screen and her "did you receive it?" are the safeguards.
-- **To close:** Apply `add-direct-gcash-pay.sql` (after `add-pay-periods.sql`, `add-unpaid-leave-pay.sql` and `add-household-managers.sql`), have the test helper save a number in the app and the test manager pay it, then move this to Closed Gaps. Owned by both: the SQL and web in `LINARA`, the screen in `LINARA_MOBILE`.
+- **To close:** Save a number from the app's "Where to send my pay" on a real phone (the screen hasn't been device-tested), and confirm a payment there, then move this to Closed Gaps. Owned by both: the SQL and web in `LINARA`, the screen in `LINARA_MOBILE`.
 
 ## Closed Gaps
 
