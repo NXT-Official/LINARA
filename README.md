@@ -31,7 +31,8 @@ Linara coordinates three key administrative stakeholders and the household staff
 
 | Permission / Power             | Primary Manager (On-Site)  | Co-Manager (On-Site)       | Remote Admin (OFW)                            | Helper (Kasambahay)     |
 | :----------------------------- | :------------------------- | :------------------------- | :-------------------------------------------- | :---------------------- |
-| **Manage Admins & Helpers**    | Yes                        | No                         | No                                            | No                      |
+| **Manage Admins**              | Yes                        | No                         | No                                            | No                      |
+| **Manage Helpers (invite, wage, end employment)** | Yes          | Yes                        | No                                            | No                      |
 | **Edit Schedules & Rest Days** | Yes                        | Yes                        | View-Only                                     | View-Only               |
 | **Assign / Approve Tickets**   | Yes (Live)                 | Yes (Live)                 | Suggested by default, Live on urgent override | View-Only / Claimable   |
 | **Approve Vales & Budgets**    | Yes                        | Yes                        | Yes (Usually funding source)                  | No                      |

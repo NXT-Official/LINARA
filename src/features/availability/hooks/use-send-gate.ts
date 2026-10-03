@@ -41,8 +41,11 @@ export type SendGate = {
  *
  * Sends while she is reachable go straight through. Otherwise they stop for a
  * choice: let it wait, override (logged as after-hours), or emergency. Remote
- * admins never reach that choice — their tasks queue as suggestions for an
- * on-site manager instead.
+ * admins never reach that choice (plan.md 1.2: no overriding her off-hours):
+ * their tasks are suggestions for an on-site manager, and only an urgent one
+ * goes live, while she's on shift. Quick Utos from a remote admin are urgent,
+ * and only reach her on shift. The database holds the same line
+ * (supabase/add-household-managers.sql).
  *
  * Status is resolved per-action, not fixed at instantiation: `addTask`
  * used to check the assigned task's own `helperId` against a single global
@@ -99,6 +102,16 @@ export function useSendGate({
 
   const sendUtos = async (content: string) => {
     const targetStatus = statusOf(utosTargetHelperId);
+    // On shift by her schedule: "Available" (her own opt-in) still counts as
+    // off for a remote admin, as it does for rest owed.
+    if (isRemote && targetStatus.status !== "on_shift") {
+      toast.error(
+        `${resolveHelperName(utosTargetHelperId)} is off shift. Add it as a task suggestion, and an on-site manager can decide.`,
+      );
+      return;
+    }
+    // A remote admin's Quick Utos goes out as urgent.
+    const remoteFlags = isRemote ? { emergency: true } : {};
     try {
       const result = await routeUtosFn({
         data: {
@@ -137,7 +150,7 @@ export function useSendGate({
           }
         }
 
-        if (result.boundaryWarn) {
+        if (result.boundaryWarn && !isRemote) {
           setIntent({
             kind: "utos",
             content: result.contentCleaned,
@@ -146,7 +159,7 @@ export function useSendGate({
             helperName: resolveHelperName(utosTargetHelperId),
           });
         } else {
-          onSendUtos(result.contentCleaned, { from: authorName });
+          onSendUtos(result.contentCleaned, { ...remoteFlags, from: authorName });
         }
       }
     } catch (err) {
@@ -160,15 +173,24 @@ export function useSendGate({
           helperName: resolveHelperName(utosTargetHelperId),
         });
       } else {
-        onSendUtos(content, { from: authorName });
+        onSendUtos(content, { ...remoteFlags, from: authorName });
       }
     }
   };
 
   const addTask = (t: TaskDraft, opts: { sendLive?: boolean } = {}) => {
-    // Remote admins queue tasks as suggestions for on-site managers by default.
-    if (isRemote && !opts.sendLive) {
-      onAddTask(stamp(t), { suggested: true });
+    // Remote admins suggest; "Send live" is urgent, and only while she's on shift.
+    if (isRemote) {
+      const live =
+        opts.sendLive && t.helperId !== null && statusOf(t.helperId).status === "on_shift";
+      if (opts.sendLive && !live) {
+        toast.info(
+          t.helperId
+            ? `${resolveHelperName(t.helperId)} is off shift, so it went to the on-site managers as a suggestion.`
+            : "Nobody is assigned, so it went to the on-site managers as a suggestion.",
+        );
+      }
+      onAddTask(stamp(t), live ? { emergency: true } : { suggested: true });
       return;
     }
     // Unassigned: nobody to disturb, so no wall. It reaches someone only when

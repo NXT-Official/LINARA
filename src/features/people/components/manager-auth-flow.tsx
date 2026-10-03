@@ -7,6 +7,19 @@ import { Field } from "@/components/shared/field";
 import { LogoMark } from "@/components/shared/logo";
 
 import { useSession } from "../hooks/use-session";
+import { JoinHouseholdForm } from "./household-switcher";
+
+// A manager code given at sign-up, kept while the email waits to be
+// confirmed, so the setup screen after it can join with it.
+const PENDING_CODE_KEY = "linara_pending_manager_code";
+
+function pendingCode(): string {
+  try {
+    return window.localStorage.getItem(PENDING_CODE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Full-page manager sign up / log in. Not mounted under `_app` (no
@@ -30,6 +43,19 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(false);
+  // Sign-up joining a household that already exists, with its code.
+  const [withCode, setWithCode] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  // The setup screen: join one instead of starting one.
+  const [joining, setJoining] = useState(false);
+  useEffect(() => {
+    if (session.status === "needs_bootstrap" && pendingCode()) setJoining(true);
+  }, [session.status]);
+
+  const joinAndForget = async (code: string, name?: string) => {
+    await session.joinHousehold(code, name);
+    window.localStorage.removeItem(PENDING_CODE_KEY);
+  };
 
   // Signed in (already, or just now): into the app. Replace, so Back from the
   // app goes to wherever the visitor came from, not to this form.
@@ -56,18 +82,25 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         toast.error("Dapat may kahit anim (6) na characters ang password.");
         return;
       }
+      if (withCode && inviteCode.replace(/s/g, "").length !== 8) {
+        toast.error("The invite code is 8 letters and numbers.");
+        return;
+      }
     }
 
     setLoading(true);
     try {
       if (mode === "signup") {
+        const code = withCode ? inviteCode.replace(/s/g, "").toUpperCase() : undefined;
         const result = await session.signUp({
           fullName: fullName.trim(),
-          householdName: householdName.trim() || undefined,
+          householdName: code ? undefined : householdName.trim() || undefined,
           email: email.trim(),
           password,
+          inviteCode: code,
         });
         if (result === "confirmation_pending") {
+          if (code) window.localStorage.setItem(PENDING_CODE_KEY, code);
           setConfirmationPending(true);
           toast.info(
             "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos mag-log in.",
@@ -75,7 +108,9 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
           setMode("login");
           return;
         }
-        toast.success("Tagumpay! Nagawa na ang household mo.");
+        toast.success(
+          code ? "You've joined the household." : "Tagumpay! Nagawa na ang household mo.",
+        );
       } else {
         const result = await session.logIn({ email: email.trim(), password });
         if (result === "confirmation_pending") {
@@ -138,43 +173,63 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
           <LogoMark className="h-10 w-10" />
-          <h1 className="mt-4 font-display text-2xl text-foreground">Finish setting up</h1>
+          <h1 className="mt-4 font-display text-2xl text-foreground">
+            {joining ? "Join a household" : "Finish setting up"}
+          </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Naka-confirm na ang email mo. Ilagay na lang ang pangalan mo at household name.
+            {joining
+              ? "Enter the code its primary manager gave you."
+              : "Set up your household: your name, and what to call it."}
           </p>
-          <div className="mt-4 space-y-3">
-            <Field label="Your name">
-              <input
-                disabled={loading}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Ben Santos"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-              />
-            </Field>
-            <Field label="Household name (optional)">
-              <input
-                disabled={loading}
-                value={householdName}
-                onChange={(e) => setHouseholdName(e.target.value)}
-                placeholder="e.g. Santos Household"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-              />
-            </Field>
-          </div>
-          <button
-            onClick={submitBootstrap}
-            disabled={loading || !fullName.trim()}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Setting up...
-              </>
-            ) : (
-              "Finish setup"
-            )}
-          </button>
+          {joining ? (
+            <JoinHouseholdForm
+              token={session.token}
+              onJoin={joinAndForget}
+              askName
+              initialCode={pendingCode()}
+            />
+          ) : (
+            <div className="mt-4 space-y-3">
+              <Field label="Your name">
+                <input
+                  disabled={loading}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. Ben Santos"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+                />
+              </Field>
+              <Field label="Household name (optional)">
+                <input
+                  disabled={loading}
+                  value={householdName}
+                  onChange={(e) => setHouseholdName(e.target.value)}
+                  placeholder="e.g. Santos Household"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+                />
+              </Field>
+            </div>
+          )}
+          {!joining && (
+            <button
+              onClick={submitBootstrap}
+              disabled={loading || !fullName.trim()}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Setting up...
+                </>
+              ) : (
+                "Finish setup"
+              )}
+            </button>
+          )}
+          <SwitchLink onClick={() => setJoining(!joining)}>
+            {joining
+              ? "Setting up a new household instead? Go back"
+              : "Joining a household that's already set up? Use your code"}
+          </SwitchLink>
         </div>
       </div>
     );
@@ -236,11 +291,17 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
         <LogoMark className="h-10 w-10" />
         <h1 className="mt-4 font-display text-2xl text-foreground">
-          {mode === "signup" ? "Set up your household" : "Welcome back"}
+          {mode === "signup"
+            ? withCode
+              ? "Join a household"
+              : "Set up your household"
+            : "Welcome back"}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {mode === "signup"
-            ? "Gawin ang employer account mo para sa household mo."
+            ? withCode
+              ? "Make your manager account, with the code the household's primary manager gave you."
+              : "Gawin ang employer account mo para sa household mo."
             : "Mag-sign in sa Linara, employer man o kasambahay."}
         </p>
 
@@ -265,15 +326,30 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
                   className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
                 />
               </Field>
-              <Field label="Household name (optional)">
-                <input
-                  disabled={loading}
-                  value={householdName}
-                  onChange={(e) => setHouseholdName(e.target.value)}
-                  placeholder="e.g. Santos Household"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-                />
-              </Field>
+              {withCode ? (
+                <Field label="Invite code">
+                  <input
+                    disabled={loading}
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    placeholder="8 letters and numbers"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm uppercase tracking-widest outline-none focus:border-primary disabled:opacity-60"
+                  />
+                </Field>
+              ) : (
+                <Field label="Household name (optional)">
+                  <input
+                    disabled={loading}
+                    value={householdName}
+                    onChange={(e) => setHouseholdName(e.target.value)}
+                    placeholder="e.g. Santos Household"
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+                  />
+                </Field>
+              )}
             </>
           )}
           <Field label="Email">
@@ -321,7 +397,11 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
               {mode === "signup" ? "Setting up..." : "Logging in..."}
             </>
           ) : mode === "signup" ? (
-            "Create household"
+            withCode ? (
+              "Join household"
+            ) : (
+              "Create household"
+            )
           ) : (
             "Log in"
           )}
@@ -340,6 +420,19 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
             ? "Already have an account? Log in"
             : "New to Linara? Create an account"}
         </button>
+
+        {mode === "signup" && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => setWithCode(!withCode)}
+            className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
+          >
+            {withCode
+              ? "Starting a new household instead?"
+              : "Joining a household that's already set up? Use your code"}
+          </button>
+        )}
 
         {mode === "login" && (
           <Link

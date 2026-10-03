@@ -1,4 +1,4 @@
-import type { Admin, AdminType, Station } from "./people.types";
+import type { AdminType, ManagerRole, Station } from "./people.types";
 
 // Matches helper_profiles.weekly_rest_day's convention (0-6, Sunday = 0) --
 // see ARCHITECTURE.md Section 8. Shared by the invite form (name -> index)
@@ -13,25 +13,6 @@ export const WEEKLY_REST_DAY_NAMES = [
   "Saturday",
 ] as const;
 
-export const INITIAL_ADMINS: Admin[] = [
-  {
-    id: "ben",
-    name: "Sir Ben",
-    short: "Ben",
-    initials: "SB",
-    type: "primary",
-    location: "On-site",
-  },
-  {
-    id: "tina",
-    name: "Ma'am Tina",
-    short: "Tina",
-    initials: "MT",
-    type: "co",
-    location: "On-site",
-  },
-  { id: "lolafe", name: "Lola Fe", short: "Fe", initials: "LF", type: "remote", location: "Dubai" },
-];
 // Regional minimum wage for Metro Manila (Batas Kasambahay)
 export const REGIONAL_MINIMUM_WAGE = 6000;
 
@@ -45,10 +26,20 @@ export const adminTypeShort: Record<AdminType, string> = {
   co: "Co-manager",
   remote: "Remote",
 };
+// What each role may do: plan.md 1.2, held by the database
+// (supabase/add-household-managers.sql).
 export const adminPermSummary: Record<AdminType, string> = {
-  primary: "Full control — can edit admins, end the day, and edit shifts.",
-  co: "Full manage — everything except adding or removing admins.",
-  remote: "View + approve — no editing shifts, no ending the day.",
+  primary: "Runs the household, and the only one who adds or removes managers.",
+  co: "Manages everything with the primary manager, except who the managers are.",
+  remote:
+    "Sees everything and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and she's on shift.",
+};
+
+// household_managers.role (database) -> AdminType (what the UI is keyed on).
+export const managerRoleType: Record<ManagerRole, AdminType> = {
+  primary_manager: "primary",
+  co_manager: "co",
+  remote_admin: "remote",
 };
 
 // Station accents: Tailwind pairs for chips, raw hex for lane borders and progress bars.

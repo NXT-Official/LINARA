@@ -21,8 +21,15 @@ the bottom.
 - **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).
 - **What's missing:** `plan.md` §1.2, `README.md` §2 and `home-management-concept.md` §9 describe three admin types, with the OFW remote admin called "the killer differentiator". The schema supports them (`user_profiles.user_type IN ('primary_manager','co_manager','remote_admin','helper')`), and the UI for them exists (`remote-glance.tsx`, the suggestions inbox, `ViewAsSwitcher`, the remote branch in `use-send-gate.ts`). But nothing creates a second admin: `use-session.ts` builds `admins` as `admin ? [admin] : []` (just the signed-in user), `updateAdminType` is a `console.warn` stub, and there's no admin invite. The landing page ("Perfect for busy parents or OFW families managing from abroad") promises a mode nobody can reach.
 - **Blocks:** Any demo or marketing of OFW mode, multi-admin attribution ("from [name]"), and the remote-suggestion approval flow.
-- **Current workaround:** None. `INITIAL_ADMINS` in `people.constants.ts` is an unused mock roster left over from the prototype.
-- **To close:** An admin-invite handshake parallel to the helper one (code → claim → `user_profiles` row with `co_manager`/`remote_admin`), a roster read that lists every admin in the household, and server-side enforcement of the permission matrix. At the moment the role checks run in application code only. Owned by `LINARA`.
+- **Current workaround:** None.
+- **Fix, applied 2026-10-03:** `supabase/add-household-managers.sql`, tested in `supabase/tests/household-managers.test.mjs` (in `npm run test:sql`).
+  - **Model:** `household_managers` (one row per manager per household, with that household's role, one primary each) and `manager_invites` (8-character single-use codes, 7 days). `user_profiles.household_id` / `user_type` stay the household the account is in right now, so every policy and function that reads them is unchanged; `switch_household()` moves the account between its memberships. One active household per account (user's choice): a switch on one device moves the others, and the web reloads when it notices. A helper account can't be a manager anywhere (separate logins, user's choice).
+  - **Roles:** the primary manager invites co-managers and remote admins, changes roles, hands primary over (one primary, user's choice) and removes managers; anyone else can leave. Any manager can start another household (`create_household`). Account deletion now goes through every household the person manages: one with another manager keeps everything and, if they were primary, its longest-standing co-manager takes over.
+  - **Enforced in the database** (user's choice), not only in server code: RESTRICTIVE policies keep a remote admin to suggested tasks, or urgent ones while the helper is on shift (never overriding her off-hours), urgent Quick Utos on shift, no appointment / invite-flag / payout-attempt writes; she may approve vales and set the budget (`plan.md`: usually the funding source). Also closes a hole: `payout_attempts_isolation` let a helper's session write payout attempts.
+  - **Web** (works before the SQL is applied; the new parts stay hidden until then): household switcher in the top bar (switch, New household, Join with a code), a Managers section on People (roster, invite codes, role, make primary, remove, leave), sign-up and the setup screen can join with a code, the send gate holds a remote admin to the same rules, and the unused `INITIAL_ADMINS` mock and "View as" switcher are gone.
+  - **Mobile:** no change needed: `getAccountKind()` only checks that `user_type` is a manager type, and the WebView keeps working through a switch.
+- **Verified (2026-10-03):** against the live database, the test manager is the primary of its household (backfill), the functions answer, and `npm run qa` (45 browser checks, incl. the household menu and Managers on People) and `npm run qa:deep` (a code made and cancelled) pass on a local production build.
+- **To close:** Deploy the web change, then have a second account claim a code on the deployed site (no second manager test account exists yet), then move this to Closed Gaps. Owned by `LINARA`.
 
 ### O18. The mobile app's manager side is the web dashboard in a WebView, not native screens
 
@@ -41,6 +48,79 @@ the bottom.
 - **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos, and put the button back. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
 
 ---
+
+### O26. Every AI feature answers from a mock; no provider is chosen
+
+- **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
+- **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
+- **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
+- **Current workaround:** The mocks. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
+- **To close:** Pick a provider, put the calls behind one shared helper in `supabase/functions/_shared/` with the mocks kept as a fallback, set the key as a Supabase Edge Function secret (never Vercel, `VITE_` or `EXPO_PUBLIC_`), and name the provider in the privacy policy (`src/features/legal/privacy-policy.tsx` says nothing is sent to an AI company). Owned by `LINARA`.
+
+### O27. The manager app has no English / Filipino toggle
+
+- **Found:** 2026-09-30 (decided during the design refresh), logged 2026-10-03.
+- **What's missing:** `PRODUCT.md` (Capabilities and Constraints; Accessibility) commits to a full English / Filipino toggle for all three manager types. The web copy is English with some Tagalog (toasts, the staff sign-in screen), and there's no i18n layer.
+- **Blocks:** Lola / relative managers who'd rather read Filipino; nothing technical.
+- **Current workaround:** None.
+- **To close:** Pull manager-facing strings into a catalogue, add the toggle, and translate. The helper app (`LINARA_MOBILE`) is already Filipino-first and isn't part of this. Owned by `LINARA`.
+
+### O28. Receipt and task photos are kept forever
+
+- **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
+- **What's missing:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deletes them, and neither the schema nor the docs say how long they should be kept.
+- **Blocks:** Nothing yet. Storage grows with every finished task and receipt.
+- **Current workaround:** None.
+- **To close:** Decide a retention period with the client (receipts aren't payslips, so RA 10361's payslip retention doesn't set it; check `LEGAL_CONSIDERATIONS.md`), then a scheduled job that removes older objects and the rows' URLs. Owned by `LINARA`.
+
+### O29. A manager can't attach a receipt from the web
+
+- **Found:** 2026-10-02 (C80), logged 2026-10-03.
+- **What's missing:** Receipts are added only in `LINARA_MOBILE`'s Pantry tab (the Resibo card). The web's `receipt-slot.tsx` lists the latest receipts and has no upload. A manager who did the shopping can tick items bought on the web (LW-5) but can't add the receipt.
+- **Blocks:** The manager-does-the-shopping case, end to end.
+- **Current workaround:** Add it from a helper's phone, or not at all.
+- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does. Owned by `LINARA`.
+
+### O30. No list view of tasks
+
+- **Found:** 2026-10-02, client feedback (asked for "list view"; no more detail was recorded), logged 2026-10-03.
+- **What's missing:** The Schedule has Week, By person and Month; the Pass shows today's lanes. There's no plain list of tasks.
+- **Blocks:** Nothing.
+- **Current workaround:** Week view.
+- **To close:** Ask the client what the list is for (all upcoming? search results? one helper's?), then add it as another Schedule view. Owned by `LINARA`.
+
+### O31. Helpers can't edit a task
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web.
+- **Blocks:** A helper fixing a wrong time herself.
+- **Current workaround:** She comments, and a manager edits.
+- **To close:** Decide what she may change (probably time and note, not who it's for), then an app edit screen and a `BEFORE UPDATE` guard on `tickets` like C72's, since today her updates are held to status columns. The time-change notice and ledger rules (C71, C76) must still fire. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
+
+### O32. Search and filters exist only on the Pantry and Grocery list
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** `ListFilter` is used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule, the Pass, Money's payslips and People have no search.
+- **Blocks:** Finding an old task or payslip in a busy household.
+- **Current workaround:** Scrolling, or Month view.
+- **To close:** Add `ListFilter` where lists get long, starting with the Schedule. Owned by `LINARA`.
+
+### O33. Staff can't change the grocery budget (waiting on the client)
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
+- **Blocks:** Nothing until the client confirms.
+- **Current workaround:** A manager sets it on the web.
+- **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
+
+### O34. Can a remote admin pay wages? (`plan.md` §1.2 doesn't say)
+
+- **Found:** 2026-10-03, while building O2's manager roles.
+- **Settled the same day:** co-managers manage helpers (invite, wage, pantry role, end employment), as the code already let them. `plan.md` §1.2 and `README.md` now split the row: Manage Admins is primary-only, Manage Helpers is primary and co.
+- **Still open:** the table has no row for paying wages. Today only primary and co-managers can (`initiate_payslip` and the other pay functions check `user_type`; the Money page's `canPay`), while a remote admin may approve vales and the budget because she's "usually the funding source".
+- **Blocks:** An OFW parent paying the helper's salary from abroad.
+- **Current workaround:** An on-site manager presses Pay.
+- **To close:** Decide. If yes: admit `remote_admin` in the pay functions (`initiate_payslip`, `record_payout_attempt_result`, `pay_target`, the off-app record/withdraw ones) and in `canPay`, and add a "Pay wages" row to the table. Owned by `LINARA`.
 
 ## Closed Gaps
 

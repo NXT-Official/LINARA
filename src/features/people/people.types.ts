@@ -33,6 +33,25 @@ export type Helper = {
 };
 
 export type AdminType = "primary" | "co" | "remote";
+/** A manager's role in one household (household_managers.role). */
+export type ManagerRole = "primary_manager" | "co_manager" | "remote_admin";
+/** One household this account manages (my_households()). */
+export type HouseholdSummary = { id: string; name: string; role: ManagerRole; isCurrent: boolean };
+/** One manager of the household you're in (household_manager_roster()). */
+export type ManagerMember = {
+  userId: string;
+  fullName: string;
+  role: ManagerRole;
+  addedAt: string;
+  isYou: boolean;
+};
+/** An open code for joining this household as a manager. */
+export type ManagerInvite = {
+  id: string;
+  code: string;
+  role: Exclude<ManagerRole, "primary_manager">;
+  expiresAt: string;
+};
 export type Admin = {
   id: string;
   name: string;

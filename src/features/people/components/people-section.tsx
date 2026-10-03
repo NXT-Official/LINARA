@@ -4,8 +4,8 @@ import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 
-import { adminPermSummary, adminTypeLabel, REGIONAL_MINIMUM_WAGE } from "../people.constants";
-import type { Admin, Helper, Invite, PantryRole } from "../people.types";
+import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
+import type { Helper, Invite, PantryRole } from "../people.types";
 import { findHelper, initialsOf } from "../people.utils";
 import { EditWageModal } from "./edit-wage-modal";
 import { EndEmploymentModal } from "./end-employment-modal";
@@ -14,10 +14,8 @@ import { InviteHelperModal } from "./invite-helper-modal";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 import { PantryRolePicker } from "./pantry-role-picker";
 
-/** The household roster: admins, and real helpers/pending invites from the database. */
+/** The household's helpers and pending invites, from the database. Managers: ManagersSection. */
 export function PeopleSection({
-  admins,
-  currentAdmin,
   invites,
   canInvite,
   onInvite,
@@ -29,8 +27,6 @@ export function PeopleSection({
   token,
   onEndEmployment,
 }: {
-  admins: Admin[];
-  currentAdmin: Admin | null;
   /** Pending and current helpers; people who have left are in PastStaffSection. */
   invites: Invite[];
   canInvite: boolean;
@@ -55,56 +51,6 @@ export function PeopleSection({
   const [ending, setEnding] = useState<Invite | null>(null);
   return (
     <div className="space-y-6 pb-4">
-      <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display text-xl text-foreground">Admins</h2>
-            <p className="text-xs text-muted-foreground">The grown-ups who run the house.</p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-            <Users className="h-3 w-3" /> {admins.length}
-          </span>
-        </div>
-        <div className="divide-y divide-border/70">
-          {admins.map((a) => {
-            const isYou = currentAdmin?.id === a.id;
-            return (
-              <div
-                key={a.id}
-                className="flex flex-wrap items-start gap-3 py-3.5 first:pt-0 last:pb-0"
-              >
-                <Avatar initials={a.initials} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">{a.name}</span>
-                    {isYou && (
-                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
-                        You
-                      </span>
-                    )}
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        a.type === "primary"
-                          ? "bg-primary/10 text-primary"
-                          : a.type === "co"
-                            ? "bg-secondary text-pine-deep"
-                            : "bg-terracotta-soft/60 text-[oklch(0.38_0.09_60)]"
-                      }`}
-                    >
-                      {adminTypeLabel[a.type]}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{a.location}</div>
-                  <div className="mt-1.5 text-xs text-muted-foreground">
-                    {adminPermSummary[a.type]}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>

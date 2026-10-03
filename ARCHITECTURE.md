@@ -673,13 +673,56 @@ This database structure outlines the PostgreSQL relational mappings required to 
 --
 -- household_id is nullable since supabase/add-employment-end.sql: a helper
 -- between households (her employment ended, she hasn't joined another)
--- belongs to none. Managers always have one.
+-- belongs to none, and so does a manager who left or was removed from
+-- their last household (they're asked to set one up or join one).
+--
+-- For a manager, household_id and user_type are the household they're in
+-- RIGHT NOW and their role there (supabase/add-household-managers.sql):
+-- household_managers below lists every household they manage, and
+-- switch_household() moves the account between them. One active household
+-- per account, so every policy's current_household_id() is unchanged.
 CREATE TABLE public.user_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     household_id UUID,
     full_name TEXT NOT NULL,
     user_type TEXT NOT NULL CHECK (user_type IN ('primary_manager', 'co_manager', 'remote_admin', 'helper')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 1b. Household managers and manager invites (supabase/add-household-managers.sql)
+--
+-- One row per manager per household, with that household's role; exactly one
+-- primary each. Written only by SECURITY DEFINER functions:
+-- bootstrap_manager_household, create_household, switch_household,
+-- claim_manager_invite, set_manager_role (making someone primary hands it
+-- over), remove_manager, leave_household. Reads: my_households(),
+-- household_manager_roster(). A helper account can't be a manager anywhere.
+CREATE TABLE public.household_managers (
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('primary_manager', 'co_manager', 'remote_admin')),
+    added_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (household_id, user_id)
+);
+CREATE UNIQUE INDEX household_managers_one_primary
+    ON public.household_managers (household_id) WHERE role = 'primary_manager';
+
+-- An 8-character code the primary manager makes (create_manager_invite) for a
+-- co-manager or remote admin; single use, 7 days. lookup_manager_invite()
+-- previews it, claim_manager_invite() joins (creating the profile for a new
+-- account). RLS: the household's primary manager reads them.
+CREATE TABLE public.manager_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    code TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL CHECK (role IN ('co_manager', 'remote_admin')),
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT now() + INTERVAL '7 days',
+    claimed_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    claimed_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ
 );
 
 -- 2. Helper Profiles (Holds terms of employment)
@@ -1126,6 +1169,24 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- a new unbought line for a pantry item, and bought / actual_cost on a line.
 -- Writes from another trigger (the restock when she ticks a line bought) and
 -- from SECURITY DEFINER functions are let through.
+
+-- What each manager role may write (supabase/add-household-managers.sql,
+-- KNOWN_GAPS O2; plan.md 1.2). RESTRICTIVE policies, so they only narrow the
+-- permissive ones above and change nothing for helpers or on-site managers:
+--   * tickets: a remote_admin inserts only suggested = true, or emergency =
+--     true for a helper on shift right now (helper_on_shift_now(), the
+--     rest-owed trigger's rule); never updates or deletes.
+--   * quick_utos: a remote_admin inserts only emergency, on shift; no update
+--     or delete.
+--   * appointments, invite_flags: no remote_admin writes.
+--   * payout_attempts: direct writes by primary / co-managers only (the pay
+--     functions and the Xendit webhook bypass RLS). The old FOR ALL policy
+--     let a helper's session write one.
+-- And widened: vales_manager_update and households_update_budget use
+-- is_household_admin() (any manager role), so a remote admin approves vales
+-- and sets the budget; trigger households_remote_admin_guard keeps her to
+-- petty_cash_budget on that row. user_profiles_household_managers_read lets
+-- the household see its managers' names while they're switched elsewhere.
 
 -- quick_utos, vales, and ledger_entries had RLS enabled above but carried no
 -- policy at all until the recursion fix — meaning default-deny for every

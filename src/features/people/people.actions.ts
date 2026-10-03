@@ -17,7 +17,8 @@ interface ManagerBootstrapRow {
 
 interface UserProfileRow {
   id: string;
-  household_id: string;
+  /** NULL: a manager who left (or was removed from) their last household. */
+  household_id: string | null;
   full_name: string;
   user_type: "primary_manager" | "co_manager" | "remote_admin" | "helper";
 }
@@ -187,7 +188,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
  * (KNOWN_GAPS.md O9). null if it can't be read; the client then keeps using
  * the device's zone.
  */
-async function householdTimeZoneOf(
+export async function householdTimeZoneOf(
   client: ReturnType<typeof createAuthedClient>,
   householdId: string | null,
 ): Promise<string | null> {
@@ -216,10 +217,12 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
       password: string;
       /** Where the confirmation email's link lands (/email-confirmed on this site). */
       emailRedirectTo?: string;
+      /** A manager invite code: join that household instead of starting one. */
+      inviteCode?: string;
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { fullName, householdName, email, password, emailRedirectTo } = data;
+    const { fullName, householdName, email, password, emailRedirectTo, inviteCode } = data;
 
     // Without emailRedirectTo the link goes to Supabase's Site URL setting,
     // which pointed at a retired deployment (404). It must also be listed in
@@ -258,6 +261,26 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
     }
 
     const authedClient = createAuthedClient(session.access_token);
+    if (inviteCode) {
+      const { data: claimed, error: claimError } = await authedClient
+        .rpc("claim_manager_invite", { p_code: inviteCode, p_full_name: fullName })
+        .maybeSingle();
+      const row = claimed as { household_id: string; user_type: string } | null;
+      if (claimError || !row) {
+        throw new Error(claimError?.message || "Couldn't join with that code");
+      }
+      return {
+        status: "authed" as const,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        userId: signUpData?.user?.id ?? session.user.id,
+        householdId: row.household_id,
+        fullName,
+        userType: row.user_type,
+        timeZone: await householdTimeZoneOf(authedClient, row.household_id),
+      };
+    }
+
     const { data: bootstrapData, error: bootstrapError } = await authedClient
       .rpc("bootstrap_manager_household", {
         p_full_name: fullName,
@@ -322,7 +345,8 @@ export const managerLoginFn = createServerFn({ method: "POST" })
       throw new Error(profileError.message);
     }
 
-    if (!profile) {
+    // No profile, or a manager in no household now: set one up or join one.
+    if (!profile || (profile.user_type !== "helper" && !profile.household_id)) {
       return {
         status: "needs_bootstrap" as const,
         accessToken: session.access_token,
@@ -449,7 +473,7 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
       throw new Error(profileError.message);
     }
 
-    if (!profile) {
+    if (!profile || (profile.user_type !== "helper" && !profile.household_id)) {
       return { status: "needs_bootstrap" as const, userId: user.id };
     }
 
