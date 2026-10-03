@@ -32,7 +32,7 @@ export const adminPermSummary: Record<AdminType, string> = {
   primary: "Runs the household, and the only one who adds or removes managers.",
   co: "Manages everything with the primary manager, except who the managers are.",
   remote:
-    "Sees everything and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and she's on shift.",
+    "Sees everything, pays the helper, and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and she's on shift.",
 };
 
 // household_managers.role (database) -> AdminType (what the UI is keyed on).
