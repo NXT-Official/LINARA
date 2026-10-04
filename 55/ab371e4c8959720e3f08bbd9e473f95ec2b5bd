@@ -1,0 +1,19 @@
+src/routes/index.tsx
+  s_a9e34acb796733::t_b93a20d8a96487 1,4-7,9-13,18-19,30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "55ab371e4c8959720e3f08bbd9e473f95ec2b5bd",
+  "prompts": {},
+  "sessions": {
+    "s_a9e34acb796733": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f4c1acfa-216a-4df0-9f98-0d887690e025",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
