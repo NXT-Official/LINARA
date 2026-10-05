@@ -37,6 +37,7 @@ export function ManagerPassPage({
     helper,
     helpers,
     activeHelpers,
+    staffProfiles,
     utos,
     utosRecipientId,
     timeOff,
@@ -89,7 +90,7 @@ export function ManagerPassPage({
     activeHelpers.length > 1
       ? {
           on: activeHelpers.filter((h) => {
-            const row = inviteStore.helperProfiles.find((p) => p.id === h.id);
+            const row = staffProfiles.find((p) => p.id === h.id);
             return (
               statusFor(h.id, schedules, clock.nowTs, manualFromRow(row), timeOff.list).status ===
               "on_shift"
@@ -143,7 +144,7 @@ export function ManagerPassPage({
     isRemote,
     schedules,
     nowTs: clock.nowTs,
-    helperProfiles: inviteStore.helperProfiles,
+    helperProfiles: staffProfiles,
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,

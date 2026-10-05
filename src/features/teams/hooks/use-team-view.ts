@@ -25,7 +25,18 @@ const NONE: TeamView = {
  * component rendered on its own, as in a unit test), which reads as a small
  * household with no teams.
  */
-export function useTeamView(): { teams: TeamView; activeCount: number } {
+export function useTeamView(): {
+  teams: TeamView;
+  activeCount: number;
+  /** Teams each helper also covers, besides her own (add-shared-staff-and-places.sql). */
+  coversByHelper: Map<string, string[]>;
+} {
   const stores = useContext(AppStoreContext);
-  return { teams: stores?.teams ?? NONE, activeCount: stores?.activeHelpers.length ?? 0 };
+  return {
+    teams: stores?.teams ?? NONE,
+    activeCount: stores?.activeHelpers.length ?? 0,
+    coversByHelper: stores?.sharing.coversByHelper ?? NO_COVERS,
+  };
 }
+
+const NO_COVERS = new Map<string, string[]>();

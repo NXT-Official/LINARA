@@ -30,8 +30,12 @@ export type Helper = {
    */
   defaultResolution: LedgerResolution | null;
   effectiveResolution: LedgerResolution;
-  /** Her team (household_teams), or null. Labels live in the team store. */
+  /** Her team (household_teams), or null. Labels live in the team store. For
+   * shared staff, her team in this household. */
   teamId: string | null;
+  /** Employed by another household of the family (named here) and shared in:
+   * she works here, but her pay and record are that household's. */
+  sharedFrom?: string;
 };
 
 export type AdminType = "primary" | "co" | "remote";

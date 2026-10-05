@@ -22,6 +22,7 @@ export function HelperRow({
   compact,
   teamName,
   labels,
+  alsoAt = [],
   selectable,
   selected,
   onSelect,
@@ -38,6 +39,8 @@ export function HelperRow({
   /** Shown when the list isn't already grouped by team. */
   teamName: string | null;
   labels: Label[];
+  /** The family's other households she also works in. */
+  alsoAt?: string[];
   /** Bulk selection is on. */
   selectable: boolean;
   selected: boolean;
@@ -120,6 +123,11 @@ export function HelperRow({
             <LabelChips labels={labels} max={compact ? 3 : 6} />
           </div>
         )}
+        {alsoAt.length > 0 && (
+          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+            Also works at {alsoAt.join(", ")}
+          </div>
+        )}
         <div className="mt-0.5 text-xs text-muted-foreground">
           {inv.employment === "live-in" ? "Live-in" : "Live-out"} · {inv.shift} · Rest:{" "}
           {inv.restDay}
@@ -185,7 +193,7 @@ export function HelperRow({
                   onClick={onEditTeam}
                   className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Tags className="h-3 w-3" /> Team & labels
+                  <Tags className="h-3 w-3" /> Teams & houses
                 </button>
               )}
               {canInvite && isActive && (

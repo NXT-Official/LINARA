@@ -29,7 +29,15 @@ import type { Helper } from "@/features/people/people.types";
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
   const { spent, budget, remaining } = useGrocery();
-  const { vales, payslips, payPeriods, activeHelpers, session, timeOff } = useAppStores();
+  // Pay is for the staff this household employs, not those shared in.
+  const {
+    vales,
+    payslips,
+    payPeriods,
+    employedHelpers: activeHelpers,
+    session,
+    timeOff,
+  } = useAppStores();
 
   const scoped = helperOverride ? [helperOverride] : activeHelpers;
   const payroll = useHouseholdPayroll({

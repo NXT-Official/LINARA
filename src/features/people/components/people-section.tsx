@@ -55,7 +55,7 @@ export function PeopleSection({
   const [ending, setEnding] = useState<Invite | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const { teams } = useAppStores();
+  const { teams, sharing } = useAppStores();
   const staff = useStaffScope();
 
   // Search, team and labels narrow the list; pending invites stay on top,
@@ -76,6 +76,10 @@ export function PeopleSection({
       compact={compact}
       teamName={groups || !inv.teamId ? null : (teams.teamById.get(inv.teamId)?.name ?? null)}
       labels={teams.labelsOf(inv.id)}
+      alsoAt={sharing
+        .householdsOf(inv.id)
+        .map((id) => sharing.family.find((h) => h.id === id)?.name)
+        .filter((n): n is string => !!n)}
       selectable={selecting}
       selected={selected.includes(inv.id)}
       onSelect={() =>

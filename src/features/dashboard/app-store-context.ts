@@ -14,6 +14,8 @@ import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import type { TimeOffStore } from "@/features/shifts/hooks/use-time-off";
 import type { TaskBoard } from "@/features/tasks/hooks/use-task-board";
 import type { TeamStore } from "@/features/teams/hooks/use-teams";
+import type { SharingStore } from "@/features/sharing/hooks/use-sharing";
+import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
 import type { UtosStore } from "@/features/utos/hooks/use-utos";
 
 import type { SimClock } from "./hooks/use-sim-clock";
@@ -33,12 +35,19 @@ export type AppStores = {
   helper: Helper | null;
   /** Every helper_profiles row for the household, any status -- for id -> Helper lookups. */
   helpers: Helper[];
-  /** ACTIVE helpers only -- for assignment dropdowns and per-helper lane rendering. */
+  /** ACTIVE helpers working here -- this household's and staff shared in from
+   * elsewhere in the family -- for assignment dropdowns, lanes and the schedule. */
   activeHelpers: Helper[];
+  /** ACTIVE helpers this household employs: everything about pay and leave. */
+  employedHelpers: Helper[];
+  /** helper_profiles rows for everyone working here; shared staff's carry no pay. */
+  staffProfiles: HelperProfileRow[];
   session: Session;
   invites: InviteStore;
   /** Teams and labels, for grouping and filtering staff (add-teams-and-labels.sql). */
   teams: TeamStore;
+  /** Shared staff, covered teams and places (add-shared-staff-and-places.sql). */
+  sharing: SharingStore;
   pantry: PantryStore;
   schedules: ScheduleStore;
   /** Every helper's approved and pending time off (rest off today; leave later). */

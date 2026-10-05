@@ -39,7 +39,15 @@ export function PayrollSummary({
   selectedId: string | null;
   onSelect: (helperId: string) => void;
 }) {
-  const { vales, payslips, payPeriods, activeHelpers, session, timeOff } = useAppStores();
+  // Staff shared in from another household are paid there, not here.
+  const {
+    vales,
+    payslips,
+    payPeriods,
+    employedHelpers: activeHelpers,
+    session,
+    timeOff,
+  } = useAppStores();
   const payroll = useHouseholdPayroll({
     token: session.token,
     ready: session.status === "authed",

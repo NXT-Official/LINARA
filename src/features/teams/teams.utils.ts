@@ -20,14 +20,15 @@ export function nameMatches(name: string, query: string): boolean {
 
 /**
  * The staff a scope lets through: name search, one team (or "no team"), and
- * every chosen label. A team or label that no longer exists is ignored rather
- * than hiding everyone.
+ * every chosen label. A team takes in whoever also covers it. A team or label
+ * that no longer exists is ignored rather than hiding everyone.
  */
 export function filterStaff<T extends Staff>(
   items: T[],
   scope: StaffScope,
   labelIdsByHelper: Map<string, string[]>,
   known: { teamIds: Set<string>; labelIds: Set<string> },
+  coversByHelper: Map<string, string[]> = new Map(),
 ): T[] {
   const teamId =
     scope.teamId === NO_TEAM || (scope.teamId && known.teamIds.has(scope.teamId))
@@ -37,7 +38,14 @@ export function filterStaff<T extends Staff>(
   return items.filter((item) => {
     if (!nameMatches(item.name, scope.query)) return false;
     if (teamId === NO_TEAM && item.teamId) return false;
-    if (teamId && teamId !== NO_TEAM && item.teamId !== teamId) return false;
+    if (
+      teamId &&
+      teamId !== NO_TEAM &&
+      item.teamId !== teamId &&
+      !(coversByHelper.get(item.id) ?? []).includes(teamId)
+    ) {
+      return false;
+    }
     if (labelIds.length > 0) {
       const has = labelIdsByHelper.get(item.id) ?? [];
       if (!labelIds.every((id) => has.includes(id))) return false;

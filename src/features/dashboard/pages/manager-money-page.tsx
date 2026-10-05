@@ -20,7 +20,8 @@ export function ManagerMoneyPage() {
     ledger,
     helper,
     helpers,
-    activeHelpers,
+    // Only the staff this household pays; shared staff are paid at home.
+    employedHelpers: activeHelpers,
     invites,
     payslips,
     payPeriods,

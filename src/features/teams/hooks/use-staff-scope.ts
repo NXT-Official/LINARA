@@ -71,7 +71,7 @@ function subscribe(fn: () => void) {
  * views it has always had, and nothing is filtered.
  */
 export function useStaffScope() {
-  const { teams, activeCount } = useTeamView();
+  const { teams, activeCount, coversByHelper } = useTeamView();
   const saved = useSyncExternalStore(subscribe, read, () => SAVED_EMPTY);
   const [query, setQuery] = useState("");
 
@@ -99,9 +99,17 @@ export function useStaffScope() {
 
   const apply = useCallback(
     <T extends { id: string; name: string; teamId?: string | null }>(items: T[]) =>
-      show ? filterStaff(items, scope, teams.labelIdsByHelper, known) : items,
+      show ? filterStaff(items, scope, teams.labelIdsByHelper, known, coversByHelper) : items,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [show, scope.query, scope.teamId, scope.labelIds, teams.labelIdsByHelper, known],
+    [
+      show,
+      scope.query,
+      scope.teamId,
+      scope.labelIds,
+      teams.labelIdsByHelper,
+      known,
+      coversByHelper,
+    ],
   );
 
   /** Groups by team when grouping is on and the household has teams; else one group. */

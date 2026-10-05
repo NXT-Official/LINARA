@@ -82,3 +82,14 @@ describe("isScoped", () => {
     expect(isScoped(scope({ labelIds: ["l-night"] }))).toBe(true);
   });
 });
+
+describe("filterStaff with covered teams", () => {
+  it("takes in whoever also covers the chosen team", () => {
+    const covers = new Map([["h2", ["t-kitchen"]]]);
+    expect(ids(filterStaff(staff, scope({ teamId: kitchen.id }), labels, known, covers))).toEqual([
+      "h1",
+      "h2",
+      "h4",
+    ]);
+  });
+});
