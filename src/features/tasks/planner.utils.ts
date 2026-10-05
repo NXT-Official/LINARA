@@ -16,7 +16,8 @@ import type { Routine, Status, Task } from "./task.types";
 import { byStart, isPastDue, routineAssignee, routineMatches } from "./task.utils";
 
 /** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
-export type PlanView = "week" | "people" | "month";
+/** "list" is the week again, as rows (KNOWN_GAPS.md O30). */
+export type PlanView = "week" | "people" | "list" | "month";
 
 /** The Schedule's status chips (KNOWN_GAPS.md O32). */
 export type PlanStatus = "all" | "open" | "done" | "cancelled";

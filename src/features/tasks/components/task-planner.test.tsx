@@ -193,6 +193,79 @@ describe("TaskPlanner, month", () => {
   });
 });
 
+describe("TaskPlanner, list", () => {
+  const list = (over: Partial<Parameters<typeof TaskPlanner>[0]> = {}) => {
+    const out = renderPlanner(over);
+    fireEvent.click(screen.getByRole("button", { name: "List" }));
+    return out;
+  };
+
+  it("lists the same week a day at a time, in time order, appointments included", () => {
+    const sweep = task({
+      id: "sweep",
+      title: "Sweep the porch",
+      time: "4:00 PM",
+      scheduledStart: "2026-10-02T08:00:00.000Z",
+    });
+    const mop = task({
+      id: "mop",
+      title: "Mop the kitchen",
+      time: "9:00 AM",
+      scheduledStart: "2026-10-02T01:00:00.000Z",
+    });
+    list({
+      usePlan: () => ({
+        tasks: [laundry, windows, sweep, mop],
+        moveLocally: vi.fn(),
+        reload: () => {},
+      }),
+    });
+    expect(screen.getByText("Sep 28 – Oct 4")).toBeTruthy();
+    expect(within(day(/^Thu, Oct 1, today$/)).getByText("Hang the laundry")).toBeTruthy();
+    expect(within(day(/^Tue, Sep 29$/)).getByText("Wash the windows")).toBeTruthy();
+    const friday = within(day(/^Fri, Oct 2$/))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent ?? "");
+    expect(friday.map((t) => t.match(/Mop the kitchen|Dentist|Sweep the porch/)?.[0])).toEqual([
+      "Mop the kitchen",
+      "Dentist",
+      "Sweep the porch",
+    ]);
+    expect(within(day(/^Sun, Oct 4$/)).getByText("Day off: Rosa")).toBeTruthy();
+  });
+
+  it("says when a day is empty and adds on today and later only", () => {
+    const { onAddOn } = list();
+    expect(within(day(/^Mon, Sep 28$/)).getByText("Nothing was planned")).toBeTruthy();
+    expect(within(day(/^Sat, Oct 3$/)).getByText("Nothing planned")).toBeTruthy();
+    expect(within(day(/^Wed, Sep 30$/)).queryByRole("button", { name: /^Add a task/ })).toBeNull();
+    fireEvent.click(
+      within(day(/^Sat, Oct 3$/)).getByRole("button", { name: "Add a task on Sat 3" }),
+    );
+    expect(onAddOn).toHaveBeenCalledWith("2026-10-03");
+  });
+
+  it("opens a task, steps weeks, and isn't draggable", () => {
+    const onOpenTask = vi.fn();
+    list({ onOpenTask });
+    const row = within(day(/^Thu, Oct 1/))
+      .getByText("Hang the laundry")
+      .closest("li")!;
+    expect(row.getAttribute("draggable")).toBe("false");
+    fireEvent.click(within(row).getByRole("button"));
+    expect(onOpenTask).toHaveBeenCalledWith(laundry);
+    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    expect(screen.getByText("Oct 5 – Oct 11")).toBeTruthy();
+  });
+
+  it("is remembered as the chosen view", () => {
+    list();
+    cleanup();
+    renderPlanner();
+    expect(screen.getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
 describe("TaskPlanner, on the plan", () => {
   it("shows a routine greyed on the later days it will spawn, not today or before", () => {
     renderPlanner({

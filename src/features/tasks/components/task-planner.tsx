@@ -46,6 +46,7 @@ import type { Routine, Task } from "../task.types";
 import { PlannerDayColumn, type PlannerDrag } from "./planner-day-column";
 import { PlannerMonth } from "./planner-month";
 import { TaskToneLegend } from "./planner-tone-legend";
+import { PlannerList } from "./planner-list";
 import { PlannerPeople, type PeopleRow } from "./planner-people";
 import { PlannerSearchResults } from "./planner-search-results";
 
@@ -53,6 +54,7 @@ const VIEW_KEY = "linara.planView";
 const VIEWS: { key: PlanView; label: string }[] = [
   { key: "week", label: "Week" },
   { key: "people", label: "By person" },
+  { key: "list", label: "List" },
   { key: "month", label: "Month" },
 ];
 /** "all", "unassigned", or a helper id. */
@@ -75,8 +77,8 @@ const dayName = (iso: string) =>
 const NO_TIME_OFF: TimeOff[] = [];
 
 /**
- * Plan ahead: the week as a board of days, the same week as a row per person,
- * or the month as a calendar. Any task opens to edit; a waiting one can be
+ * Plan ahead: the week as a board of days, the same week as a row per person
+ * or as a plain list, or the month as a calendar. Any task opens to edit; a waiting one can be
  * dragged to another day (or, by person, to someone else); any day from today
  * on takes a new task. Reads every task in range, done ones included, so a
  * past day shows what happened, and shows the routines later days will spawn.
@@ -134,7 +136,7 @@ export function TaskPlanner({
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(VIEW_KEY);
-      if (saved === "week" || saved === "people" || saved === "month") setView(saved);
+      if (VIEWS.some((v) => v.key === saved)) setView(saved as PlanView);
     } catch {
       // ignore
     }
@@ -468,7 +470,7 @@ export function TaskPlanner({
         />
       ) : (
         <>
-          {drag && view !== "month" && (
+          {drag && (view === "week" || view === "people") && (
             <p className="hidden px-1 text-sm text-muted-foreground lg:block">
               {view === "people"
                 ? "Drag a task to another day, or to someone else's row to hand it over. Tap one to change anything else."
@@ -536,6 +538,23 @@ export function TaskPlanner({
               onOpenTask={onOpenTask}
               onOpenAppointment={onOpenAppointment}
               onAdd={onAddOn}
+            />
+          ) : view === "list" ? (
+            <PlannerList
+              days={days}
+              todayIso={todayIso}
+              tasksByDay={tasksByDay}
+              ghosts={ghosts}
+              appointmentsByDay={appointmentsShown}
+              prepCounts={prepCounts}
+              offOn={offOn}
+              timeOffNotes={timeOffNotes}
+              helpers={helpers}
+              nowTs={nowTs}
+              offLabel={offLabel}
+              onOpenTask={onOpenTask}
+              onOpenAppointment={onOpenAppointment}
+              onAdd={(iso) => onAddOn(iso)}
             />
           ) : (
             <PlannerMonth
