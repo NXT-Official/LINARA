@@ -1,0 +1,19 @@
+.prettierignore
+  s_0cc7eb3d8eb999::t_8767ea37ae83a8 15-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d26710bd1c3411253c4b7994f3c90c0d7d9e6df0",
+  "prompts": {},
+  "sessions": {
+    "s_0cc7eb3d8eb999": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9204abd3-77fd-4017-aca1-2322f5e9db32",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
