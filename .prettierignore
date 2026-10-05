@@ -12,3 +12,6 @@ src/routeTree.gen.ts
 # Vendored design tooling (the Impeccable skill), not app code.
 .claude
 .impeccable
+
+# Byte-exact capture of the pre-CMS homepage (landing-view.test.tsx), not source.
+src/features/landing/__fixtures__/
