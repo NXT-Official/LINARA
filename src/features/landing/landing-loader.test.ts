@@ -1,17 +1,39 @@
 import { notFound, redirect } from "@tanstack/react-router";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LANDING_FALLBACK, type LandingContent } from "@/features/landing/landing-content";
-import { loadLandingForRoute } from "@/features/landing/landing-loader";
+import { createLandingRouteLoader } from "@/features/landing/landing-loader";
 import { Route } from "@/routes/index";
 
 // The real server function never loads here; each test says what it does.
 const getLandingContent = vi.hoisted(() => vi.fn<() => Promise<LandingContent>>());
 vi.mock("@/features/landing/landing.actions", () => ({ getLandingContent }));
 
+// Failed loads log; the tests that care read these spies.
+beforeEach(() => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+afterEach(() => {
+  getLandingContent.mockReset();
+  vi.restoreAllMocks();
+});
+
 const STUDIO: LandingContent = {
   ...LANDING_FALLBACK,
   hero: { ...LANDING_FALLBACK.hero, kicker: "From Studio" },
+  account: {
+    hidden: true,
+    badge: "",
+    heading: "",
+    body: "",
+    complianceTitle: "",
+    complianceBody: "",
+  },
+};
+const STUDIO_LATER: LandingContent = {
+  ...STUDIO,
+  hero: { ...STUDIO.hero, kicker: "Published later" },
 };
 
 // What a browser's fetch rejects with when the network is gone.
@@ -19,13 +41,25 @@ const offline = async (): Promise<LandingContent> => {
   throw new TypeError("Failed to fetch");
 };
 
-describe("loadLandingForRoute", () => {
+/** A fetch that answers each call with the next outcome on the list. */
+function answers(...outcomes: Array<LandingContent | Error>) {
+  const fetchContent = vi.fn<() => Promise<LandingContent>>();
+  for (const outcome of outcomes) {
+    if (outcome instanceof Error) fetchContent.mockRejectedValueOnce(outcome);
+    else fetchContent.mockResolvedValueOnce(outcome);
+  }
+  return fetchContent;
+}
+
+describe.each([true, false])("createLandingRouteLoader (browser: %s)", (browser) => {
   it("resolves with the fetched content", async () => {
-    await expect(loadLandingForRoute(async () => STUDIO)).resolves.toBe(STUDIO);
+    const landing = createLandingRouteLoader({ browser, fetchContent: async () => STUDIO });
+    await expect(landing.load()).resolves.toBe(STUDIO);
   });
 
-  it("resolves with the checked-in copy when the fetch rejects", async () => {
-    await expect(loadLandingForRoute(offline)).resolves.toEqual(LANDING_FALLBACK);
+  it("with nothing to fall back on, a failed load serves the checked-in copy", async () => {
+    const landing = createLandingRouteLoader({ browser, fetchContent: offline });
+    await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
   });
 
   it("re-throws a redirect untouched, for the router to follow", async () => {
@@ -33,7 +67,9 @@ describe("loadLandingForRoute", () => {
     const redirects = async (): Promise<LandingContent> => {
       throw signal;
     };
-    await expect(loadLandingForRoute(redirects)).rejects.toBe(signal);
+    const landing = createLandingRouteLoader({ browser, fetchContent: redirects });
+    await expect(landing.load()).rejects.toBe(signal);
+    expect(landing.shouldReload()).toBeUndefined();
   });
 
   it("re-throws a not-found untouched, for the router to render", async () => {
@@ -41,12 +77,239 @@ describe("loadLandingForRoute", () => {
     const missing = async (): Promise<LandingContent> => {
       throw signal;
     };
-    await expect(loadLandingForRoute(missing)).rejects.toBe(signal);
+    const landing = createLandingRouteLoader({ browser, fetchContent: missing });
+    await expect(landing.load()).rejects.toBe(signal);
+    expect(landing.shouldReload()).toBeUndefined();
   });
 
   it("calls the server function unless handed another fetch", async () => {
     getLandingContent.mockResolvedValueOnce(STUDIO);
-    await expect(loadLandingForRoute()).resolves.toBe(STUDIO);
+    await expect(createLandingRouteLoader({ browser }).load()).resolves.toBe(STUDIO);
+  });
+});
+
+describe("createLandingRouteLoader in a browser", () => {
+  it("serves the copy the page was server-rendered with when a later load fails", async () => {
+    const landing = createLandingRouteLoader({ browser: true, fetchContent: offline });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toEqual(STUDIO);
+  });
+
+  it("replaces what it remembers with every successful load", async () => {
+    const fetchContent = answers(STUDIO_LATER, new TypeError("Failed to fetch"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toBe(STUDIO_LATER);
+    await expect(landing.load()).resolves.toEqual(STUDIO_LATER);
+  });
+
+  it("remembers a successful load without any seed", async () => {
+    const fetchContent = answers(STUDIO, new TypeError("Failed to fetch"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    await landing.load();
+    await expect(landing.load()).resolves.toEqual(STUDIO);
+  });
+
+  it("is seeded only by the server-rendered copy, before it loads anything itself", async () => {
+    const landing = createLandingRouteLoader({ browser: true, fetchContent: offline });
+    // The visitor landed elsewhere and the first load of `/` failed: the page
+    // now shows the checked-in copy, and seeding with it changes nothing.
+    await landing.load();
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
+  });
+
+  it("does not count a failed load as fresh: the next visit asks again", async () => {
+    const fetchContent = answers(new TypeError("Failed to fetch"), STUDIO);
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    // Untouched: the route's staleTime decides.
+    expect(landing.shouldReload()).toBeUndefined();
+    await landing.load();
+    expect(landing.shouldReload()).toBe(true);
+    await landing.load();
+    expect(landing.shouldReload()).toBeUndefined();
+  });
+});
+
+/** Changes what the router was handed, as a careless consumer might. Returns the undo. */
+function tamper(content: LandingContent) {
+  const { kicker } = content.hero;
+  const { title } = content.kitchen.cards[0];
+  content.hero.kicker = "Changed by a caller";
+  content.kitchen.cards[0].title = "Changed by a caller";
+  return () => {
+    content.hero.kicker = kicker;
+    content.kitchen.cards[0].title = title;
+  };
+}
+
+describe("what a failed load serves is the page's own copy", () => {
+  it("a seeded copy the page then changed is served as it was seeded", async () => {
+    const landing = createLandingRouteLoader({ browser: true, fetchContent: offline });
+    const page = structuredClone(STUDIO);
+    landing.seed(page);
+    tamper(page);
+    expect(await landing.load()).toEqual(STUDIO);
+  });
+
+  it("a loaded copy the page then changed is served as it was loaded", async () => {
+    const fetchContent = answers(structuredClone(STUDIO), new TypeError("Failed to fetch"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    tamper(await landing.load());
+    expect(await landing.load()).toEqual(STUDIO);
+  });
+
+  it.each<[string, boolean, LandingContent | undefined]>([
+    ["the remembered copy", true, STUDIO],
+    ["the checked-in copy, in a browser", true, undefined],
+    ["the checked-in copy, on the server", false, undefined],
+  ])(
+    "%s, changed after it was served, is served unchanged next time",
+    async (_name, browser, seed) => {
+      const pristine = structuredClone(seed ?? LANDING_FALLBACK);
+      const landing = createLandingRouteLoader({ browser, fetchContent: offline });
+      if (seed) landing.seed(structuredClone(seed));
+      const undo = tamper(await landing.load());
+      try {
+        expect(await landing.load()).toEqual(pristine);
+      } finally {
+        undo();
+      }
+    },
+  );
+});
+
+describe("a failed load is logged, in one line", () => {
+  const failing = (error: unknown) => async (): Promise<LandingContent> => {
+    throw error;
+  };
+
+  it("on the server with console.error, naming what it serves", async () => {
+    const landing = createLandingRouteLoader({
+      browser: false,
+      fetchContent: failing(new TypeError("fetch failed")),
+    });
+    await landing.load();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      "[landing] Could not load the homepage copy (TypeError: fetch failed); " +
+        "serving fallback copy v2026-10-04.",
+    );
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, LandingContent | undefined, string]>([
+    ["with a copy to fall back on", STUDIO, "showing the copy this browser last received."],
+    ["with none", undefined, "showing fallback copy v2026-10-04."],
+  ])("in a browser with console.warn, %s", async (_name, seed, serving) => {
+    const landing = createLandingRouteLoader({
+      browser: true,
+      fetchContent: failing(new TypeError("Failed to fetch")),
+    });
+    if (seed) landing.seed(seed);
+    await landing.load();
+    expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+      `[landing] Could not load the homepage copy (TypeError: Failed to fetch); ${serving}`,
+    );
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it("puts a multi-line message on one line, cut short, and never the stack", async () => {
+    // What the Start client throws for a proxy's error page: the whole body.
+    const page = `Bad gateway\n<html>\n  <body>${"proxy error ".repeat(500)}</body>\n</html>`;
+    const landing = createLandingRouteLoader({
+      browser: true,
+      fetchContent: failing(new Error(page)),
+    });
+    await landing.load();
+    const [args] = vi.mocked(console.warn).mock.calls;
+    expect(args).toHaveLength(1);
+    const line = String(args[0]);
+    expect(line).toMatch(
+      /^\[landing\] Could not load the homepage copy \(Error: Bad gateway <html> <body>proxy error /,
+    );
+    expect(line).not.toMatch(/[\r\n]/);
+    expect(line.length).toBeLessThan(400);
+    expect(line).not.toMatch(/\bat .*landing-loader/);
+  });
+
+  it("names a rejection that is not an error by what it is", async () => {
+    const landing = createLandingRouteLoader({ browser: false, fetchContent: failing("offline") });
+    await landing.load();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      "[landing] Could not load the homepage copy (offline); serving fallback copy v2026-10-04.",
+    );
+  });
+
+  it.each([
+    ["a successful load", async () => STUDIO],
+    ["a redirect", failing(redirect({ to: "/login" }))],
+    ["a not-found", failing(notFound())],
+  ])("logs nothing for %s", async (_name, fetchContent) => {
+    for (const browser of [true, false]) {
+      await createLandingRouteLoader({ browser, fetchContent })
+        .load()
+        .catch(() => {});
+    }
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("a result that is not landing content is a failed load", () => {
+  // What the Start client resolves with when something other than the server
+  // function answered (@tanstack/start-client-core 1.170.34, serverFnFetcher):
+  // a raw Response for a non-JSON 2xx, the body for other JSON.
+  const NOT_CONTENT: Array<[string, unknown]> = [
+    [
+      "a raw Response (a non-JSON 200, e.g. a captive portal)",
+      new Response("<html>Sign in to continue</html>", {
+        headers: { "content-type": "text/html" },
+      }),
+    ],
+    ["nothing (a JSON body without a result)", undefined],
+    ["a JSON error body", { message: "Bad gateway" }],
+  ];
+
+  it.each(NOT_CONTENT)(
+    "%s, in a browser: the remembered copy, and the next visit asks again",
+    async (_name, result) => {
+      const landing = createLandingRouteLoader({ browser: true, fetchContent: async () => result });
+      landing.seed(STUDIO);
+      await expect(landing.load()).resolves.toEqual(STUDIO);
+      expect(landing.shouldReload()).toBe(true);
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining("(TypeError: Not landing content:"),
+      );
+    },
+  );
+
+  it.each(NOT_CONTENT)("%s, on the server: the checked-in copy", async (_name, result) => {
+    const landing = createLandingRouteLoader({ browser: false, fetchContent: async () => result });
+    await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining("(TypeError: Not landing content:"),
+    );
+  });
+});
+
+describe("createLandingRouteLoader on the server", () => {
+  it("remembers nothing: after a successful load, a failure serves the checked-in copy", async () => {
+    const fetchContent = answers(STUDIO, new TypeError("fetch failed"));
+    const landing = createLandingRouteLoader({ browser: false, fetchContent });
+    await expect(landing.load()).resolves.toBe(STUDIO);
+    await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
+  });
+
+  it("ignores a seed", async () => {
+    const landing = createLandingRouteLoader({ browser: false, fetchContent: offline });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
+  });
+
+  it("never asks the router to reload", async () => {
+    const landing = createLandingRouteLoader({ browser: false, fetchContent: offline });
+    await landing.load();
+    expect(landing.shouldReload()).toBeUndefined();
   });
 });
 
@@ -67,5 +330,13 @@ describe("the / route", () => {
   it("loads what the server function returns", async () => {
     getLandingContent.mockResolvedValueOnce(STUDIO);
     await expect(routeLoader()()).resolves.toBe(STUDIO);
+  });
+
+  // This file runs without a DOM, as server rendering does.
+  it("keeps nothing between server renders", async () => {
+    getLandingContent.mockResolvedValueOnce(STUDIO);
+    await routeLoader()();
+    getLandingContent.mockRejectedValueOnce(new TypeError("fetch failed"));
+    await expect(routeLoader()()).resolves.toEqual(LANDING_FALLBACK);
   });
 });

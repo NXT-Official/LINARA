@@ -2,17 +2,25 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { landingHead } from "@/features/landing/landing-content";
-import { loadLandingForRoute } from "@/features/landing/landing-loader";
+import {
+  landingShouldReload,
+  loadLandingForRoute,
+  seedLandingContent,
+} from "@/features/landing/landing-loader";
 import { LandingView } from "@/features/landing/landing-view";
 
 export const Route = createFileRoute("/")({
   // Always resolves with copy to render. On any Sanity problem the server
   // function serves the last good Studio copy, or the checked-in copy when it
-  // has none, and loadLandingForRoute serves the checked-in copy when the
-  // call itself fails (in-app navigation with no connection), so this loader
-  // can neither 500 the page nor send it to the error screen.
+  // has none. When the call itself fails (in-app navigation with no
+  // connection) or answers with something that is not landing content,
+  // loadLandingForRoute serves the copy this browser last received, or the
+  // checked-in copy when it has none. So this loader can neither 500 the page
+  // nor send it to the error screen.
   // Only a router redirect or not-found passes through.
   loader: () => loadLandingForRoute(),
+  // A failed load is not fresh: the next visit asks again.
+  shouldReload: () => landingShouldReload(),
   staleTime: 5 * 60 * 1000,
   // Studio-edited SEO; the deepest route's tags win over __root's defaults.
   head: ({ loaderData }) => landingHead(loaderData),
@@ -21,6 +29,11 @@ export const Route = createFileRoute("/")({
 
 function LandingPage() {
   const content = Route.useLoaderData();
+
+  // On the first render after hydration this is the copy the server rendered
+  // the page with: the browser keeps it for a later load that fails. Effects
+  // never run on the server.
+  useEffect(() => seedLandingContent(content), [content]);
 
   // Password-reset emails land here when the sender passed no redirect (the
   // Supabase Site URL default, e.g. from a LINARA_MOBILE build without
