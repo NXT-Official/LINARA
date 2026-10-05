@@ -1,5 +1,6 @@
-import { Download } from "lucide-react";
-import { useState } from "react";
+import { Camera, Download, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
 import { photoFilename, savePhotoUrl } from "@/lib/evidence-photo";
@@ -16,10 +17,9 @@ const when = (iso: string) =>
 
 /**
  * The palengke receipts: ones snapped in the app after buying
- * (grocery_receipts), and the active Palengke Run's photo. Read-only here;
- * staff take them in LINARA_MOBILE. It used to be a dashed pill that looked
- * like a button and did nothing when there was none (client feedback,
- * 2026-10-02), so with none it now just says where they come from.
+ * (grocery_receipts), and the active Palengke Run's photo. Staff take them
+ * in LINARA_MOBILE; a manager who did the shopping adds one here (KNOWN_GAPS
+ * O29). On a phone the file picker offers the camera too.
  *
  * Receipts are deleted after 2 months (KNOWN_GAPS.md O28) -- the costs stay
  * on the list items -- so the full view offers to save one.
@@ -27,6 +27,55 @@ const when = (iso: string) =>
 export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
   const ctx = useGrocery();
   const [preview, setPreview] = useState<{ url: string; takenAt?: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const upload = (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    ctx
+      .addReceipt(file)
+      .then(() => toast.success("Receipt added"))
+      .catch((err) => {
+        console.error("[ReceiptSlot] Failed to add receipt:", err);
+        toast.error(
+          err instanceof Error && err.message
+            ? err.message
+            : "Couldn't add the receipt. Try again.",
+        );
+      })
+      .finally(() => setUploading(false));
+  };
+
+  const addButton = (
+    <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => fileInput.current?.click()}
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5 disabled:opacity-60"
+      >
+        {uploading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Camera className="h-3.5 w-3.5" />
+        )}
+        {uploading ? "Adding…" : "Add receipt"}
+      </button>
+    </>
+  );
 
   const shots = [
     ...(ctx.receiptPhoto
@@ -53,9 +102,12 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
 
   if (shots.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground">
-        No receipt yet. Staff add one from the Linara app after buying.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          No receipt yet. Staff add one from the Linara app after buying.
+        </p>
+        {addButton}
+      </div>
     );
   }
 
@@ -80,6 +132,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
           </li>
         ))}
       </ul>
+      {!compact && <div className="mt-2 flex justify-end">{addButton}</div>}
       {preview && (
         <Modal onClose={() => setPreview(null)} bare closeOnBackdrop>
           <figure className="flex flex-col items-center gap-2">

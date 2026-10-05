@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import { shrinkPhoto } from "@/lib/shrink-photo";
 
 import {
+  addGroceryReceiptFn,
   deleteGroceryItemFn,
   getHouseholdBudgetFn,
   insertGroceryItemFn,
@@ -119,6 +121,13 @@ export function useGroceryList({
     });
   }, [pantryItems]);
 
+  const addReceipt = async (file: File) => {
+    if (!token) throw new Error("Not signed in.");
+    const { photo, thumb } = await shrinkPhoto(file);
+    await addGroceryReceiptFn({ data: { token, photo, thumb } });
+    setReceipts(await listGroceryReceiptsFn({ data: { token } }));
+  };
+
   const addManual = (name: string, qty: number, unit: string) => {
     if (!name.trim() || !token) return;
     insertGroceryItemFn({ data: { token, name: name.trim(), qty, unit: unit.trim() || "pcs" } })
@@ -212,6 +221,7 @@ export function useGroceryList({
     remaining: budget - spent,
     receiptPhoto,
     receipts,
+    addReceipt,
     addManual,
     addSuggestion,
     edit,

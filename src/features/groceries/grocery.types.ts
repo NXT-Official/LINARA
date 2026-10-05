@@ -12,10 +12,9 @@ export type GroceryItem = {
  * Read-mostly grocery state for the manager's Pantry tab and Money tab.
  * `bought`/`costPHP` are real (LINARA_MOBILE writes them) -- this app only
  * curates the *planned* list (addManual/remove, for items not yet bought)
- * and the household's petty-cash budget. It deliberately does not expose a
- * way to mark something bought, set its cost, or attach a receipt: that's
- * shopping execution, which belongs to the helper on LINARA_MOBILE, not a
- * manager's browser session (see KNOWN_GAPS.md Closed Gap C13).
+ * and the household's petty-cash budget. Costs are still entered only on
+ * LINARA_MOBILE (C13), but a manager who did the shopping herself can tick
+ * items bought (LW-5) and add the receipt (KNOWN_GAPS.md O29).
  */
 export type GroceryContextValue = {
   display: GroceryItem[]; // merged: real items + auto-suggestions
@@ -36,6 +35,8 @@ export type GroceryContextValue = {
     createdAt: string;
     byName: string | null;
   }[];
+  /** Shrinks and uploads a receipt the manager took; rejects on failure. */
+  addReceipt: (file: File) => Promise<void>;
   addManual: (name: string, qty: number, unit: string) => void;
   /** Puts a low-stock suggestion on the real list, so her app shows it too. */
   addSuggestion: (item: GroceryItem) => void;

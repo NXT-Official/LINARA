@@ -1,16 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
-import { signEvidencePhotos } from "@/lib/evidence-photo";
+import {
+  evidenceThumbPath,
+  HOUSEHOLD_EVIDENCE_BUCKET,
+  signEvidencePhotos,
+} from "@/lib/evidence-photo";
 
 // --------------------------------------------------------------------------
 // Grocery list (`grocery_items`) -- closes the "spend dial reads real data"
 // half of KNOWN_GAPS.md gap #2. Entering actual cost and attaching a receipt
-// are LINARA_MOBILE's job (it writes grocery_items and
+// are mostly LINARA_MOBILE's job (it writes grocery_items and
 // tickets.photo_evidence_url for real). From the web a manager curates the
-// list (add/fix/remove planned items) and can tick an item bought, for when
-// she did the shopping herself: the palengke is shared work (client
-// feedback, 2026-10-02), and QA found no way to tick one here.
+// list (add/fix/remove planned items), and can tick an item bought and add
+// the receipt, for when she did the shopping herself: the palengke is shared
+// work (client feedback, 2026-10-02), and QA found no way to tick one here.
 // --------------------------------------------------------------------------
 
 export interface GroceryItemRow {
@@ -299,4 +303,74 @@ export const listGroceryReceiptsFn = createServerFn({ method: "POST" })
           ]
         : [];
     });
+  });
+
+/** A shrunk receipt is about 150 to 300 KB; anything near this isn't one. */
+const MAX_RECEIPT_BYTES = 3 * 1024 * 1024;
+
+function jpegBytes(base64: string): Uint8Array {
+  const bytes = Buffer.from(base64, "base64");
+  if (bytes.length === 0 || bytes.length > MAX_RECEIPT_BYTES) {
+    throw new Error("That photo is too large. Try another one.");
+  }
+  // Every JPEG starts FF D8 FF; shrinkPhoto only ever sends JPEG.
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+    throw new Error("That file isn't a photo.");
+  }
+  return bytes;
+}
+
+/**
+ * A receipt the manager took herself (KNOWN_GAPS.md O29). The browser
+ * shrinks it first (src/lib/shrink-photo.ts, the same sizes as the app), and
+ * it goes where the app puts one: "<household>/receipts/<ms>.jpg" plus its
+ * .thumb.jpg, then a grocery_receipts row, so the nightly purge deletes it
+ * after 60 days like any other. The thumbnail is best effort, as on the
+ * phone; the list falls back to the full photo.
+ */
+export const addGroceryReceiptFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; photo: string; thumb: string }) => data)
+  .handler(async ({ data }) => {
+    const photo = jpegBytes(data.photo);
+
+    const authedClient = createAuthedClient(data.token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authedClient.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+
+    const { data: profile, error: profileError } = await authedClient
+      .from("user_profiles")
+      .select("household_id")
+      .eq("id", user.id)
+      .single();
+    if (profileError || !profile?.household_id) throw new Error("Unauthorized: Profile not found");
+
+    const path = `${profile.household_id}/receipts/${Date.now()}.jpg`;
+    const bucket = authedClient.storage.from(HOUSEHOLD_EVIDENCE_BUCKET);
+    const { error: uploadError } = await bucket.upload(path, photo, {
+      contentType: "image/jpeg",
+    });
+    if (uploadError) throw new Error(`Couldn't upload the receipt: ${uploadError.message}`);
+
+    try {
+      const { error } = await bucket.upload(evidenceThumbPath(path), jpegBytes(data.thumb), {
+        contentType: "image/jpeg",
+      });
+      if (error) console.warn("[addGroceryReceiptFn] Thumbnail upload failed:", error.message);
+    } catch (err) {
+      console.warn("[addGroceryReceiptFn] Thumbnail failed:", (err as Error).message);
+    }
+
+    const { error: insertError } = await authedClient
+      .from("grocery_receipts")
+      .insert({ household_id: profile.household_id, storage_path: path });
+    if (insertError) {
+      // Don't leave a photo no row points at (the purge would get it in 60
+      // days, but there's no reason to wait).
+      await bucket.remove([path, evidenceThumbPath(path)]);
+      throw new Error(insertError.message);
+    }
+    return { path };
   });
