@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LeaveSection } from "@/features/leave/components/leave-section";
 import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
+import { PlacesSection } from "@/features/sharing/components/places-section";
+import { SharedStaffSection } from "@/features/sharing/components/shared-staff-section";
 import { TeamsLabelsSection } from "@/features/teams/components/teams-labels-section";
 import { toHouseholdClock, toISODate } from "@/lib/time";
 
@@ -19,6 +21,7 @@ export function PeoplePage() {
     teams,
     helpers,
     activeHelpers,
+    employedHelpers,
     payslips,
     payPeriods,
     vales,
@@ -65,14 +68,20 @@ export function PeoplePage() {
           }}
         />
       </div>
+      <div className="mt-6 empty:hidden">
+        <SharedStaffSection canEdit={canInvite} />
+      </div>
       {teams.available && (
         <div className="mt-6">
           <TeamsLabelsSection canEdit={canInvite} />
         </div>
       )}
+      <div className="mt-6 empty:hidden">
+        <PlacesSection canEdit={canInvite} />
+      </div>
       <div className="mt-6">
         <LeaveSection
-          helpers={activeHelpers}
+          helpers={employedHelpers}
           leave={timeOff.leave}
           token={session.token}
           todayIso={toISODate(toHouseholdClock(clock.nowTs))}
@@ -111,7 +120,7 @@ export function PeoplePage() {
       <div className="mt-6">
         <AccountSection
           token={session.token}
-          activeHelperCount={activeHelpers.length}
+          activeHelperCount={employedHelpers.length}
           confirmName={session.currentAdmin?.name ?? ""}
         />
       </div>

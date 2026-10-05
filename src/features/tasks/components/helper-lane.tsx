@@ -6,6 +6,7 @@ import type { Helper } from "@/features/people/people.types";
 import { lanePill, laneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { byStart, taskWhen } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
@@ -152,6 +153,7 @@ export function HelperLane({
                         t.title
                       )}
                     </div>
+                    <TripChip from={t.from} to={t.to} />
                     {t.note && (
                       <div className="mt-0.5 line-clamp-2 text-xs italic text-muted-foreground">
                         "{t.note}"

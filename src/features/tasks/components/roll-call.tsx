@@ -6,6 +6,7 @@ import type { Helper } from "@/features/people/people.types";
 import { lanePill, type LaneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { byStart, taskWhen } from "../task.utils";
 
 /**
@@ -150,6 +151,11 @@ function DayList({
                   </button>
                 ) : (
                   t.title
+                )}
+                {(t.from || t.to) && (
+                  <span className="block">
+                    <TripChip from={t.from} to={t.to} />
+                  </span>
                 )}
               </span>
               {t.status === "in_progress" && (

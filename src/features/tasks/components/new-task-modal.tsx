@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
+import { TripFields } from "@/features/sharing/components/trip-fields";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
@@ -53,6 +55,7 @@ export function NewTaskModal({
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
   const [days, setDays] = useState<Weekday[]>([]);
   const [sendLive, setSendLive] = useState(false);
+  const [trip, setTrip] = useState<{ from?: PlaceRef; to?: PlaceRef }>({});
   // Errors show once Save is pressed, then follow the typing.
   const [tried, setTried] = useState(false);
   const errors = tried ? taskFormErrors({ title, date, time }) : {};
@@ -92,6 +95,8 @@ export function NewTaskModal({
         note: note.trim() || undefined,
         recurrence,
         scheduledDate: date,
+        from: trip.from,
+        to: trip.to,
       },
       { sendLive: isRemote ? sendLive : undefined },
     );
@@ -135,6 +140,7 @@ export function NewTaskModal({
             before={[{ value: "", label: "Unassigned (decide later)" }]}
           />
         </Field>
+        <TripFields from={trip.from} to={trip.to} onChange={(from, to) => setTrip({ from, to })} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Date" error={errors.date}>
             <input

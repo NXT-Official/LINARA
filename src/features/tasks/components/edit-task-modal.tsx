@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
+import { TripFields } from "@/features/sharing/components/trip-fields";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
 import { photoFilename, savePhotoUrl, TASK_PHOTO_DAYS } from "@/lib/evidence-photo";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
@@ -32,6 +34,9 @@ export type TaskEdit = {
   scheduledStartIso: string;
   /** null = Unassigned. */
   helperId: string | null;
+  /** A trip's ends; null clears one. */
+  from?: PlaceRef | null;
+  to?: PlaceRef | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -79,6 +84,10 @@ export function EditTaskModal({
   const locked = task.status === "done";
   const canCancel = !!onCancelTask && (task.status === "todo" || task.status === "blocked");
   const [helperId, setHelperId] = useState<string | null>(task.helperId);
+  const [trip, setTrip] = useState<{ from?: PlaceRef; to?: PlaceRef }>({
+    from: task.from,
+    to: task.to,
+  });
   const assignee = helpers.find((h) => h.id === helperId);
   const helperName = assignee?.short ?? "your helper";
   const schedule = helperId ? scheduleFor(helperId) : undefined;
@@ -109,6 +118,10 @@ export function EditTaskModal({
       note: note.trim() || undefined,
       scheduledStartIso: combineDateAndTime(date, fmtHM12(time)),
       helperId,
+      // Only sent when it changed: a plain task saves as before.
+      ...(trip.from !== task.from || trip.to !== task.to
+        ? { from: trip.from ?? null, to: trip.to ?? null }
+        : {}),
     });
   };
 
@@ -246,6 +259,11 @@ export function EditTaskModal({
               className={inputCls}
             />
           </Field>
+          <TripFields
+            from={trip.from}
+            to={trip.to}
+            onChange={(from, to) => setTrip({ from, to })}
+          />
           {helperId === null && (
             <p className="text-sm text-muted-foreground">
               Stays on your board only. Nobody sees it on their phone until you assign it.

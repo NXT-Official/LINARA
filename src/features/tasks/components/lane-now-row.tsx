@@ -1,6 +1,7 @@
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { CommentBadge } from "./comment-badge";
 import { isPalengke } from "../task.utils";
 
@@ -45,6 +46,7 @@ export function LaneNowRow({
         </span>
       </div>
       <div className="mt-0.5 truncate text-sm font-medium text-foreground">{task.title}</div>
+      <TripChip from={task.from} to={task.to} />
       {isPalengke(task) && (
         <div className="mt-1">
           <PalengkeChip compact />

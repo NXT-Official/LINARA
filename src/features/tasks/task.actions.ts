@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { placeColumns } from "@/features/sharing/sharing.utils";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
 import { createAuthedClient } from "@/lib/supabase";
 import { extractHouseholdEvidencePath, signEvidencePhotos } from "@/lib/evidence-photo";
 import { pushToHelper } from "@/features/notifications/push";
@@ -260,6 +262,11 @@ export interface TicketRow {
   /** From add-cancelled-tasks.sql; absent before it is applied. */
   cancelled_at?: string | null;
   cancelled_by_name?: string | null;
+  /** A trip's ends (add-shared-staff-and-places.sql); absent before it is applied. */
+  from_household_id?: string | null;
+  from_place_id?: string | null;
+  to_household_id?: string | null;
+  to_place_id?: string | null;
 }
 
 /**
@@ -456,6 +463,9 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       queuedForShift?: boolean;
       recurrence?: string[] | null;
       routineId?: string;
+      /** A trip's ends; only sent when set, so a plain task still saves before the migration. */
+      from?: PlaceRef | null;
+      to?: PlaceRef | null;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -511,6 +521,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
         queued_for_shift: !!queuedForShift,
         recurrence: recurrence ?? null,
         routine_id: routineId ?? null,
+        ...tripColumns(data.from, data.to),
         created_by: user.id,
       })
       .select("id")
@@ -547,6 +558,28 @@ export interface TicketPatch {
   notes?: string | null;
   /** Assign, reassign, or (null) unassign. */
   helperId?: string | null;
+  /** A trip's ends; null clears one, undefined leaves it. */
+  from?: PlaceRef | null;
+  to?: PlaceRef | null;
+}
+
+/** The columns for a trip's ends that were given (undefined: leave them). */
+function tripColumns(
+  from: PlaceRef | null | undefined,
+  to: PlaceRef | null | undefined,
+): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  if (from !== undefined) {
+    const c = placeColumns(from);
+    out.from_household_id = c.household;
+    out.from_place_id = c.place;
+  }
+  if (to !== undefined) {
+    const c = placeColumns(to);
+    out.to_household_id = c.household;
+    out.to_place_id = c.place;
+  }
+  return out;
 }
 
 /** Covers updateStatus/blockTask/rescheduleTask/approveSuggestion -- all of
@@ -575,6 +608,7 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.title !== undefined) dbPatch.title = patch.title;
     if (patch.notes !== undefined) dbPatch.notes = patch.notes;
     if (patch.helperId !== undefined) dbPatch.helper_id = patch.helperId;
+    Object.assign(dbPatch, tripColumns(patch.from, patch.to));
 
     const authedClient = createAuthedClient(token);
 

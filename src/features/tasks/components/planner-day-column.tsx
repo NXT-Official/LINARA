@@ -7,6 +7,7 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
 import { isPastDue } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
@@ -134,6 +135,11 @@ export function PlannerTaskRow({
       >
         {task.title}
       </span>
+      {(task.from || task.to) && (
+        <span className="mt-0.5 block">
+          <TripChip from={task.from} to={task.to} />
+        </span>
+      )}
       {cancelled && task.cancelledBy && (
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           By {task.cancelledBy}

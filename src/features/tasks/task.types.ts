@@ -1,4 +1,5 @@
 import type { Station } from "@/features/people/people.types";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
 import type { Weekday } from "@/lib/time";
 
 /** "cancelled" (add-cancelled-tasks.sql): kept for the record, off the board and every to-do count. */
@@ -46,6 +47,9 @@ export type Task = {
   /** For a cancelled task: when (ISO) and by whom (name), from the trigger's stamp. */
   cancelledAt?: string;
   cancelledBy?: string;
+  /** A trip's ends (add-shared-staff-and-places.sql): a house of the family or a saved place. */
+  from?: PlaceRef;
+  to?: PlaceRef;
 };
 
 // A recurring template that spawns a Task on matching weekdays.

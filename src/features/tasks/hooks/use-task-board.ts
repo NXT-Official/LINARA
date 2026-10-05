@@ -3,6 +3,8 @@ import { toast } from "sonner";
 
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
+import { placeFromColumns } from "@/features/sharing/sharing.utils";
 import type { TimeOff } from "@/features/shifts/time-off";
 import {
   combineDateAndTime,
@@ -92,6 +94,8 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
     // day than today" concept -- see supabase/add-ticket-board-columns.sql.
     scheduledDate: row.appointment_id ? isoToISODate(row.scheduled_start) : undefined,
     leadMinutes: row.lead_minutes ?? undefined,
+    from: placeFromColumns(row.from_household_id, row.from_place_id),
+    to: placeFromColumns(row.to_household_id, row.to_place_id),
     rescheduleNotice: row.reschedule_notice
       ? {
           // Formatted here, on the viewer's device (C59). Notices from before
@@ -264,6 +268,8 @@ export function useTaskBoard({
         queuedForShift: !!flags.queuedForShift,
         recurrence: encodeRecurrence(t.recurrence),
         routineId: t.routineId,
+        from: t.from,
+        to: t.to,
       },
     })
       .then(() => refresh())
@@ -395,7 +401,15 @@ export function useTaskBoard({
    * the planner's drag to another day. Resolves false when the save failed. */
   const editTask = (
     id: string,
-    edit: { title: string; note?: string; scheduledStartIso: string; helperId: string | null },
+    edit: {
+      title: string;
+      note?: string;
+      scheduledStartIso: string;
+      helperId: string | null;
+      /** A trip's ends; null clears one, absent leaves it. */
+      from?: PlaceRef | null;
+      to?: PlaceRef | null;
+    },
   ): Promise<boolean> => {
     if (!token) return Promise.resolve(false);
     return updateTicketFn({
@@ -407,6 +421,8 @@ export function useTaskBoard({
           notes: edit.note ?? null,
           scheduledStartIso: edit.scheduledStartIso,
           helperId: edit.helperId,
+          from: edit.from,
+          to: edit.to,
         },
         notifyHelper: !!edit.helperId && !!isReachable?.(edit.helperId),
       },

@@ -7,6 +7,7 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { isPalengke } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { RecurrenceBadge } from "./recurrence-badge";
@@ -62,6 +63,7 @@ export function BoardTaskCard({
                 task.title
               )}
             </h4>
+            <TripChip from={task.from} to={task.to} />
             {isDoing && (
               <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">
                 Doing
