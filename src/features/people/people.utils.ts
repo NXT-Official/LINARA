@@ -40,6 +40,7 @@ export function toHelper(row: HelperProfileRow): Helper {
     // yet -- it must never become a place the rule is re-implemented.
     defaultResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.default_resolution ?? ""] ?? null,
     effectiveResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.effective_resolution ?? ""] ?? "rest",
+    teamId: row.team_id ?? null,
   };
 }
 
@@ -58,6 +59,7 @@ export const UNKNOWN_HELPER: Helper = {
   phone: "",
   defaultResolution: null,
   effectiveResolution: "rest",
+  teamId: null,
 };
 
 /** A task nobody is assigned to yet (tickets.helper_id NULL). */

@@ -13,6 +13,7 @@ import type { Helper } from "@/features/people/people.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import type { TimeOffStore } from "@/features/shifts/hooks/use-time-off";
 import type { TaskBoard } from "@/features/tasks/hooks/use-task-board";
+import type { TeamStore } from "@/features/teams/hooks/use-teams";
 import type { UtosStore } from "@/features/utos/hooks/use-utos";
 
 import type { SimClock } from "./hooks/use-sim-clock";
@@ -36,6 +37,8 @@ export type AppStores = {
   activeHelpers: Helper[];
   session: Session;
   invites: InviteStore;
+  /** Teams and labels, for grouping and filtering staff (add-teams-and-labels.sql). */
+  teams: TeamStore;
   pantry: PantryStore;
   schedules: ScheduleStore;
   /** Every helper's approved and pending time off (rest off today; leave later). */

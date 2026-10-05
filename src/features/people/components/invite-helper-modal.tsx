@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { TeamLabelFields } from "@/features/teams/components/team-label-fields";
 import { householdNow, toISODate } from "@/lib/time";
 
 import type { Employment, Invite, Station } from "../people.types";
@@ -19,6 +20,7 @@ export function InviteHelperModal({
   onSubmit: (
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: PaydayInterval;
+      labelIds?: string[];
     },
   ) => Promise<void>;
 }) {
@@ -32,6 +34,8 @@ export function InviteHelperModal({
   const [wage, setWage] = useState("8000");
   const [phone, setPhone] = useState("");
   const [startedOn, setStartedOn] = useState(() => toISODate(householdNow()));
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +55,8 @@ export function InviteHelperModal({
         wagePHP: parseInt(wage, 10) || 0,
         phone: phone.trim(),
         startedOn,
+        teamId,
+        labelIds,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create the invite.");
@@ -116,6 +122,12 @@ export function InviteHelperModal({
             </select>
           </Field>
         </div>
+        <TeamLabelFields
+          teamId={teamId}
+          onTeam={setTeamId}
+          labelIds={labelIds}
+          onLabels={setLabelIds}
+        />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Shift start">
             <input

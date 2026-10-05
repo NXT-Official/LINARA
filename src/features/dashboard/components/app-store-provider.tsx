@@ -17,6 +17,7 @@ import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import { useTeams } from "@/features/teams/hooks/use-teams";
 import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
 import { isPalengke } from "@/features/tasks/task.utils";
@@ -44,6 +45,11 @@ const MAX_PLAUSIBLE_ROLLOVER_DAYS = 14;
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
+  const teams = useTeams({
+    token: session.token,
+    ready: session.status === "authed",
+    onRosterChange: invites.refresh,
+  });
 
   // All real helper_profiles rows, any status, for id -> Helper lookups; and the
   // ACTIVE subset for assignment dropdowns / lane rendering. "helper" stands in for
@@ -502,6 +508,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     activeHelpers,
     session,
     invites,
+    teams,
     pantry,
     schedules,
     timeOff,

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LeaveSection } from "@/features/leave/components/leave-section";
 import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
+import { TeamsLabelsSection } from "@/features/teams/components/teams-labels-section";
 import { toHouseholdClock, toISODate } from "@/lib/time";
 
 import { AccountSection } from "../components/account-section";
@@ -15,6 +16,7 @@ export function PeoplePage() {
   const {
     session,
     invites,
+    teams,
     helpers,
     activeHelpers,
     payslips,
@@ -39,7 +41,12 @@ export function PeoplePage() {
         <PeopleSection
           invites={current}
           canInvite={canInvite}
-          onInvite={(data) => invites.create(data, authorName)}
+          onInvite={async (data) => {
+            const invite = await invites.create(data, authorName);
+            // The labels chosen in the form were written with the invite.
+            if (data.labelIds?.length) teams.refresh().catch(() => {});
+            return invite;
+          }}
           onCancelInvite={invites.cancel}
           onUpdateWage={invites.updateWage}
           onSetPantryRole={invites.setPantryRole}
@@ -58,6 +65,11 @@ export function PeoplePage() {
           }}
         />
       </div>
+      {teams.available && (
+        <div className="mt-6">
+          <TeamsLabelsSection canEdit={canInvite} />
+        </div>
+      )}
       <div className="mt-6">
         <LeaveSection
           helpers={activeHelpers}
