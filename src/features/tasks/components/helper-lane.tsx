@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
+import { lanePill, laneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
-import { byStart, isPastDue, taskWhen } from "../task.utils";
+import { byStart, taskWhen } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
 
@@ -33,12 +34,9 @@ export function HelperLane({
 }) {
   const [open, setOpen] = useState(false);
   const color = unassigned ? UNASSIGNED_HEX : STATION_HEX[helper.station];
-  const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
-  const doneCount = sorted.filter((t) => t.status === "done").length;
-  const inProg = sorted.find((t) => t.status === "in_progress");
-  const upcoming = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
-  const nowTask = inProg ?? upcoming[0];
-  const nextTask = upcoming.find((t) => t.id !== nowTask?.id);
+  const summary = useMemo(() => laneSummary(tasks, nowTs), [tasks, nowTs]);
+  const { sorted, inProg, nowTask, nextTask, overdueIds: overdueSet } = summary;
+  const doneCount = summary.done;
   const later = useMemo(() => [...laterTasks].sort(byStart), [laterTasks]);
   // Two slots: today's now/next first; a later day's task only fills a gap,
   // and says so rather than posing as "next up" today.
@@ -46,30 +44,13 @@ export function HelperLane({
   if (nowTask) rows.push({ label: inProg ? "Now" : "Next up", task: nowTask, muted: false });
   if (nextTask) rows.push({ label: "Next", task: nextTask, muted: true });
   if (rows.length < 2 && later[0]) rows.push({ label: "Coming up", task: later[0], muted: true });
-  // Same rule as Needs You: blocked, or past its planned time on the clock.
-  const overdueSet = new Set(
-    sorted.filter((t) => t.status === "blocked" || isPastDue(t, nowTs)).map((t) => t.id),
-  );
-
   const toAssign = sorted.filter((t) => t.status !== "done").length + later.length;
   const pill = unassigned
     ? {
         text: `${toAssign} to assign`,
         cls: "bg-secondary text-muted-foreground",
       }
-    : overdueSet.size > 0
-      ? {
-          text: `${overdueSet.size} ${overdueSet.size === 1 ? "needs" : "need"} you`,
-          cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
-        }
-      : inProg
-        ? {
-            text: `Now: ${inProg.title}`,
-            cls: "bg-[oklch(0.93_0.08_75)] text-[oklch(0.4_0.13_75)]",
-          }
-        : sorted.length === 0
-          ? { text: "Nothing today", cls: "bg-secondary text-muted-foreground" }
-          : { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
+    : lanePill(summary);
 
   const pct = sorted.length === 0 ? 0 : Math.round((doneCount / sorted.length) * 100);
 

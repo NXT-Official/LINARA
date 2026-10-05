@@ -6,6 +6,9 @@ import { ListFilter } from "@/components/shared/list-filter";
 import type { Appointment } from "@/features/appointments/appointment.types";
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
+import { useStaffScope } from "@/features/teams/hooks/use-staff-scope";
+import { useTeamView } from "@/features/teams/hooks/use-team-view";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay } from "@/features/shifts/shift.utils";
 import {
@@ -57,8 +60,9 @@ const VIEWS: { key: PlanView; label: string }[] = [
   { key: "list", label: "List" },
   { key: "month", label: "Month" },
 ];
-/** "all", "unassigned", or a helper id. */
+/** "all", "unassigned", a helper id, or "team:<id>" for everyone on a team. */
 type Who = string;
+const TEAM_PREFIX = "team:";
 const STATUS_CHIPS: { key: PlanStatus; label: string }[] = [
   { key: "all", label: "All" },
   { key: "open", label: "To do" },
@@ -171,10 +175,23 @@ export function TaskPlanner({
     boardTasks,
   });
 
+  const { teams } = useTeamView();
+  const groupStaff = useStaffScope().group;
+  const whoTeam = who.startsWith(TEAM_PREFIX) ? who.slice(TEAM_PREFIX.length) : null;
   const matchesWho = useCallback(
     (helperId: string | null) =>
-      who === "all" ? true : who === "unassigned" ? helperId === null : helperId === who,
-    [who],
+      who === "all"
+        ? true
+        : who === "unassigned"
+          ? helperId === null
+          : whoTeam
+            ? helperId !== null && findHelper(helperId, helpers).teamId === whoTeam
+            : helperId === who,
+    [who, whoTeam, helpers],
+  );
+  const teamMemberIds = useMemo(
+    () => (whoTeam ? helpers.filter((h) => h.teamId === whoTeam).map((h) => h.id) : undefined),
+    [whoTeam, helpers],
   );
   const shown = useMemo(
     () => (tasks ?? []).filter((t) => matchesWho(t.helperId) && matchesPlanStatus(t, status)),
@@ -183,7 +200,8 @@ export function TaskPlanner({
   const search = useSearch({
     token,
     query,
-    helper: who,
+    helper: whoTeam ? "all" : who,
+    helperIds: teamMemberIds,
     statuses: PLAN_STATUSES[status],
     helpers,
     boardTasks,
@@ -317,7 +335,7 @@ export function TaskPlanner({
 
   const offOn = (day: Date) =>
     activeHelpers
-      .filter((h) => (who === "all" || who === h.id) && scheduleFor(h.id))
+      .filter((h) => matchesWho(h.id) && scheduleFor(h.id))
       .filter((h) => isRestDay(weekdayOf(day), scheduleFor(h.id)!))
       .map((h) => h.short);
 
@@ -329,11 +347,18 @@ export function TaskPlanner({
       .filter((id): id is string => !!id && !ids.has(id))
       .map((id) => findHelper(id, helpers));
     const everyone = [...activeHelpers, ...former].filter((h) => matchesWho(h.id));
+    // With teams, rows sit under their team's name.
+    const groups = groupStaff(everyone);
     return [
       ...(matchesWho(null) ? [{ helper: null }] : []),
-      ...everyone.map((helper) => ({ helper })),
+      ...(groups
+        ? groups.flatMap((g): PeopleRow[] => [
+            { heading: g.title, count: g.items.length },
+            ...g.items.map((helper) => ({ helper })),
+          ])
+        : everyone.map((helper) => ({ helper }))),
     ];
-  }, [activeHelpers, helpers, shown, matchesWho]);
+  }, [activeHelpers, helpers, shown, matchesWho, groupStaff]);
   const tasksByCell = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const [day, list] of tasksByDay)
@@ -374,23 +399,24 @@ export function TaskPlanner({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="sr-only" htmlFor="plan-who">
-            Whose tasks
-          </label>
-          <select
-            id="plan-who"
-            value={who}
-            onChange={(e) => setWho(e.target.value)}
-            className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary"
-          >
-            <option value="all">Everyone</option>
-            {activeHelpers.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.short}
-              </option>
-            ))}
-            <option value="unassigned">Unassigned</option>
-          </select>
+          <div className="min-w-[9rem]">
+            <HelperPicker
+              helpers={activeHelpers}
+              value={who}
+              onChange={setWho}
+              ariaLabel="Whose tasks"
+              before={[
+                { value: "all", label: "Everyone" },
+                ...teams.teams.map((t) => ({
+                  value: `${TEAM_PREFIX}${t.id}`,
+                  label: `All of ${t.name}`,
+                })),
+              ]}
+              after={[{ value: "unassigned", label: "Unassigned" }]}
+              describe={(h) => h.short}
+              className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </div>
 
           <div
             className="inline-flex rounded-lg border border-border bg-card p-0.5"

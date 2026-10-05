@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import type { Helper } from "@/features/people/people.types";
 import { WEEKDAYS, type Weekday } from "@/lib/time";
 import { generateSopFn, insertHouseSopFn, type HouseStandardSOP } from "../task.actions";
@@ -153,18 +154,13 @@ export function NewRoutineModal({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Assign to">
-            <select
+            <HelperPicker
+              helpers={activeHelpers}
               value={helperId}
-              onChange={(e) => setHelperId(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              {activeHelpers.length === 0 && <option value="">No active helpers yet</option>}
-              {activeHelpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} · {h.station}
-                </option>
-              ))}
-            </select>
+              onChange={setHelperId}
+              ariaLabel="Assign to"
+              emptyLabel="No active helpers yet"
+            />
           </Field>
           <Field label="Time">
             <input

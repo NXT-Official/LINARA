@@ -8,6 +8,7 @@ import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import { PayrollSummary } from "@/features/pay/components/payroll-summary";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 
 import { useAppStores } from "../app-store-context";
@@ -90,18 +91,14 @@ export function ManagerMoneyPage() {
           <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
             <span className="text-xs font-bold text-primary">Showing</span>
             <Avatar initials={selectedHelper?.initials ?? "??"} />
-            <select
+            <HelperPicker
+              helpers={activeHelpers}
               value={selectedHelperId ?? ""}
-              onChange={(e) => setPickedPayHelperId(e.target.value)}
-              aria-label="Whose money to show"
+              onChange={setPickedPayHelperId}
+              ariaLabel="Whose money to show"
+              align="right"
               className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
-            >
-              {activeHelpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         )}
       </div>

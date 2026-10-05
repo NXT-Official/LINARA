@@ -22,6 +22,7 @@ export function useTaskSearch({
   token,
   query,
   helper,
+  helperIds,
   statuses,
   helpers,
   boardTasks,
@@ -30,6 +31,8 @@ export function useTaskSearch({
   query: string;
   /** "all", "unassigned" or a helper id. */
   helper: string;
+  /** With "all": only these people (one team). */
+  helperIds?: string[];
   statuses: Status[];
   helpers: Helper[];
   boardTasks: Task[];
@@ -37,7 +40,9 @@ export function useTaskSearch({
   const words = query.trim();
   const active = words.length >= MIN_SEARCH_LENGTH;
   const statusKey = statuses.join(",");
-  const key = `${words}|${helper}|${statusKey}`;
+  // "ids:" even for an empty team, which must find nothing rather than everyone.
+  const idsKey = helperIds ? `ids:${helperIds.join(",")}` : "";
+  const key = `${words}|${helper}|${idsKey}|${statusKey}`;
   const [result, setResult] = useState<{ key: string; rows: TicketRow[] } | null>(null);
 
   useEffect(() => {
@@ -49,6 +54,7 @@ export function useTaskSearch({
           token,
           query: words,
           helper,
+          helperIds: idsKey ? idsKey.slice(4).split(",").filter(Boolean) : undefined,
           statuses: statusKey ? (statusKey.split(",") as Status[]) : [],
         },
       })
@@ -64,7 +70,7 @@ export function useTaskSearch({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [token, active, words, helper, statusKey, key, boardTasks]);
+  }, [token, active, words, helper, idsKey, statusKey, key, boardTasks]);
 
   // Results for an earlier query aren't shown as this one's.
   const current = active ? (result?.key === key ? result.rows : null) : NO_ROWS;

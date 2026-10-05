@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
@@ -126,18 +127,13 @@ export function NewTaskModal({
           />
         </Field>
         <Field label="Assign to">
-          <select
+          <HelperPicker
+            helpers={activeHelpers}
             value={helperId}
-            onChange={(e) => setHelperId(e.target.value)}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-          >
-            <option value="">Unassigned (decide later)</option>
-            {activeHelpers.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name} · {h.station}
-              </option>
-            ))}
-          </select>
+            onChange={setHelperId}
+            ariaLabel="Assign to"
+            before={[{ value: "", label: "Unassigned (decide later)" }]}
+          />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Date" error={errors.date}>

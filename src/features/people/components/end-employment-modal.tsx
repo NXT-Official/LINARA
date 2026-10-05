@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
 import { fmtHoursMinutes } from "@/features/ledger/ledger.utils";
 import {
@@ -188,18 +189,14 @@ export function EndEmploymentModal({
           <>
             {current.openTasks > 0 && (
               <Field label={`Her open tasks (${current.openTasks})`}>
-                <select
+                <HelperPicker
+                  helpers={otherHelpers}
                   value={reassignTo}
-                  onChange={(e) => setReassignTo(e.target.value)}
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-                >
-                  {otherHelpers.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      Move them to {h.name} ({h.station})
-                    </option>
-                  ))}
-                  <option value="">Remove them from the board</option>
-                </select>
+                  onChange={setReassignTo}
+                  ariaLabel="Her open tasks"
+                  after={[{ value: "", label: "Remove them from the board" }]}
+                  describe={(h) => `Move them to ${h.name} (${h.station})`}
+                />
                 <span className="mt-1 block text-xs text-muted-foreground">
                   Tasks she already finished stay on her record either way.
                 </span>

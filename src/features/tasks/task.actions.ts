@@ -354,11 +354,20 @@ export const listTicketsBetweenFn = createServerFn({ method: "POST" })
 /**
  * Tasks on any date whose title or note contains `query`, newest first, for
  * the Schedule's search (KNOWN_GAPS.md O32: finding an old task). `helper` is
- * "all", "unassigned" or a helper id; `statuses` narrows to those (empty: any).
+ * "all", "unassigned" or a helper id; `helperIds`, when given, narrows "all"
+ * to those people (one team); `statuses` narrows to those (empty: any).
  * Cancelled ones are included, as the planner shows them.
  */
 export const searchTicketsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; query: string; helper: string; statuses: Status[] }) => data)
+  .validator(
+    (data: {
+      token: string;
+      query: string;
+      helper: string;
+      helperIds?: string[];
+      statuses: Status[];
+    }) => data,
+  )
   .handler(async ({ data }) => {
     // PostgREST's or() is comma- and paren-delimited, and * and % are
     // wildcards: searching for any of those means nothing here, so drop them.
@@ -377,6 +386,7 @@ export const searchTicketsFn = createServerFn({ method: "POST" })
       .limit(TASK_SEARCH_LIMIT);
     if (data.helper === "unassigned") request = request.is("helper_id", null);
     else if (data.helper !== "all") request = request.eq("helper_id", data.helper);
+    else if (data.helperIds) request = request.in("helper_id", data.helperIds);
     if (data.statuses.length > 0) request = request.in("status", data.statuses);
 
     const { data: rows, error } = await request;

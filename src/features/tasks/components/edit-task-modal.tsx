@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { photoFilename, savePhotoUrl, TASK_PHOTO_DAYS } from "@/lib/evidence-photo";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
@@ -235,18 +236,15 @@ export function EditTaskModal({
             />
           </Field>
           <Field label="Assigned to">
-            <select
+            <HelperPicker
+              helpers={helpers}
               value={helperId ?? ""}
-              onChange={(e) => setHelperId(e.target.value || null)}
+              onChange={(v) => setHelperId(v || null)}
+              ariaLabel="Assigned to"
+              before={[{ value: "", label: "Unassigned (decide later)" }]}
+              describe={(h) => `${h.short} · ${h.station}`}
               className={inputCls}
-            >
-              <option value="">Unassigned (decide later)</option>
-              {helpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.short} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
           {helperId === null && (
             <p className="text-sm text-muted-foreground">
