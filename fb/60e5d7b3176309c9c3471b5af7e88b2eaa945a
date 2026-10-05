@@ -1,0 +1,81 @@
+src/features/landing/landing-content.test.ts
+  s_0cc7eb3d8eb999::t_f8b04f8a522c22 449-461,463-477
+  s_0cc7eb3d8eb999::t_500135252d701d 536,575-589
+  s_0cc7eb3d8eb999::t_07306db5aacbd0 388-393,396
+  s_0cc7eb3d8eb999::t_3b4e78d64f24e1 537-545
+  s_0cc7eb3d8eb999::t_375df9bdcb0c5e 16-103
+  s_0cc7eb3d8eb999::t_d9ba000ec8f748 363-364
+  s_0cc7eb3d8eb999::t_f53a8933d49134 294-298
+  s_0cc7eb3d8eb999::t_e419967f637adb 430,478-496,498-502,524-535
+  s_0cc7eb3d8eb999::t_f9e78949405bf6 414,422-423
+  s_0cc7eb3d8eb999::t_67457ba691fedd 6
+  s_0cc7eb3d8eb999::t_c946768396dea8 431-448
+  s_0cc7eb3d8eb999::t_5db1349e6b5643 149
+  s_0cc7eb3d8eb999::t_21384209811648 150,301,546-574,590
+  s_0cc7eb3d8eb999::t_9c7498b755c03b 497
+  s_0cc7eb3d8eb999::t_4d0fcacba4d10f 257,268,277
+  s_0cc7eb3d8eb999::t_360ca9bb3216e1 503-523
+  s_0cc7eb3d8eb999::t_c95812c58c616a 255
+  s_0cc7eb3d8eb999::t_3dc31c8bfa712b 262-263,265-267,269-272,274-276,278-293,299-300
+  s_0cc7eb3d8eb999::t_42a9219daec355 7,245,253,264,273,335,353,359,378,462
+  s_0cc7eb3d8eb999::t_fa008fc8a4e206 360-362,365-377,379-387,394-395,397-413,415-421,424-429
+  s_0cc7eb3d8eb999::t_48f5a860cf6391 219-222,225-243
+  s_0cc7eb3d8eb999::t_4ab68d06f77382 132-148
+  s_0cc7eb3d8eb999::t_c1d50c391809c2 151,244,302,591-592
+src/features/landing/landing-content.ts
+  s_0cc7eb3d8eb999::t_8f5a518eaa76fe 345,353,380,386
+  s_0cc7eb3d8eb999::t_b7190bc3e4e87a 387
+  s_0cc7eb3d8eb999::t_ca2df03b2b0be4 401,434
+  s_0cc7eb3d8eb999::t_3375d101ef0634 390-391,406,411,414,422,424,428
+  s_0cc7eb3d8eb999::t_99851a776f309d 430-431
+  s_0cc7eb3d8eb999::t_d27b34cdf3fe7e 356
+  s_0cc7eb3d8eb999::t_03cef63acce0d0 368-379,392-394,396-399
+  s_0cc7eb3d8eb999::t_6e1aa61170db9c 169-170
+  s_0cc7eb3d8eb999::t_832cf33bcac332 278-283,285-295
+  s_0cc7eb3d8eb999::t_1f641f0bd8d925 389
+  s_0cc7eb3d8eb999::t_d5ee6c64ed87d5 432-433
+  s_0cc7eb3d8eb999::t_693c7c80423648 405,415-421,423,425-427,429,435
+  s_0cc7eb3d8eb999::t_1b5758bcc90749 214
+  s_0cc7eb3d8eb999::t_e4dc1cde9a5171 355,357
+  s_0cc7eb3d8eb999::t_8a14825bf0d684 395
+  s_0cc7eb3d8eb999::t_3aaa538fae514b 358-365
+  s_0cc7eb3d8eb999::t_e4320f9b131ce4 148-154
+  s_0cc7eb3d8eb999::t_28cfc007836609 4-5
+  s_0cc7eb3d8eb999::t_1f134805a5a6fc 284
+  s_0cc7eb3d8eb999::t_9ee6e5bcc7e728 402
+  s_0cc7eb3d8eb999::t_c68b2ae0f7f391 384
+  s_0cc7eb3d8eb999::t_1b2835c5afd15c 166
+  s_0cc7eb3d8eb999::t_caeea3b4b582f2 407-410
+  s_0cc7eb3d8eb999::t_2a37b71d795cc4 349-350
+  s_0cc7eb3d8eb999::t_e4d94f20ae60d9 388,413
+  s_0cc7eb3d8eb999::t_4c9da05f1606a7 354,366,400
+src/features/landing/landing-contract.test.ts
+  s_0cc7eb3d8eb999::t_4649c43a452108 1-23,25-44,46-53,56-105,108-141,147,149-150,152,165-205,208,213-215,218-220,222-225,227-231,235,253-254
+  s_0cc7eb3d8eb999::t_c9054f19140a1d 24
+  s_0cc7eb3d8eb999::t_0bd8396d04cf51 54-55
+  s_0cc7eb3d8eb999::t_fff074b11b527b 106-107
+  s_0cc7eb3d8eb999::t_fe53d65c8606aa 206,209-210,216-217,221,226,232-234,236-243,249-252
+  s_0cc7eb3d8eb999::t_d094ba4415304e 207,211-212
+  s_0cc7eb3d8eb999::t_a0d323f8a1ca93 142-146,148,151,153-164
+  s_0cc7eb3d8eb999::t_fb30cb520240af 244-248
+  s_0cc7eb3d8eb999::t_cfd20856c37138 45
+src/features/landing/landing.actions.ts
+  s_0cc7eb3d8eb999::t_ff3ded928b790b 5-6,10-13,17-18,23
+  s_0cc7eb3d8eb999::t_cf53414def7c94 14,22,24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb60e5d7b3176309c9c3471b5af7e88b2eaa945a",
+  "prompts": {},
+  "sessions": {
+    "s_0cc7eb3d8eb999": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9204abd3-77fd-4017-aca1-2322f5e9db32",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
