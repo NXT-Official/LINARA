@@ -3,14 +3,103 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LANDING_FALLBACK,
   LANDING_QUERY,
+  type LandingContent,
+  createLandingContentLoader,
   landingHead,
   landingQueryUrl,
-  loadLandingContent,
   normalizeLandingContent,
   sanityTargetFromEnv,
 } from "@/features/landing/landing-content";
 
 const TARGET = { projectId: "abc123", dataset: "production" };
+
+/** Every string value anywhere in a JSON-like value. */
+function leafStrings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (value && typeof value === "object") return Object.values(value).flatMap(leafStrings);
+  return [];
+}
+
+const SECTIONS = ["seo", "header", "hero", "kitchen", "lenses", "account", "footer"] as const;
+const HIDEABLE = ["kitchen", "lenses", "account"] as const;
+type Hideable = (typeof HIDEABLE)[number];
+
+/** A complete Studio document. Every string in it names the section it belongs to. */
+function studioDocument(hidden?: Hideable) {
+  return {
+    seo: { title: "SEO-title", description: "SEO-description", socialDescription: "SEO-social" },
+    header: { ctaLabel: "HEADER-cta" },
+    hero: {
+      kicker: "HERO-kicker",
+      headlineLine1: "HERO-line-1",
+      headlineLine2: "HERO-line-2",
+      description: "HERO-description",
+      ctaLabel: "HERO-cta",
+    },
+    kitchen: {
+      hidden: hidden === "kitchen",
+      heading: "KITCHEN-heading",
+      body: "KITCHEN-body",
+      cards: [
+        { _key: "KITCHEN-key-0", icon: "wallet", title: "KITCHEN-card-0", body: "KITCHEN-text-0" },
+        { _key: "KITCHEN-key-1", icon: "users", title: "KITCHEN-card-1", body: "KITCHEN-text-1" },
+      ],
+    },
+    lenses: {
+      hidden: hidden === "lenses",
+      heading: "LENSES-heading",
+      body: "LENSES-body",
+      items: [
+        { _key: "LENSES-key-0", title: "LENSES-item-0", body: "LENSES-text-0" },
+        { _key: "LENSES-key-1", title: "LENSES-item-1", body: "LENSES-text-1" },
+      ],
+    },
+    account: {
+      hidden: hidden === "account",
+      badge: "ACCOUNT-badge",
+      heading: "ACCOUNT-heading",
+      body: "ACCOUNT-body",
+      complianceTitle: "ACCOUNT-compliance-title",
+      complianceBody: "ACCOUNT-compliance: wages, SSS, PhilHealth and Pag-IBIG, under review",
+    },
+    footer: {
+      copyright: "FOOTER-copyright",
+      privacyLabel: "FOOTER-privacy",
+      termsLabel: "FOOTER-terms",
+    },
+  };
+}
+
+/** What a hidden section is reduced to: its flag, and no copy. */
+const BARE = {
+  kitchen: { hidden: true, heading: "", body: "", cards: [] },
+  lenses: { hidden: true, heading: "", body: "", items: [] },
+  account: {
+    hidden: true,
+    badge: "",
+    heading: "",
+    body: "",
+    complianceTitle: "",
+    complianceBody: "",
+  },
+};
+
+/**
+ * `content` is what the server hands the page for hydration, so its JSON is
+ * what a visitor can read in the page source. The hidden section must be bare
+ * there, and every other section exactly as published.
+ */
+function expectOnlyHiddenIsBare(content: LandingContent, hidden: Hideable) {
+  const doc = studioDocument(hidden);
+  const wire = JSON.stringify(content);
+  expect(leafStrings(doc[hidden]).length).toBeGreaterThan(4);
+  for (const sentinel of leafStrings(doc[hidden])) expect(wire).not.toContain(sentinel);
+  expect(content[hidden]).toEqual(BARE[hidden]);
+  for (const section of SECTIONS.filter((name) => name !== hidden)) {
+    for (const sentinel of leafStrings(doc[section])) expect(wire).toContain(sentinel);
+    expect(content[section]).toEqual(doc[section]);
+  }
+}
 
 describe("normalizeLandingContent", () => {
   it("returns the full fallback for a missing document", () => {
@@ -38,6 +127,26 @@ describe("normalizeLandingContent", () => {
   it("accepts only real booleans for visibility", () => {
     expect(normalizeLandingContent({ kitchen: { hidden: "true" } }).kitchen.hidden).toBe(false);
     expect(normalizeLandingContent({ kitchen: { hidden: true } }).kitchen.hidden).toBe(true);
+  });
+
+  it("keeps every word of a document with nothing hidden", () => {
+    expect(normalizeLandingContent(studioDocument())).toEqual(studioDocument());
+  });
+
+  it.each(HIDEABLE)("a hidden %s section keeps its flag and none of its copy", (hidden) => {
+    expectOnlyHiddenIsBare(normalizeLandingContent(studioDocument(hidden)), hidden);
+  });
+
+  it("a hidden section does not fall back to the checked-in copy either", () => {
+    const content = normalizeLandingContent({
+      kitchen: { hidden: true },
+      lenses: { hidden: true },
+      account: { hidden: true },
+    });
+    expect(content.kitchen).toEqual(BARE.kitchen);
+    expect(content.lenses).toEqual(BARE.lenses);
+    expect(content.account).toEqual(BARE.account);
+    expect(JSON.stringify(content)).not.toContain(LANDING_FALLBACK.account.complianceBody);
   });
 
   it("keeps the whole fallback list when any card is incomplete", () => {
@@ -107,9 +216,33 @@ describe("landingQueryUrl", () => {
     expect(url.searchParams.get("query")).toBe(LANDING_QUERY);
     expect(url.searchParams.get("perspective")).toBe("published");
   });
+
+  it("asks only for a document with LINARA's kitchen section", () => {
+    expect(LANDING_QUERY.startsWith('*[_id == "landingPage" && defined(kitchen)][0]{')).toBe(true);
+  });
 });
 
-describe("loadLandingContent — never throws", () => {
+/**
+ * MILA's `landingPage`: same Sanity organization, env var names, dataset name
+ * and document id as LINARA's. Only the shape tells them apart.
+ */
+const MILA_RESULT = {
+  seo: {
+    title: "Mila — Your stylist. Every morning.",
+    description: "x",
+    socialDescription: "y",
+  },
+  hero: {
+    kicker: "Your AI stylist",
+    headlineLine1: "Your stylist.",
+    headlineLine2: "Every morning.",
+    subhead: "s",
+  },
+  howItWorks: {},
+  footer: { wordmark: "MILA", tagline: "t" },
+};
+
+describe("createLandingContentLoader — never throws", () => {
   const ok = (body: unknown) =>
     vi.fn(
       async () => new Response(JSON.stringify(body), { status: 200 }),
@@ -117,13 +250,54 @@ describe("loadLandingContent — never throws", () => {
 
   it("returns normalized Studio content", async () => {
     const warn = vi.fn();
-    const c = await loadLandingContent({
+    const c = await createLandingContentLoader({
       target: TARGET,
-      fetchImpl: ok({ result: { hero: { kicker: "From Studio" } } }),
+      fetchImpl: ok({ result: { kitchen: { hidden: false }, hero: { kicker: "From Studio" } } }),
       warn,
-    });
+    })();
     expect(c.hero.kicker).toBe("From Studio");
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("refuses another product's document and serves the fallback path instead", async () => {
+    const warn = vi.fn();
+    const c = await createLandingContentLoader({
+      target: TARGET,
+      fetchImpl: ok({ result: MILA_RESULT }),
+      warn,
+    })();
+    const served = leafStrings(c);
+    for (const foreign of leafStrings(MILA_RESULT)) expect(served).not.toContain(foreign);
+    for (const word of ["Mila", "MILA", "stylist"]) expect(JSON.stringify(c)).not.toContain(word);
+
+    const unpublished = await createLandingContentLoader({
+      target: TARGET,
+      fetchImpl: ok({ result: null }),
+      warn: vi.fn(),
+    })();
+    expect(c).toEqual(unpublished);
+    expect(c).toEqual(LANDING_FALLBACK);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0][0]);
+    expect(message).toMatch(/"landingPage" in abc123\/production does not look like LINARA's/);
+    expect(message).toContain("fallback copy v2026-10-04");
+  });
+
+  it.each([
+    ["missing", { hero: { kicker: "Foreign" } }],
+    ["null", { kitchen: null, hero: { kicker: "Foreign" } }],
+    ["a string", { kitchen: "yes", hero: { kicker: "Foreign" } }],
+    ["a list", { kitchen: [{ heading: "h" }], hero: { kicker: "Foreign" } }],
+  ])("refuses a document whose kitchen is %s", async (_name, result) => {
+    const warn = vi.fn();
+    const c = await createLandingContentLoader({
+      target: TARGET,
+      fetchImpl: ok({ result }),
+      warn,
+    })();
+    expect(c).toEqual(LANDING_FALLBACK);
+    expect(String(warn.mock.calls[0][0])).toMatch(/does not look like LINARA's/);
   });
 
   it.each([
@@ -158,7 +332,7 @@ describe("loadLandingContent — never throws", () => {
     ],
   ])("%s → fallback + one sanitized warning", async (_name, target, fetchImpl, pattern) => {
     const warn = vi.fn();
-    const c = await loadLandingContent({ target, fetchImpl, warn });
+    const c = await createLandingContentLoader({ target, fetchImpl, warn })();
     expect(c).toEqual(LANDING_FALLBACK);
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0][0]);
@@ -176,9 +350,243 @@ describe("loadLandingContent — never throws", () => {
     ) as unknown as typeof fetch;
     const warn = vi.fn();
     expect(
-      await loadLandingContent({ target: TARGET, fetchImpl: hung, warn, timeoutMs: 20 }),
+      await createLandingContentLoader({ target: TARGET, fetchImpl: hung, warn, timeoutMs: 20 })(),
     ).toEqual(LANDING_FALLBACK);
     expect(warn).toHaveBeenCalledOnce();
+  });
+});
+
+describe("createLandingContentLoader — one server instance over time", () => {
+  /** What an editor published: two sections hidden and a corrected compliance line. */
+  const STUDIO = {
+    kitchen: { hidden: true },
+    lenses: { hidden: true },
+    account: { complianceBody: "Corrected compliance line." },
+    hero: { kicker: "From Studio" },
+  };
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  type Respond = (init?: RequestInit) => Promise<Response>;
+
+  /** An isolated loader with its own clock and a fetch the test can re-point. */
+  function instance(target: typeof TARGET | null = TARGET) {
+    const state: { now: number; respond: Respond } = {
+      now: 0,
+      respond: async () => json({ result: STUDIO }),
+    };
+    const fetchImpl = vi.fn((_url: string, init?: RequestInit) => state.respond(init));
+    const warn = vi.fn();
+    const load = createLandingContentLoader({
+      target,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      warn,
+      now: () => state.now,
+      timeoutMs: 20,
+    });
+    return { state, fetchImpl, warn, load };
+  }
+
+  /** Never answers; rejects the way fetch does when its signal aborts. */
+  const hung: Respond = (init) =>
+    new Promise<Response>((_, reject) =>
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+    );
+
+  const FAILURES: Array<[string, Respond]> = [
+    ["a non-200", async () => json({ error: "down" }, 503)],
+    ["a timeout", hung],
+    [
+      "a thrown error",
+      async () => {
+        throw new TypeError("fetch failed");
+      },
+    ],
+    ["bad JSON", async () => new Response("<html>", { status: 200 })],
+    ["an unpublished document", async () => json({ result: null })],
+    ["another product's document", async () => json({ result: MILA_RESULT })],
+  ];
+
+  it.each(FAILURES)(
+    "after a good read, %s still serves what editors published",
+    async (_name, failure) => {
+      const { state, warn, load } = instance();
+      const good = await load();
+      expect(good.kitchen.hidden).toBe(true);
+      expect(good.lenses.hidden).toBe(true);
+      expect(good.account.complianceBody).toBe("Corrected compliance line.");
+      expect(warn).not.toHaveBeenCalled();
+
+      state.respond = failure;
+      const served = await load();
+      expect(served).toEqual(good);
+      expect(served.kitchen.hidden).toBe(true);
+      expect(served.lenses.hidden).toBe(true);
+      expect(served.account.complianceBody).toBe("Corrected compliance line.");
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0][0]);
+      expect(message).toContain("serving the last good Studio copy");
+      expect(message).not.toContain("fallback copy");
+    },
+  );
+
+  it.each(HIDEABLE)(
+    "a hidden %s section's copy is not served, fresh or from the last good read",
+    async (hidden) => {
+      const { state, fetchImpl, load } = instance();
+      state.respond = async () => json({ result: studioDocument(hidden) });
+      expectOnlyHiddenIsBare(await load(), hidden);
+
+      state.respond = async () => json({ error: "down" }, 503);
+      const lastGood = await load();
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expectOnlyHiddenIsBare(lastGood, hidden);
+
+      // And again from inside the back-off window, where nothing is fetched.
+      expectOnlyHiddenIsBare(await load(), hidden);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each(FAILURES)("with no good read yet, %s serves LANDING_FALLBACK", async (_name, failure) => {
+    const { state, fetchImpl, warn, load } = instance();
+    state.respond = failure;
+    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("serving fallback copy v2026-10-04.");
+  });
+
+  it("asks for the published document of the configured project, with a 4-second abort", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    try {
+      const fetchImpl = vi.fn(async () => json({ result: STUDIO }));
+      const load = createLandingContentLoader({
+        target: TARGET,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        warn: vi.fn(),
+      });
+      await load();
+      expect(timeout).toHaveBeenCalledExactlyOnceWith(4000);
+      expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(landingQueryUrl(TARGET), {
+        headers: { accept: "application/json" },
+        signal: timeout.mock.results[0].value,
+      });
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
+  it("after a failure, stays off Sanity for 30 seconds, then tries again", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    state.respond = async () => json({ error: "down" }, 503);
+    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("Next attempt in 30s.");
+
+    // Sanity is back, but the window has not passed: no fetch, no second warning.
+    state.respond = async () => json({ result: STUDIO });
+    state.now += 29_999;
+    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    state.now += 1;
+    expect((await load()).hero.kicker).toBe("From Studio");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // The window is over: the very next call reads again.
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a long outage costs one read and one warning per 30 seconds", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    state.respond = async () => json({ error: "down" }, 503);
+    await load();
+    state.now += 30_000;
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(2);
+
+    // The failed retry opened a new window of its own.
+    state.now += 29_999;
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(2);
+
+    state.now += 1;
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(3);
+  });
+
+  it("inside the 30 seconds, serves the last good copy without fetching", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    const good = await load();
+    state.respond = async () => json({ error: "down" }, 503);
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    state.now += 15_000;
+    expect(await load()).toEqual(good);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("requests that fail together log one warning, not one each", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    state.respond = async () => json({ error: "down" }, 503);
+    const served = await Promise.all([load(), load(), load()]);
+    for (const content of served) expect(content).toEqual(LANDING_FALLBACK);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each<[string, Respond, string]>([
+    ["a timeout", hung, "TimeoutError"],
+    [
+      "a DNS failure",
+      async () => {
+        throw new TypeError("fetch failed token=abc", {
+          cause: new Error("getaddrinfo ENOTFOUND abc123.apicdn.sanity.io"),
+        });
+      },
+      "TypeError",
+    ],
+    ["bad JSON", async () => new Response("<html>", { status: 200 }), "SyntaxError"],
+    ["a rejection that is not an error", () => Promise.reject("boom token=abc"), "Error"],
+    [
+      "an error with an unsafe name",
+      () => Promise.reject(Object.assign(new Error("x"), { name: "token=abc\nforged line" })),
+      "Error",
+    ],
+  ])("%s is logged by its error name and nothing else", async (_name, respond, errorName) => {
+    const { state, warn, load } = instance();
+    state.respond = respond;
+    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toBe(
+      `[landing] Sanity request failed (${errorName}) for abc123/production; ` +
+        "serving fallback copy v2026-10-04. Next attempt in 30s.",
+    );
+  });
+
+  it.each([
+    ["absent", {}],
+    ["malformed", { SANITY_PROJECT_ID: "evil.com/x", SANITY_DATASET: "production" }],
+  ])("project id %s: warns once across three calls and never fetches", async (_name, env) => {
+    const { state, fetchImpl, warn, load } = instance(sanityTargetFromEnv(env));
+    for (let call = 0; call < 3; call += 1) {
+      expect(await load()).toEqual(LANDING_FALLBACK);
+      // Well past the retry window, so the silence is not the back-off.
+      state.now += 60_000;
+    }
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toBe(
+      "[landing] Sanity is not configured; serving fallback copy v2026-10-04.",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
 

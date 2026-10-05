@@ -1,7 +1,8 @@
 /**
  * Landing-page content from the LINARA Sanity Studio (`landingPage` singleton).
  *
- * Pure module: no network, no React. `landing.actions.ts` does the fetch.
+ * Pure module: no network, no React, no state of its own. `landing.actions.ts`
+ * holds the one loader that fetches.
  * Editors control copy and section visibility. The wordmark, section order,
  * every link destination and the icon set stay in code, so published content
  * can never send a visitor off-site or inject markup (React escapes all text).
@@ -144,8 +145,13 @@ export const LANDING_FALLBACK: LandingContent = {
   },
 };
 
-/** GROQ projection: only rendered fields, nothing else leaves Sanity. */
-export const LANDING_QUERY = `*[_id == "${LANDING_DOCUMENT_ID}"][0]{
+/**
+ * GROQ projection: only rendered fields, nothing else leaves Sanity.
+ * `defined(kitchen)` keeps a sibling product's `landingPage` out: MILA shares
+ * this Sanity organization, the env var names, the dataset name and the
+ * document id, so a mis-set SANITY_PROJECT_ID would otherwise put its copy here.
+ */
+export const LANDING_QUERY = `*[_id == "${LANDING_DOCUMENT_ID}" && defined(kitchen)][0]{
   seo{title, description, socialDescription},
   header{ctaLabel},
   hero{kicker, headlineLine1, headlineLine2, description, ctaLabel},
@@ -157,10 +163,11 @@ export const LANDING_QUERY = `*[_id == "${LANDING_DOCUMENT_ID}"][0]{
 
 // ---------------------------------------------------------------------------
 // Normalizer: every field validated on its own, falling back on its own.
+// A hidden section is the exception: it keeps its flag and no copy at all.
 
 type Raw = Record<string, unknown>;
-const obj = (v: unknown): Raw =>
-  v && typeof v === "object" && !Array.isArray(v) ? (v as Raw) : {};
+const isObj = (v: unknown): v is Raw => !!v && typeof v === "object" && !Array.isArray(v);
+const obj = (v: unknown): Raw => (isObj(v) ? v : {});
 
 function text(value: unknown, fallback: string, max = 400): string {
   if (typeof value !== "string") return fallback;
@@ -204,7 +211,7 @@ export function normalizeLandingContent(raw: unknown): LandingContent {
   const account = obj(doc.account);
   const footer = obj(doc.footer);
 
-  return {
+  const content: LandingContent = {
     seo: {
       title: text(seo.title, F.seo.title, 70),
       description: text(seo.description, F.seo.description, 160),
@@ -268,6 +275,24 @@ export function normalizeLandingContent(raw: unknown): LandingContent {
       termsLabel: text(footer.termsLabel, F.footer.termsLabel, 20),
     },
   };
+
+  // A hidden section keeps its flag and nothing else. This object is
+  // serialized into the page for hydration, so copy left here would reach
+  // every visitor's page source: a compliance line an editor pulled for
+  // review must not ship. The view never reads a hidden section.
+  if (content.kitchen.hidden) content.kitchen = { hidden: true, heading: "", body: "", cards: [] };
+  if (content.lenses.hidden) content.lenses = { hidden: true, heading: "", body: "", items: [] };
+  if (content.account.hidden) {
+    content.account = {
+      hidden: true,
+      badge: "",
+      heading: "",
+      body: "",
+      complianceTitle: "",
+      complianceBody: "",
+    };
+  }
+  return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,41 +342,95 @@ export function landingQueryUrl({ projectId, dataset }: SanityTarget): string {
   return url.toString();
 }
 
-export interface LoadLandingOptions {
+export interface LandingContentLoaderOptions {
   target: SanityTarget | null;
   fetchImpl?: typeof fetch;
   warn?: (message: string) => void;
+  /** Milliseconds clock; tests inject their own. */
+  now?: () => number;
   timeoutMs?: number;
 }
+export type LandingContentLoader = () => Promise<LandingContent>;
 
-export async function loadLandingContent({
+/** After a failed read the loader stays off Sanity this long. */
+const LANDING_RETRY_AFTER_MS = 30_000;
+
+/**
+ * The class name tells a timeout (TimeoutError) from a network failure
+ * (TypeError) from bad JSON (SyntaxError). The message is never logged: it
+ * can echo request details.
+ */
+function errorName(error: unknown): string {
+  const name = obj(error).name;
+  return typeof name === "string" && /^[A-Za-z]{1,40}$/.test(name) ? name : "Error";
+}
+
+/**
+ * A loader for one server instance. Its memory lives in this closure, not in
+ * module scope, so each instance (and each test) has its own.
+ *
+ * - A failed read serves the last good Studio copy, so a section an editor hid
+ *   or a corrected compliance line does not revert during an outage. Only an
+ *   instance that has never had a good read serves LANDING_FALLBACK.
+ * - After a failure it stays off Sanity for LANDING_RETRY_AFTER_MS, so an
+ *   outage costs one timeout per window rather than one per request.
+ * - Unconfigured is the steady state on a site without the CMS: it warns once
+ *   and never fetches.
+ */
+export function createLandingContentLoader({
   target,
   fetchImpl = fetch,
   warn = (m) => console.warn(m),
+  now = () => Date.now(),
   timeoutMs = 4000,
-}: LoadLandingOptions): Promise<LandingContent> {
-  const fallback = (reason: string) => {
-    warn(`[landing] ${reason}; serving fallback copy v${LANDING_FALLBACK_VERSION}.`);
-    return normalizeLandingContent(null);
-  };
-  if (!target) return fallback("Sanity is not configured");
-
-  try {
-    const res = await fetchImpl(landingQueryUrl(target), {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    // Only the status is logged: upstream bodies can echo request details.
-    if (!res.ok)
-      return fallback(`Sanity responded ${res.status} for ${target.projectId}/${target.dataset}`);
-    const body = obj(await res.json());
-    if (!body.result) {
-      return fallback(
-        `No published "${LANDING_DOCUMENT_ID}" in ${target.projectId}/${target.dataset}`,
+}: LandingContentLoaderOptions): LandingContentLoader {
+  let lastGood: LandingContent | null = null;
+  let retryAt = Number.NEGATIVE_INFINITY;
+  let warnedUnconfigured = false;
+  const fallbackCopy = `fallback copy v${LANDING_FALLBACK_VERSION}`;
+  const failed = (reason: string) => {
+    const at = now();
+    // Requests already in flight when the window opened fail with it; the
+    // warning that opened it speaks for them.
+    if (at >= retryAt) {
+      retryAt = at + LANDING_RETRY_AFTER_MS;
+      const serving = lastGood ? "the last good Studio copy" : fallbackCopy;
+      warn(
+        `[landing] ${reason}; serving ${serving}. Next attempt in ${LANDING_RETRY_AFTER_MS / 1000}s.`,
       );
     }
-    return normalizeLandingContent(body.result);
-  } catch {
-    return fallback(`Sanity request failed for ${target.projectId}/${target.dataset}`);
-  }
+    return lastGood ?? LANDING_FALLBACK;
+  };
+
+  return async () => {
+    if (!target) {
+      if (!warnedUnconfigured) {
+        warnedUnconfigured = true;
+        warn(`[landing] Sanity is not configured; serving ${fallbackCopy}.`);
+      }
+      return LANDING_FALLBACK;
+    }
+    if (now() < retryAt) return lastGood ?? LANDING_FALLBACK;
+    const where = `${target.projectId}/${target.dataset}`;
+
+    try {
+      const res = await fetchImpl(landingQueryUrl(target), {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      // Only the status is logged: upstream bodies can echo request details.
+      if (!res.ok) return failed(`Sanity responded ${res.status} for ${where}`);
+      const body = obj(await res.json());
+      if (!body.result) return failed(`No published "${LANDING_DOCUMENT_ID}" in ${where}`);
+      // Second guard behind the query filter: only LINARA's document has a
+      // `kitchen` section, so anything else is another product's page.
+      if (!isObj(obj(body.result).kitchen)) {
+        return failed(`The "${LANDING_DOCUMENT_ID}" in ${where} does not look like LINARA's`);
+      }
+      lastGood = normalizeLandingContent(body.result);
+      return lastGood;
+    } catch (error) {
+      return failed(`Sanity request failed (${errorName(error)}) for ${where}`);
+    }
+  };
 }
