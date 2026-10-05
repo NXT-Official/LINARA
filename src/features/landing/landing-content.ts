@@ -70,6 +70,13 @@ export interface LandingContent {
  * markup — pinned by landing-view.test.tsx against __fixtures__/landing.pre-cms.html.
  * Wage and statutory-contribution wording is unchanged and needs owner review
  * before any edit.
+ *
+ * This copy is in the client bundle, all of it, the compliance line included:
+ * landing-loader.ts imports it so the homepage still renders offline in the
+ * helper app's WebView (owner ruling, 2026-10-05; the live site on `main`
+ * already serves the same text). Hiding a section in the Studio therefore
+ * hides it on the Studio-driven page only. Withdrawing a claim everywhere
+ * means changing it here.
  */
 export const LANDING_FALLBACK: LandingContent = {
   seo: {
@@ -276,10 +283,13 @@ export function normalizeLandingContent(raw: unknown): LandingContent {
     },
   };
 
-  // A hidden section keeps its flag and nothing else. This object is
-  // serialized into the page for hydration, so copy left here would reach
-  // every visitor's page source: a compliance line an editor pulled for
-  // review must not ship. The view never reads a hidden section.
+  // A hidden section keeps its flag and nothing else. This object is the
+  // route's loader data, serialized into the page for hydration, so copy left
+  // here would sit in every visitor's page source. Stripped, a hidden section
+  // is absent from the server-rendered HTML and from the hydration data.
+  // That is all hiding does: LANDING_FALLBACK, hidden sections included, is
+  // in the client bundle (see its comment). The view never reads a hidden
+  // section.
   if (content.kitchen.hidden) content.kitchen = { hidden: true, heading: "", body: "", cards: [] };
   if (content.lenses.hidden) content.lenses = { hidden: true, heading: "", body: "", items: [] };
   if (content.account.hidden) {
@@ -293,6 +303,37 @@ export function normalizeLandingContent(raw: unknown): LandingContent {
     };
   }
   return content;
+}
+
+// ---------------------------------------------------------------------------
+// Shape check for content that arrives over the network.
+
+/**
+ * True when `value` has every field `like` has, each of the same kind. List
+ * items are checked against `like`'s first item (LANDING_FALLBACK's lists are
+ * never empty).
+ */
+function sameShape(value: unknown, like: unknown): boolean {
+  if (Array.isArray(like)) {
+    return Array.isArray(value) && value.every((item) => sameShape(item, like[0]));
+  }
+  if (isObj(like)) {
+    return isObj(value) && Object.keys(like).every((field) => sameShape(value[field], like[field]));
+  }
+  return typeof value === typeof like;
+}
+
+/**
+ * True when `value` is content the page can render: every field of
+ * LandingContent with its type, and only code-owned icons. Anything less would
+ * crash LandingView or landingHead. Hidden sections pass: their lists are
+ * empty, not missing.
+ */
+export function isLandingContent(value: unknown): value is LandingContent {
+  return (
+    sameShape(value, LANDING_FALLBACK) &&
+    (value as LandingContent).kitchen.cards.every((card) => isIcon(card.icon))
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -346,7 +387,7 @@ export interface LandingContentLoaderOptions {
   target: SanityTarget | null;
   fetchImpl?: typeof fetch;
   warn?: (message: string) => void;
-  /** Milliseconds clock; tests inject their own. */
+  /** Milliseconds clock, monotonic by default; tests inject their own. */
   now?: () => number;
   timeoutMs?: number;
 }
@@ -366,14 +407,35 @@ function errorName(error: unknown): string {
 }
 
 /**
+ * Settles like `work`, or rejects with the signal's reason once it aborts,
+ * whichever comes first. A fetch, or a body read, that ignores its abort
+ * signal therefore cannot keep anyone waiting past the deadline.
+ */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+/**
  * A loader for one server instance. Its memory lives in this closure, not in
  * module scope, so each instance (and each test) has its own.
  *
  * - A failed read serves the last good Studio copy, so a section an editor hid
  *   or a corrected compliance line does not revert during an outage. Only an
  *   instance that has never had a good read serves LANDING_FALLBACK.
+ * - One read at a time. Requests that need Sanity while a read is under way
+ *   share it, or, when a good copy is in hand, get that copy at once instead
+ *   of waiting. No read keeps anyone past `timeoutMs`.
  * - After a failure it stays off Sanity for LANDING_RETRY_AFTER_MS, so an
- *   outage costs one timeout per window rather than one per request.
+ *   outage costs one read and one warning per window, however many requests
+ *   arrive.
+ * - Reads are numbered, and only the newest may change the memory: a read
+ *   that answers after a newer one neither replaces the newer copy nor opens
+ *   a quiet period after Sanity has answered.
  * - Unconfigured is the steady state on a site without the CMS: it warns once
  *   and never fetches.
  */
@@ -381,25 +443,67 @@ export function createLandingContentLoader({
   target,
   fetchImpl = fetch,
   warn = (m) => console.warn(m),
-  now = () => Date.now(),
+  // Monotonic: a wall-clock correction can neither stall nor cut short the
+  // quiet period.
+  now = () => performance.now(),
   timeoutMs = 4000,
 }: LandingContentLoaderOptions): LandingContentLoader {
   let lastGood: LandingContent | null = null;
   let retryAt = Number.NEGATIVE_INFINITY;
   let warnedUnconfigured = false;
+  let newestRead = 0;
+  let reading: Promise<void> | null = null;
   const fallbackCopy = `fallback copy v${LANDING_FALLBACK_VERSION}`;
-  const failed = (reason: string) => {
+  // Every caller gets its own copy, so one that changes what it was served
+  // cannot reach the next response, or LANDING_FALLBACK itself.
+  const serve = () => structuredClone(lastGood ?? LANDING_FALLBACK);
+
+  const failed = (read: number, reason: string) => {
+    if (read !== newestRead) return;
     const at = now();
-    // Requests already in flight when the window opened fail with it; the
-    // warning that opened it speaks for them.
-    if (at >= retryAt) {
-      retryAt = at + LANDING_RETRY_AFTER_MS;
-      const serving = lastGood ? "the last good Studio copy" : fallbackCopy;
-      warn(
-        `[landing] ${reason}; serving ${serving}. Next attempt in ${LANDING_RETRY_AFTER_MS / 1000}s.`,
-      );
+    // One read can report twice: at its deadline, and when its fetch gives
+    // up. Inside the window the first report opened, the second says nothing.
+    if (at < retryAt) return;
+    retryAt = at + LANDING_RETRY_AFTER_MS;
+    const serving = lastGood ? "the last good Studio copy" : fallbackCopy;
+    warn(
+      `[landing] ${reason}; serving ${serving}. Next attempt in ${LANDING_RETRY_AFTER_MS / 1000}s.`,
+    );
+  };
+
+  const read = async (sanity: SanityTarget) => {
+    const id = ++newestRead;
+    const where = `${sanity.projectId}/${sanity.dataset}`;
+    // One signal aborts the fetch and the body read, and bounds the wait.
+    const signal = AbortSignal.timeout(timeoutMs);
+    // Applies its own result whenever it ends, which for a fetch that ignores
+    // its abort can be after the deadline, when only the read number keeps
+    // it from overwriting a newer one.
+    const attempt = (async () => {
+      try {
+        const res = await fetchImpl(landingQueryUrl(sanity), {
+          headers: { accept: "application/json" },
+          signal,
+        });
+        // Only the status is logged: upstream bodies can echo request details.
+        if (!res.ok) return failed(id, `Sanity responded ${res.status} for ${where}`);
+        const body = obj(await res.json());
+        if (!body.result) return failed(id, `No published "${LANDING_DOCUMENT_ID}" in ${where}`);
+        // Second guard behind the query filter: only LINARA's document has a
+        // `kitchen` section, so anything else is another product's page.
+        if (!isObj(obj(body.result).kitchen)) {
+          return failed(id, `The "${LANDING_DOCUMENT_ID}" in ${where} does not look like LINARA's`);
+        }
+        if (id === newestRead) lastGood = normalizeLandingContent(body.result);
+      } catch (error) {
+        failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
+      }
+    })();
+    try {
+      await untilAborted(attempt, signal);
+    } catch (error) {
+      failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
     }
-    return lastGood ?? LANDING_FALLBACK;
   };
 
   return async () => {
@@ -408,29 +512,17 @@ export function createLandingContentLoader({
         warnedUnconfigured = true;
         warn(`[landing] Sanity is not configured; serving ${fallbackCopy}.`);
       }
-      return LANDING_FALLBACK;
+      return serve();
     }
-    if (now() < retryAt) return lastGood ?? LANDING_FALLBACK;
-    const where = `${target.projectId}/${target.dataset}`;
-
-    try {
-      const res = await fetchImpl(landingQueryUrl(target), {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(timeoutMs),
+    if (now() < retryAt) return serve();
+    if (!reading) {
+      reading = read(target).finally(() => {
+        reading = null;
       });
-      // Only the status is logged: upstream bodies can echo request details.
-      if (!res.ok) return failed(`Sanity responded ${res.status} for ${where}`);
-      const body = obj(await res.json());
-      if (!body.result) return failed(`No published "${LANDING_DOCUMENT_ID}" in ${where}`);
-      // Second guard behind the query filter: only LINARA's document has a
-      // `kitchen` section, so anything else is another product's page.
-      if (!isObj(obj(body.result).kitchen)) {
-        return failed(`The "${LANDING_DOCUMENT_ID}" in ${where} does not look like LINARA's`);
-      }
-      lastGood = normalizeLandingContent(body.result);
-      return lastGood;
-    } catch (error) {
-      return failed(`Sanity request failed (${errorName(error)}) for ${where}`);
+    } else if (lastGood) {
+      return serve();
     }
+    await reading;
+    return serve();
   };
 }

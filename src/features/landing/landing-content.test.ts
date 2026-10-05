@@ -5,6 +5,7 @@ import {
   LANDING_QUERY,
   type LandingContent,
   createLandingContentLoader,
+  isLandingContent,
   landingHead,
   landingQueryUrl,
   normalizeLandingContent,
@@ -195,6 +196,55 @@ describe("normalizeLandingContent", () => {
   });
 });
 
+/** LANDING_FALLBACK with one thing broken. */
+function broken(change: (content: LandingContent) => void): unknown {
+  const content = structuredClone(LANDING_FALLBACK);
+  change(content);
+  return content;
+}
+
+describe("isLandingContent", () => {
+  it("accepts everything the normalizer produces, hidden sections included", () => {
+    expect(isLandingContent(LANDING_FALLBACK)).toBe(true);
+    expect(isLandingContent(normalizeLandingContent(null))).toBe(true);
+    expect(isLandingContent(normalizeLandingContent(studioDocument()))).toBe(true);
+    for (const hidden of HIDEABLE) {
+      expect(isLandingContent(normalizeLandingContent(studioDocument(hidden))), hidden).toBe(true);
+    }
+    const allHidden = normalizeLandingContent({
+      kitchen: { hidden: true },
+      lenses: { hidden: true },
+      account: { hidden: true },
+    });
+    expect(isLandingContent(allHidden)).toBe(true);
+  });
+
+  it.each<[string, unknown]>([
+    ["nothing", undefined],
+    ["null", null],
+    ["a string", "<html>Bad gateway</html>"],
+    ["a list", []],
+    ["a raw Response", new Response("<html></html>")],
+    ["a JSON error body", { message: "Bad gateway" }],
+    ["copy without a footer", broken((c) => Reflect.deleteProperty(c, "footer"))],
+    ["SEO without a title", broken((c) => Reflect.deleteProperty(c.seo, "title"))],
+    ["a label that is not text", broken((c) => Object.assign(c.header, { ctaLabel: 42 }))],
+    ["cards that are not a list", broken((c) => Object.assign(c.kitchen, { cards: "three" }))],
+    ["a card without its body", broken((c) => Reflect.deleteProperty(c.kitchen.cards[1], "body"))],
+    [
+      "a card icon the page has no component for",
+      broken((c) => Object.assign(c.kitchen.cards[0], { icon: "rocket" })),
+    ],
+    ["a lens without a title", broken((c) => Object.assign(c.lenses.items[0], { title: null }))],
+    [
+      "a visibility flag that is not a boolean",
+      broken((c) => Object.assign(c.account, { hidden: "yes" })),
+    ],
+  ])("refuses %s", (_name, value) => {
+    expect(isLandingContent(value)).toBe(false);
+  });
+});
+
 describe("sanityTargetFromEnv", () => {
   it("needs both values in a URL-safe shape", () => {
     expect(
@@ -368,7 +418,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
   type Respond = (init?: RequestInit) => Promise<Response>;
 
   /** An isolated loader with its own clock and a fetch the test can re-point. */
-  function instance(target: typeof TARGET | null = TARGET) {
+  function instance(target: typeof TARGET | null = TARGET, timeoutMs = 20) {
     const state: { now: number; respond: Respond } = {
       now: 0,
       respond: async () => json({ result: STUDIO }),
@@ -380,7 +430,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
       warn,
       now: () => state.now,
-      timeoutMs: 20,
+      timeoutMs,
     });
     return { state, fetchImpl, warn, load };
   }
@@ -390,6 +440,21 @@ describe("createLandingContentLoader — one server instance over time", () => {
     new Promise<Response>((_, reject) =>
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
     );
+
+  /** A response the test hands over by hand. Like a misbehaving fetch, it ignores the abort. */
+  function answerLater() {
+    let answer: (response: Response) => void = () => {};
+    const promise = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    return { respond: () => promise, answer };
+  }
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Whether `promise` settles before `ms` of real time pass. */
+  const settlesWithin = (promise: Promise<unknown>, ms: number) =>
+    Promise.race([promise.then(() => true), sleep(ms).then(() => false)]);
 
   const FAILURES: Array<[string, Respond]> = [
     ["a non-200", async () => json({ error: "down" }, 503)],
@@ -534,13 +599,143 @@ describe("createLandingContentLoader — one server instance over time", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it("requests that fail together log one warning, not one each", async () => {
+  it("requests that arrive together during an outage share one read and one warning", async () => {
     const { state, fetchImpl, warn, load } = instance();
     state.respond = async () => json({ error: "down" }, 503);
-    const served = await Promise.all([load(), load(), load()]);
+    const served = await Promise.all([load(), load(), load(), load(), load()]);
     for (const content of served) expect(content).toEqual(LANDING_FALLBACK);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("when the quiet period ends, requests that arrive together start one retry", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    state.respond = hung;
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    state.now += 30_000;
+    const served = await Promise.all([load(), load(), load(), load(), load()]);
+    for (const content of served) expect(content).toEqual(LANDING_FALLBACK);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("with a good copy in hand, nobody waits for a read already under way", async () => {
+    // A long timeout: only the test decides when this read answers.
+    const { state, fetchImpl, load } = instance(TARGET, 60_000);
+    const good = await load();
+    const later = answerLater();
+    state.respond = later.respond;
+
+    const first = load();
+    const others = Promise.all([load(), load(), load()]);
+    expect(await settlesWithin(others, 0)).toBe(true);
+    for (const content of await others) expect(content).toEqual(good);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // The request that started the read gets what it found.
+    later.answer(json({ result: { ...STUDIO, hero: { kicker: "Published later" } } }));
+    expect((await first).hero.kicker).toBe("Published later");
+  });
+
+  it.each<[string, Respond]>([
+    ["never answers", () => new Promise<Response>(() => {})],
+    [
+      "sends headers, then stalls the body",
+      async () => new Response(new ReadableStream({ pull: () => new Promise<void>(() => {}) })),
+    ],
+  ])(
+    "a fetch that ignores its abort and %s keeps nobody past the deadline",
+    async (_name, respond) => {
+      const { state, warn, load } = instance();
+      state.respond = respond;
+      const served = load();
+      expect(await settlesWithin(served, 500)).toBe(true);
+      expect(await served).toEqual(LANDING_FALLBACK);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain("Sanity request failed (TimeoutError)");
+    },
+  );
+
+  it("a read that fails after a newer one succeeded neither warns nor opens a quiet period", async () => {
+    const { state, fetchImpl, warn, load } = instance();
+    const older = answerLater();
+    state.respond = older.respond;
+    void load();
+    // Past its 20 ms deadline: the loader has given up on that read.
+    await sleep(60);
+    state.now += 30_000;
+    state.respond = async () => json({ result: STUDIO });
+    expect((await load()).hero.kicker).toBe("From Studio");
+
+    older.answer(json({ error: "down" }, 503));
+    await sleep(10);
+    for (const [message] of warn.mock.calls) expect(String(message)).not.toContain("503");
+    // No quiet period: the next request reads again.
+    await load();
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("a read that succeeds after a newer one did does not replace the newer copy", async () => {
+    const { state, load } = instance();
+    const older = answerLater();
+    state.respond = older.respond;
+    void load();
+    await sleep(60);
+    state.now += 30_000;
+    state.respond = async () => json({ result: { ...STUDIO, hero: { kicker: "Newer" } } });
+    expect((await load()).hero.kicker).toBe("Newer");
+
+    older.answer(json({ result: { ...STUDIO, hero: { kicker: "Older" } } }));
+    await sleep(10);
+    // An outage now serves the last good copy, and that is the newer one.
+    state.respond = async () => json({ error: "down" }, 503);
+    expect((await load()).hero.kicker).toBe("Newer");
+  });
+
+  /** Changes what a caller was served, as a careless consumer might. Returns the undo. */
+  function tamper(content: LandingContent) {
+    const { kicker } = content.hero;
+    const { title } = content.kitchen.cards[0];
+    content.hero.kicker = "Changed by a caller";
+    content.kitchen.cards[0].title = "Changed by a caller";
+    return () => {
+      content.hero.kicker = kicker;
+      content.kitchen.cards[0].title = title;
+    };
+  }
+
+  describe("what it serves is the caller's own copy", () => {
+    it("the last good copy", async () => {
+      const { state, load } = instance();
+      state.respond = async () => json({ result: studioDocument() });
+      const undo = tamper(await load());
+      try {
+        state.respond = async () => json({ error: "down" }, 503);
+        expect(await load()).toEqual(studioDocument());
+        // And again from inside the quiet period.
+        expect(await load()).toEqual(studioDocument());
+      } finally {
+        undo();
+      }
+    });
+
+    it.each<[string, typeof TARGET | null]>([
+      ["during an outage", TARGET],
+      ["with Sanity not configured", null],
+    ])("the checked-in copy %s", async (_name, target) => {
+      const pristine = structuredClone(LANDING_FALLBACK);
+      const { state, load } = instance(target);
+      state.respond = async () => json({ error: "down" }, 503);
+      const undo = tamper(await load());
+      try {
+        expect(await load()).toEqual(pristine);
+        expect(LANDING_FALLBACK).toEqual(pristine);
+      } finally {
+        undo();
+      }
+    });
   });
 
   it.each<[string, Respond, string]>([
@@ -587,6 +782,43 @@ describe("createLandingContentLoader — one server instance over time", () => {
       "[landing] Sanity is not configured; serving fallback copy v2026-10-04.",
     );
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("createLandingContentLoader — its own clock", () => {
+  it.each([
+    ["back an hour", -3_600_000],
+    ["forward an hour", 3_600_000],
+  ])("keeps the 30-second quiet period when the wall clock steps %s", async (_name, step) => {
+    // Time since start-up and time of day, moved separately.
+    let elapsed = 1_000;
+    let wall = Date.UTC(2026, 9, 5, 4, 0);
+    vi.spyOn(performance, "now").mockImplementation(() => elapsed);
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+    try {
+      const fetchImpl = vi.fn(
+        async () => new Response(JSON.stringify({ error: "down" }), { status: 503 }),
+      );
+      const load = createLandingContentLoader({
+        target: TARGET,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        warn: vi.fn(),
+      });
+      await load();
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      // The server's clock is corrected (NTP) while the quiet period runs.
+      wall += step;
+      elapsed += 29_999;
+      await load();
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      elapsed += 1;
+      await load();
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
 
