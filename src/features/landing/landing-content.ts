@@ -336,6 +336,31 @@ export function isLandingContent(value: unknown): value is LandingContent {
   );
 }
 
+const LANDING_SOURCES = ["studio", "last-good", "fallback"] as const;
+export type LandingSource = (typeof LANDING_SOURCES)[number];
+
+/**
+ * What the server function answers with: the copy, and where it came from.
+ * - "studio": Sanity, read for this request (or for one it shared the read with).
+ * - "last-good": the last good read of the server instance that answered.
+ * - "fallback": LANDING_FALLBACK, from an instance with no good read: Sanity
+ *   is not configured, or has failed since the instance started. A browser
+ *   holding copy of its own keeps it over this (landing-loader.ts).
+ */
+export interface LandingReply {
+  content: LandingContent;
+  source: LandingSource;
+}
+
+/** True when `value` is a reply with a known source and content isLandingContent accepts. */
+export function isLandingReply(value: unknown): value is LandingReply {
+  return (
+    isObj(value) &&
+    (LANDING_SOURCES as readonly unknown[]).includes(value.source) &&
+    isLandingContent(value.content)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Head tags for the `/` route.
 
@@ -391,7 +416,7 @@ export interface LandingContentLoaderOptions {
   now?: () => number;
   timeoutMs?: number;
 }
-export type LandingContentLoader = () => Promise<LandingContent>;
+export type LandingContentLoader = () => Promise<LandingReply>;
 
 /** After a failed read the loader stays off Sanity this long. */
 const LANDING_RETRY_AFTER_MS = 30_000;
@@ -432,12 +457,16 @@ function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
  *   of waiting. No read keeps anyone past `timeoutMs`.
  * - After a failure it stays off Sanity for LANDING_RETRY_AFTER_MS, so an
  *   outage costs one read and one warning per window, however many requests
- *   arrive.
+ *   arrive. A read reports its failure once: given up at its deadline, it
+ *   stays silent when its fetch gives up too, however late.
  * - Reads are numbered, and only the newest may change the memory: a read
  *   that answers after a newer one neither replaces the newer copy nor opens
  *   a quiet period after Sanity has answered.
  * - Unconfigured is the steady state on a site without the CMS: it warns once
  *   and never fetches.
+ * - Every reply says where its copy came from (LandingReply): "studio" for a
+ *   request that waited for a read that found it, "last-good" for the copy
+ *   kept from an earlier read, "fallback" for LANDING_FALLBACK.
  */
 export function createLandingContentLoader({
   target,
@@ -452,33 +481,43 @@ export function createLandingContentLoader({
   let retryAt = Number.NEGATIVE_INFINITY;
   let warnedUnconfigured = false;
   let newestRead = 0;
-  let reading: Promise<void> | null = null;
+  let reportedRead = 0;
+  // Resolves true when the read stored fresh Studio copy.
+  let reading: Promise<boolean> | null = null;
   const fallbackCopy = `fallback copy v${LANDING_FALLBACK_VERSION}`;
   // Every caller gets its own copy, so one that changes what it was served
-  // cannot reach the next response, or LANDING_FALLBACK itself.
-  const serve = () => structuredClone(lastGood ?? LANDING_FALLBACK);
+  // cannot reach the next response, or LANDING_FALLBACK itself. `fresh`: the
+  // read this request waited for stored the copy. The source is worked out
+  // with the copy, so a "fallback" reply always carries LANDING_FALLBACK.
+  const serve = (fresh = false): LandingReply =>
+    lastGood
+      ? { content: structuredClone(lastGood), source: fresh ? "studio" : "last-good" }
+      : { content: structuredClone(LANDING_FALLBACK), source: "fallback" };
 
-  const failed = (read: number, reason: string) => {
-    if (read !== newestRead) return;
-    const at = now();
-    // One read can report twice: at its deadline, and when its fetch gives
-    // up. Inside the window the first report opened, the second says nothing.
-    if (at < retryAt) return;
-    retryAt = at + LANDING_RETRY_AFTER_MS;
+  // Always false, so a failing path can `return failed(...)`: it stored nothing.
+  const failed = (read: number, reason: string): false => {
+    // Only the newest read reports, and only once. A read can fail twice: at
+    // its deadline, and when a fetch that ignored the abort gives up, however
+    // much later. A second report would warn again and open a second quiet
+    // period, holding back the next read for up to another 30 seconds.
+    if (read !== newestRead || read === reportedRead) return false;
+    reportedRead = read;
+    retryAt = now() + LANDING_RETRY_AFTER_MS;
     const serving = lastGood ? "the last good Studio copy" : fallbackCopy;
     warn(
       `[landing] ${reason}; serving ${serving}. Next attempt in ${LANDING_RETRY_AFTER_MS / 1000}s.`,
     );
+    return false;
   };
 
-  const read = async (sanity: SanityTarget) => {
+  const read = async (sanity: SanityTarget): Promise<boolean> => {
     const id = ++newestRead;
     const where = `${sanity.projectId}/${sanity.dataset}`;
     // One signal aborts the fetch and the body read, and bounds the wait.
     const signal = AbortSignal.timeout(timeoutMs);
     // Applies its own result whenever it ends, which for a fetch that ignores
-    // its abort can be after the deadline, when only the read number keeps
-    // it from overwriting a newer one.
+    // its abort can be after the deadline. The read number then keeps it
+    // from overwriting a newer read, and from reporting a failure twice.
     const attempt = (async () => {
       try {
         const res = await fetchImpl(landingQueryUrl(sanity), {
@@ -494,15 +533,17 @@ export function createLandingContentLoader({
         if (!isObj(obj(body.result).kitchen)) {
           return failed(id, `The "${LANDING_DOCUMENT_ID}" in ${where} does not look like LINARA's`);
         }
-        if (id === newestRead) lastGood = normalizeLandingContent(body.result);
+        if (id !== newestRead) return false;
+        lastGood = normalizeLandingContent(body.result);
+        return true;
       } catch (error) {
-        failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
+        return failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
       }
     })();
     try {
-      await untilAborted(attempt, signal);
+      return await untilAborted(attempt, signal);
     } catch (error) {
-      failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
+      return failed(id, `Sanity request failed (${errorName(error)}) for ${where}`);
     }
   };
 
@@ -522,7 +563,6 @@ export function createLandingContentLoader({
     } else if (lastGood) {
       return serve();
     }
-    await reading;
-    return serve();
+    return serve(await reading);
   };
 }

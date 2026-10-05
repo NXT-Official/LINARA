@@ -4,7 +4,7 @@ import {
   LANDING_FALLBACK,
   LANDING_FALLBACK_VERSION,
   type LandingContent,
-  isLandingContent,
+  isLandingReply,
 } from "@/features/landing/landing-content";
 import { getLandingContent } from "@/features/landing/landing.actions";
 
@@ -49,7 +49,9 @@ export interface LandingRouteLoader {
  * function runs in-process and never throws. On in-app navigation it is a
  * network call, and that can fail (offline, flaky mobile data in the helper
  * app's WebView). The homepage then renders the copy this browser last
- * received, so nothing an editor hid comes back and no edit reverts. Only a
+ * received, so nothing an editor hid comes back and no edit reverts. It does
+ * the same when a reply carries only the server's checked-in copy (source
+ * "fallback": an instance with no good read, during a Sanity outage). Only a
  * browser that has received none renders the checked-in copy, hidden sections
  * and all: that is why LANDING_FALLBACK is in the client bundle. Either way
  * the visitor gets a homepage, not the root error screen, whose "Go home"
@@ -69,21 +71,28 @@ export function createLandingRouteLoader({
     load: async () => {
       if (browser) loadedHere = true;
       try {
-        const content = await fetchContent();
+        const reply = await fetchContent();
         // The Start client resolves with whatever answered: a raw Response
         // for a non-JSON 2xx (a captive portal, a proxy's page), the body for
         // any other JSON. Either would crash the page, so it is a failure.
         // src: https://github.com/TanStack/router/blob/main/packages/start-client-core/src/client-rpc/serverFnFetcher.ts · @tanstack/start-client-core 1.170.34 · 2026-10-05
-        if (!isLandingContent(content)) {
+        if (!isLandingReply(reply)) {
           throw new TypeError(
-            `Not landing content: ${Object.prototype.toString.call(content).slice(8, -1)}`,
+            `Not landing content: ${Object.prototype.toString.call(reply).slice(8, -1)}`,
           );
         }
         if (browser) {
-          remembered = structuredClone(content);
+          // A server instance with no good read (new, while Sanity is down)
+          // answers with the checked-in copy, as a normal reply. Copy this
+          // browser holds is never worse and keeps hidden what an editor hid,
+          // so with any in hand, that reply is a failed load.
+          if (reply.source === "fallback" && remembered) {
+            throw new Error("The server had no Studio copy to send");
+          }
+          remembered = structuredClone(reply.content);
           lastLoadFailed = false;
         }
-        return content;
+        return reply.content;
       } catch (error) {
         // Redirects and not-founds are the router's control flow, not failures.
         // src: https://tanstack.com/router/v1/docs/framework/react/api/router/isRedirectFunction · @tanstack/react-router 1.170.41 · 2026-10-05

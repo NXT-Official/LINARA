@@ -6,6 +6,7 @@ import {
   type LandingContent,
   createLandingContentLoader,
   isLandingContent,
+  isLandingReply,
   landingHead,
   landingQueryUrl,
   normalizeLandingContent,
@@ -245,6 +246,33 @@ describe("isLandingContent", () => {
   });
 });
 
+describe("isLandingReply", () => {
+  it.each(["studio", "last-good", "fallback"])("accepts renderable copy from %s", (source) => {
+    expect(isLandingReply({ content: LANDING_FALLBACK, source })).toBe(true);
+    const hidden = normalizeLandingContent(studioDocument("account"));
+    expect(isLandingReply({ content: hidden, source })).toBe(true);
+  });
+
+  it.each<[string, unknown]>([
+    ["nothing", undefined],
+    ["null", null],
+    ["a list", [LANDING_FALLBACK, "studio"]],
+    ["a raw Response", new Response("<html></html>")],
+    ["a JSON error body", { message: "Bad gateway" }],
+    ["landing content that does not say where it came from", structuredClone(LANDING_FALLBACK)],
+    ["a reply without a source", { content: LANDING_FALLBACK }],
+    ["a source the page does not know", { content: LANDING_FALLBACK, source: "cache" }],
+    ["a source that is not text", { content: LANDING_FALLBACK, source: 1 }],
+    ["a reply without its copy", { source: "studio" }],
+    [
+      "copy the page cannot render",
+      { content: broken((c) => Reflect.deleteProperty(c, "footer")), source: "studio" },
+    ],
+  ])("refuses %s", (_name, value) => {
+    expect(isLandingReply(value)).toBe(false);
+  });
+});
+
 describe("sanityTargetFromEnv", () => {
   it("needs both values in a URL-safe shape", () => {
     expect(
@@ -300,7 +328,7 @@ describe("createLandingContentLoader — never throws", () => {
 
   it("returns normalized Studio content", async () => {
     const warn = vi.fn();
-    const c = await createLandingContentLoader({
+    const { content: c } = await createLandingContentLoader({
       target: TARGET,
       fetchImpl: ok({ result: { kitchen: { hidden: false }, hero: { kicker: "From Studio" } } }),
       warn,
@@ -311,7 +339,7 @@ describe("createLandingContentLoader — never throws", () => {
 
   it("refuses another product's document and serves the fallback path instead", async () => {
     const warn = vi.fn();
-    const c = await createLandingContentLoader({
+    const { content: c } = await createLandingContentLoader({
       target: TARGET,
       fetchImpl: ok({ result: MILA_RESULT }),
       warn,
@@ -320,7 +348,7 @@ describe("createLandingContentLoader — never throws", () => {
     for (const foreign of leafStrings(MILA_RESULT)) expect(served).not.toContain(foreign);
     for (const word of ["Mila", "MILA", "stylist"]) expect(JSON.stringify(c)).not.toContain(word);
 
-    const unpublished = await createLandingContentLoader({
+    const { content: unpublished } = await createLandingContentLoader({
       target: TARGET,
       fetchImpl: ok({ result: null }),
       warn: vi.fn(),
@@ -341,7 +369,7 @@ describe("createLandingContentLoader — never throws", () => {
     ["a list", { kitchen: [{ heading: "h" }], hero: { kicker: "Foreign" } }],
   ])("refuses a document whose kitchen is %s", async (_name, result) => {
     const warn = vi.fn();
-    const c = await createLandingContentLoader({
+    const { content: c } = await createLandingContentLoader({
       target: TARGET,
       fetchImpl: ok({ result }),
       warn,
@@ -382,7 +410,7 @@ describe("createLandingContentLoader — never throws", () => {
     ],
   ])("%s → fallback + one sanitized warning", async (_name, target, fetchImpl, pattern) => {
     const warn = vi.fn();
-    const c = await createLandingContentLoader({ target, fetchImpl, warn })();
+    const { content: c } = await createLandingContentLoader({ target, fetchImpl, warn })();
     expect(c).toEqual(LANDING_FALLBACK);
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0][0]);
@@ -399,9 +427,13 @@ describe("createLandingContentLoader — never throws", () => {
         ),
     ) as unknown as typeof fetch;
     const warn = vi.fn();
-    expect(
-      await createLandingContentLoader({ target: TARGET, fetchImpl: hung, warn, timeoutMs: 20 })(),
-    ).toEqual(LANDING_FALLBACK);
+    const load = createLandingContentLoader({
+      target: TARGET,
+      fetchImpl: hung,
+      warn,
+      timeoutMs: 20,
+    });
+    expect((await load()).content).toEqual(LANDING_FALLBACK);
     expect(warn).toHaveBeenCalledOnce();
   });
 });
@@ -441,13 +473,18 @@ describe("createLandingContentLoader — one server instance over time", () => {
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
     );
 
-  /** A response the test hands over by hand. Like a misbehaving fetch, it ignores the abort. */
+  /**
+   * A response, or a failure, the test hands over by hand. Like a misbehaving
+   * fetch, it ignores the abort.
+   */
   function answerLater() {
     let answer: (response: Response) => void = () => {};
-    const promise = new Promise<Response>((resolve) => {
+    let fail: (error: Error) => void = () => {};
+    const promise = new Promise<Response>((resolve, reject) => {
       answer = resolve;
+      fail = reject;
     });
-    return { respond: () => promise, answer };
+    return { respond: () => promise, answer, fail };
   }
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -474,14 +511,14 @@ describe("createLandingContentLoader — one server instance over time", () => {
     "after a good read, %s still serves what editors published",
     async (_name, failure) => {
       const { state, warn, load } = instance();
-      const good = await load();
+      const { content: good } = await load();
       expect(good.kitchen.hidden).toBe(true);
       expect(good.lenses.hidden).toBe(true);
       expect(good.account.complianceBody).toBe("Corrected compliance line.");
       expect(warn).not.toHaveBeenCalled();
 
       state.respond = failure;
-      const served = await load();
+      const { content: served } = await load();
       expect(served).toEqual(good);
       expect(served.kitchen.hidden).toBe(true);
       expect(served.lenses.hidden).toBe(true);
@@ -498,15 +535,15 @@ describe("createLandingContentLoader — one server instance over time", () => {
     async (hidden) => {
       const { state, fetchImpl, load } = instance();
       state.respond = async () => json({ result: studioDocument(hidden) });
-      expectOnlyHiddenIsBare(await load(), hidden);
+      expectOnlyHiddenIsBare((await load()).content, hidden);
 
       state.respond = async () => json({ error: "down" }, 503);
-      const lastGood = await load();
+      const { content: lastGood } = await load();
       expect(fetchImpl).toHaveBeenCalledTimes(2);
       expectOnlyHiddenIsBare(lastGood, hidden);
 
       // And again from inside the back-off window, where nothing is fetched.
-      expectOnlyHiddenIsBare(await load(), hidden);
+      expectOnlyHiddenIsBare((await load()).content, hidden);
       expect(fetchImpl).toHaveBeenCalledTimes(2);
     },
   );
@@ -514,7 +551,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
   it.each(FAILURES)("with no good read yet, %s serves LANDING_FALLBACK", async (_name, failure) => {
     const { state, fetchImpl, warn, load } = instance();
     state.respond = failure;
-    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect((await load()).content).toEqual(LANDING_FALLBACK);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain("serving fallback copy v2026-10-04.");
@@ -543,7 +580,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
   it("after a failure, stays off Sanity for 30 seconds, then tries again", async () => {
     const { state, fetchImpl, warn, load } = instance();
     state.respond = async () => json({ error: "down" }, 503);
-    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect((await load()).content).toEqual(LANDING_FALLBACK);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain("Next attempt in 30s.");
@@ -551,12 +588,12 @@ describe("createLandingContentLoader — one server instance over time", () => {
     // Sanity is back, but the window has not passed: no fetch, no second warning.
     state.respond = async () => json({ result: STUDIO });
     state.now += 29_999;
-    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect((await load()).content).toEqual(LANDING_FALLBACK);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
 
     state.now += 1;
-    expect((await load()).hero.kicker).toBe("From Studio");
+    expect((await load()).content.hero.kicker).toBe("From Studio");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     // The window is over: the very next call reads again.
@@ -588,13 +625,13 @@ describe("createLandingContentLoader — one server instance over time", () => {
 
   it("inside the 30 seconds, serves the last good copy without fetching", async () => {
     const { state, fetchImpl, warn, load } = instance();
-    const good = await load();
+    const { content: good } = await load();
     state.respond = async () => json({ error: "down" }, 503);
     await load();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     state.now += 15_000;
-    expect(await load()).toEqual(good);
+    expect((await load()).content).toEqual(good);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledTimes(1);
   });
@@ -603,7 +640,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
     const { state, fetchImpl, warn, load } = instance();
     state.respond = async () => json({ error: "down" }, 503);
     const served = await Promise.all([load(), load(), load(), load(), load()]);
-    for (const content of served) expect(content).toEqual(LANDING_FALLBACK);
+    for (const { content } of served) expect(content).toEqual(LANDING_FALLBACK);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
   });
@@ -616,7 +653,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
 
     state.now += 30_000;
     const served = await Promise.all([load(), load(), load(), load(), load()]);
-    for (const content of served) expect(content).toEqual(LANDING_FALLBACK);
+    for (const { content } of served) expect(content).toEqual(LANDING_FALLBACK);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledTimes(2);
   });
@@ -624,19 +661,20 @@ describe("createLandingContentLoader — one server instance over time", () => {
   it("with a good copy in hand, nobody waits for a read already under way", async () => {
     // A long timeout: only the test decides when this read answers.
     const { state, fetchImpl, load } = instance(TARGET, 60_000);
-    const good = await load();
+    const { content: good } = await load();
     const later = answerLater();
     state.respond = later.respond;
 
     const first = load();
     const others = Promise.all([load(), load(), load()]);
     expect(await settlesWithin(others, 0)).toBe(true);
-    for (const content of await others) expect(content).toEqual(good);
+    for (const reply of await others) expect(reply).toEqual({ content: good, source: "last-good" });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     // The request that started the read gets what it found.
-    later.answer(json({ result: { ...STUDIO, hero: { kicker: "Published later" } } }));
-    expect((await first).hero.kicker).toBe("Published later");
+    const published = { ...STUDIO, hero: { kicker: "Published later" } };
+    later.answer(json({ result: published }));
+    expect(await first).toEqual({ content: normalizeLandingContent(published), source: "studio" });
   });
 
   it.each<[string, Respond]>([
@@ -652,9 +690,54 @@ describe("createLandingContentLoader — one server instance over time", () => {
       state.respond = respond;
       const served = load();
       expect(await settlesWithin(served, 500)).toBe(true);
-      expect(await served).toEqual(LANDING_FALLBACK);
+      expect((await served).content).toEqual(LANDING_FALLBACK);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0][0])).toContain("Sanity request failed (TimeoutError)");
+    },
+  );
+
+  it.each<[string, string, number, (later: ReturnType<typeof answerLater>) => void]>([
+    [
+      "answers 503",
+      "after the quiet period",
+      31_000,
+      (later) => later.answer(json({ error: "down" }, 503)),
+    ],
+    [
+      "rejects",
+      "after the quiet period",
+      31_000,
+      (later) => later.fail(new TypeError("fetch failed")),
+    ],
+    [
+      "answers 503",
+      "inside the quiet period",
+      10_000,
+      (later) => later.answer(json({ error: "down" }, 503)),
+    ],
+  ])(
+    "a read given up at its deadline whose fetch %s %s warns once and holds back no retry",
+    async (_how, _when, elapsed, giveUp) => {
+      const { state, fetchImpl, warn, load } = instance();
+      const later = answerLater();
+      state.respond = later.respond;
+      await load();
+      // Given up at its 20 ms deadline: one warning and a 30-second quiet period.
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain("Sanity request failed (TimeoutError)");
+
+      // Its fetch, which ignored the abort, gives up too, with no request in between.
+      state.now = elapsed;
+      giveUp(later);
+      await sleep(10);
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // The read's one quiet period is over: the next request reads Sanity.
+      state.now = Math.max(elapsed, 30_000);
+      state.respond = async () => json({ result: STUDIO });
+      await load();
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -667,7 +750,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
     await sleep(60);
     state.now += 30_000;
     state.respond = async () => json({ result: STUDIO });
-    expect((await load()).hero.kicker).toBe("From Studio");
+    expect((await load()).content.hero.kicker).toBe("From Studio");
 
     older.answer(json({ error: "down" }, 503));
     await sleep(10);
@@ -685,13 +768,13 @@ describe("createLandingContentLoader — one server instance over time", () => {
     await sleep(60);
     state.now += 30_000;
     state.respond = async () => json({ result: { ...STUDIO, hero: { kicker: "Newer" } } });
-    expect((await load()).hero.kicker).toBe("Newer");
+    expect((await load()).content.hero.kicker).toBe("Newer");
 
     older.answer(json({ result: { ...STUDIO, hero: { kicker: "Older" } } }));
     await sleep(10);
     // An outage now serves the last good copy, and that is the newer one.
     state.respond = async () => json({ error: "down" }, 503);
-    expect((await load()).hero.kicker).toBe("Newer");
+    expect((await load()).content.hero.kicker).toBe("Newer");
   });
 
   /** Changes what a caller was served, as a careless consumer might. Returns the undo. */
@@ -710,12 +793,12 @@ describe("createLandingContentLoader — one server instance over time", () => {
     it("the last good copy", async () => {
       const { state, load } = instance();
       state.respond = async () => json({ result: studioDocument() });
-      const undo = tamper(await load());
+      const undo = tamper((await load()).content);
       try {
         state.respond = async () => json({ error: "down" }, 503);
-        expect(await load()).toEqual(studioDocument());
+        expect((await load()).content).toEqual(studioDocument());
         // And again from inside the quiet period.
-        expect(await load()).toEqual(studioDocument());
+        expect((await load()).content).toEqual(studioDocument());
       } finally {
         undo();
       }
@@ -728,9 +811,9 @@ describe("createLandingContentLoader — one server instance over time", () => {
       const pristine = structuredClone(LANDING_FALLBACK);
       const { state, load } = instance(target);
       state.respond = async () => json({ error: "down" }, 503);
-      const undo = tamper(await load());
+      const undo = tamper((await load()).content);
       try {
-        expect(await load()).toEqual(pristine);
+        expect((await load()).content).toEqual(pristine);
         expect(LANDING_FALLBACK).toEqual(pristine);
       } finally {
         undo();
@@ -759,7 +842,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
   ])("%s is logged by its error name and nothing else", async (_name, respond, errorName) => {
     const { state, warn, load } = instance();
     state.respond = respond;
-    expect(await load()).toEqual(LANDING_FALLBACK);
+    expect((await load()).content).toEqual(LANDING_FALLBACK);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toBe(
       `[landing] Sanity request failed (${errorName}) for abc123/production; ` +
@@ -773,7 +856,7 @@ describe("createLandingContentLoader — one server instance over time", () => {
   ])("project id %s: warns once across three calls and never fetches", async (_name, env) => {
     const { state, fetchImpl, warn, load } = instance(sanityTargetFromEnv(env));
     for (let call = 0; call < 3; call += 1) {
-      expect(await load()).toEqual(LANDING_FALLBACK);
+      expect((await load()).content).toEqual(LANDING_FALLBACK);
       // Well past the retry window, so the silence is not the back-off.
       state.now += 60_000;
     }
@@ -782,6 +865,67 @@ describe("createLandingContentLoader — one server instance over time", () => {
       "[landing] Sanity is not configured; serving fallback copy v2026-10-04.",
     );
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  // The server function hands this on, so a browser can tell a new instance's
+  // checked-in copy from Studio copy (landing-loader.ts).
+  describe("says where the copy it serves came from", () => {
+    const FRESH = normalizeLandingContent(STUDIO);
+    const CHECKED_IN = { content: LANDING_FALLBACK, source: "fallback" };
+
+    it('"studio" for a request that read Sanity', async () => {
+      const { load } = instance();
+      expect(await load()).toEqual({ content: FRESH, source: "studio" });
+    });
+
+    it('"studio" for every request that waited for the same read', async () => {
+      const { fetchImpl, load } = instance();
+      const replies = await Promise.all([load(), load(), load()]);
+      for (const reply of replies) expect(reply).toEqual({ content: FRESH, source: "studio" });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(FAILURES)(
+      '"last-good" after %s, and through the quiet period that follows',
+      async (_name, failure) => {
+        const { state, load } = instance();
+        await load();
+        state.respond = failure;
+        expect(await load()).toEqual({ content: FRESH, source: "last-good" });
+        state.now += 15_000;
+        expect(await load()).toEqual({ content: FRESH, source: "last-good" });
+      },
+    );
+
+    it.each(FAILURES)(
+      '"fallback" for %s with no good read yet, and through the quiet period',
+      async (_name, failure) => {
+        const { state, load } = instance();
+        state.respond = failure;
+        expect(await load()).toEqual(CHECKED_IN);
+        state.now += 15_000;
+        expect(await load()).toEqual(CHECKED_IN);
+      },
+    );
+
+    it('"fallback" with Sanity not configured', async () => {
+      const { state, load } = instance(null);
+      expect(await load()).toEqual(CHECKED_IN);
+      state.now += 60_000;
+      expect(await load()).toEqual(CHECKED_IN);
+    });
+
+    it('"last-good" for what a read given up at its deadline finds afterwards', async () => {
+      const { state, fetchImpl, load } = instance();
+      const later = answerLater();
+      state.respond = later.respond;
+      expect(await load()).toEqual(CHECKED_IN);
+      // Still the newest read, so what it finds is kept: no request waited for it.
+      later.answer(json({ result: STUDIO }));
+      await sleep(10);
+      expect(await load()).toEqual({ content: FRESH, source: "last-good" });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

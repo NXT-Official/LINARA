@@ -12,11 +12,12 @@ import { LandingView } from "@/features/landing/landing-view";
 export const Route = createFileRoute("/")({
   // Always resolves with copy to render. On any Sanity problem the server
   // function serves the last good Studio copy, or the checked-in copy when it
-  // has none. When the call itself fails (in-app navigation with no
-  // connection) or answers with something that is not landing content,
-  // loadLandingForRoute serves the copy this browser last received, or the
-  // checked-in copy when it has none. So this loader can neither 500 the page
-  // nor send it to the error screen.
+  // has none, and says which. When the call itself fails (in-app navigation
+  // with no connection) or answers with something that is not landing
+  // content, loadLandingForRoute serves the copy this browser last received,
+  // or the checked-in copy when it has none. It keeps that copy, too, over a
+  // reply that has only the checked-in copy. So this loader can neither 500
+  // the page nor send it to the error screen.
   // Only a router redirect or not-found passes through.
   loader: () => loadLandingForRoute(),
   // A failed load is not fresh: the next visit asks again.

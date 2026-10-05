@@ -1,12 +1,17 @@
 import { notFound, redirect } from "@tanstack/react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LANDING_FALLBACK, type LandingContent } from "@/features/landing/landing-content";
+import {
+  LANDING_FALLBACK,
+  type LandingContent,
+  type LandingReply,
+  type LandingSource,
+} from "@/features/landing/landing-content";
 import { createLandingRouteLoader } from "@/features/landing/landing-loader";
 import { Route } from "@/routes/index";
 
 // The real server function never loads here; each test says what it does.
-const getLandingContent = vi.hoisted(() => vi.fn<() => Promise<LandingContent>>());
+const getLandingContent = vi.hoisted(() => vi.fn<() => Promise<LandingReply>>());
 vi.mock("@/features/landing/landing.actions", () => ({ getLandingContent }));
 
 // Failed loads log; the tests that care read these spies.
@@ -35,15 +40,29 @@ const STUDIO_LATER: LandingContent = {
   ...STUDIO,
   hero: { ...STUDIO.hero, kicker: "Published later" },
 };
+/**
+ * The checked-in copy as a server sends it. Its own object, and told apart
+ * from this bundle's LANDING_FALLBACK, so a test sees which one was served.
+ */
+const SERVER_FALLBACK: LandingContent = {
+  ...LANDING_FALLBACK,
+  hero: { ...LANDING_FALLBACK.hero, kicker: "Checked in on the server" },
+};
+
+/** What the server function answers with. */
+const reply = (content: LandingContent, source: LandingSource = "studio"): LandingReply => ({
+  content,
+  source,
+});
 
 // What a browser's fetch rejects with when the network is gone.
-const offline = async (): Promise<LandingContent> => {
+const offline = async (): Promise<LandingReply> => {
   throw new TypeError("Failed to fetch");
 };
 
 /** A fetch that answers each call with the next outcome on the list. */
-function answers(...outcomes: Array<LandingContent | Error>) {
-  const fetchContent = vi.fn<() => Promise<LandingContent>>();
+function answers(...outcomes: Array<LandingReply | Error>) {
+  const fetchContent = vi.fn<() => Promise<LandingReply>>();
   for (const outcome of outcomes) {
     if (outcome instanceof Error) fetchContent.mockRejectedValueOnce(outcome);
     else fetchContent.mockResolvedValueOnce(outcome);
@@ -53,7 +72,7 @@ function answers(...outcomes: Array<LandingContent | Error>) {
 
 describe.each([true, false])("createLandingRouteLoader (browser: %s)", (browser) => {
   it("resolves with the fetched content", async () => {
-    const landing = createLandingRouteLoader({ browser, fetchContent: async () => STUDIO });
+    const landing = createLandingRouteLoader({ browser, fetchContent: async () => reply(STUDIO) });
     await expect(landing.load()).resolves.toBe(STUDIO);
   });
 
@@ -64,7 +83,7 @@ describe.each([true, false])("createLandingRouteLoader (browser: %s)", (browser)
 
   it("re-throws a redirect untouched, for the router to follow", async () => {
     const signal = redirect({ to: "/login" });
-    const redirects = async (): Promise<LandingContent> => {
+    const redirects = async (): Promise<LandingReply> => {
       throw signal;
     };
     const landing = createLandingRouteLoader({ browser, fetchContent: redirects });
@@ -74,7 +93,7 @@ describe.each([true, false])("createLandingRouteLoader (browser: %s)", (browser)
 
   it("re-throws a not-found untouched, for the router to render", async () => {
     const signal = notFound();
-    const missing = async (): Promise<LandingContent> => {
+    const missing = async (): Promise<LandingReply> => {
       throw signal;
     };
     const landing = createLandingRouteLoader({ browser, fetchContent: missing });
@@ -83,7 +102,7 @@ describe.each([true, false])("createLandingRouteLoader (browser: %s)", (browser)
   });
 
   it("calls the server function unless handed another fetch", async () => {
-    getLandingContent.mockResolvedValueOnce(STUDIO);
+    getLandingContent.mockResolvedValueOnce(reply(STUDIO));
     await expect(createLandingRouteLoader({ browser }).load()).resolves.toBe(STUDIO);
   });
 });
@@ -96,7 +115,7 @@ describe("createLandingRouteLoader in a browser", () => {
   });
 
   it("replaces what it remembers with every successful load", async () => {
-    const fetchContent = answers(STUDIO_LATER, new TypeError("Failed to fetch"));
+    const fetchContent = answers(reply(STUDIO_LATER), new TypeError("Failed to fetch"));
     const landing = createLandingRouteLoader({ browser: true, fetchContent });
     landing.seed(STUDIO);
     await expect(landing.load()).resolves.toBe(STUDIO_LATER);
@@ -104,7 +123,7 @@ describe("createLandingRouteLoader in a browser", () => {
   });
 
   it("remembers a successful load without any seed", async () => {
-    const fetchContent = answers(STUDIO, new TypeError("Failed to fetch"));
+    const fetchContent = answers(reply(STUDIO), new TypeError("Failed to fetch"));
     const landing = createLandingRouteLoader({ browser: true, fetchContent });
     await landing.load();
     await expect(landing.load()).resolves.toEqual(STUDIO);
@@ -120,13 +139,79 @@ describe("createLandingRouteLoader in a browser", () => {
   });
 
   it("does not count a failed load as fresh: the next visit asks again", async () => {
-    const fetchContent = answers(new TypeError("Failed to fetch"), STUDIO);
+    const fetchContent = answers(new TypeError("Failed to fetch"), reply(STUDIO));
     const landing = createLandingRouteLoader({ browser: true, fetchContent });
     // Untouched: the route's staleTime decides.
     expect(landing.shouldReload()).toBeUndefined();
     await landing.load();
     expect(landing.shouldReload()).toBe(true);
     await landing.load();
+    expect(landing.shouldReload()).toBeUndefined();
+  });
+});
+
+// A new server instance that has never read the Studio answers with the
+// checked-in copy, as a normal reply, while Sanity is down.
+describe('a "fallback" reply in a browser', () => {
+  it("is a failed load while it holds the copy the page was server-rendered with", async () => {
+    const fetchContent = async () => reply(SERVER_FALLBACK, "fallback");
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toEqual(STUDIO);
+    expect(landing.shouldReload()).toBe(true);
+    expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+      "[landing] Could not load the homepage copy (Error: The server had no Studio copy to send); " +
+        "showing the copy this browser last received.",
+    );
+  });
+
+  it("is a failed load while it holds a copy it loaded", async () => {
+    const fetchContent = answers(reply(STUDIO, "last-good"), reply(SERVER_FALLBACK, "fallback"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    await landing.load();
+    await expect(landing.load()).resolves.toEqual(STUDIO);
+    expect(landing.shouldReload()).toBe(true);
+  });
+
+  it("with no copy in hand, is accepted and remembered", async () => {
+    const fetchContent = answers(reply(SERVER_FALLBACK, "fallback"), new TypeError("offline"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    await expect(landing.load()).resolves.toBe(SERVER_FALLBACK);
+    expect(landing.shouldReload()).toBeUndefined();
+    expect(console.warn).not.toHaveBeenCalled();
+    // Remembered: a failure now serves it, not this bundle's checked-in copy.
+    await expect(landing.load()).resolves.toEqual(SERVER_FALLBACK);
+  });
+
+  it("leaves the next visit to ask again, and a Studio reply then is accepted", async () => {
+    const fetchContent = answers(reply(SERVER_FALLBACK, "fallback"), reply(STUDIO_LATER));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toEqual(STUDIO);
+    expect(landing.shouldReload()).toBe(true);
+    await expect(landing.load()).resolves.toBe(STUDIO_LATER);
+    expect(landing.shouldReload()).toBeUndefined();
+  });
+});
+
+describe.each<LandingSource>(["studio", "last-good"])('a "%s" reply in a browser', (source) => {
+  it("is accepted over the copy the page was server-rendered with, and remembered", async () => {
+    const fetchContent = answers(reply(STUDIO_LATER, source), new TypeError("offline"));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    landing.seed(STUDIO);
+    await expect(landing.load()).resolves.toBe(STUDIO_LATER);
+    expect(landing.shouldReload()).toBeUndefined();
+    expect(console.warn).not.toHaveBeenCalled();
+    await expect(landing.load()).resolves.toEqual(STUDIO_LATER);
+  });
+
+  it("after a failed load, is accepted and the staleTime decides again", async () => {
+    const fetchContent = answers(reply(SERVER_FALLBACK, "fallback"), reply(STUDIO_LATER, source));
+    const landing = createLandingRouteLoader({ browser: true, fetchContent });
+    landing.seed(STUDIO);
+    await landing.load();
+    expect(landing.shouldReload()).toBe(true);
+    await expect(landing.load()).resolves.toBe(STUDIO_LATER);
     expect(landing.shouldReload()).toBeUndefined();
   });
 });
@@ -153,7 +238,7 @@ describe("what a failed load serves is the page's own copy", () => {
   });
 
   it("a loaded copy the page then changed is served as it was loaded", async () => {
-    const fetchContent = answers(structuredClone(STUDIO), new TypeError("Failed to fetch"));
+    const fetchContent = answers(reply(structuredClone(STUDIO)), new TypeError("Failed to fetch"));
     const landing = createLandingRouteLoader({ browser: true, fetchContent });
     tamper(await landing.load());
     expect(await landing.load()).toEqual(STUDIO);
@@ -180,7 +265,7 @@ describe("what a failed load serves is the page's own copy", () => {
 });
 
 describe("a failed load is logged, in one line", () => {
-  const failing = (error: unknown) => async (): Promise<LandingContent> => {
+  const failing = (error: unknown) => async (): Promise<LandingReply> => {
     throw error;
   };
 
@@ -241,7 +326,7 @@ describe("a failed load is logged, in one line", () => {
   });
 
   it.each([
-    ["a successful load", async () => STUDIO],
+    ["a successful load", async () => reply(STUDIO)],
     ["a redirect", failing(redirect({ to: "/login" }))],
     ["a not-found", failing(notFound())],
   ])("logs nothing for %s", async (_name, fetchContent) => {
@@ -268,6 +353,10 @@ describe("a result that is not landing content is a failed load", () => {
     ],
     ["nothing (a JSON body without a result)", undefined],
     ["a JSON error body", { message: "Bad gateway" }],
+    // Not what this server function sends: a reply says where its copy came from.
+    ["landing content that does not say where it came from", structuredClone(STUDIO)],
+    ["a reply from a source this page does not know", { content: STUDIO, source: "cache" }],
+    ["a reply whose copy the page cannot render", { content: { message: "x" }, source: "studio" }],
   ];
 
   it.each(NOT_CONTENT)(
@@ -294,7 +383,7 @@ describe("a result that is not landing content is a failed load", () => {
 
 describe("createLandingRouteLoader on the server", () => {
   it("remembers nothing: after a successful load, a failure serves the checked-in copy", async () => {
-    const fetchContent = answers(STUDIO, new TypeError("fetch failed"));
+    const fetchContent = answers(reply(STUDIO), new TypeError("fetch failed"));
     const landing = createLandingRouteLoader({ browser: false, fetchContent });
     await expect(landing.load()).resolves.toBe(STUDIO);
     await expect(landing.load()).resolves.toEqual(LANDING_FALLBACK);
@@ -310,6 +399,21 @@ describe("createLandingRouteLoader on the server", () => {
     const landing = createLandingRouteLoader({ browser: false, fetchContent: offline });
     await landing.load();
     expect(landing.shouldReload()).toBeUndefined();
+  });
+
+  it.each<[LandingSource, LandingContent]>([
+    ["studio", STUDIO],
+    ["last-good", STUDIO],
+    ["fallback", SERVER_FALLBACK],
+  ])("serves a %s reply's copy as it is, even after a successful load", async (source, content) => {
+    const fetchContent = answers(reply(STUDIO_LATER), reply(content, source));
+    const landing = createLandingRouteLoader({ browser: false, fetchContent });
+    landing.seed(STUDIO_LATER);
+    await expect(landing.load()).resolves.toBe(STUDIO_LATER);
+    await expect(landing.load()).resolves.toBe(content);
+    expect(landing.shouldReload()).toBeUndefined();
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -327,14 +431,14 @@ describe("the / route", () => {
     await expect(routeLoader()()).resolves.toEqual(LANDING_FALLBACK);
   });
 
-  it("loads what the server function returns", async () => {
-    getLandingContent.mockResolvedValueOnce(STUDIO);
+  it("loads the copy the server function returns, without the reply around it", async () => {
+    getLandingContent.mockResolvedValueOnce(reply(STUDIO));
     await expect(routeLoader()()).resolves.toBe(STUDIO);
   });
 
   // This file runs without a DOM, as server rendering does.
   it("keeps nothing between server renders", async () => {
-    getLandingContent.mockResolvedValueOnce(STUDIO);
+    getLandingContent.mockResolvedValueOnce(reply(STUDIO));
     await routeLoader()();
     getLandingContent.mockRejectedValueOnce(new TypeError("fetch failed"));
     await expect(routeLoader()()).resolves.toEqual(LANDING_FALLBACK);
