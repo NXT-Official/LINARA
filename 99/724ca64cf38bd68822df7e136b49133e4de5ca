@@ -1,0 +1,21 @@
+e2e/landing-cms.spec.ts
+  s_0cc7eb3d8eb999::t_c4dedc1a4f07aa 1-79
+e2e/helpers.ts
+  s_0cc7eb3d8eb999::t_ff9d8230836988 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99724ca64cf38bd68822df7e136b49133e4de5ca",
+  "prompts": {},
+  "sessions": {
+    "s_0cc7eb3d8eb999": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9204abd3-77fd-4017-aca1-2322f5e9db32",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
