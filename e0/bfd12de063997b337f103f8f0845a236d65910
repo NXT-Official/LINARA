@@ -1,0 +1,43 @@
+src/features/landing/landing-loader.ts
+  s_0cc7eb3d8eb999::t_c95bceca21868a 20-21
+  s_0cc7eb3d8eb999::t_528c43eba2a892 3-17,23-25
+  s_0cc7eb3d8eb999::t_5e28a23d795789 1-2,18-19,22
+src/routes/index.tsx
+  s_0cc7eb3d8eb999::t_1c9ce4f25c8011 14
+  s_0cc7eb3d8eb999::t_12d3a04b888e00 5
+  s_0cc7eb3d8eb999::t_1d18617306866a 15
+  s_0cc7eb3d8eb999::t_5750351e56c322 9-13
+src/features/landing/landing-view.test.tsx
+  s_0cc7eb3d8eb999::t_0b967da50ca6ed 33-49
+  s_0cc7eb3d8eb999::t_c49025e3e9f3ea 107-109
+  s_0cc7eb3d8eb999::t_45c7c196e21410 93-103,106,110-144
+  s_0cc7eb3d8eb999::t_744ed6a83eebcc 145
+src/features/landing/landing-view.tsx
+  s_0cc7eb3d8eb999::t_ad3138e1247bfc 41-43
+  s_0cc7eb3d8eb999::t_11a927a448155b 182,188
+  s_0cc7eb3d8eb999::t_f47cd976d9a151 146
+  s_0cc7eb3d8eb999::t_53e2edb31f2bc0 37-40
+src/features/landing/landing-loader.test.ts
+  s_0cc7eb3d8eb999::t_a0a9372df5bde8 1
+  s_0cc7eb3d8eb999::t_7bee3ab1bbceb3 2-5,7-30,47-51
+  s_0cc7eb3d8eb999::t_be6df610c7d139 6
+  s_0cc7eb3d8eb999::t_ed6e0a40c4955f 52,61-63,65-68,70-71
+  s_0cc7eb3d8eb999::t_538aba2e698a0e 31-46
+  s_0cc7eb3d8eb999::t_a1e0aa0377728a 53-60,64,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0bfd12de063997b337f103f8f0845a236d65910",
+  "prompts": {},
+  "sessions": {
+    "s_0cc7eb3d8eb999": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9204abd3-77fd-4017-aca1-2322f5e9db32",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
