@@ -155,6 +155,41 @@ the bottom.
 - **Current workaround:** The team filter, and sending to each person.
 - **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
 
+### O39. A helper could work in only one household, on one team, and tasks had no place
+
+- **Found:** 2026-10-05, user request after O36: staff work across the family's houses ("drive A from House 1 to House 2, then B back").
+- **Was:** One ACTIVE employment per helper, and her login reached only that household. A task assigned to her elsewhere was invisible to her, and House 2's managers couldn't see her (no lane, no picker entry). A helper had at most one team. Tasks had no location, and nothing checked that a task's helper worked in the task's household.
+- **Decided (user, 2026-10-05):**
+  - One employment and one employer: her home household pays her and keeps her record.
+  - She also works in other households of the family, where the family is defined by the people who run them: a primary or co-manager can share her into any household they also run. Nothing moves.
+  - Home team plus teams she also covers.
+  - Every task is at a house; a trip has a from and a to, each a house or a saved place.
+  - Her app gets a house switcher, Today across all her houses, a Today layout choice, and a read-only "my team's day" showing who, what, when, where and status only.
+- **Fix, built 2026-10-05, SQL not applied yet:** `supabase/add-shared-staff-and-places.sql`, tested in `supabase/tests/shared-staff-and-places.test.mjs` (in `npm run test:sql`).
+  - **Schema:** `helper_households`, `helper_team_covers`, `household_places`, `tickets.from_*/to_*`, `quick_utos.household_id` (ARCHITECTURE.md §8, 2c).
+  - **Her login** reaches every house she works in (`my_household_ids()`): her own tasks (update, add), each house's pantry, palengke list and receipts, team names and saved places, and the photo folder in the evidence bucket. Her session stays in her home household, so pay is unchanged.
+  - **Other houses' managers** see her through `shared_helpers()`: shift, availability and team there, never pay.
+  - **New guards:** `tickets_helper_works_here` (a task's helper must work in its household; this closes the old hole) and `tickets_places_guard` (trip ends stay inside the family).
+  - **Web:**
+    - **People:** "Teams & houses" on each helper covers team, also-covers, labels and "Also works at". New "Also working here" and Places sections.
+    - **Store:** shared staff join `activeHelpers` (lanes, pickers, schedule, send gate). Pay screens use the new `employedHelpers`.
+    - **Team filter:** includes people who cover the team.
+    - **Tasks:** the task dialogs have "It's a trip" with From/To. Cards show "Main House → School".
+  - **Mobile:**
+    - **Today:** a house switcher (all houses or one), a "Isa-isa / Listahan / Oras" layout choice, and place tags on tasks.
+    - **Photos:** a Done photo goes in its task's house folder.
+    - **Realtime:** listens to her other houses.
+    - **Team's day:** "Ang team ko ngayon".
+    - **Pantry:** pantry, palengke list and receipts are filtered to one house (they would have mixed otherwise).
+    - **Record:** lists her houses, teams and teams she covers.
+    - **Quick Utos:** name the house they came from.
+- **Still open:**
+  - My Week doesn't show place tags yet.
+  - An SOP from another house's library doesn't show on her focus card: `house_sops` is still home-household only.
+  - Board closing is per house, but her app checks only her home house's.
+  - Moving someone's employment to a different employer is still end-and-reinvite, by design.
+- **To close:** Apply the SQL. Share a test helper into a second test household, give her a trip there, and check: the second house's Pass and pickers show her without pay; her phone shows the trip with its place, takes a Done photo the second house's manager can open, switches pantries, and shows the team's day. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

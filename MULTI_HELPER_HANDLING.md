@@ -219,3 +219,10 @@ them through `useStaffScope()` (`apply` to filter by name/team/labels,
 `RosaStatusChip` (which reads `currentHelperId`) is now only shown for a
 one-helper household; with more, the Pass shows "X of Y on shift" from
 `statusFor()` per helper.
+
+**Staff shared from another household** (KNOWN_GAPS.md O39): `activeHelpers`
+now includes people employed by another household of the family who also
+work here (`Helper.sharedFrom` names it). Anything about pay, leave or
+payroll must use `employedHelpers` instead: this household doesn't pay them,
+and their pay fields are zero placeholders. `staffProfiles` is the matching
+row list for schedules, availability and the send gate.

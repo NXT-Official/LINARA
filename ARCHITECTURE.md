@@ -794,6 +794,41 @@ CREATE TABLE public.helper_labels (
     PRIMARY KEY (helper_id, label_id)
 );
 
+-- 2c. Shared staff and places (supabase/add-shared-staff-and-places.sql, KNOWN_GAPS O39)
+--
+-- One employment (helper_profiles, her home household: pays her, keeps her
+-- record), several workplaces: helper_households lists the family's other
+-- households she also works in, each with her team there. "The family" is
+-- households with a primary/co manager in common (households_share_manager());
+-- only someone who runs both can share her in. helper_team_covers: teams she
+-- also covers. household_places: saved places (School, Office) for trips.
+-- tickets.from_household_id/from_place_id/to_household_id/to_place_id: a
+-- trip's ends (at most one of each pair). quick_utos.household_id: which house
+-- sent it. Her login reaches every house in my_household_ids(); other houses'
+-- managers read her through shared_helpers() (no pay). Triggers:
+-- tickets_helper_works_here (a task's helper works in its household) and
+-- tickets_places_guard (trip ends stay in the family).
+CREATE TABLE public.helper_households (
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES public.household_teams(id) ON DELETE SET NULL,
+    added_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    PRIMARY KEY (helper_id, household_id)
+);
+CREATE TABLE public.helper_team_covers (
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    team_id UUID NOT NULL REFERENCES public.household_teams(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    PRIMARY KEY (helper_id, team_id)
+);
+CREATE TABLE public.household_places (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 40),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
 -- 3. House SOP Library
 --
 -- steps/tools_required/safety_protocol (added by
