@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listPayPeriodsFn } from "../pay.actions";
+import { listPayPeriodsForFn } from "../pay.actions";
 import type { PayPeriod } from "../pay.types";
 
 export type PayPeriodStore = ReturnType<typeof usePayPeriods>;
@@ -33,17 +33,13 @@ export function usePayPeriods({
       setByHelper({});
       return;
     }
-    const entries = await Promise.all(
-      idKey.split(",").map((helperId) =>
-        listPayPeriodsFn({ data: { token, helperId } })
-          .then((periods) => [helperId, periods] as const)
-          .catch((err) => {
-            console.error(`[usePayPeriods] Periods failed for ${helperId}:`, err);
-            return [helperId, [] as PayPeriod[]] as const;
-          }),
-      ),
-    );
-    setByHelper(Object.fromEntries(entries));
+    // One request for everyone, however many staff (KNOWN_GAPS.md O36).
+    try {
+      setByHelper(await listPayPeriodsForFn({ data: { token, helperIds: idKey.split(",") } }));
+    } catch (err) {
+      console.error("[usePayPeriods] Periods failed:", err);
+      setByHelper({});
+    }
   }, [token, idKey]);
 
   useEffect(() => {

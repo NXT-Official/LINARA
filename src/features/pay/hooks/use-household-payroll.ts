@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getRestOwedBalanceFn } from "@/features/ledger/rest-off.actions";
+import { getRestOwedBalancesFn } from "@/features/ledger/rest-off.actions";
 import type { Helper, PaydayInterval } from "@/features/people/people.types";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 
@@ -197,20 +197,17 @@ export function useHouseholdPayroll({
     let cancelled = false;
     const ids = helperIdKey.split(",");
 
-    Promise.all(
-      ids.map((helperId) =>
-        getRestOwedBalanceFn({ data: { token, helperId } })
-          .then((res) => [helperId, res.minutes] as const)
-          .catch((err) => {
-            console.error(`[useHouseholdPayroll] Rest-owed balance failed for ${helperId}:`, err);
-            // 0 rather than dropping the helper: an unreadable balance must not
-            // silently remove someone from a household total.
-            return [helperId, 0] as const;
-          }),
-      ),
-    ).then((entries) => {
-      if (!cancelled) setRestOwed(Object.fromEntries(entries));
-    });
+    // One request for everyone (KNOWN_GAPS.md O36). 0 rather than dropping a
+    // helper: an unreadable balance must not silently remove someone from a
+    // household total.
+    getRestOwedBalancesFn({ data: { token, helperIds: ids } })
+      .catch((err) => {
+        console.error("[useHouseholdPayroll] Rest-owed balances failed:", err);
+        return Object.fromEntries(ids.map((id) => [id, 0]));
+      })
+      .then((balances) => {
+        if (!cancelled) setRestOwed(balances);
+      });
 
     return () => {
       cancelled = true;
