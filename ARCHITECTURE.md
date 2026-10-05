@@ -762,7 +762,36 @@ CREATE TABLE public.helper_profiles (
     ended_at TIMESTAMP WITH TIME ZONE,
     ended_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     pantry_role TEXT NOT NULL DEFAULT 'runner' CHECK (pantry_role IN ('lead', 'runner')), -- who keeps the pantry (add-pantry-roles.sql)
+    team_id UUID REFERENCES public.household_teams(id) ON DELETE SET NULL, -- her department (add-teams-and-labels.sql)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 2b. Teams and labels (supabase/add-teams-and-labels.sql, KNOWN_GAPS O36)
+--
+-- For a household with tens or hundreds of staff: one large estate run as
+-- departments (separate properties are separate households). A team is a
+-- department and the manager's views group by it; a helper is on at most one
+-- (helper_profiles.team_id). Labels are any number of filters per helper.
+-- Both are chosen at invite. Names are unique per household, case-insensitive.
+-- Triggers keep a team or label from another household from being attached.
+CREATE TABLE public.household_teams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 40),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+CREATE TABLE public.household_labels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 30),
+    tone TEXT NOT NULL DEFAULT 'sand' CHECK (tone IN ('sand', 'pine', 'clay', 'sky', 'sage', 'plum')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+CREATE TABLE public.helper_labels (
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    label_id UUID NOT NULL REFERENCES public.household_labels(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    PRIMARY KEY (helper_id, label_id)
 );
 
 -- 3. House SOP Library
@@ -1183,6 +1212,14 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- tickets_zz_guard_helper_update): never to or from 'cancelled', and not the
 -- time or note of a done one. RESTRICTIVE policies tickets_helper_insert_own
 -- (she adds tasks for herself only) and tickets_managers_delete.
+
+-- Teams and labels (supabase/add-teams-and-labels.sql, KNOWN_GAPS O36).
+-- household_teams: everyone in the household reads; primary and co-managers
+-- write. household_labels and helper_labels: managers (all three roles) read
+-- them all, a helper reads only her own labels (she sees them on her Record
+-- in LINARA_MOBILE); primary and co-managers write. A helper can't change her
+-- own team: team_id isn't one of the columns helper_profiles_zz_guard_own_update
+-- lets her write.
 
 -- Who keeps the pantry (supabase/add-pantry-roles.sql, KNOWN_GAPS C77).
 -- pantry_items and grocery_items stay household-wide for managers and for

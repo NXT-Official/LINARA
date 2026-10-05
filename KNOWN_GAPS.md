@@ -117,6 +117,44 @@ the bottom.
 - **Still open:** GCash has no public way to open a send with the amount filled in, so the manager copies the number and amount (or scans her QR). A manager can still type a different number into GCash; the name check on GCash's confirm screen and her "did you receive it?" are the safeguards.
 - **To close:** Save a number from the app's "Where to send my pay" on a real phone (the screen hasn't been device-tested), and confirm a payment there, then move this to Closed Gaps. Owned by both: the SQL and web in `LINARA`, the screen in `LINARA_MOBILE`.
 
+### O36. The manager's views fell apart past a handful of staff
+
+- **Found:** 2026-10-05, user request: households with tens or hundreds of staff.
+- **Was:** Every staff view was one block per helper with no search, filter or grouping: a lane each on the Pass, a row each on Schedule's By person, a tall card each on People, one flat payroll list on Money. About 8 helper pickers were plain `<select>`s. The Pass's status chip named one helper (`activeHelpers[0]`, the MULTI_HELPER_HANDLING.md pattern), and Shifts said "No one covers Sunday" whenever any two helpers shared a rest day. Pay periods and rest-owed balances were one browser request per helper.
+- **Decided (user, 2026-10-05):** a large customer is one estate run as departments; separate properties stay separate households. **Team** (one per helper, what views group by) plus **Labels** (any number, for filtering), both chosen at invite. Helpers see their own team and labels on their Record.
+- **Fix, applied 2026-10-05:** `supabase/add-teams-and-labels.sql`, tested in `supabase/tests/teams-and-labels.test.mjs` (in `npm run test:sql`).
+  - **Schema:** `household_teams`, `household_labels`, `helper_labels`, `helper_profiles.team_id` (ARCHITECTURE.md §8, 2b). Primary and co-managers write; every manager reads; a helper reads her own labels only and can't change her team.
+  - **Web** (`src/features/teams/`; works before the SQL is applied, with teams hidden until it is):
+    - **Invite modal:** team and labels, created inline.
+    - **People:** search, team and label filters, grouping by team, one-line rows past 8 helpers, "Choose several" to move people to a team or add/remove a label in bulk, and a Teams and labels section.
+    - **Pass:** a third layout, **Roll call** (a line per person; the default past 8 active helpers). Line and Roll call group by team under collapsible headers with done/total and "needs you". Lanes needing a decision sort first. The Board filters by scope. "X of Y on shift" replaces the one-helper chip.
+    - **Schedule:** the person picker can choose "All of <team>", search narrows by team on the server, and By person groups rows under team headings.
+    - **Shifts:** groups by team, and warns only when everyone in a team rests the same day.
+    - **Money:** payroll filters, "Still to pay", and per-team subtotals.
+    - **Every helper picker** is `HelperPicker`: the plain select for a small household, searchable and grouped by team past 8 helpers or once there are teams.
+    - The team/label/grouping choice follows the manager across tabs on that device (`useStaffScope`).
+  - **Requests:** pay periods and rest-owed balances are one browser request for the whole staff (`listPayPeriodsForFn`, `getRestOwedBalancesFn`), fanned out on the server 8 at a time.
+  - **Mobile:** Record shows "Team" and "Mga label" (`services/api/record.ts`). Before the SQL is applied it shows neither.
+- **Still open:** the claim screen (`review-terms.tsx`) doesn't show team or labels, since `lookup` reads them through an RPC that would need changing. Leave balances (`leave.actions.ts`) still run 3 queries per helper on the server. The batched pay reads still call one RPC per helper behind the single request; a set-returning SQL function for the household would remove that.
+- **Verified (2026-10-05):** against the live database, the test manager and test staff account both read `household_teams`, `household_labels`, `helper_labels` and `helper_profiles.team_id`, and the staff account is refused creating a team. `npm run qa` (45 browser checks) passes on a local production build against the applied schema.
+- **To close:** On the deployed site, make a team and a label from the invite form, invite into them, check People, Pass (Roll call, grouping), Schedule, Shifts and Money with a seeded large household, and see the team and label on the helper's Record on a device. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the Record row in `LINARA_MOBILE`.
+
+### O37. Stations are a fixed list of five
+
+- **Found:** 2026-10-05, while building O36.
+- **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
+- **Blocks:** Accurate roles for a large staff, and station-based routing for them.
+- **Current workaround (user's choice, 2026-10-05):** keep the five. Teams and labels (O36) carry departments and anything else.
+- **To close:** Decide between an "Other" station with a free-text title, or household-defined roles. Either way, change the CHECK, both apps' types and the router prompt together. Owned by `LINARA`.
+
+### O38. A manager can't be limited to one team, and nothing goes to a whole team
+
+- **Found:** 2026-10-05, while building O36. Deferred by the user.
+- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
+- **Blocks:** Delegating a large estate to department heads; announcements to a team.
+- **Current workaround:** The team filter, and sending to each person.
+- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

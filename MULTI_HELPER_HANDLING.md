@@ -208,3 +208,14 @@ now" — use it instead of reaching for `currentHelperId` or `availability.statu
 whenever the helper in question might not be the ambient "current" one.
 `manualFromRow()` (same file) builds its `manual` argument from a fetched
 `helper_profiles` row; pass `undefined`/`null` when you don't have one.
+
+**Picking or listing helpers in a large household** (KNOWN_GAPS.md O36):
+use `HelperPicker` (`src/features/teams/components/helper-picker.tsx`), never
+a plain `<select>` of `activeHelpers`. It stays the plain select for a small
+household and becomes searchable and grouped by team past `LARGE_STAFF`
+(8) or once the household has teams. A view that lists helpers should run
+them through `useStaffScope()` (`apply` to filter by name/team/labels,
+`group` to group by team) and show `StaffScopeBar`. The Pass's single
+`RosaStatusChip` (which reads `currentHelperId`) is now only shown for a
+one-helper household; with more, the Pass shows "X of Y on shift" from
+`statusFor()` per helper.
