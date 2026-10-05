@@ -30,6 +30,23 @@ const PRE_CMS = readFileSync(
   "utf8",
 ).trim();
 
+/** Markup of the two-lenses section; "" when the page has none. */
+function lensesSection(html: string) {
+  return /<section[^>]*aria-labelledby="lenses-title".*?<\/section>/s.exec(html)?.[0] ?? "";
+}
+
+/** Heading levels in document order, e.g. [1, 2, 3, 3]. */
+function headingLevels(html: string) {
+  return [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
+}
+
+const TWO_COLUMNS = "lg:grid-cols-2";
+
+/** Every on/off mix of the three sections an editor can hide. */
+const HIDDEN_MIXES = [false, true].flatMap((kitchen) =>
+  [false, true].flatMap((lenses) => [false, true].map((account) => ({ kitchen, lenses, account }))),
+);
+
 describe("LandingView", () => {
   it("renders the pre-CMS homepage byte-for-byte from the fallback copy", async () => {
     expect(await render(LANDING_FALLBACK)).toBe(PRE_CMS);
@@ -73,7 +90,58 @@ describe("LandingView", () => {
       normalizeLandingContent({ lenses: { hidden: true }, account: { hidden: true } }),
     );
     expect(neither).not.toContain("lenses-title");
+    // No empty wrapper either: the footer follows the kitchen section directly.
+    expect(lensesSection(neither)).toBe("");
+    expect(neither.match(/<section/g)).toHaveLength(2);
+    expect(neither).toContain("</section><footer");
+    expect(neither).not.toMatch(/<(section|div)[^>]*><\/(section|div)>/);
   });
+
+  it("sets the lenses and the account card side by side when both are shown", async () => {
+    const section = lensesSection(await render(LANDING_FALLBACK));
+    expect(section).toContain(`<div class="grid gap-12 ${TWO_COLUMNS} lg:items-center">`);
+    expect(headingLevels(section)).toEqual([2, 3, 3, 3]);
+  });
+
+  it("gives the account card the row and the section's h2 when it stands alone", async () => {
+    const section = lensesSection(
+      await render(normalizeLandingContent({ lenses: { hidden: true } })),
+    );
+    // Half of a two-column grid would leave the other half of the row blank.
+    expect(section).not.toContain(TWO_COLUMNS);
+    expect(section).toContain('<div class="mx-auto max-w-2xl">');
+    expect(section).toContain('<h2 id="lenses-title"');
+    expect(section).toContain(`>${LANDING_FALLBACK.account.heading}</h2>`);
+    expect(headingLevels(section)).toEqual([2]);
+  });
+
+  it("gives the lenses the row when the account card is hidden", async () => {
+    const section = lensesSection(
+      await render(normalizeLandingContent({ account: { hidden: true } })),
+    );
+    expect(section).not.toContain(TWO_COLUMNS);
+    expect(section).toContain('<div class="mx-auto max-w-2xl">');
+    expect(section).not.toContain(LANDING_FALLBACK.account.heading);
+    expect(headingLevels(section)).toEqual([2, 3, 3]);
+  });
+
+  it.each(HIDDEN_MIXES)(
+    "skips no heading level with hidden kitchen=$kitchen lenses=$lenses account=$account",
+    async ({ kitchen, lenses, account }) => {
+      const levels = headingLevels(
+        await render(
+          normalizeLandingContent({
+            kitchen: { hidden: kitchen },
+            lenses: { hidden: lenses },
+            account: { hidden: account },
+          }),
+        ),
+      );
+      expect(levels[0]).toBe(1);
+      const steps = levels.slice(1).map((level, i) => level - levels[i]);
+      expect(Math.max(0, ...steps)).toBeLessThanOrEqual(1);
+    },
+  );
 
   it("numbers the lenses by position and renders the chosen icon", async () => {
     const html = await render(

@@ -34,6 +34,13 @@ export function LandingView({ content }: { content: LandingContent }) {
   const { header, hero, kitchen, lenses, account, footer } = content;
   const showLenses = !lenses.hidden;
   const showAccount = !account.hidden;
+  // Two columns only when both blocks are shown. One block alone gets a
+  // centred reading column (the hero's measure), not half of an empty row.
+  const lensesLayout =
+    showLenses && showAccount ? "grid gap-12 lg:grid-cols-2 lg:items-center" : "mx-auto max-w-2xl";
+  // Under the lenses' h2 the card's heading is an h3. Alone it is the
+  // section's only heading, so it takes the h2 (same look, no skipped level).
+  const AccountHeading = showLenses ? "h3" : "h2";
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
@@ -136,7 +143,7 @@ export function LandingView({ content }: { content: LandingContent }) {
       {/* 4. The Two Lenses Highlight Section */}
       {(showLenses || showAccount) && (
         <section className="mx-auto max-w-7xl px-6 py-16 lg:py-24" aria-labelledby="lenses-title">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+          <div className={lensesLayout}>
             {showLenses && (
               <div>
                 <h2
@@ -172,13 +179,13 @@ export function LandingView({ content }: { content: LandingContent }) {
                   <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
                     {account.badge}
                   </span>
-                  <h3
+                  <AccountHeading
                     // Without the lenses column this card names the section.
                     id={showLenses ? undefined : "lenses-title"}
                     className="mt-3 font-display text-xl font-semibold text-primary"
                   >
                     {account.heading}
-                  </h3>
+                  </AccountHeading>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {account.body}
                   </p>

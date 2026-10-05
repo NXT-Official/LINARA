@@ -2,12 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { landingHead } from "@/features/landing/landing-content";
-import { getLandingContent } from "@/features/landing/landing.actions";
+import { loadLandingForRoute } from "@/features/landing/landing-loader";
 import { LandingView } from "@/features/landing/landing-view";
 
 export const Route = createFileRoute("/")({
-  // Never throws (fallback copy on any Sanity problem), so the page can't 500.
-  loader: () => getLandingContent(),
+  // Always resolves with copy to render. On any Sanity problem the server
+  // function serves the last good Studio copy, or the checked-in copy when it
+  // has none, and loadLandingForRoute serves the checked-in copy when the
+  // call itself fails (in-app navigation with no connection), so this loader
+  // can neither 500 the page nor send it to the error screen.
+  // Only a router redirect or not-found passes through.
+  loader: () => loadLandingForRoute(),
   staleTime: 5 * 60 * 1000,
   // Studio-edited SEO; the deepest route's tags win over __root's defaults.
   head: ({ loaderData }) => landingHead(loaderData),
