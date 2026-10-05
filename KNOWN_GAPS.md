@@ -77,29 +77,16 @@ the bottom.
   - **Save locally:** the task dialog's photo and the receipt viewer have "Save photo" / "Save receipt", a download of the same signed URL (`savePhotoUrl`, Storage's `download` parameter), and say how long photos are kept. In the APK's manager WebView the link opens the phone's browser, which saves it (`app/manager.tsx` sends non-dashboard URLs out).
 - **To close:** apply the SQL above the `@schedule` line; set `EVIDENCE_PURGE_SECRET`, deploy `purge-expired-evidence`, add the two Vault secrets and run the `@schedule` part (all spelled out in the SQL file's comments and `supabase/DEPLOYMENTS.md`); invoke the job once (`SELECT net.http_post(...)` from the schedule, or wait a night) and check `net._http_response` says `released`/`removed`. Build a mobile APK so new photos get thumbnails. Test Save on a phone in the WebView. Then move this to Closed Gaps. Owned by `LINARA` (SQL, function, web) and `LINARA_MOBILE` (thumbnail upload).
 
-### O29. A manager can't attach a receipt from the web
-
-- **Found:** 2026-10-02 (C80), logged 2026-10-03.
-- **What's missing:** Receipts are added only in `LINARA_MOBILE`'s Pantry tab (the Resibo card). The web's `receipt-slot.tsx` lists the latest receipts and has no upload. A manager who did the shopping can tick items bought on the web (LW-5) but can't add the receipt.
-- **Blocks:** The manager-does-the-shopping case, end to end.
-- **Current workaround:** Add it from a helper's phone, or not at all.
-- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does: 1200px at 80% JPEG plus a 480px `<name>.thumb.jpg` (O28), re-encoded through a canvas so the camera's EXIF/GPS is dropped. Owned by `LINARA`.
-
-### O30. No list view of tasks
-
-- **Found:** 2026-10-02, client feedback (asked for "list view"; no more detail was recorded), logged 2026-10-03.
-- **What's missing:** The Schedule has Week, By person and Month; the Pass shows today's lanes. There's no plain list of tasks.
-- **Blocks:** Nothing.
-- **Current workaround:** Week view.
-- **To close:** Ask the client what the list is for (all upcoming? search results? one helper's?), then add it as another Schedule view. Owned by `LINARA`.
-
 ### O31. Helpers can't edit a task
 
 - **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web.
-- **Blocks:** A helper fixing a wrong time herself.
-- **Current workaround:** She comments, and a manager edits.
-- **To close:** Decide what she may change (probably time and note, not who it's for), then an app edit screen and a `BEFORE UPDATE` guard on `tickets` like C72's, since today her updates are held to status columns. The time-change notice and ledger rules (C71, C76) must still fire. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
+- **Was:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web. Separately (C72's residual), `tickets_isolation` was one household-wide `FOR ALL` policy, so her login used straight against the REST API could already change *any* column of *any* task in the house, or delete it.
+- **Decided (user, 2026-10-04):** she may change her own task's **time and note**; the title and who it's for stay the manager's.
+- **Fix, built 2026-10-04, SQL applied 2026-10-05:**
+  - `supabase/add-helper-task-edit.sql`: trigger `tickets_zz_guard_helper_update` lets a helper's session update only her own task, and only `status`, `actual_start` / `actual_end`, `block_reason`, `photo_evidence_url` (what her app already writes) plus `scheduled_start` and `notes`. Never to or from `cancelled`, and not the time or note of a done task (unticking still works). RESTRICTIVE policies: she inserts tasks for herself only ("Promote to Board"), and only managers delete. Managers and `SECURITY DEFINER` functions (employment end, appointment moves, the ledger trigger) are untouched. Checked first: every SQL function that updates `tickets` is a definer, and the app writes no other ticket column. PGlite: `supabase/tests/helper-task-edit.test.mjs` (in `npm run test:sql`).
+  - **Rest owed is unaffected:** the ledger trigger (C76) reads `actual_start` / `actual_end` and the after-hours / emergency flags, which she can't set, never `scheduled_start`. The C71 move notice is for *her* when a manager moves her task, so it isn't written when she moves it herself.
+  - **Mobile:** "Ayusin ang oras o note" on the focus card (`components/features/today/edit-task-form.tsx`): day and time pickers and the note, online only. A moved time also posts "Inilipat ko sa 4:30 PM (dati 3:00 PM)." to the task's updates, so the manager sees it on the Pass as a comment badge. The card now shows the task's time. `combineLocalDateTime` (`lib/datetime-fields.ts`, tested under three zones) builds the time from parts, never through UTC (C38).
+- **To close:** build an APK, and on a phone move a task and change a note; check the manager's Pass shows the new time and the comment. Then move this to Closed Gaps. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
 
 ### O33. Staff can't change the grocery budget (waiting on the client)
 
@@ -3223,7 +3210,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - Checked first: every SQL function that writes these tables is `SECURITY DEFINER`, and the only direct writes in either app are the manager's on the web plus the helper's two above. No app code changed.
   - PGlite test acting as each role: `supabase/tests/write-access.test.mjs` (25 checks, in `npm run test:sql`).
 - **Residual:**
-  - **Other tables stay household-wide:** `tickets`, `quick_utos` and `appointments`. Helpers write tickets legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap. `pantry_items` and `grocery_items` now have per-helper rules (C77).
+  - **Other tables stay household-wide:** `tickets`, `quick_utos` and `appointments`. Helpers write tickets legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap. **Tickets:** per-column rules built with O31 (`add-helper-task-edit.sql`, applied 2026-10-05); `quick_utos` and `appointments` remain. `pantry_items` and `grocery_items` now have per-helper rules (C77).
   - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
 
 ### C73. There was no vacation or leave, only hour-level rest off in lieu (former Open Gap O21)
@@ -3329,6 +3316,20 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Was:** `ListFilter` was used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule loads just the week or month on screen, so an old task could only be found by paging back through it.
 - **Fix:** the Schedule (`task-planner.tsx`) has a search box and status chips (All / To do / Done / Cancelled). The chips narrow Week, By person and Month, alongside the person picker; routines still to come show under All and To do only, and appointments only when nothing is filtered. Typing two or more letters searches task titles and notes on **every date** (`searchTicketsFn`: newest first, the 50 most recent, with the same person and status), and the results replace the calendar until the box is cleared: grouped by day, a task opens as on the calendar, and "Show in week" jumps there. Checked against the sandbox project (case-insensitive match, person and status filters accepted). Tests in `task-planner.test.tsx`.
 - **Not added, on purpose:** the Pass shows one day, and People a household's few helpers, so neither has a list long enough to search. Money's payslip history is per helper, about 24 a year; give it a year filter once a real helper has more than a year of payslips.
+
+### C84. A manager couldn't attach a receipt from the web (former Open Gap O29)
+
+- **Found:** 2026-10-02 (C80), logged 2026-10-03. **Fixed:** 2026-10-04 (web only, no SQL).
+- **Was:** Receipts were added only in `LINARA_MOBILE`'s Pantry tab. The web's `receipt-slot.tsx` listed them with no upload, so a manager who did the shopping could tick items bought (LW-5) but not add the receipt.
+- **Fix:** "Add receipt" under the grocery list's Receipt (a file picker; a phone offers the camera). `src/lib/shrink-photo.ts` re-encodes it in the browser the way the app does: 1200px at 80% JPEG plus a 480px, 70% thumbnail, through a canvas, so EXIF and GPS are dropped and the phone's rotation applied. `addGroceryReceiptFn` checks it's a JPEG under 3 MB, uploads it to `<household>/receipts/<ms>.jpg` and its `.thumb.jpg` (thumbnail best effort, as on the phone), and inserts the `grocery_receipts` row, removing the files if that fails. The existing storage and table policies already allowed a manager; the nightly purge (O28) deletes it after 60 days like any other.
+- **Verified (2026-10-04):** `e2e/deep/receipts.spec.ts` (in `npm run qa:deep`) against the sandbox project from a local production build: the photo and thumbnail are stored, the row written, the receipt listed, then all three deleted.
+
+### C85. No list view of tasks (former Open Gap O30)
+
+- **Found:** 2026-10-02, client feedback ("list view", no more detail), logged 2026-10-03. **Fixed:** 2026-10-04 (web only).
+- **Was:** the Schedule had Week, By person and Month; on a desktop the Week is seven narrow columns.
+- **Fix (a default, chosen by the user without the client's detail):** a fourth Schedule view, **List** (`planner-list.tsx`): the same week, a full-width row per task, appointment and routine copy, grouped by day in time order. An empty day is one line, with Add on days still to come. The week arrows, person picker, status chips and search work as on the other views; tasks open the same dialog; nothing drags. Tests in `task-planner.test.tsx`.
+- **Revisit** when the client says what the list is for (all upcoming? one helper's? longer than a week?). Each of those is a small change to the range or filter.
 
 ---
 

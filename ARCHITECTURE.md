@@ -1176,6 +1176,14 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- households_update_budget is manager-only too. Everything else goes through
 -- SECURITY DEFINER functions, which run as their owner.
 
+-- Tasks (supabase/add-helper-task-edit.sql, KNOWN_GAPS O31). tickets_isolation
+-- stays household-wide for managers. A helper's own session may update only
+-- her own task, and only status, actual_start / actual_end, block_reason,
+-- photo_evidence_url, scheduled_start and notes (trigger
+-- tickets_zz_guard_helper_update): never to or from 'cancelled', and not the
+-- time or note of a done one. RESTRICTIVE policies tickets_helper_insert_own
+-- (she adds tasks for herself only) and tickets_managers_delete.
+
 -- Who keeps the pantry (supabase/add-pantry-roles.sql, KNOWN_GAPS C77).
 -- pantry_items and grocery_items stay household-wide for managers and for
 -- helpers with helper_profiles.pantry_role = 'lead'. A 'runner' helper's own
@@ -1764,6 +1772,14 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- manual_available_until (trigger helper_profiles_zz_guard_own_update).
 -- households_update_budget is manager-only too. Everything else goes through
 -- SECURITY DEFINER functions, which run as their owner.
+
+-- Tasks (supabase/add-helper-task-edit.sql, KNOWN_GAPS O31). tickets_isolation
+-- stays household-wide for managers. A helper's own session may update only
+-- her own task, and only status, actual_start / actual_end, block_reason,
+-- photo_evidence_url, scheduled_start and notes (trigger
+-- tickets_zz_guard_helper_update): never to or from 'cancelled', and not the
+-- time or note of a done one. RESTRICTIVE policies tickets_helper_insert_own
+-- (she adds tasks for herself only) and tickets_managers_delete.
 
 -- Who keeps the pantry (supabase/add-pantry-roles.sql, KNOWN_GAPS C77).
 -- pantry_items and grocery_items stay household-wide for managers and for
