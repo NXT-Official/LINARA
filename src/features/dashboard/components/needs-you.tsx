@@ -378,7 +378,7 @@ export function NeedsYou({
                     {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment on
                     record.
                   </h4>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-3">
                     {/* Opens Money on HER, at her unpaid periods: GCash or Maya,
                         or record it as paid outside Linara (KNOWN_GAPS O35). */}
                     <Link
@@ -389,11 +389,6 @@ export function NeedsYou({
                     >
                       <Smartphone className="h-3.5 w-3.5" /> Pay by GCash or Maya
                     </Link>
-                    <span className="text-xs text-muted-foreground">
-                      {left
-                        ? "In People → Past staff. Or record it as paid outside Linara."
-                        : "In Money. Or record it as paid outside Linara."}
-                    </span>
                   </div>
                 </div>
               );
