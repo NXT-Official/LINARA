@@ -1297,6 +1297,17 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- households_update_budget is manager-only too. Everything else goes through
 -- SECURITY DEFINER functions, which run as their owner.
 
+-- Who may READ pay and time-off rows (supabase/fix-helper-coworker-reads.sql,
+-- KNOWN_GAPS O45). current_household_id() is set for helpers too, so the
+-- household-wide read policies on helper_profiles, payslips, vales,
+-- ledger_entries, rest_off_requests, leave_requests and payout_attempts let
+-- every helper read her coworkers' wage and pay. Each household branch now
+-- also requires current_user_type() IS DISTINCT FROM 'helper'; managers and
+-- remote admins read what they did before. A helper reads her own rows only,
+-- through the *_own_read policies (vales_own_read and ledger_entries_own_read
+-- added there). Coworkers' names and shifts reach her through the SECURITY
+-- DEFINER team_day / my_workplaces / family_households functions instead.
+
 -- Tasks (supabase/add-helper-task-edit.sql, KNOWN_GAPS O31). tickets_isolation
 -- stays household-wide for managers. A helper's own session may update only
 -- her own task, and only status, actual_start / actual_end, block_reason,
@@ -1901,6 +1912,17 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- manual_available_until (trigger helper_profiles_zz_guard_own_update).
 -- households_update_budget is manager-only too. Everything else goes through
 -- SECURITY DEFINER functions, which run as their owner.
+
+-- Who may READ pay and time-off rows (supabase/fix-helper-coworker-reads.sql,
+-- KNOWN_GAPS O45). current_household_id() is set for helpers too, so the
+-- household-wide read policies on helper_profiles, payslips, vales,
+-- ledger_entries, rest_off_requests, leave_requests and payout_attempts let
+-- every helper read her coworkers' wage and pay. Each household branch now
+-- also requires current_user_type() IS DISTINCT FROM 'helper'; managers and
+-- remote admins read what they did before. A helper reads her own rows only,
+-- through the *_own_read policies (vales_own_read and ledger_entries_own_read
+-- added there). Coworkers' names and shifts reach her through the SECURITY
+-- DEFINER team_day / my_workplaces / family_households functions instead.
 
 -- Tasks (supabase/add-helper-task-edit.sql, KNOWN_GAPS O31). tickets_isolation
 -- stays household-wide for managers. A helper's own session may update only
