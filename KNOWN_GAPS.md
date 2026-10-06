@@ -94,7 +94,8 @@ the bottom.
 - **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
 - **Blocks:** Nothing until the client confirms.
 - **Current workaround:** A manager sets it on the web.
-- **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
+- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
+- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
 
 ### O34. A remote admin couldn't pay wages
 
@@ -188,7 +189,53 @@ the bottom.
   - An SOP from another house's library doesn't show on her focus card: `house_sops` is still home-household only.
   - Board closing is per house, but her app checks only her home house's.
   - Moving someone's employment to a different employer is still end-and-reinvite, by design.
+- **Bug found 2026-10-06, after the SQL was applied live:** every read of labels failed with "infinite recursion detected in policy for relation household_labels", so Teams & labels on People stopped loading. Every manager page also logged it as a console error, which fails the browser QA's "loads without errors" checks.
+  - **Cause:** this migration's `helper_labels_write` (FOR ALL, so it is also checked on reads) looked up `household_labels`, whose read policy looks up `helper_labels`.
+  - **Fix:** `label_household()` and `i_have_label()`, SECURITY DEFINER, now do those lookups. The fix is in the migration itself, and as `supabase/fix-label-policy-recursion.sql` for the live database, which needs it applied.
+  - **Test:** the shared-staff PGlite test now reads labels as a manager and as helpers. It reproduced the error before the fix.
 - **To close:** Apply the SQL. Share a test helper into a second test household, give her a trip there, and check: the second house's Pass and pickers show her without pay; her phone shows the trip with its place, takes a Done photo the second house's manager can open, switches pantries, and shows the team's day. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
+
+### O40. The palengke was one list that never closed: no runs, no history, no assignment, one budget
+
+- **Found:** 2026-10-06, user request after O36/O39: the grocery list should scale like the staff views did ("I think we could only see the latest? It needs a history, different staff per list that ties into teams/tags, budget").
+- **Was:**
+  - **One list per household.** Bought lines stayed on it forever, so the budget bar compared everything ever bought with one ₱1,500 `households.petty_cash_budget`.
+  - **No history.** Lines weren't grouped by shopping trip, the app showed only the latest receipt (the web the latest six), and receipt photos go after 60 days (O28).
+  - **No assignment.** Every helper saw and bought from the same list; the only control was pantry lead or runner (C77).
+- **Decided (user, 2026-10-06):** Modelled on restaurant purchasing (MarketMan, BlueCart), procurement (Procurify) and petty-cash tools.
+  - **Runs from a Needed pool.** Pantry lows and "Ubos na" go to a pool. A manager or pantry lead makes a run from it. Closing a run files it in history; anything not bought goes back to the pool.
+  - **Money.** Each run records the cash handed over (abono) and the change returned (sukli), so petty cash reconciles. There's also an optional monthly budget for the house and for each team.
+  - **Who sees a run.** Its shoppers, its team (people covering that team too), the helper on its linked task, pantry leads and managers.
+  - **Extras chosen:** repeat runs, lead drafts with manager approval (this supersedes O33), and a run linked to a task or trip. Price history per item was not chosen.
+- **Fix, built 2026-10-06, SQL not applied yet:** `supabase/add-grocery-runs.sql` (apply after `add-shared-staff-and-places.sql`), tested in `supabase/tests/grocery-runs.test.mjs` (52 checks, in `npm run test:sql`).
+  - **Schema:** `grocery_runs`, `grocery_run_shoppers`, `grocery_templates`, `grocery_template_items`, `grocery_budgets`, `grocery_items.run_id`/`bought_at`, `grocery_receipts.run_id` (ARCHITECTURE.md §8, 9b).
+  - **Guards:**
+    - **Run lifecycle:** draft → pending (a lead asks) → ready (a manager approves and records the cash) → done or cancelled. Leads can't approve or set cash. Anyone who sees a ready run can tick lines, price them, enter the change and close it. Only a manager touches a closed run.
+    - **Lines:** nobody buys from a draft, and a bought line stays on its run.
+    - **Stamps and release:** `bought_at` is stamped by the database, so it can't be back-dated. Closing a run releases its unbought lines back to the pool.
+  - **Visibility:** a RESTRICTIVE policy on `grocery_items` hides lines on runs a helper can't see. The pool stays visible to everyone, as before.
+  - **Repeats:** `start_grocery_run()` makes a draft from a repeat. A matching line already in the pool moves onto the run instead of being listed twice.
+  - **Web (Pantry, "Grocery list"):** this month against the budgets, with a Budgets dialog. Tabs for Needed (with "Plan a run"), Runs (repeats due soon, then waiting for approval, ready, drafts; team filter), Repeats and History (a month at a time, with search, and each run's balance shown as balanced or short).
+    - **Run dialog:** who goes, team, day, linked task, cash, lines, receipts, change back, and the buttons that move the run along.
+    - **Elsewhere:** the Money tab's spend card is now this month against the house budget, and a task card carrying a run shows its progress.
+    - **Before the SQL is applied** it is the single list it was.
+  - **Mobile (Pantry):**
+    - **Mga run:** her ready runs, each with its cash bar, checklist, a receipt for that run, and "Tapos na" with the sukli.
+    - **Leads:** drafts and runs waiting for approval, with "Ipa-approve", "Bawiin" and "Burahin", plus "Gumawa ng run" from Kailangan.
+    - **Kailangan:** the pool. The last five closed runs show under it.
+    - **Today:** a card shows "May listahan" when the task carries a run.
+- **Still open:**
+  - **Pricing:** no price history per item (not chosen), and the run total isn't estimated before shopping.
+  - **Notifications:** a manager isn't pushed when a run is waiting for approval (the Runs tab shows a dot), and a shopper isn't pushed when one is ready.
+  - **Pickers:** the task picker in the run dialog lists only the board's day.
+  - **Budgets:** a team's monthly spend counts only runs for that team. Buying straight from the pool counts toward the house only.
+- **To close:**
+  1. Apply the SQL. Then, in a test household:
+  2. A lead drafts a run on the phone and asks for approval. A manager approves it on the web with cash.
+  3. Check that the run shows on the shopper's and her team's phones but not on another helper's.
+  4. Tick and price lines, snap a receipt, and close with the change. The web History shows it balanced.
+  5. Start a repeat and check that a pooled line moved onto it.
+  6. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
 
 ## Closed Gaps
 

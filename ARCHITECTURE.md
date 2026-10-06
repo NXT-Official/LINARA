@@ -1041,6 +1041,55 @@ CREATE TABLE public.grocery_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 9b. Grocery runs (supabase/add-grocery-runs.sql, KNOWN_GAPS O40)
+--
+-- grocery_items with run_id NULL are the Needed pool; a run (grocery_runs) is
+-- one shopping trip made from it: draft -> pending (a pantry lead asked) ->
+-- ready (a manager approved and recorded cash_given) -> done | cancelled.
+-- Closing releases unbought lines back to the pool. change_returned is the
+-- sukli: cash_given - spent - change_returned should be 0. A run's shoppers
+-- (grocery_run_shoppers), team (and those covering it), the helper on its
+-- ticket, pantry leads and managers see it once ready; drafts are for leads
+-- and managers. grocery_templates (+ _items) are repeats, started through
+-- start_grocery_run(); grocery_budgets are monthly, per house (team_id NULL)
+-- or per team, counted against grocery_items.bought_at. Guards:
+-- grocery_runs_guard, grocery_items_run_guard; RESTRICTIVE policy
+-- grocery_items_run_visible. households.petty_cash_budget is no longer read.
+ALTER TABLE public.grocery_items
+    ADD COLUMN run_id UUID REFERENCES public.grocery_runs(id) ON DELETE SET NULL,
+    ADD COLUMN bought_at TIMESTAMP WITH TIME ZONE; -- stamped by the database
+CREATE TABLE public.grocery_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft'
+        CHECK (status IN ('draft', 'pending', 'ready', 'done', 'cancelled')),
+    team_id UUID REFERENCES public.household_teams(id) ON DELETE SET NULL,
+    shop_on DATE,
+    ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    template_id UUID REFERENCES public.grocery_templates(id) ON DELETE SET NULL,
+    cash_given NUMERIC(10,2),
+    change_returned NUMERIC(10,2),
+    note TEXT,
+    created_by, approved_by, closed_by UUID REFERENCES public.user_profiles(id),
+    approved_at, closed_at, created_at, updated_at TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE public.grocery_run_shoppers (run_id UUID, helper_id UUID, PRIMARY KEY (run_id, helper_id));
+CREATE TABLE public.grocery_templates (
+    id UUID PRIMARY KEY, household_id UUID NOT NULL, title TEXT NOT NULL,
+    team_id UUID, repeat_weekday SMALLINT, cash_default NUMERIC(10,2),
+    shopper_ids UUID[] NOT NULL DEFAULT '{}', created_by UUID, created_at TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE public.grocery_template_items (
+    id UUID PRIMARY KEY, template_id UUID NOT NULL REFERENCES public.grocery_templates(id) ON DELETE CASCADE,
+    name TEXT NOT NULL, qty NUMERIC(6,2) NOT NULL, unit TEXT NOT NULL, pantry_item_id UUID
+);
+CREATE TABLE public.grocery_budgets (
+    id UUID PRIMARY KEY, household_id UUID NOT NULL,
+    team_id UUID REFERENCES public.household_teams(id) ON DELETE CASCADE, -- NULL: whole house
+    monthly_amount NUMERIC(10,2) NOT NULL, updated_at TIMESTAMP WITH TIME ZONE
+);
+
 -- 10. Quick Utos Table (Temporary storage, cleared nightly)
 CREATE TABLE public.quick_utos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
