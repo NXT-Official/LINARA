@@ -436,6 +436,38 @@ DROP POLICY IF EXISTS household_teams_read ON public.household_teams;
 CREATE POLICY household_teams_read ON public.household_teams
     FOR SELECT USING (household_id IN (SELECT public.my_household_ids()));
 
+-- Labels, without the two tables' policies reading each other (that loops:
+-- "infinite recursion detected in policy for relation household_labels",
+-- live 2026-10-06). A label's household, and whether the caller has a label,
+-- are read here instead, with RLS out of the way.
+CREATE OR REPLACE FUNCTION public.label_household(p_label_id UUID)
+RETURNS UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT household_id FROM public.household_labels WHERE id = p_label_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.i_have_label(p_label_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM public.helper_labels hl
+        JOIN public.helper_profiles hp ON hp.id = hl.helper_id
+        WHERE hl.label_id = p_label_id AND hp.user_id = auth.uid()
+    );
+$$;
+REVOKE ALL ON FUNCTION public.label_household(UUID) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.i_have_label(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.label_household(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.i_have_label(UUID) TO authenticated;
+
 -- Her labels from any household she works in; a shared household's managers
 -- label her with their own labels.
 DROP POLICY IF EXISTS household_labels_read ON public.household_labels;
@@ -445,11 +477,7 @@ CREATE POLICY household_labels_read ON public.household_labels
             AND household_id = public.current_household_id())
         OR (
             household_id IN (SELECT public.my_household_ids())
-            AND EXISTS (
-                SELECT 1 FROM public.helper_labels hl
-                JOIN public.helper_profiles hp ON hp.id = hl.helper_id
-                WHERE hl.label_id = household_labels.id AND hp.user_id = auth.uid()
-            )
+            AND public.i_have_label(id)
         )
     );
 
@@ -469,18 +497,12 @@ CREATE POLICY helper_labels_write ON public.helper_labels
     USING (
         public.is_household_manager()
         AND public.helper_works_in(helper_id, public.current_household_id())
-        AND EXISTS (
-            SELECT 1 FROM public.household_labels l
-            WHERE l.id = helper_labels.label_id AND l.household_id = public.current_household_id()
-        )
+        AND public.label_household(label_id) = public.current_household_id()
     )
     WITH CHECK (
         public.is_household_manager()
         AND public.helper_works_in(helper_id, public.current_household_id())
-        AND EXISTS (
-            SELECT 1 FROM public.household_labels l
-            WHERE l.id = helper_labels.label_id AND l.household_id = public.current_household_id()
-        )
+        AND public.label_household(label_id) = public.current_household_id()
     );
 
 -- Her own tasks in any household she works in: change (the column guard

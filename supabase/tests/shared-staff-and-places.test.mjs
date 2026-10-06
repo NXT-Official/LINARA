@@ -97,7 +97,9 @@ await db.exec(readFileSync(`${REPO}/add-helper-task-edit.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-teams-and-labels.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
-console.log("migrations applied (shared staff twice)");
+// What a database that ran the first version of it was given (O39).
+await db.exec(readFileSync(`${REPO}/fix-label-policy-recursion.sql`, "utf8"));
+console.log("migrations applied (shared staff twice, then the label fix)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
@@ -318,6 +320,31 @@ check(
     );
     return rows.some((r) => r.title === "Drive A to the Beach House");
   })(),
+);
+
+// --- Labels ------------------------------------------------------------------------
+// Reading either table checks the other's policies; they must not lead back
+// to each other (live, 2026-10-06: "infinite recursion detected in policy
+// for relation household_labels" on every label read).
+await as(BEN);
+const [{ id: L_LICENSED }] = await q(
+  `INSERT INTO household_labels (household_id, name) VALUES ($1, 'Licensed') RETURNING id`,
+  [H1],
+);
+await q(`INSERT INTO helper_labels (helper_id, label_id) VALUES ($1, $2)`, [HP_ROSA, L_LICENSED]);
+check(
+  "a manager reads the household's labels",
+  (await q(`SELECT id FROM household_labels`)).length === 1,
+);
+check("and who has which", (await q(`SELECT label_id FROM helper_labels`)).length === 1);
+await as(ROSA);
+check("Rosa reads her own label", (await q(`SELECT name FROM household_labels`)).length === 1);
+check("and that it's hers", (await q(`SELECT label_id FROM helper_labels`)).length === 1);
+await as(LITA);
+check(
+  "another helper sees neither",
+  (await q(`SELECT id FROM household_labels`)).length === 0 &&
+    (await q(`SELECT label_id FROM helper_labels`)).length === 0,
 );
 
 // --- Ending -----------------------------------------------------------------------
