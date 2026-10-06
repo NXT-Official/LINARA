@@ -253,14 +253,33 @@ the bottom.
     - Lanes and Roll call say "At Main House 2:00 PM, 4:30 PM", or "now" while a task there is in progress.
     - The task dialogs warn when the time is within an hour of a task at another house.
     - Before the SQL is applied, nothing shows.
+- **Follow-up, built 2026-10-06, SQL not applied yet:** `supabase/add-task-length-and-leave-unassign.sql`. Tested in the same PGlite file ("Leave and length"), and in `task.utils.test.ts` and LINARA_MOBILE `lib/format.test.ts`.
+  - **Leave clears every house.** `unassign_tasks_for_leave()` runs when leave is approved or recorded with "move her tasks". It moves her open tasks on those days to Unassigned in every house she works in, using each house's own timezone for the day boundaries.
+    - **Who can run it:** only a manager of her home household, and only for dates her live leave covers.
+    - **The other house:** each moved task gets a comment from the approving manager: "Moved to Unassigned: Rosa is on leave Oct 12 – Oct 14."
+    - **The toast** says how many moved here and how many at each other house. Before the SQL is applied it falls back to this house only.
+  - **Task length.** `tickets.duration_minutes` is optional, from 5 minutes to 12 hours.
+    - **Where it's set:** "How long" in the New and Edit task dialogs.
+    - **Where it shows:** as "2:00 PM – 3:30 PM" on task cards, lanes and the planner, and on her phone's focus card and Today list.
+    - **Busy:** `staff_elsewhere()` returns the length, so "busy elsewhere" is a real overlap of two windows. A task with no length counts as 30 minutes, and a long task that started earlier still counts.
 - **Still open:**
-  - **Leave doesn't clear other houses' tasks.** Approving leave moves her tasks to Unassigned only in her home house. Tasks at other houses during the leave stay assigned, and those houses only see the warnings.
-  - **Busy is approximate.** Tasks have no length, so "busy" means a task starting within an hour.
   - **Busy covers yesterday to 14 days out.** A task further ahead gets no warning.
-- **To close:** Apply the SQL. In two test households sharing a helper:
-  1. Approve leave at home, and check the Beach House's Pass shows her off and the send gate warns.
-  2. Give her a task at each house an hour apart, and check that each house's lane shows the other.
-  3. Then move this to Closed Gaps. Owned by `LINARA`.
+  - **No same-house overlap check.** Two tasks for her at the same time in the same house don't warn.
+  - **My Week doesn't show the length** on her phone. It reads a fixed column list, so it was left alone until the SQL is applied.
+- **To close:** Apply both SQL files. In two test households sharing a helper:
+  1. Give her tasks at both houses during an upcoming leave, then approve the leave at home with "move her tasks". Check that both houses' tasks are Unassigned and the Beach House task has the comment.
+  2. Check that the Beach House's Pass shows her off and its send gate warns.
+  3. Give her a two-hour task at one house and try to book her inside that window at the other: the dialog warns.
+  4. Then move this to Closed Gaps. Owned by `LINARA`, with the length shown in `LINARA_MOBILE`.
+
+### O43. "Repeat daily" tasks never come back the next day
+
+- **Found:** 2026-10-06, while carrying task length onto repeating tasks.
+- **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
+- **Blocks:** Any household relying on daily chores showing up each day.
+- **To close:** Respawn from the database: for each open or recent ticket with a `recurrence` matching the new day, insert the next instance, carrying the title, note, assignee (or Unassigned if she's off), time, length and trip. Make it idempotent per `routine_id` and date, so two tabs rolling the day don't double it. Owned by `LINARA`.
+
+
 
 ### O42. Some lists still load everything ever, or don't scale to a large staff
 

@@ -812,6 +812,10 @@ CREATE TABLE public.helper_labels (
 -- house the approved leave/rest off (dates only) of staff shared into it;
 -- staff_elsewhere() gives when its staff are booked at the family's other
 -- houses (time, house, status; no titles).
+-- add-task-length-and-leave-unassign.sql: tickets.duration_minutes (optional,
+-- 5..720; none counts as 30 where a length matters), returned by
+-- staff_elsewhere(); unassign_tasks_for_leave() clears her leave days in
+-- every house she works in (her home household's managers only).
 CREATE TABLE public.helper_households (
     helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
