@@ -5,7 +5,7 @@ import { matchesQuery } from "@/components/shared/list-filter.utils";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import type { GroceryHistory } from "../grocery.types";
-import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn } from "../grocery.utils";
+import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn, unpricedCount } from "../grocery.utils";
 import { useGroceryHistory } from "../hooks/use-grocery-history";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
@@ -105,6 +105,8 @@ export function HistoryView() {
               {runs.map((r) => {
                 const spent = spentOn(r.items);
                 const { gap } = reconcile(r, spent);
+                // A gap with costs still missing is most likely those costs.
+                const costsMissing = gap !== null && gap !== 0 && unpricedCount(r.items) > 0;
                 const who = r.shopperIds
                   .map((id) => activeHelpers.find((h) => h.id === id)?.name.split(" ")[0])
                   .filter(Boolean);
@@ -145,16 +147,22 @@ export function HistoryView() {
                             )}
                           </span>
                         )}
-                        {gap !== null && (
-                          <span
-                            className={`block font-semibold ${gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
-                          >
-                            {gap === 0
-                              ? "Balanced"
-                              : gap > 0
-                                ? `${fmtPeso(gap)} short`
-                                : `${fmtPeso(-gap)} over`}
+                        {costsMissing ? (
+                          <span className="block font-semibold text-terracotta-ink">
+                            Costs missing
                           </span>
+                        ) : (
+                          gap !== null && (
+                            <span
+                              className={`block font-semibold ${gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
+                            >
+                              {gap === 0
+                                ? "Balanced"
+                                : gap > 0
+                                  ? `${fmtPeso(gap)} short`
+                                  : `${fmtPeso(-gap)} over`}
+                            </span>
+                          )
                         )}
                       </span>
                     </button>

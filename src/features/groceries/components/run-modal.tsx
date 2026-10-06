@@ -17,7 +17,14 @@ import type {
   RunStatus,
   TemplateItem,
 } from "../grocery.types";
-import { WEEKDAYS, expectedChange, fmtPeso, reconcile, spentOn } from "../grocery.utils";
+import {
+  WEEKDAYS,
+  expectedChange,
+  fmtPeso,
+  reconcile,
+  spentOn,
+  unpricedCount,
+} from "../grocery.utils";
 import { GroceryRow } from "./grocery-row";
 import { PoolPicker } from "./pool-picker";
 import { ReceiptSlot } from "./receipt-slot";
@@ -105,6 +112,7 @@ export function RunModal({
   const cashN = money(cash);
   const changeN = money(change);
   const unbought = items.filter((g) => !g.bought).length;
+  const unpriced = unpricedCount(items);
   const anyBought = items.some((g) => g.bought);
   // A closed run (History) only has its cash and change fixed here.
   const canBuy = status === "ready";
@@ -580,22 +588,51 @@ export function RunModal({
                 value={change}
                 onChange={(e) => setChange(e.target.value)}
                 inputMode="decimal"
-                placeholder={expected === null ? "—" : String(expected)}
+                placeholder="₱"
                 aria-label="Change returned"
                 className="mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
               />
             </div>
           </div>
-          {recon.gap !== null && (
-            <p
-              className={`mt-2 text-xs font-semibold ${recon.gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
-            >
-              {recon.gap === 0
-                ? "It balances."
-                : recon.gap > 0
-                  ? `${fmtPeso(recon.gap)} not accounted for.`
-                  : `${fmtPeso(-recon.gap)} more came back than expected; check the costs.`}
+          {/* The expected change is said in words, with a button to use it: as a
+              placeholder it looked already typed in. Only once every cost is in,
+              or it would be a wrong number to accept. */}
+          {change.trim() === "" && expected !== null && unpriced === 0 && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                Expected back:{" "}
+                <span className="font-semibold tabular-nums text-foreground">
+                  {fmtPeso(expected)}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setChange(String(expected))}
+                className="rounded-lg px-2 py-1 font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
+              >
+                Use {fmtPeso(expected)}
+              </button>
             </p>
+          )}
+          {/* A bought line with no cost counts as ₱0, so the gap may be that, not
+              missing cash. Say which, rather than "not accounted for". */}
+          {unpriced > 0 ? (
+            <p className="mt-2 text-xs font-semibold text-terracotta-ink">
+              {unpriced} bought {unpriced === 1 ? "line has" : "lines have"} no cost yet. Add{" "}
+              {unpriced === 1 ? "its cost" : "their costs"} above to check the change.
+            </p>
+          ) : (
+            recon.gap !== null && (
+              <p
+                className={`mt-2 text-xs font-semibold ${recon.gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
+              >
+                {recon.gap === 0
+                  ? "It balances."
+                  : recon.gap > 0
+                    ? `${fmtPeso(recon.gap)} not accounted for.`
+                    : `${fmtPeso(-recon.gap)} more came back than expected; check the costs.`}
+              </p>
+            )
           )}
           {status === "ready" && unbought > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">

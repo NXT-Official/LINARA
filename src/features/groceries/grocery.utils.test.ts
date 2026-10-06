@@ -10,6 +10,7 @@ import {
   reconcile,
   sortOpenRuns,
   spentOn,
+  unpricedCount,
 } from "./grocery.utils";
 
 const item = (over: Partial<GroceryItem>): GroceryItem => ({
@@ -122,5 +123,18 @@ describe("fmtQty", () => {
     expect(fmtQty(2, "pcs")).toBe("2 pcs");
     expect(fmtQty(1, "stalk")).toBe("1 stalk");
     expect(fmtQty(0.5, "kg")).toBe("0.5 kg");
+  });
+});
+
+describe("unpricedCount", () => {
+  it("counts bought lines with no cost, not unbought ones or ₱0 ones", () => {
+    expect(
+      unpricedCount([
+        item({ bought: true }),
+        item({ bought: true, costPHP: 0 }),
+        item({ bought: true, costPHP: 120 }),
+        item({ bought: false }),
+      ]),
+    ).toBe(1);
   });
 });

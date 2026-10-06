@@ -31,6 +31,15 @@ export function spentOn(items: GroceryItem[]): number {
   return items.reduce((sum, g) => sum + (g.bought ? (g.costPHP ?? 0) : 0), 0);
 }
 
+/**
+ * Lines ticked bought with no cost entered. `spentOn` counts them as ₱0, so
+ * while any are left the spend is short and a petty-cash gap may just be
+ * these, not missing money.
+ */
+export function unpricedCount(items: GroceryItem[]): number {
+  return items.filter((g) => g.bought && g.costPHP == null).length;
+}
+
 export function progress(items: GroceryItem[]): { bought: number; total: number } {
   return { bought: items.filter((g) => g.bought).length, total: items.length };
 }

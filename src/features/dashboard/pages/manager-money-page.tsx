@@ -65,8 +65,20 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
   const scrolledToOwed = useRef(false);
   useEffect(() => {
     if (!focusHelperId || scrolledToOwed.current || missed.length === 0) return;
-    scrolledToOwed.current = true;
-    document.getElementById("owed-pay")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // The router's scroll restoration puts a newly opened page back at the top
+    // after this effect, which cancelled a scroll started here (the page never
+    // moved). Two frames later it has run, so the scroll sticks.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        scrolledToOwed.current = true;
+        document.getElementById("owed-pay")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
   }, [focusHelperId, missed.length]);
 
   // Keyed on the SELECTED helper's interval, not the household default -- see
