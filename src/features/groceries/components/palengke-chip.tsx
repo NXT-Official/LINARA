@@ -35,12 +35,12 @@ export function PalengkeChip({
   const chip = (
     <Link
       to="/manager/pantry"
-      className={`inline-flex max-w-full items-center gap-1 rounded-lg border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-[oklch(0.4_0.13_55)] transition hover:bg-terracotta-soft ${
+      className={`inline-flex max-w-full items-center gap-1 rounded-lg border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-accent-foreground transition hover:bg-terracotta-soft ${
         compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"
       }`}
       title={run ? "The grocery run on this task" : "Grocery list"}
     >
-      <ShoppingBasket className="h-2.5 w-2.5 shrink-0" />
+      <ShoppingBasket className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{label}</span>
     </Link>
   );

@@ -178,12 +178,14 @@ Warm daylight neutrals with one cool anchor and one warm accent, all in OKLCH.
 - **Destructive** (`destructive`): errors and irreversible actions (Cancel
   task, payout needs review). 5.2:1 both as text on cream and under cream text.
 
-### Status (not yet tokens)
-Done green (`oklch(0.68 0.14 150)`), late and overdue red-orange tints
-(`oklch(0.93 0.06 35)` / `oklch(0.42 0.15 35)`) and the payout statuses are
-still hard-coded in components, and `emerald` succeeded/approved pills render
-uncoloured because that colour doesn't exist in the theme. Promoting these to
-semantic status tokens is open work (UI refresh step 5).
+### Status (tokens started)
+`src/styles.css` now has semantic status tokens: **Done** (`status-done`,
+`status-done-soft`, `status-done-ink`) and **Late** (`status-late`,
+`status-late-soft`, `status-late-ink`). Late covers overdue, over budget and
+petty cash that doesn't add up. The `-ink` value is for text; the bare value
+is for fills, bars and dots only. The grocery section uses them. Everywhere
+else still hard-codes the same values, and a few pills use Tailwind's
+off-palette `emerald`. Moving those over is open work (UI refresh step 5).
 
 ### Named Rules
 **The One Hearth Rule.** Terracotta is the only warm accent, and it marks

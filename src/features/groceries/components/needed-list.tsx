@@ -13,6 +13,9 @@ import { ReceiptSlot } from "./receipt-slot";
 
 type GroceryFilter = "all" | "to_buy" | "bought";
 
+/** Search and filter only earn their space once the list is longer than a glance. */
+const FILTER_FROM = 9;
+
 /**
  * The Needed pool: what's running low, "Ubos na" from staff, and anything
  * added by hand, grouped by the pantry shelf it restocks. Lines can still be
@@ -30,10 +33,14 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
   const [unit, setUnit] = useState("pcs");
   const [addError, setAddError] = useState<string | null>(null);
 
-  const shown = ctx.needed.filter((g) => matchesQuery(g.name, query));
-  const toBuy = filter === "bought" ? [] : shown.filter((g) => !g.bought);
-  const bought = filter === "to_buy" ? [] : shown.filter((g) => g.bought);
-  const filtering = query.trim() !== "" || filter !== "all";
+  // Below FILTER_FROM the controls are hidden, so a leftover search can't hide lines.
+  const showFilter = ctx.needed.length >= FILTER_FROM;
+  const activeQuery = showFilter ? query : "";
+  const activeFilter = showFilter ? filter : "all";
+  const shown = ctx.needed.filter((g) => matchesQuery(g.name, activeQuery));
+  const toBuy = activeFilter === "bought" ? [] : shown.filter((g) => !g.bought);
+  const bought = activeFilter === "to_buy" ? [] : shown.filter((g) => g.bought);
+  const filtering = activeQuery.trim() !== "" || activeFilter !== "all";
   const toBuyGroups = groupByPantryCategory(toBuy, pantry.items, PANTRY_CATEGORIES);
   const chips: { key: GroceryFilter; label: string }[] = [
     { key: "all", label: "All" },
@@ -55,21 +62,18 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
   return (
     <div>
       {onPlanRun && ctx.toBuyCount > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-background/60 p-3">
-          <p className="min-w-0 text-xs text-muted-foreground">
-            Put these on a run to send someone shopping with cash.
-          </p>
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
             onClick={onPlanRun}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep sm:w-auto sm:py-2"
           >
             <ShoppingCart className="h-3.5 w-3.5" /> Plan a run
           </button>
         </div>
       )}
 
-      {ctx.needed.length > 0 && (
+      {showFilter && (
         <ListFilter
           query={query}
           onQuery={setQuery}
@@ -137,7 +141,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
         <ReceiptSlot />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
+      <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-border/60 pt-4">
         <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
           <span className="mb-1 block text-xs font-semibold text-muted-foreground">Add item</span>
           <input
@@ -146,8 +150,8 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
-            placeholder="e.g. ulam for Sunday"
-            className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+            placeholder="e.g. bangus"
+            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
         </label>
         <label className="w-16">
@@ -156,7 +160,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
             value={qty}
             onChange={(e) => setQty(e.target.value)}
             inputMode="decimal"
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
+            className="w-full rounded-xl border border-input bg-background px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
           />
         </label>
         <label className="w-20">
@@ -164,12 +168,12 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm outline-none focus:border-primary"
+            className="w-full rounded-xl border border-input bg-background px-2 py-2 text-center text-sm outline-none focus:border-primary"
           />
         </label>
         <button
           onClick={submit}
-          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+          className="inline-flex items-center gap-1 rounded-lg bg-card px-3.5 py-2 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
         >
           <Plus className="h-3.5 w-3.5" /> Add
         </button>

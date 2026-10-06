@@ -10,7 +10,7 @@ import { HelperPicker } from "@/features/teams/components/helper-picker";
 
 import { useGrocery } from "../grocery-context";
 import type { GroceryTemplate, TemplateDraft, TemplateItem } from "../grocery.types";
-import { WEEKDAYS, fmtPeso, isoDate, nextDue } from "../grocery.utils";
+import { WEEKDAYS, fmtPeso, fmtQty, isoDate, nextDue } from "../grocery.utils";
 
 /**
  * Repeat runs ("Weekly palengke"): the usual name, day, team, people, cash
@@ -308,7 +308,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             <li key={`${it.name}-${i}`} className="flex items-center gap-2 py-2">
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{it.name}</span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {it.qty} {it.unit}
+                {fmtQty(it.qty, it.unit)}
               </span>
               <button
                 type="button"

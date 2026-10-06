@@ -68,25 +68,28 @@ export function GrocerySection() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta-soft text-[oklch(0.4_0.13_55)]">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta-soft text-accent-foreground">
               <ShoppingBasket className="h-4 w-4" />
             </div>
             <h2 className="font-display text-xl text-foreground">Grocery list</h2>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {ctx.runsAvailable
-              ? "What's needed, the runs that buy it, and what they cost."
-              : "Auto-suggested from Pantry lows. Attached to the Palengke run."}
-          </p>
+          {/* With runs, the tabs say what's here and Needed carries the count. */}
+          {!ctx.runsAvailable && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Auto-suggested from Pantry lows. Attached to the Palengke run.
+            </p>
+          )}
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          {ctx.toBuyCount} to buy
-        </span>
+        {!ctx.runsAvailable && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
+            {ctx.toBuyCount} to buy
+          </span>
+        )}
       </div>
 
       {ctx.runsAvailable ? (
         <>
-          <div className="mt-4">
+          <div className="mt-3">
             <MonthBudget />
           </div>
           <div
@@ -114,10 +117,10 @@ export function GrocerySection() {
                     <span className="tabular-nums text-muted-foreground">{count}</span>
                   )}
                   {key === "runs" && pending > 0 && (
-                    <span
-                      className="h-2 w-2 rounded-full bg-[oklch(0.6_0.15_55)]"
-                      aria-label={`${pending} waiting for approval`}
-                    />
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-terracotta" aria-hidden />
+                      <span className="sr-only">, {pending} waiting for approval</span>
+                    </>
                   )}
                 </button>
               );

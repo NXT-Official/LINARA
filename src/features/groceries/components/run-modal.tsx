@@ -1,4 +1,4 @@
-import { Loader2, Plus, Repeat, X } from "lucide-react";
+import { ChevronRight, Loader2, Plus, Repeat, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ import type {
   RunStatus,
   TemplateItem,
 } from "../grocery.types";
-import { expectedChange, fmtPeso, reconcile, spentOn } from "../grocery.utils";
+import { WEEKDAYS, expectedChange, fmtPeso, reconcile, spentOn } from "../grocery.utils";
 import { GroceryRow } from "./grocery-row";
 import { PoolPicker } from "./pool-picker";
 import { ReceiptSlot } from "./receipt-slot";
@@ -93,6 +93,10 @@ export function RunModal({
   const [lineName, setLineName] = useState("");
   const [lineQty, setLineQty] = useState("1");
   const [lineUnit, setLineUnit] = useState("pcs");
+  // Task and note start folded unless the run already has one.
+  const [moreOpen, setMoreOpen] = useState(
+    () => !!run && (run.ticketId !== null || run.note.trim() !== ""),
+  );
 
   const set = <K extends keyof RunDraft>(key: K, value: RunDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -128,16 +132,17 @@ export function RunModal({
     }
   };
 
+  // Left empty, a run is named for its day.
+  const defaultTitle = draft.shopOn
+    ? `${WEEKDAYS[new Date(`${draft.shopOn}T12:00:00`).getDay()]} palengke`
+    : "Palengke";
+
   const validDraft = (): RunDraft | null => {
-    if (!draft.title.trim()) {
-      setError("Give the run a name, like “Saturday palengke”.");
-      return null;
-    }
     if (cashN === "bad") {
       setError("Cash given: an amount in pesos, or empty.");
       return null;
     }
-    return { ...draft, cashGiven: cashN };
+    return { ...draft, title: draft.title.trim() || defaultTitle, cashGiven: cashN };
   };
 
   const pickedLines = () => {
@@ -159,8 +164,8 @@ export function RunModal({
     const d = validDraft();
     if (!d) return;
     const ok = await step(label, async () => {
-      const lines = pickedLines();
-      const id = await ctx.saveRun(d, { id: run?.id, ...lines, send: !run && opts.send });
+      const chosen = pickedLines();
+      const id = await ctx.saveRun(d, { id: run?.id, ...chosen, send: !run && opts.send });
       if (run && opts.then) await ctx.setRunStatus({ ...run, id }, opts.then);
     });
     if (ok) {
@@ -277,6 +282,235 @@ export function RunModal({
     </div>
   );
 
+  const detailsSection = closed ? (
+    <div className="divide-y divide-border/40">
+      {draft.teamId && readOnlyRow("Team", teams.teamById.get(draft.teamId)?.name ?? "A team")}
+      {draft.shopperIds.length > 0 &&
+        readOnlyRow("Went", draft.shopperIds.map(helperName).join(", "))}
+      {draft.note && readOnlyRow("Note", draft.note)}
+    </div>
+  ) : (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="sm:col-span-2">
+        <Field label="Name">
+          <input
+            value={draft.title}
+            onChange={(e) => set("title", e.target.value)}
+            placeholder={defaultTitle}
+            maxLength={60}
+            className={FIELD}
+          />
+        </Field>
+      </div>
+      <Field label="Day">
+        <input
+          type="date"
+          value={draft.shopOn ?? ""}
+          onChange={(e) => set("shopOn", e.target.value || null)}
+          className={FIELD}
+        />
+      </Field>
+      {teams.available && teams.teams.length > 0 && (
+        <Field label="For team">
+          <select
+            value={draft.teamId ?? ""}
+            onChange={(e) => set("teamId", e.target.value || null)}
+            className={FIELD}
+          >
+            <option value="">No team</option>
+            {teams.teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      <div className="sm:col-span-2" role="group" aria-label="Who goes">
+        <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Who goes</span>
+        {draft.shopperIds.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {draft.shopperIds.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() =>
+                  set(
+                    "shopperIds",
+                    draft.shopperIds.filter((x) => x !== id),
+                  )
+                }
+                aria-label={`Take ${helperName(id)} off this run`}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
+              >
+                {helperName(id)} <X className="h-3 w-3 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        )}
+        <HelperPicker
+          helpers={activeHelpers.filter((h) => !draft.shopperIds.includes(h.id))}
+          value=""
+          onChange={(id) => id && set("shopperIds", [...draft.shopperIds, id])}
+          ariaLabel="Add someone to this run"
+          before={[{ value: "", label: "Add someone…" }]}
+        />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          They see it in the Linara app once it&apos;s ready
+          {draft.teamId ? ", and so does everyone on its team" : ""}.
+        </span>
+      </div>
+      <Field label="Cash given (₱)">
+        <input
+          value={cash}
+          onChange={(e) => setCash(e.target.value)}
+          inputMode="decimal"
+          placeholder={status === "pending" ? "Set when approving" : "None yet"}
+          aria-invalid={cashN === "bad"}
+          className={FIELD}
+        />
+      </Field>
+      <details
+        className="group sm:col-span-2"
+        open={moreOpen}
+        onToggle={(e) => setMoreOpen(e.currentTarget.open)}
+      >
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-lg py-1 text-xs font-semibold text-primary [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="h-3.5 w-3.5 transition group-open:rotate-90" aria-hidden />
+          Task and note
+        </summary>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <Field label="Task it rides on">
+            <select
+              value={draft.ticketId ?? NO_TASK}
+              onChange={(e) => set("ticketId", e.target.value || null)}
+              className={FIELD}
+            >
+              <option value={NO_TASK}>None</option>
+              {draft.ticketId && !taskOptions.some((t) => t.id === draft.ticketId) && (
+                <option value={draft.ticketId}>A task on another day</option>
+              )}
+              {taskOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.time} · {t.title}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Note">
+            <input
+              value={draft.note}
+              onChange={(e) => set("note", e.target.value)}
+              maxLength={300}
+              placeholder="e.g. Buy the fish at Suki Mang Ben"
+              className={FIELD}
+            />
+          </Field>
+        </div>
+      </details>
+    </div>
+  );
+
+  const linesSection = (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-muted-foreground">
+          {run ? `On this run · ${items.length}` : "What to buy"}
+        </span>
+        {run && !closed && !pickingFromPool && (
+          <button
+            type="button"
+            onClick={() => setPickingFromPool(true)}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+          >
+            Add from Needed
+          </button>
+        )}
+      </div>
+      {pickingFromPool && !closed && (
+        <div className="mb-2 space-y-2">
+          <PoolPicker items={ctx.needed} picked={picked} onPicked={setPicked} />
+          {run && (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPicked(new Set());
+                  setPickingFromPool(false);
+                }}
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={picked.size === 0 || busy !== null}
+                onClick={() => void addPicked()}
+                className={btn()}
+              >
+                {spin("add")} Add {picked.size || ""} to this run
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {run && (
+        <div className="divide-y divide-border/70">
+          {items.map((g) => (
+            <GroceryRow
+              key={g.id}
+              item={g}
+              onToggleBought={canBuy ? () => ctx.toggleBought(g) : undefined}
+              onCost={canBuy ? (cost) => ctx.setCost(g, cost) : undefined}
+              onEdit={closed ? undefined : (patch) => ctx.edit(g, patch)}
+              onRemove={closed ? undefined : () => void ctx.moveItems([g.id], null)}
+              unlist
+            />
+          ))}
+          {items.length === 0 && (
+            <p className="py-3 text-xs text-muted-foreground">Nothing on this run yet.</p>
+          )}
+        </div>
+      )}
+      {run && !closed && (
+        <div className="mt-2 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
+          <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              Add a line
+            </span>
+            <input
+              value={lineName}
+              onChange={(e) => setLineName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addLine()}
+              placeholder="e.g. ulam for Sunday"
+              className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <label className="w-16">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+            <input
+              value={lineQty}
+              onChange={(e) => setLineQty(e.target.value)}
+              inputMode="decimal"
+              className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
+            />
+          </label>
+          <label className="w-20">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
+            <input
+              value={lineUnit}
+              onChange={(e) => setLineUnit(e.target.value)}
+              className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <button type="button" onClick={addLine} className={btn()}>
+            <Plus className="h-3.5 w-3.5" /> Add
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Modal onClose={onClose} size="lg">
       <div className="flex items-start justify-between gap-3">
@@ -306,225 +540,11 @@ export function RunModal({
         </button>
       </div>
 
-      {/* Details */}
-      {closed ? (
-        <div className="mt-4 divide-y divide-border/40">
-          {draft.teamId && readOnlyRow("Team", teams.teamById.get(draft.teamId)?.name ?? "A team")}
-          {draft.shopperIds.length > 0 &&
-            readOnlyRow("Went", draft.shopperIds.map(helperName).join(", "))}
-          {draft.note && readOnlyRow("Note", draft.note)}
-        </div>
-      ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Name">
-              <input
-                value={draft.title}
-                onChange={(e) => set("title", e.target.value)}
-                placeholder="e.g. Saturday palengke"
-                maxLength={60}
-                className={FIELD}
-              />
-            </Field>
-          </div>
-          <Field label="Day">
-            <input
-              type="date"
-              value={draft.shopOn ?? ""}
-              onChange={(e) => set("shopOn", e.target.value || null)}
-              className={FIELD}
-            />
-          </Field>
-          {teams.available && teams.teams.length > 0 && (
-            <Field label="For team">
-              <select
-                value={draft.teamId ?? ""}
-                onChange={(e) => set("teamId", e.target.value || null)}
-                className={FIELD}
-              >
-                <option value="">No team</option>
-                {teams.teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          <div className="sm:col-span-2" role="group" aria-label="Who goes">
-            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Who goes
-            </span>
-            {draft.shopperIds.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {draft.shopperIds.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() =>
-                      set(
-                        "shopperIds",
-                        draft.shopperIds.filter((x) => x !== id),
-                      )
-                    }
-                    aria-label={`Take ${helperName(id)} off this run`}
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
-                  >
-                    {helperName(id)} <X className="h-3 w-3 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
-            )}
-            <HelperPicker
-              helpers={activeHelpers.filter((h) => !draft.shopperIds.includes(h.id))}
-              value=""
-              onChange={(id) => id && set("shopperIds", [...draft.shopperIds, id])}
-              ariaLabel="Add someone to this run"
-              before={[{ value: "", label: "Add someone…" }]}
-            />
-            <span className="mt-1 block text-xs text-muted-foreground">
-              They see it in the Linara app once it&apos;s ready
-              {draft.teamId ? ", and so does everyone on its team" : ""}.
-            </span>
-          </div>
-          <Field label="Task it rides on">
-            <select
-              value={draft.ticketId ?? NO_TASK}
-              onChange={(e) => set("ticketId", e.target.value || null)}
-              className={FIELD}
-            >
-              <option value={NO_TASK}>None</option>
-              {draft.ticketId && !taskOptions.some((t) => t.id === draft.ticketId) && (
-                <option value={draft.ticketId}>A task on another day</option>
-              )}
-              {taskOptions.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.time} · {t.title}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Cash given (₱)">
-            <input
-              value={cash}
-              onChange={(e) => setCash(e.target.value)}
-              inputMode="decimal"
-              placeholder={status === "pending" ? "Set when approving" : "None yet"}
-              aria-invalid={cashN === "bad"}
-              className={FIELD}
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Note">
-              <input
-                value={draft.note}
-                onChange={(e) => set("note", e.target.value)}
-                maxLength={300}
-                placeholder="e.g. Buy the fish at Suki Mang Ben"
-                className={FIELD}
-              />
-            </Field>
-          </div>
-        </div>
-      )}
-
-      {/* Lines */}
-      <div className="mt-5">
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-muted-foreground">
-            {run ? `On this run · ${items.length}` : "What to buy"}
-          </span>
-          {run && !closed && !pickingFromPool && (
-            <button
-              type="button"
-              onClick={() => setPickingFromPool(true)}
-              className="rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
-            >
-              Add from Needed
-            </button>
-          )}
-        </div>
-        {pickingFromPool && !closed && (
-          <div className="mb-2 space-y-2">
-            <PoolPicker items={ctx.needed} picked={picked} onPicked={setPicked} />
-            {run && (
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPicked(new Set());
-                    setPickingFromPool(false);
-                  }}
-                  className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={picked.size === 0 || busy !== null}
-                  onClick={() => void addPicked()}
-                  className={btn()}
-                >
-                  {spin("add")} Add {picked.size || ""} to this run
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        {run && (
-          <div className="divide-y divide-border/70">
-            {items.map((g) => (
-              <GroceryRow
-                key={g.id}
-                item={g}
-                onToggleBought={canBuy ? () => ctx.toggleBought(g) : undefined}
-                onCost={canBuy ? (cost) => ctx.setCost(g, cost) : undefined}
-                onEdit={closed ? undefined : (patch) => ctx.edit(g, patch)}
-                onRemove={closed ? undefined : () => void ctx.moveItems([g.id], null)}
-                unlist
-              />
-            ))}
-            {items.length === 0 && (
-              <p className="py-3 text-xs text-muted-foreground">Nothing on this run yet.</p>
-            )}
-          </div>
-        )}
-        {run && !closed && (
-          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
-            <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-              <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Add a line
-              </span>
-              <input
-                value={lineName}
-                onChange={(e) => setLineName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addLine()}
-                placeholder="e.g. ulam for Sunday"
-                className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="w-16">
-              <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
-              <input
-                value={lineQty}
-                onChange={(e) => setLineQty(e.target.value)}
-                inputMode="decimal"
-                className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
-              />
-            </label>
-            <label className="w-20">
-              <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
-              <input
-                value={lineUnit}
-                onChange={(e) => setLineUnit(e.target.value)}
-                className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <button type="button" onClick={addLine} className={btn()}>
-              <Plus className="h-3.5 w-3.5" /> Add
-            </button>
-          </div>
-        )}
+      {/* A closed run reads as a record, details first. Otherwise what to buy is
+          the point of the run, so it comes first and the details follow. */}
+      <div className="mt-4 space-y-5">
+        {closed ? detailsSection : linesSection}
+        {closed ? linesSection : detailsSection}
       </div>
 
       {/* Money */}
@@ -568,7 +588,7 @@ export function RunModal({
           </div>
           {recon.gap !== null && (
             <p
-              className={`mt-2 text-xs font-semibold ${recon.gap === 0 ? "text-pine-deep" : "text-[oklch(0.5_0.17_35)]"}`}
+              className={`mt-2 text-xs font-semibold ${recon.gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
             >
               {recon.gap === 0
                 ? "It balances."

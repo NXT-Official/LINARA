@@ -2,6 +2,10 @@ import type { GroceryItem, GroceryRun, GroceryTemplate, RunStatus } from "./groc
 
 export const fmtPeso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
 
+/** "1 pc", "2 pcs", "1 stalk". Units are free text; only the default "pcs" needs a singular. */
+export const fmtQty = (qty: number, unit: string) =>
+  `${qty} ${qty === 1 && unit === "pcs" ? "pc" : unit}`;
+
 export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
   draft: "Draft",
   pending: "Waiting for approval",

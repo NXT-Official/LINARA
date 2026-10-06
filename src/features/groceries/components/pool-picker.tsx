@@ -4,6 +4,7 @@ import { useState } from "react";
 import { matchesQuery } from "@/components/shared/list-filter.utils";
 
 import type { GroceryItem } from "../grocery.types";
+import { fmtQty } from "../grocery.utils";
 
 /**
  * Choose lines from the Needed pool to put on a run. Suggestions (low
@@ -82,8 +83,8 @@ export function PoolPicker({
               />
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{g.name}</span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {g.qty} {g.unit}
-                {g.id.startsWith("sug-") && " · suggested"}
+                {fmtQty(g.qty, g.unit)}
+                {g.id.startsWith("sug-") && ", suggested"}
               </span>
             </label>
           </li>

@@ -5,7 +5,7 @@ import { matchesQuery } from "@/components/shared/list-filter.utils";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import type { GroceryHistory } from "../grocery.types";
-import { fmtPeso, monthBounds, reconcile, spentOn } from "../grocery.utils";
+import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn } from "../grocery.utils";
 import { useGroceryHistory } from "../hooks/use-grocery-history";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
@@ -147,7 +147,7 @@ export function HistoryView() {
                         )}
                         {gap !== null && (
                           <span
-                            className={`block font-semibold ${gap === 0 ? "text-pine-deep" : "text-[oklch(0.5_0.17_35)]"}`}
+                            className={`block font-semibold ${gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
                           >
                             {gap === 0
                               ? "Balanced"
@@ -176,9 +176,7 @@ export function HistoryView() {
                     </span>
                     <span className="min-w-0 flex-1 truncate text-foreground">
                       {g.name}{" "}
-                      <span className="text-xs text-muted-foreground">
-                        · {g.qty} {g.unit}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{fmtQty(g.qty, g.unit)}</span>
                     </span>
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                       {g.costPHP != null ? fmtPeso(g.costPHP) : "—"}

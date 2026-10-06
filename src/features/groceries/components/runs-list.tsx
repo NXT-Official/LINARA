@@ -93,7 +93,7 @@ export function RunsList({
         <ul className="divide-y divide-border/60 rounded-2xl bg-terracotta-soft/40 px-3">
           {due.map(({ t, d }) => (
             <li key={t.id} className="flex items-center gap-3 py-2.5">
-              <CalendarClock className="h-4 w-4 shrink-0 text-[oklch(0.4_0.13_55)]" />
+              <CalendarClock className="h-4 w-4 shrink-0 text-terracotta-ink" />
               <span className="min-w-0 flex-1 text-sm text-foreground">
                 <span className="font-semibold">{t.title}</span> is due{" "}
                 {d.daysAway === 0

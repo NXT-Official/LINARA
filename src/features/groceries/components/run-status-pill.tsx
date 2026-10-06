@@ -3,9 +3,9 @@ import { RUN_STATUS_LABEL } from "../grocery.utils";
 
 const TONE: Record<RunStatus, string> = {
   draft: "bg-secondary text-muted-foreground",
-  pending: "bg-terracotta-soft text-[oklch(0.4_0.13_55)]",
+  pending: "bg-terracotta-soft text-accent-foreground",
   ready: "bg-secondary text-pine-deep",
-  done: "bg-emerald-100 text-emerald-800",
+  done: "bg-status-done-soft text-status-done-ink",
   cancelled: "bg-secondary text-muted-foreground",
 };
 

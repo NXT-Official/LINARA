@@ -25,25 +25,51 @@ export function MonthBudget() {
       )
     : [];
 
-  return (
-    <div className="rounded-2xl bg-background/60 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold text-muted-foreground">{label} so far</div>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
-        >
+  const hasBudget =
+    ctx.budgets.house !== null || teamRows.some((t) => ctx.budgets.byTeam[t.id] !== undefined);
+  const budgetsButton = (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+    >
+      {hasBudget ? (
+        <>
           <Settings2 className="h-3.5 w-3.5" /> Budgets
-        </button>
-      </div>
-      {ctx.budgets.house !== null ? (
-        <BudgetBar spent={ctx.month.total} budget={ctx.budgets.house} compact />
+        </>
       ) : (
-        <p className="text-sm text-foreground">
-          <span className="font-display text-lg tabular-nums">{fmtPeso(ctx.month.total)}</span>{" "}
-          <span className="text-xs text-muted-foreground">spent · no monthly budget set</span>
-        </p>
+        "Set a budget"
+      )}
+    </button>
+  );
+
+  return (
+    <div>
+      {ctx.budgets.house !== null ? (
+        <>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-muted-foreground">{label} so far</div>
+            {budgetsButton}
+          </div>
+          <BudgetBar spent={ctx.month.total} budget={ctx.budgets.house} compact />
+        </>
+      ) : (
+        // No house budget: one line, not a big number with nothing to measure it against.
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 text-sm text-muted-foreground">
+            {ctx.month.total > 0 ? (
+              <>
+                <span className="font-semibold tabular-nums text-foreground">
+                  {fmtPeso(ctx.month.total)}
+                </span>{" "}
+                bought in {label} so far
+              </>
+            ) : (
+              `Nothing bought in ${label} yet`
+            )}
+          </p>
+          {budgetsButton}
+        </div>
       )}
       {teamRows.length > 0 && (
         <ul className="mt-3 space-y-1.5 border-t border-border/40 pt-2">
@@ -55,7 +81,7 @@ export function MonthBudget() {
               <li key={t.id} className="flex items-center justify-between gap-2 text-xs">
                 <span className="truncate font-semibold text-foreground">{t.name}</span>
                 <span
-                  className={`tabular-nums ${over ? "font-semibold text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
+                  className={`tabular-nums ${over ? "font-semibold text-status-late-ink" : "text-muted-foreground"}`}
                 >
                   {fmtPeso(spent)}
                   {budget !== undefined && ` of ${fmtPeso(budget)}`}

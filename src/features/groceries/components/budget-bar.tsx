@@ -24,14 +24,14 @@ export function BudgetBar({
           <span className="text-xs text-muted-foreground tabular-nums">/ {fmtPeso(budget)}</span>
         </div>
         <span
-          className={`text-xs font-semibold tabular-nums ${over ? "text-[oklch(0.5_0.17_35)]" : "text-muted-foreground"}`}
+          className={`text-xs font-semibold tabular-nums ${over ? "text-status-late-ink" : "text-muted-foreground"}`}
         >
           {over ? `over by ${fmtPeso(spent - budget)}` : `${fmtPeso(budget - spent)} left`}
         </span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
         <div
-          className={`h-full rounded-full transition-all ${over ? "bg-[oklch(0.55_0.18_35)]" : "bg-primary"}`}
+          className={`h-full rounded-full transition-all ${over ? "bg-status-late" : "bg-primary"}`}
           style={{ width: `${pct}%` }}
         />
       </div>

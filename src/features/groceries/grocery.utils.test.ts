@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GroceryItem, GroceryRun } from "./grocery.types";
 import {
   expectedChange,
+  fmtQty,
   monthBounds,
   nextDue,
   progress,
@@ -112,5 +113,14 @@ describe("sortOpenRuns", () => {
       run({ id: "pending", status: "pending" }),
     ]);
     expect(sorted.map((r) => r.id)).toEqual(["pending", "ready-soon", "ready-later", "draft"]);
+  });
+});
+
+describe("fmtQty", () => {
+  it("says one piece in the singular, and leaves other units alone", () => {
+    expect(fmtQty(1, "pcs")).toBe("1 pc");
+    expect(fmtQty(2, "pcs")).toBe("2 pcs");
+    expect(fmtQty(1, "stalk")).toBe("1 stalk");
+    expect(fmtQty(0.5, "kg")).toBe("0.5 kg");
   });
 });
