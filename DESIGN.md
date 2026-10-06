@@ -350,5 +350,5 @@ mark. It is drawn from tokens, so it always matches the palette.
 - **Don't** add a coloured stripe down one side of a card.
 - **Don't** make a tappable thing a pill, or a status a button.
 - **Don't** go below 13px, or use arbitrary text sizes.
-- **Don't** show progress rings or big numbers standing in for content. The
-  money cards' 0% rings are a known holdover to fix.
+- **Don't** show progress rings or big numbers standing in for content. A
+  spend bar is fine when there is a budget to fill.
