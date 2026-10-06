@@ -124,7 +124,7 @@ export function TeamLabelFields({
           </div>
         )}
         <span className="mt-1 block text-xs text-muted-foreground">
-          The part of the house she works in. The Pass, Schedule and Money group by it.
+          The part of the house they work in. The Pass, Schedule and Money group by it.
         </span>
       </Field>
 
@@ -201,7 +201,7 @@ export function TeamLabelFields({
           </div>
         )}
         <span className="mt-1 block text-xs text-muted-foreground">
-          Anything else worth filtering by. She sees her team and labels on her Record.
+          Anything else worth filtering by. They see their team and labels on their Record.
         </span>
       </div>
 

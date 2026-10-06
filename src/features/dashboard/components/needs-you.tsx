@@ -291,7 +291,7 @@ export function NeedsYou({
                   <Avatar initials={initialsOf(name)} />
                   <span className="text-xs font-semibold text-foreground">{name}</span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                    <AlertCircle className="h-3 w-3" /> Says she wasn't paid
+                    <AlertCircle className="h-3 w-3" /> Says it didn't arrive
                   </span>
                 </div>
                 <h4 className="mt-1.5 text-sm font-semibold text-foreground">
@@ -315,8 +315,8 @@ export function NeedsYou({
                     Review the payment
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    Talk it through with her, then withdraw the record and pay it again if it didn't
-                    reach her.
+                    Talk it through with {name}, then withdraw the record and pay it again if it
+                    didn't arrive.
                   </span>
                 </div>
               </div>
@@ -333,7 +333,7 @@ export function NeedsYou({
                     </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                    Her last day:{" "}
+                    Last day:{" "}
                     {inv.noticeLastDay
                       ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
                           weekday: "short",
@@ -355,7 +355,7 @@ export function NeedsYou({
                       End employment on that day
                     </Link>
                     <span className="text-xs text-muted-foreground">
-                      In People. Her final pay and open tasks are settled there.
+                      In People. Final pay and open tasks are settled there.
                     </span>
                   </div>
                 </div>

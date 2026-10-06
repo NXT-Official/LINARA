@@ -175,8 +175,8 @@ export function PeopleSection({
         )}
 
         <p className="mt-4 text-xs italic text-muted-foreground">
-          You're entering the household's record and sending an invite — you're not creating her
-          login. She'll set up and control her own account, and her record stays hers.
+          You're entering the household's record and sending an invite — you're not creating their
+          login. They'll set up and control their own account, and their record stays theirs.
         </p>
       </section>
 

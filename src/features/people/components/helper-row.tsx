@@ -143,7 +143,7 @@ export function HelperRow({
               </div>
             ) : (
               <div className="text-xs text-muted-foreground">
-                Claimed her own account · joined via {inv.createdBy}
+                Claimed their own account · joined via {inv.createdBy}
               </div>
             )}
 

@@ -23,21 +23,22 @@ import {
 } from "../pay.types";
 import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
+import { manualAckState } from "../payslip-ack";
 import { payslipCovering } from "../payslip-match";
 import { XENDIT_PAYOUTS_ON } from "../payout-mode";
 import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
-/** Where an outside-Linara payment stands with her. */
+/** Where an outside-Linara payment stands with the helper. */
 export function AckChip({ payslip }: { payslip: Payslip }) {
   if (payslip.payoutProvider !== "manual" || !payslip.helperAck) return null;
   const { label, tone } =
     payslip.helperAck === "confirmed"
-      ? { label: "She confirmed", tone: "bg-primary/10 text-primary" }
+      ? { label: "Confirmed", tone: "bg-primary/10 text-primary" }
       : payslip.helperAck === "disputed"
-        ? { label: "She says not received", tone: "bg-destructive/10 text-destructive" }
-        : { label: "Awaiting her confirmation", tone: "bg-accent/15 text-terracotta-ink" };
+        ? { label: "Says not received", tone: "bg-destructive/10 text-destructive" }
+        : { label: "Awaiting confirmation", tone: "bg-accent/15 text-terracotta-ink" };
   return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
 }
 
@@ -71,6 +72,29 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}
     >
       <Icon className="h-3 w-3" /> {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/** The current cutoff's state: "Recorded" rather than "Paid" until an outside-Linara payment is confirmed. */
+function CutoffBadge({ payslip }: { payslip: Payslip }) {
+  const ack = manualAckState(payslip);
+  if (!ack) return <StatusBadge status={payslip.payoutStatus} />;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+        ack === "disputed" ? "bg-destructive/10 text-destructive" : "bg-secondary text-pine-deep"
+      }`}
+    >
+      {ack === "disputed" ? (
+        <>
+          <XCircle className="h-3 w-3" /> Not received
+        </>
+      ) : (
+        <>
+          <Clock className="h-3 w-3" /> Recorded
+        </>
+      )}
     </span>
   );
 }
@@ -196,7 +220,7 @@ export function PayslipHistory({
           <span className="text-xs text-muted-foreground">Loading cutoff…</span>
         ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
-            <StatusBadge status={currentCutoffPayslip.payoutStatus} />
+            <CutoffBadge payslip={currentCutoffPayslip} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
               <span className="text-xs text-terracotta-ink text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
@@ -343,7 +367,7 @@ export function PayslipHistory({
                   <p className="mt-1 text-muted-foreground">
                     {p.manualNote ? `Your note: ${p.manualNote}` : ""}
                     {p.manualNote && p.helperAckNote ? " · " : ""}
-                    {p.helperAckNote ? `She says: "${p.helperAckNote}"` : ""}
+                    {p.helperAckNote ? `Their note: "${p.helperAckNote}"` : ""}
                   </p>
                 )}
               </div>

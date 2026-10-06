@@ -10,6 +10,8 @@ import { LARGE_STAFF } from "@/features/teams/teams.constants";
 
 import { useHouseholdPayroll, type PayrollState } from "../hooks/use-household-payroll";
 import { formatCutoffRange } from "../pay.utils";
+import { manualAckState } from "../payslip-ack";
+import { periodEstimate } from "../period-estimate";
 
 const STATE_LABEL: Record<PayrollState, string> = {
   due: "Due",
@@ -22,8 +24,15 @@ const STATE_TONE: Record<PayrollState, string> = {
   due: "bg-terracotta-soft/60 text-terracotta-ink",
   in_flight: "bg-secondary text-pine-deep",
   needs_review: "bg-destructive/10 text-destructive",
-  paid: "bg-primary/10 text-primary",
+  paid: "bg-status-done-soft text-status-done-ink",
 };
+
+/** A paid row whose payment was recorded outside Linara and not yet confirmed. */
+const ACK_LABEL = { recorded: "Recorded", disputed: "Not received" } as const;
+const ACK_TONE = {
+  recorded: "bg-secondary text-pine-deep",
+  disputed: "bg-destructive/10 text-destructive",
+} as const;
 
 /**
  * Every helper's pay for their current cutoff, on one card (client feedback,
@@ -58,6 +67,18 @@ export function PayrollSummary({
     leaveVersion: timeOff.leave,
   });
 
+  // Cutoffs before this one that closed unpaid. The card is about the current
+  // cutoff, but "Still to pay ₱0" while earlier ones were owed sent managers
+  // away thinking nothing was due. Estimates before vale, as the unpaid
+  // periods card shows them.
+  const earlier = new Map(
+    activeHelpers.map((h) => [
+      h.id,
+      payPeriods.missed(h.id).reduce((sum, p) => sum + periodEstimate(h, p), 0),
+    ]),
+  );
+  const earlierTotal = [...earlier.values()].reduce((sum, n) => sum + n, 0);
+
   const staff = useStaffScope();
   const [stateFilter, setStateFilter] = useState<"all" | "unpaid">("all");
 
@@ -74,7 +95,9 @@ export function PayrollSummary({
         teamId: r.helper.teamId,
       })),
     )
-    .filter((r) => stateFilter === "all" || r.state !== "paid");
+    .filter(
+      (r) => stateFilter === "all" || r.state !== "paid" || (earlier.get(r.helper.id) ?? 0) > 0,
+    );
   const groups = staff.group(rows);
   const large = payroll.rows.length > LARGE_STAFF;
 
@@ -101,14 +124,19 @@ export function PayrollSummary({
           <p className="text-xs text-muted-foreground">
             {payroll.loading
               ? "Checking this cutoff…"
-              : `${paidCount} of ${payroll.rows.length} paid · ${fmtPeso(total)} for everyone this cutoff`}
+              : `${paidCount} of ${payroll.rows.length} paid this cutoff · ${fmtPeso(total)} for everyone`}
           </p>
         </div>
         <div className="text-right">
           <div className="text-xs font-semibold text-muted-foreground">Still to pay</div>
           <div className="font-display text-2xl tabular-nums text-foreground">
-            {payroll.loading ? "—" : fmtPeso(payroll.dueTotal)}
+            {payroll.loading ? "—" : fmtPeso(payroll.dueTotal + earlierTotal)}
           </div>
+          {!payroll.loading && earlierTotal > 0 && (
+            <div className="text-xs font-semibold text-status-late-ink">
+              {payroll.dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+            </div>
+          )}
         </div>
       </div>
 
@@ -144,7 +172,10 @@ export function PayrollSummary({
 
       {groups ? (
         groups.map((g) => {
-          const due = g.items.filter((r) => r.state !== "paid").reduce((n, r) => n + r.netPay, 0);
+          const due = g.items.reduce(
+            (n, r) => n + (r.state !== "paid" ? r.netPay : 0) + (earlier.get(r.helper.id) ?? 0),
+            0,
+          );
           return (
             <PayGroup
               key={g.key}
@@ -166,6 +197,8 @@ export function PayrollSummary({
 
   function payRow(r: (typeof rows)[number]) {
     const selected = r.helper.id === selectedId;
+    const ack = r.state === "paid" ? manualAckState(r.payslip) : null;
+    const owedBefore = earlier.get(r.helper.id) ?? 0;
     return (
       <button
         key={r.helper.id}
@@ -194,10 +227,15 @@ export function PayrollSummary({
             {payroll.loading ? "—" : fmtPeso(r.netPay)}
           </span>
           <span
-            className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STATE_TONE[r.state]}`}
+            className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ack ? ACK_TONE[ack] : STATE_TONE[r.state]}`}
           >
-            {STATE_LABEL[r.state]}
+            {ack ? ACK_LABEL[ack] : STATE_LABEL[r.state]}
           </span>
+          {!payroll.loading && owedBefore > 0 && (
+            <span className="block text-xs font-semibold tabular-nums text-status-late-ink">
+              +{fmtPeso(owedBefore)} earlier
+            </span>
+          )}
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </button>

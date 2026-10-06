@@ -183,15 +183,15 @@ export function NewTaskModal({
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
             {inTimeOff
-              ? `That's in ${assignee?.short ?? "her"}'s approved time off.`
-              : `That's outside ${assignee?.short ?? "her"}'s shift.`}{" "}
+              ? `That's in ${assignee?.short ?? "the helper"}'s approved time off.`
+              : `That's outside ${assignee?.short ?? "the helper"}'s shift.`}{" "}
             Doing it then counts as after-hours work and adds to rest owed.
           </p>
         )}
         {elsewhere && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            {assignee?.short ?? "She"} is at {elsewhere.householdName} {slotTime(elsewhere)}.
+            {assignee?.short ?? "The helper"} is at {elsewhere.householdName} {slotTime(elsewhere)}.
           </p>
         )}
         <Field label="House-standard note (optional)">
@@ -262,7 +262,7 @@ export function NewTaskModal({
           />
           <span className="text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">Send live · urgent</span>: straight to
-            her if she's on shift. If she's off, it goes to the on-site managers instead.
+            the helper if they're on shift. If they're off, it goes to the on-site managers instead.
           </span>
         </label>
       )}

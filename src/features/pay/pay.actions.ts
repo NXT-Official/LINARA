@@ -588,7 +588,9 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     // Off unless the build turns it on: households pay her directly and
     // Linara records it (payout-mode.ts, KNOWN_GAPS O35).
     if (!XENDIT_PAYOUTS_ON) {
-      throw new Error("Paying through Linara is turned off. Pay her GCash or Maya directly.");
+      throw new Error(
+        "Paying through Linara is turned off. Send it to their GCash or Maya directly.",
+      );
     }
     const { token, helperId, channelCode } = data;
     const kind = data.kind ?? "regular";

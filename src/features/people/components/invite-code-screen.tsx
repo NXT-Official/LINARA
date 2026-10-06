@@ -65,9 +65,10 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        She'll set up and control her own account with this code — her record stays hers. Until then
-        she'll appear as <span className="font-semibold text-foreground">Invited — pending</span> in
-        your People list.
+        They'll set up and control their own account with this code — their record stays theirs.
+        Until then they'll appear as{" "}
+        <span className="font-semibold text-foreground">Invited — pending</span> in your People
+        list.
       </p>
 
       <div className="mt-5 flex justify-end">

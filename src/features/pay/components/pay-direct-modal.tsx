@@ -149,9 +149,10 @@ export function PayDirectModal({
 
       {account?.source === "none" && (
         <p className="mt-4 rounded-2xl bg-secondary/60 px-3 py-3 text-sm text-foreground">
-          There&apos;s no {wallet} number for {helperName} yet. Ask her to add one in the Linara app
-          (My Pay, then <span className="font-semibold">Where to send my pay</span>), or record a
-          cash or bank payment with <span className="font-semibold">Paid outside Linara</span>.
+          There&apos;s no {wallet} number for {helperName} yet. Ask {helperName} to add one in the
+          Linara app (My Pay, then <span className="font-semibold">Where to send my pay</span>), or
+          record a cash or bank payment with{" "}
+          <span className="font-semibold">Paid outside Linara</span>.
         </p>
       )}
 
@@ -161,11 +162,11 @@ export function PayDirectModal({
             <>
               <p className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2.5 text-xs text-accent-foreground">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                This is the number from her invite. She hasn&apos;t confirmed it in her app, so
-                check it with her before you send.
+                This number is from {helperName}&apos;s invite and isn&apos;t confirmed in their app
+                yet, so check it with them before you send.
               </p>
               <fieldset className="flex gap-2">
-                <legend className="sr-only">Her wallet</legend>
+                <legend className="sr-only">{helperName}&apos;s wallet</legend>
                 {(["PH_GCASH", "PH_PAYMAYA"] as const).map((m) => (
                   <label
                     key={m}
@@ -218,7 +219,7 @@ export function PayDirectModal({
                 className="h-24 w-24 shrink-0 rounded-lg border border-border bg-white object-contain"
               />
               <p className="text-xs text-muted-foreground">
-                Or scan her QR from another phone. On this phone,{" "}
+                Or scan the QR from another phone. On this phone,{" "}
                 <a
                   href={account.qrUrl}
                   target="_blank"

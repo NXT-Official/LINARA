@@ -12,14 +12,14 @@ export function silHint(policy: { silWaitsFirstYear: boolean; silDaysPerYear: nu
   if (!policy) return LEAVE_KIND_HINT.sil;
   const days = `${policy.silDaysPerYear} days a service year`;
   return policy.silWaitsFirstYear
-    ? `Paid. ${days} after her first year (RA 10361).`
-    : `Paid. ${days} from her first day (your household's rule; the law starts after a year).`;
+    ? `Paid. ${days} after the first year (RA 10361).`
+    : `Paid. ${days} from day one (your household's rule; the law starts after a year).`;
 }
 
 /** What each kind costs, for the forms. */
 export const LEAVE_KIND_HINT: Record<LeaveKind, string> = {
-  sil: "Paid. 5 days a service year after her first year (RA 10361).",
-  in_kind: "Paid in rest: each day comes out of her rest owed.",
+  sil: "Paid. 5 days a service year after the first year (RA 10361).",
+  in_kind: "Paid in rest: each day comes out of their rest owed.",
   unpaid: "Not paid. Deducted from that period's pay.",
   extra_paid: "Paid. The household's own extra, with no balance.",
 };

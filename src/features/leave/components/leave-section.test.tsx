@@ -90,7 +90,7 @@ describe("LeaveSection", () => {
     const actions = await import("../leave.actions");
     renderSection();
     const wait = await screen.findByRole("checkbox", {
-      name: /starts after her first year/,
+      name: /starts after the first year/,
     });
     expect((wait as HTMLInputElement).checked).toBe(true);
     fireEvent.click(wait);
@@ -99,7 +99,7 @@ describe("LeaveSection", () => {
         data: { token: "token", policy: { silWaitsFirstYear: false, silDaysPerYear: 5 } },
       }),
     );
-    expect(await screen.findByText(/from her first day, sooner than the law/)).toBeTruthy();
+    expect(await screen.findByText(/from day one, sooner than the law/)).toBeTruthy();
   });
 
   it("flags a recorded leave she disputes", () => {

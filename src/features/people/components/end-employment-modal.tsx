@@ -33,11 +33,11 @@ function problemText(p: EmploymentEndPreview): string | null {
     case "future":
       return "Pick today or an earlier day. An employment can't be ended ahead of time.";
     case "before_start":
-      return `That's before she started (${longDay(p.startedOn)}).`;
+      return `That's before their first day (${longDay(p.startedOn)}).`;
     case "already_paid_past":
-      return `Her pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
+      return `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
     case "not_active":
-      return "She isn't employed here any more.";
+      return "They aren't employed here any more.";
     default:
       return null;
   }
@@ -143,8 +143,9 @@ export function EndEmploymentModal({
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">End {helper.short}'s employment</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Her record stays. Payslips, finished tasks and time off remain here, and she keeps her
-            own copy in the Linara app. She can join another household later with a new invite code.
+            {helper.short}&apos;s record stays. Payslips, finished tasks and time off remain here,
+            and they keep their own copy in the Linara app. They can join another household later
+            with a new invite code.
           </p>
         </div>
         <button
@@ -175,7 +176,7 @@ export function EndEmploymentModal({
 
         {!current && !loadError && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking her pay and tasks…
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking pay and tasks…
           </p>
         )}
 
@@ -188,17 +189,17 @@ export function EndEmploymentModal({
         {current && !blocked && (
           <>
             {current.openTasks > 0 && (
-              <Field label={`Her open tasks (${current.openTasks})`}>
+              <Field label={`Open tasks (${current.openTasks})`}>
                 <HelperPicker
                   helpers={otherHelpers}
                   value={reassignTo}
                   onChange={setReassignTo}
-                  ariaLabel="Her open tasks"
+                  ariaLabel="Open tasks"
                   after={[{ value: "", label: "Remove them from the board" }]}
                   describe={(h) => `Move them to ${h.name} (${h.station})`}
                 />
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Tasks she already finished stay on her record either way.
+                  Finished tasks stay on the record either way.
                 </span>
               </Field>
             )}
@@ -247,15 +248,15 @@ export function EndEmploymentModal({
               {thirteenth > 0 && (
                 <Note tone="warn">
                   13th-month pay: about <strong>{fmtPeso(thirteenth)}</strong>, a twelfth of the
-                  basic pay on record for her this year. It becomes payable from Past staff once her
-                  employment ends.
+                  basic pay on record for them this year. It becomes payable from Past staff once
+                  the employment ends.
                 </Note>
               )}
               {current.restOwedMinutes > 0 && (
                 <Note tone="warn">
-                  She has <strong>{fmtHoursMinutes(current.restOwedMinutes)}</strong> of rest owed.
-                  She can't take it as time off any more, and Linara doesn't turn rest into pay, so
-                  agree with her how to settle it.
+                  {helper.short} has <strong>{fmtHoursMinutes(current.restOwedMinutes)}</strong> of
+                  rest owed. It can't be taken as time off any more, and Linara doesn't turn rest
+                  into pay, so agree with {helper.short} how to settle it.
                 </Note>
               )}
               {current.pendingVales > 0 && (
@@ -267,13 +268,13 @@ export function EndEmploymentModal({
               {current.pendingRestOff + current.futureRestOff > 0 && (
                 <Note>
                   {current.pendingRestOff + current.futureRestOff} rest-off request
-                  {current.pendingRestOff + current.futureRestOff === 1 ? "" : "s"} after her last
+                  {current.pendingRestOff + current.futureRestOff === 1 ? "" : "s"} after the last
                   day will be closed.
                 </Note>
               )}
               <Note>
-                Her app loses the board, pantry and utos for this household. She keeps read access
-                to her own record here: terms, payslips and time off.
+                {helper.short}&apos;s app loses the board, pantry and utos for this household. They
+                keep read access to their own record here: terms, payslips and time off.
               </Note>
             </ul>
           </>

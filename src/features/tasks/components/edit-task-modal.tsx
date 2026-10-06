@@ -223,7 +223,7 @@ export function EditTaskModal({
             {task.cancelledAt
               ? ` on ${new Date(task.cancelledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
               : ""}
-            . It's off the board and her phone.
+            . It's off the board and the helper's phone.
           </span>
           {onRestore && (
             <button

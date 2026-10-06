@@ -73,8 +73,8 @@ export function InviteHelperModal({
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">Invite a helper</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're entering the household's record of the arrangement — not creating her account.
-            She'll claim it herself with the invite code.
+            You're entering the household's record of the arrangement — not creating their account.
+            They'll claim it themselves with the invite code.
           </p>
         </div>
         <button
@@ -177,8 +177,8 @@ export function InviteHelperModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
           <span className="mt-1 block text-xs text-muted-foreground">
-            Her real first day, even if it was years ago; it goes on her record. Linara tracks pay
-            from today, and a first day later than that pro-rates her first cutoff.
+            Their real first day, even if it was years ago; it goes on their record. Linara tracks
+            pay from today, and a first day later than that pro-rates their first cutoff.
           </span>
         </Field>
         <Field label="Payday interval">

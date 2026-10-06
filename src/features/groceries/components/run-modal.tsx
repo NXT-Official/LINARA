@@ -217,17 +217,19 @@ export function RunModal({
   };
 
   const closeRun = () => {
+    if (cashN === "bad") return setError("Cash given: an amount in pesos, or empty.");
     if (changeN === "bad") return setError("Change: an amount in pesos, or empty.");
     if (!run) return;
     // With cash handed over, the change is what makes petty cash add up.
-    if (run.cashGiven !== null && changeN === null) {
+    if (cashN !== null && changeN === null) {
       return setError(
         `Enter the change that came back${expected !== null ? ` (${fmtPeso(expected)} if every cost is in)` : ""}.`,
       );
     }
     void step(
       "close",
-      () => ctx.setRunStatus(run, "done", { changeReturned: changeN }),
+      // The cash too: it's edited in the petty-cash box, and closing used to drop it.
+      () => ctx.setRunStatus(run, "done", { cashGiven: cashN, changeReturned: changeN }),
       `${run.title} is closed.`,
     ).then((ok) => ok && onClose());
   };
@@ -368,16 +370,20 @@ export function RunModal({
           {draft.teamId ? ", and so does everyone on its team" : ""}.
         </span>
       </div>
-      <Field label="Cash given (₱)">
-        <input
-          value={cash}
-          onChange={(e) => setCash(e.target.value)}
-          inputMode="decimal"
-          placeholder={status === "pending" ? "Set when approving" : "None yet"}
-          aria-invalid={cashN === "bad"}
-          className={FIELD}
-        />
-      </Field>
+      {/* Once it's ready to shop, the cash sits with the spend and change in
+          the petty-cash box below, so it's entered in one place. */}
+      {status !== "ready" && (
+        <Field label="Cash given (₱)">
+          <input
+            value={cash}
+            onChange={(e) => setCash(e.target.value)}
+            inputMode="decimal"
+            placeholder={status === "pending" ? "Set when approving" : "None yet"}
+            aria-invalid={cashN === "bad"}
+            className={FIELD}
+          />
+        </Field>
+      )}
       <details
         className="group sm:col-span-2"
         open={moreOpen}
@@ -562,19 +568,15 @@ export function RunModal({
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
               <div className="text-xs text-muted-foreground">Cash given</div>
-              {closed ? (
-                <input
-                  value={cash}
-                  onChange={(e) => setCash(e.target.value)}
-                  inputMode="decimal"
-                  aria-label="Cash given"
-                  className="mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
-                />
-              ) : (
-                <div className="font-display text-lg tabular-nums text-foreground">
-                  {recon.cash === null ? "—" : fmtPeso(recon.cash)}
-                </div>
-              )}
+              <input
+                value={cash}
+                onChange={(e) => setCash(e.target.value)}
+                inputMode="decimal"
+                placeholder="₱"
+                aria-label="Cash given"
+                aria-invalid={cashN === "bad"}
+                className="mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
+              />
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Spent</div>

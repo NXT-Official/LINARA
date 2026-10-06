@@ -273,7 +273,7 @@ export function TaskPlanner({
       .join(" ");
     toast.success(`Moved "${task.title}" ${where}`, {
       description: off
-        ? `That's ${off === "time off" ? "in" : "outside"} ${assignee?.short ?? "her"}'s ${off === "time off" ? "time off" : "shift"}. Doing it then counts as after-hours work.`
+        ? `That's ${off === "time off" ? "in" : "outside"} ${assignee?.short ?? "the helper"}'s ${off === "time off" ? "time off" : "shift"}. Doing it then counts as after-hours work.`
         : undefined,
       action: {
         label: "Undo",

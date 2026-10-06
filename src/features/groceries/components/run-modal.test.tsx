@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GroceryContext } from "../grocery-context";
@@ -47,16 +47,19 @@ const line = (over: Partial<GroceryItem>): GroceryItem => ({
 });
 
 const open = (items: GroceryItem[]) => {
+  const setRunStatus = vi.fn(async () => {});
   const ctx = {
     runsAvailable: true,
     needed: [],
     itemsByRun: new Map([["r1", items]]),
+    setRunStatus,
   } as unknown as GroceryContextValue;
   render(
     <GroceryContext.Provider value={ctx}>
       <RunModal run={run} onClose={vi.fn()} />
     </GroceryContext.Provider>,
   );
+  return { setRunStatus };
 };
 
 afterEach(() => {
@@ -80,5 +83,20 @@ describe("RunModal petty cash", () => {
     expect(screen.queryByRole("button", { name: /^Use / })).toBeNull();
     fireEvent.change(screen.getByLabelText("Change returned"), { target: { value: "350" } });
     expect(screen.queryByText(/not accounted for/)).toBeNull();
+  });
+
+  it("keeps the cash in one place and saves an edited amount on close", async () => {
+    const { setRunStatus } = open([line({ costPHP: 150 })]);
+    expect(screen.queryByText("Cash given (₱)")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Cash given"), { target: { value: "600" } });
+    fireEvent.change(screen.getByLabelText("Change returned"), { target: { value: "450" } });
+    expect(screen.getByText("It balances.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close run" }));
+    await waitFor(() =>
+      expect(setRunStatus).toHaveBeenCalledWith(run, "done", {
+        cashGiven: 600,
+        changeReturned: 450,
+      }),
+    );
   });
 });

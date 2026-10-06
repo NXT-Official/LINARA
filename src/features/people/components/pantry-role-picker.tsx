@@ -12,7 +12,7 @@ const OPTIONS: { role: PantryRole; label: string; hint: string }[] = [
   {
     role: "runner",
     label: "Buys from the list",
-    hint: "Ticks off what she bought and can say when something runs out.",
+    hint: "Ticks off what they bought and can say when something runs out.",
   },
 ];
 

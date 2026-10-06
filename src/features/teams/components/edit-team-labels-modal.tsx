@@ -89,7 +89,7 @@ export function EditTeamLabelsModal({
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">Where {name} works</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            She sees her houses, teams and labels on her Record in the Linara app.
+            They see their houses, teams and labels on their Record in the Linara app.
           </p>
         </div>
         <button
@@ -127,7 +127,7 @@ export function EditTeamLabelsModal({
               ))}
             </div>
             <span className="mt-1 block text-xs text-muted-foreground">
-              She stays in her own team's group, and shows when you look at these too.
+              They stay in their own team's group, and show when you look at these too.
             </span>
           </div>
         )}
@@ -151,8 +151,8 @@ export function EditTeamLabelsModal({
               ))}
             </div>
             <span className="mt-1 block text-xs text-muted-foreground">
-              She stays employed and paid here; those houses can give her tasks. Their managers see
-              her shift, not her pay.
+              They stay employed and paid here; those houses can give them tasks. Their managers see
+              their shift, not their pay.
             </span>
           </div>
         )}

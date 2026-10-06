@@ -187,7 +187,7 @@ export function useTimeOff({
       token
         ? run(
             () => recordLeaveFn({ data: { token, ...input } }),
-            "Leave recorded. She'll be asked to confirm it.",
+            "Leave recorded. They'll be asked to confirm it.",
             "Couldn't record that leave.",
             unassignTasks
               ? () => unassignDuring(input.helperId, input.startDate, input.endDate)
