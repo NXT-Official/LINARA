@@ -1,4 +1,4 @@
-import { Check, Package, Pencil, Plus, X } from "lucide-react";
+import { Check, Package, Pencil, Plus, Undo2, X } from "lucide-react";
 import { useState } from "react";
 
 import { fmtPeso } from "../grocery.utils";
@@ -13,7 +13,9 @@ type Patch = { name: string; qty: number; unit: string };
  * not-yet-bought items: curating the plan, not touching a completed
  * purchase. A
  * suggestion (from a low pantry item) lives only in this browser until it's
- * added, so it says so and offers "Add to list".
+ * added, so it says so and offers "Add to list". On a run, `unlist` makes
+ * the X put the line back in the Needed pool instead of deleting it, and
+ * `onCost` lets whoever enters the figures type what a bought line cost.
  */
 export function GroceryRow({
   item,
@@ -21,6 +23,8 @@ export function GroceryRow({
   onEdit,
   onAddSuggestion,
   onToggleBought,
+  onCost,
+  unlist = false,
   tone,
 }: {
   item: GroceryItem;
@@ -28,6 +32,9 @@ export function GroceryRow({
   onEdit?: (patch: Patch) => void;
   onAddSuggestion?: () => void;
   onToggleBought?: () => void;
+  onCost?: (cost: number | null) => void;
+  /** The X moves it back to Needed rather than deleting it. */
+  unlist?: boolean;
   tone?: "light";
 }) {
   const suggested = item.id.startsWith("sug-");
@@ -114,10 +121,15 @@ export function GroceryRow({
           )}
         </div>
       </div>
-      {item.bought && item.costPHP != null && (
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {fmtPeso(item.costPHP)}
-        </span>
+      {item.bought && onCost ? (
+        <CostInput key={item.costPHP ?? "none"} item={item} onCost={onCost} />
+      ) : (
+        item.bought &&
+        item.costPHP != null && (
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {fmtPeso(item.costPHP)}
+          </span>
+        )
       )}
       {suggested && onAddSuggestion && (
         <button
@@ -131,12 +143,49 @@ export function GroceryRow({
         <button
           onClick={onRemove}
           className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-          aria-label={suggested ? `Dismiss ${item.name}` : `Remove ${item.name}`}
+          aria-label={
+            suggested
+              ? `Dismiss ${item.name}`
+              : unlist
+                ? `Move ${item.name} back to Needed`
+                : `Remove ${item.name}`
+          }
+          title={unlist ? "Back to Needed" : undefined}
         >
-          <X className="h-3.5 w-3.5" />
+          {unlist ? <Undo2 className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
         </button>
       )}
     </div>
+  );
+}
+
+/** What a bought line cost; saved when the field is left. Keyed by the saved cost upstream. */
+function CostInput({ item, onCost }: { item: GroceryItem; onCost: (cost: number | null) => void }) {
+  const [draft, setDraft] = useState(item.costPHP != null ? String(item.costPHP) : "");
+  const commit = () => {
+    const t = draft.trim();
+    if (t === "") return item.costPHP != null && onCost(null);
+    const n = Number(t.replace(/[,₱\s]/g, ""));
+    if (Number.isFinite(n) && n >= 0 && n !== item.costPHP) onCost(n);
+    else if (!Number.isFinite(n) || n < 0)
+      setDraft(item.costPHP != null ? String(item.costPHP) : "");
+  };
+  return (
+    <label className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+      ₱
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        inputMode="decimal"
+        placeholder="—"
+        aria-label={`What ${item.name} cost`}
+        className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
+      />
+    </label>
   );
 }
 

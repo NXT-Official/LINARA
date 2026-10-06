@@ -6,6 +6,7 @@ import { Modal } from "@/components/shared/modal";
 import { photoFilename, savePhotoUrl } from "@/lib/evidence-photo";
 
 import { useGrocery } from "../grocery-context";
+import type { GroceryReceipt } from "../grocery.types";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-PH", {
@@ -23,9 +24,19 @@ const when = (iso: string) =>
  *
  * Receipts are deleted after 2 months (KNOWN_GAPS.md O28) -- the costs stay
  * on the list items -- so the full view offers to save one.
+ *
+ * With `runId`, just that run's receipts, and a new one goes with it.
+ * `receipts` shows a given list instead (a closed run in History), with no
+ * add button.
  */
-export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
+export function ReceiptSlot({
+  compact,
+  runId,
+  receipts,
+}: { compact?: boolean; runId?: string; receipts?: GroceryReceipt[] } = {}) {
   const ctx = useGrocery();
+  const readOnly = receipts !== undefined;
+  const list = receipts ?? (runId ? ctx.receipts.filter((r) => r.runId === runId) : ctx.receipts);
   const [preview, setPreview] = useState<{ url: string; takenAt?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -34,7 +45,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
     if (!file) return;
     setUploading(true);
     ctx
-      .addReceipt(file)
+      .addReceipt(file, runId)
       .then(() => toast.success("Receipt added"))
       .catch((err) => {
         console.error("[ReceiptSlot] Failed to add receipt:", err);
@@ -78,7 +89,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
   );
 
   const shots = [
-    ...(ctx.receiptPhoto
+    ...(ctx.receiptPhoto && !runId && !readOnly
       ? [
           {
             id: "run",
@@ -90,7 +101,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
           },
         ]
       : []),
-    ...ctx.receipts.map((r) => ({
+    ...list.map((r) => ({
       id: r.id,
       url: r.url,
       thumb: r.thumbUrl ?? r.url,
@@ -104,9 +115,11 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          No receipt yet. Staff add one from the Linara app after buying.
+          {readOnly
+            ? "No receipt kept for this run."
+            : "No receipt yet. Staff add one from the Linara app after buying."}
         </p>
-        {addButton}
+        {!readOnly && addButton}
       </div>
     );
   }
@@ -132,7 +145,7 @@ export function ReceiptSlot({ compact }: { compact?: boolean } = {}) {
           </li>
         ))}
       </ul>
-      {!compact && <div className="mt-2 flex justify-end">{addButton}</div>}
+      {!compact && !readOnly && <div className="mt-2 flex justify-end">{addButton}</div>}
       {preview && (
         <Modal onClose={() => setPreview(null)} bare closeOnBackdrop>
           <figure className="flex flex-col items-center gap-2">

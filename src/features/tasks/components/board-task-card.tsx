@@ -8,7 +8,6 @@ import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
 import { TripChip } from "@/features/sharing/components/trip-chip";
-import { isPalengke } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
@@ -105,7 +104,7 @@ export function BoardTaskCard({
                 <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
               </button>
             )}
-            {isPalengke(task) && <PalengkeChip />}
+            <PalengkeChip task={task} />
             <CommentBadge taskId={task.id} />
           </div>
           <RescheduleNotice task={task} />

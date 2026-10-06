@@ -1,55 +1,68 @@
-import { Plus, ShoppingBasket } from "lucide-react";
+import { ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
-
-import { ListFilter } from "@/components/shared/list-filter";
-import { matchesQuery } from "@/components/shared/list-filter.utils";
-import { useAppStores } from "@/features/dashboard/app-store-context";
-import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
-import { groupByPantryCategory, parseAmount } from "@/features/pantry/pantry.utils";
 
 import { useGrocery } from "../grocery-context";
 import { BudgetBar } from "./budget-bar";
-import { GroceryRow } from "./grocery-row";
-import { ReceiptSlot } from "./receipt-slot";
+import { HistoryView } from "./history-view";
+import { MonthBudget } from "./month-budget";
+import { NeededList } from "./needed-list";
+import { RepeatsList } from "./repeats-list";
+import { RunModal } from "./run-modal";
+import { RunsList } from "./runs-list";
 
-type GroceryFilter = "all" | "to_buy" | "bought";
-const FILTER_CHIPS: { key: GroceryFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "to_buy", label: "To buy" },
-  { key: "bought", label: "Bought" },
-];
+type Tab = "needed" | "runs" | "repeats" | "history";
+const TAB_KEY = "linara.groceryTab";
 
-/** The grocery list, grouped by the pantry shelf each line restocks. */
+const readTab = (): Tab => {
+  try {
+    const v = window.localStorage.getItem(TAB_KEY);
+    return v === "runs" || v === "repeats" || v === "history" ? v : "needed";
+  } catch {
+    return "needed";
+  }
+};
+
+/**
+ * The palengke, for a household of any size (supabase/add-grocery-runs.sql,
+ * KNOWN_GAPS.md O40):
+ *
+ *   Needed   -- the pool: what's low, "Ubos na", anything added by hand.
+ *   Runs     -- open shopping runs made from it: who goes, cash, approval.
+ *   Repeats  -- runs made every week.
+ *   History  -- closed runs a month at a time, with what they cost.
+ *
+ * This month's spend against the budgets sits on top. Before the SQL is
+ * applied it is the single list it always was.
+ */
 export function GrocerySection() {
   const ctx = useGrocery();
-  const { pantry } = useAppStores();
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<GroceryFilter>("all");
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unit, setUnit] = useState("pcs");
-  const [addError, setAddError] = useState<string | null>(null);
-  const [budgetDraft, setBudgetDraft] = useState(String(ctx.budget));
-  const budget = ctx.budget;
-  useEffect(() => {
-    setBudgetDraft(String(budget));
-  }, [budget]);
-  const toBuyCount = ctx.display.filter((g) => !g.bought).length;
-  const shown = ctx.display.filter((g) => matchesQuery(g.name, query));
-  const toBuy = filter === "bought" ? [] : shown.filter((g) => !g.bought);
-  const bought = filter === "to_buy" ? [] : shown.filter((g) => g.bought);
-  const filtering = query.trim() !== "" || filter !== "all";
-  const toBuyGroups = groupByPantryCategory(toBuy, pantry.items, PANTRY_CATEGORIES);
-  const submit = () => {
-    const n = parseAmount(qty);
-    if (!name.trim()) return setAddError("Type what to buy.");
-    if (n === null || n === 0) return setAddError("Qty: a number above 0.");
-    setAddError(null);
-    ctx.addManual(name, n, unit);
-    setName("");
-    setQty("1");
-    setUnit("pcs");
+  const [tab, setTab] = useState<Tab>("needed");
+  // "new", a run's id, or nothing open.
+  const [openRun, setOpenRun] = useState<string | null>(null);
+  useEffect(() => setTab(readTab()), []);
+  const choose = (t: Tab) => {
+    setTab(t);
+    try {
+      window.localStorage.setItem(TAB_KEY, t);
+    } catch {
+      // Private window: it just won't be remembered.
+    }
   };
+
+  const pending = ctx.runs.filter((r) => r.status === "pending").length;
+  const run = openRun && openRun !== "new" ? ctx.runs.find((r) => r.id === openRun) : undefined;
+  const openStarted = (id: string) => {
+    choose("runs");
+    setOpenRun(id);
+  };
+
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: "needed", label: "Needed", count: ctx.toBuyCount },
+    { key: "runs", label: "Runs", count: ctx.runs.length },
+    { key: "repeats", label: "Repeats" },
+    { key: "history", label: "History" },
+  ];
+
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
@@ -61,145 +74,105 @@ export function GrocerySection() {
             <h2 className="font-display text-xl text-foreground">Grocery list</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Auto-suggested from Pantry lows. Attached to the Palengke run.
+            {ctx.runsAvailable
+              ? "What's needed, the runs that buy it, and what they cost."
+              : "Auto-suggested from Pantry lows. Attached to the Palengke run."}
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          {toBuyCount} to buy
+          {ctx.toBuyCount} to buy
         </span>
       </div>
 
-      {/* Petty cash / budget */}
-      <div className="mt-4 rounded-2xl bg-background/60 p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-xs font-semibold text-muted-foreground">Petty cash budget</div>
-          <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            ₱
-            <input
-              value={budgetDraft}
-              onChange={(e) => setBudgetDraft(e.target.value)}
-              onBlur={() => {
-                const n = parseFloat(budgetDraft);
-                if (!isNaN(n)) ctx.setBudget(n);
-                else setBudgetDraft(String(ctx.budget));
-              }}
-              inputMode="numeric"
-              className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
-            />
-          </label>
-        </div>
-        <BudgetBar compact />
-      </div>
-
-      {ctx.display.length > 0 && (
-        <div className="mt-4">
-          <ListFilter
-            query={query}
-            onQuery={setQuery}
-            chips={FILTER_CHIPS}
-            active={filter}
-            onChip={setFilter}
-            label="Search grocery list"
-          />
-        </div>
+      {ctx.runsAvailable ? (
+        <>
+          <div className="mt-4">
+            <MonthBudget />
+          </div>
+          <div
+            className="mt-4 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-background/60 p-1"
+            role="tablist"
+            aria-label="Groceries"
+          >
+            {tabs.map(({ key, label, count }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => choose(key)}
+                  className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                    active
+                      ? "bg-card text-foreground shadow-soft"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                  {count !== undefined && count > 0 && (
+                    <span className="tabular-nums text-muted-foreground">{count}</span>
+                  )}
+                  {key === "runs" && pending > 0 && (
+                    <span
+                      className="h-2 w-2 rounded-full bg-[oklch(0.6_0.15_55)]"
+                      aria-label={`${pending} waiting for approval`}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4" role="tabpanel">
+            {tab === "needed" && <NeededList onPlanRun={() => setOpenRun("new")} />}
+            {tab === "runs" && <RunsList onOpen={setOpenRun} onNew={() => setOpenRun("new")} />}
+            {tab === "repeats" && <RepeatsList onStarted={openStarted} />}
+            {tab === "history" && <HistoryView />}
+          </div>
+        </>
+      ) : (
+        <>
+          <LegacyBudget />
+          <div className="mt-4">
+            <NeededList />
+          </div>
+        </>
       )}
 
-      <div className="mt-2 space-y-3">
-        {toBuy.length === 0 && bought.length === 0 && (
-          <div className="py-4 text-center text-sm text-muted-foreground">
-            {filtering
-              ? "Nothing matches."
-              : pantry.items.length === 0
-                ? "Set up the pantry above, and anything running low will show up here."
-                : "Nothing is running low. Add anything else you need below."}
-          </div>
-        )}
-        {toBuyGroups.map(({ section, items }) => (
-          <div key={section.key}>
-            {/* One heading is noise; sections only help once there are two. */}
-            {toBuyGroups.length > 1 && (
-              <div className="px-1 pt-1 text-xs font-semibold text-muted-foreground">
-                {section.label}
-              </div>
-            )}
-            <div className="divide-y divide-border/70">
-              {items.map((g) => (
-                <GroceryRow
-                  key={g.id}
-                  item={g}
-                  onRemove={() => ctx.remove(g)}
-                  onEdit={(patch) => ctx.edit(g, patch)}
-                  onAddSuggestion={() => ctx.addSuggestion(g)}
-                  onToggleBought={() => ctx.toggleBought(g)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {bought.length > 0 && (
-        <div className="mt-4">
-          <div className="mb-2 px-1 text-xs font-semibold text-muted-foreground">
-            Bought · {bought.length}
-          </div>
-          <div className="divide-y divide-border/70">
-            {bought.map((g) => (
-              <GroceryRow key={g.id} item={g} onToggleBought={() => ctx.toggleBought(g)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Receipt */}
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">Receipt</div>
-        <ReceiptSlot />
-      </div>
-
-      {/* Add manual */}
-      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
-        <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Add item</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-            }}
-            placeholder="e.g. ulam for Sunday"
-            className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
-        <label className="w-16">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
-          <input
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            inputMode="decimal"
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm tabular-nums outline-none focus:border-primary"
-          />
-        </label>
-        <label className="w-20">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
-          <input
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            className="w-full rounded-xl border border-input bg-card px-2 py-2 text-center text-sm outline-none focus:border-primary"
-          />
-        </label>
-        <button
-          onClick={submit}
-          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add
-        </button>
-        {addError && (
-          <p role="alert" className="basis-full text-xs font-semibold text-destructive">
-            {addError}
-          </p>
-        )}
-      </div>
+      {openRun === "new" && <RunModal onClose={() => setOpenRun(null)} />}
+      {run && <RunModal key={run.id} run={run} onClose={() => setOpenRun(null)} />}
     </section>
+  );
+}
+
+/** Before add-grocery-runs.sql: the one petty-cash number, against everything bought. */
+function LegacyBudget() {
+  const ctx = useGrocery();
+  const [draft, setDraft] = useState(String(ctx.budget));
+  const budget = ctx.budget;
+  useEffect(() => {
+    setDraft(String(budget));
+  }, [budget]);
+  return (
+    <div className="mt-4 rounded-2xl bg-background/60 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold text-muted-foreground">Petty cash budget</div>
+        <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          ₱
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              const n = parseFloat(draft);
+              if (!isNaN(n)) void ctx.setBudget(null, n).catch(() => {});
+              else setDraft(String(ctx.budget));
+            }}
+            inputMode="numeric"
+            className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <BudgetBar spent={ctx.spent} budget={ctx.budget} compact />
+    </div>
   );
 }

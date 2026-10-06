@@ -8,7 +8,7 @@ import { findHelper } from "@/features/people/people.utils";
 import { formatAppointmentDate } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { isPalengke, recurrenceLabel } from "../task.utils";
+import { recurrenceLabel } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
 
@@ -43,11 +43,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       {task.note && (
         <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{task.note}</p>
       )}
-      {isPalengke(task) && (
-        <div className="mt-2">
-          <PalengkeChip />
-        </div>
-      )}
+      <PalengkeChip task={task} className="mt-2" />
       {task.photo && (
         <div className="mt-3 overflow-hidden rounded-xl">
           <img

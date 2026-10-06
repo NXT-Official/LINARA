@@ -28,7 +28,7 @@ import type { Helper } from "@/features/people/people.types";
  * the MULTI_HELPER_HANDLING.md failure mode this card previously embodied.
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
-  const { spent, budget, remaining } = useGrocery();
+  const { spent, budget, remaining, runsAvailable } = useGrocery();
   // Pay is for the staff this household employs, not those shared in.
   const {
     vales,
@@ -101,13 +101,21 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
       <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-muted-foreground block">Petty cash spend</span>
+            <span className="text-xs font-bold text-muted-foreground block">
+              {runsAvailable ? "Palengke this month" : "Petty cash spend"}
+            </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
             <p className="text-xs text-muted-foreground">
-              out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly
-              target
+              {runsAvailable && budget === 0 ? (
+                "No monthly budget set"
+              ) : (
+                <>
+                  out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span>{" "}
+                  {runsAvailable ? "monthly budget" : "weekly target"}
+                </>
+              )}
             </p>
           </div>
 
@@ -145,7 +153,9 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
           <span
             className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
           >
-            {isSpendOver ? (
+            {runsAvailable && budget === 0 ? (
+              <>Set one on the Pantry page</>
+            ) : isSpendOver ? (
               <>
                 <ArrowUpRight className="h-3 w-3" /> Over by {fmtPeso(spent - budget)}
               </>
