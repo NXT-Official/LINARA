@@ -808,6 +808,10 @@ CREATE TABLE public.helper_labels (
 -- managers read her through shared_helpers() (no pay). Triggers:
 -- tickets_helper_works_here (a task's helper works in its household) and
 -- tickets_places_guard (trip ends stay in the family).
+-- add-shared-staff-availability.sql (O41): shared_staff_time_off() gives a
+-- house the approved leave/rest off (dates only) of staff shared into it;
+-- staff_elsewhere() gives when its staff are booked at the family's other
+-- houses (time, house, status; no titles).
 CREATE TABLE public.helper_households (
     helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,

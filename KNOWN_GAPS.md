@@ -224,6 +224,7 @@ the bottom.
     - **Leads:** drafts and runs waiting for approval, with "Ipa-approve", "Bawiin" and "Burahin", plus "Gumawa ng run" from Kailangan.
     - **Kailangan:** the pool. The last five closed runs show under it.
     - **Today:** a card shows "May listahan" when the task carries a run.
+- **Fixed after push:** the app's Pantry tab now re-reads runs and lines each time it opens (LINARA_MOBILE `f53e746`). Tabs stay mounted and nothing refetched on focus, so a run approved on the web didn't appear until the app restarted.
 - **Still open:**
   - **Pricing:** no price history per item (not chosen), and the run total isn't estimated before shopping.
   - **Notifications:** a manager isn't pushed when a run is waiting for approval (the Runs tab shows a dot), and a shopper isn't pushed when one is ready.
@@ -236,6 +237,40 @@ the bottom.
   4. Tick and price lines, snap a receipt, and close with the change. The web History shows it balanced.
   5. Start a repeat and check that a pooled line moved onto it.
   6. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
+
+### O41. A second house couldn't see a shared helper's leave, or that she was booked at another house
+
+- **Found:** 2026-10-06, feature audit after O39 and O40.
+- **Was:**
+  - **Leave and rest off.** Both belong to her home household, which pays her, and their read policies cover only that household's managers. The Beach House's Pass, planner and send gate showed her available on her leave day, with no warning.
+  - **Her other house's tasks.** Each house saw only its own tasks for her, so two houses could book her for the same hour.
+- **Decided (user, 2026-10-06):** The second house sees that she's away and when she's busy elsewhere, but not the kind of leave, the reason, or the other house's task details.
+- **Fix, built 2026-10-06, SQL not applied yet:** `supabase/add-shared-staff-availability.sql`. Tested in `supabase/tests/shared-staff-and-places.test.mjs` ("Availability"), and `time-off.test.ts`.
+  - **`shared_staff_time_off()`:** approved leave (whole days) and rest off (windows) of staff shared into the caller's household. Dates only.
+  - **`staff_elsewhere()`:** tasks of anyone who works here, at the family's other houses, in either direction. Time, house and status only.
+  - **Web:**
+    - The shared time off joins the time-off list as kind `away`, so the Pass status, planner and send gate treat her as off. It reads "on leave" or "off 1:00 PM – 5:00 PM".
+    - Lanes and Roll call say "At Main House 2:00 PM, 4:30 PM", or "now" while a task there is in progress.
+    - The task dialogs warn when the time is within an hour of a task at another house.
+    - Before the SQL is applied, nothing shows.
+- **Still open:**
+  - **Leave doesn't clear other houses' tasks.** Approving leave moves her tasks to Unassigned only in her home house. Tasks at other houses during the leave stay assigned, and those houses only see the warnings.
+  - **Busy is approximate.** Tasks have no length, so "busy" means a task starting within an hour.
+  - **Busy covers yesterday to 14 days out.** A task further ahead gets no warning.
+- **To close:** Apply the SQL. In two test households sharing a helper:
+  1. Approve leave at home, and check the Beach House's Pass shows her off and the send gate warns.
+  2. Give her a task at each house an hour apart, and check that each house's lane shows the other.
+  3. Then move this to Closed Gaps. Owned by `LINARA`.
+
+### O42. Some lists still load everything ever, or don't scale to a large staff
+
+- **Found:** 2026-10-06, feature audit after O40.
+- **Open:**
+  - **Whole-history loads.** Ledger entries, vales, payslips, appointments and leave requests load in full for the whole household on every page open (`ledger.actions.ts`, `pay.actions.ts`, `appointment.actions.ts`, `leave.actions.ts`). At 100 staff that's thousands of rows a year, growing forever, the same problem the grocery list had (O40). The fix is to load the last 12 months and fetch older months on request, as grocery History does.
+  - **People page sections that don't scale:** the Leave section draws one block per helper, and Past staff is one long list. Neither has a team filter or search.
+  - **Appointment prep tasks** go to the first helper with a matching station, or to `activeHelpers[0]` (`appointments-section.tsx`). With several drivers it's always the same one, even when she's off. They should go to someone available with that station, or stay Unassigned.
+- **Blocks:** Nothing yet. The cost grows with staff and time.
+- **To close:** Build when chosen; owned by `LINARA`.
 
 ## Closed Gaps
 
