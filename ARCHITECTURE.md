@@ -1298,7 +1298,7 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- SECURITY DEFINER functions, which run as their owner.
 
 -- Who may READ pay and time-off rows (supabase/fix-helper-coworker-reads.sql,
--- KNOWN_GAPS O45). current_household_id() is set for helpers too, so the
+-- KNOWN_GAPS C86 (was O45)). current_household_id() is set for helpers too, so the
 -- household-wide read policies on helper_profiles, payslips, vales,
 -- ledger_entries, rest_off_requests, leave_requests and payout_attempts let
 -- every helper read her coworkers' wage and pay. Each household branch now
@@ -1914,7 +1914,7 @@ CREATE POLICY helper_notes_privacy ON public.helper_notes
 -- SECURITY DEFINER functions, which run as their owner.
 
 -- Who may READ pay and time-off rows (supabase/fix-helper-coworker-reads.sql,
--- KNOWN_GAPS O45). current_household_id() is set for helpers too, so the
+-- KNOWN_GAPS C86 (was O45)). current_household_id() is set for helpers too, so the
 -- household-wide read policies on helper_profiles, payslips, vales,
 -- ledger_entries, rest_off_requests, leave_requests and payout_attempts let
 -- every helper read her coworkers' wage and pay. Each household branch now

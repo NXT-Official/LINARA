@@ -1,4 +1,4 @@
--- KNOWN_GAPS O45: a helper's login could read every coworker's wage,
+-- KNOWN_GAPS C86 (was O45): a helper's login could read every coworker's wage,
 -- payslips, vales, after-hours ledger, rest-off and leave requests, and
 -- payout attempts. Apply by hand in the Supabase SQL editor, AFTER every
 -- other migration (it replaces policies from fix-helper-write-access.sql,

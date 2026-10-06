@@ -2,7 +2,7 @@
 // acts as the API's `authenticated` role: a helper reads only her own pay
 // rows (also from a household she has left), never a coworker's; primary
 // managers and remote admins still read the whole household; another
-// household's manager reads none of it. KNOWN_GAPS O45.
+// household's manager reads none of it. KNOWN_GAPS C86 (was O45).
 //
 //   npm run test:sql
 import { readFileSync } from "node:fs";
@@ -118,7 +118,7 @@ await db.exec(`
 
 await db.exec(`SET ROLE authenticated`);
 
-// Before: the leak O45 describes.
+// Before: the leak C86 describes.
 await as(U);
 const before = await visible();
 check(
