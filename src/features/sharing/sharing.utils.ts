@@ -1,3 +1,4 @@
+import { formatDisplayTime } from "@/lib/time";
 import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
 
 import type { PlaceRef, SharedHelperRow } from "./sharing.types";
@@ -63,3 +64,9 @@ export const placeFromKey = (key: string): PlaceRef | undefined =>
     : key.startsWith("p:")
       ? { kind: "place", id: key.slice(2) }
       : undefined;
+
+/** "2:00 PM", or "2:00 PM – 4:00 PM" when the task elsewhere has a length. */
+export const slotTime = (s: { minute: number; durationMinutes: number | null }): string =>
+  s.durationMinutes
+    ? `${formatDisplayTime(s.minute)} – ${formatDisplayTime((s.minute + s.durationMinutes) % 1440)}`
+    : formatDisplayTime(s.minute);

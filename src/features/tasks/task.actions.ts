@@ -262,6 +262,8 @@ export interface TicketRow {
   /** From add-cancelled-tasks.sql; absent before it is applied. */
   cancelled_at?: string | null;
   cancelled_by_name?: string | null;
+  /** How long, in minutes (add-task-length-and-leave-unassign.sql); absent before it. */
+  duration_minutes?: number | null;
   /** A trip's ends (add-shared-staff-and-places.sql); absent before it is applied. */
   from_household_id?: string | null;
   from_place_id?: string | null;
@@ -445,6 +447,47 @@ export const unassignOpenTasksBetweenFn = createServerFn({ method: "POST" })
     return rows?.length ?? 0;
   });
 
+/**
+ * Leave clears her open tasks on those days in every house she works in, not
+ * just this one (add-task-length-and-leave-unassign.sql): the other houses'
+ * tasks get a comment saying why. Null before that SQL is applied (the
+ * caller then falls back to unassignOpenTasksBetweenFn, this house only).
+ */
+export const unassignForLeaveFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; helperId: string; startDate: string; endDate: string }) => data,
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<{ here: number; elsewhere: { name: string; moved: number }[] } | null> => {
+      const client = createAuthedClient(data.token);
+      const [{ data: rows, error }, { data: me }] = await Promise.all([
+        client.rpc("unassign_tasks_for_leave", {
+          p_helper_id: data.helperId,
+          p_from: data.startDate,
+          p_to: data.endDate,
+        }),
+        client.rpc("current_household_id"),
+      ]);
+      if (error?.code === "PGRST202" || /could not find the function/i.test(error?.message ?? "")) {
+        return null;
+      }
+      if (error) throw new Error(error.message);
+      const list = (rows ?? []) as {
+        household_id: string;
+        household_name: string;
+        moved: number;
+      }[];
+      return {
+        here: list.filter((r) => r.household_id === me).reduce((s, r) => s + r.moved, 0),
+        elsewhere: list
+          .filter((r) => r.household_id !== me)
+          .map((r) => ({ name: r.household_name, moved: r.moved })),
+      };
+    },
+  );
+
 /** Creates one ticket -- addTask, and each freshly spawned routine instance. */
 export const insertTicketFn = createServerFn({ method: "POST" })
   .validator(
@@ -466,6 +509,8 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       /** A trip's ends; only sent when set, so a plain task still saves before the migration. */
       from?: PlaceRef | null;
       to?: PlaceRef | null;
+      /** Only sent when set, for the same reason. */
+      durationMinutes?: number | null;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -522,6 +567,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
         recurrence: recurrence ?? null,
         routine_id: routineId ?? null,
         ...tripColumns(data.from, data.to),
+        ...(data.durationMinutes ? { duration_minutes: data.durationMinutes } : {}),
         created_by: user.id,
       })
       .select("id")
@@ -561,6 +607,8 @@ export interface TicketPatch {
   /** A trip's ends; null clears one, undefined leaves it. */
   from?: PlaceRef | null;
   to?: PlaceRef | null;
+  /** How long; null clears it, undefined leaves it. */
+  durationMinutes?: number | null;
 }
 
 /** The columns for a trip's ends that were given (undefined: leave them). */
@@ -609,6 +657,7 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     if (patch.notes !== undefined) dbPatch.notes = patch.notes;
     if (patch.helperId !== undefined) dbPatch.helper_id = patch.helperId;
     Object.assign(dbPatch, tripColumns(patch.from, patch.to));
+    if (patch.durationMinutes !== undefined) dbPatch.duration_minutes = patch.durationMinutes;
 
     const authedClient = createAuthedClient(token);
 
@@ -619,7 +668,8 @@ export const updateTicketFn = createServerFn({ method: "POST" })
       patch.title !== undefined ||
       patch.notes !== undefined ||
       patch.helperId !== undefined ||
-      patch.scheduledStartIso !== undefined;
+      patch.scheduledStartIso !== undefined ||
+      patch.durationMinutes !== undefined;
     if (editsRecord && patch.status === undefined) {
       const { data: current } = await authedClient
         .from("tickets")

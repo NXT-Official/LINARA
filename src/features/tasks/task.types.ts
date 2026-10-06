@@ -11,6 +11,8 @@ export type Task = {
   title: string;
   note?: string;
   time: string;
+  /** How long it takes, if set (tickets.duration_minutes). */
+  durationMinutes?: number;
   scheduledStart?: string; // ISO, tickets.scheduled_start -- the real instant behind `time`
   /** null = Unassigned (supabase/add-unassigned-tasks.sql): on the managers' board only. */
   helperId: string | null;

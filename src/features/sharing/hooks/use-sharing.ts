@@ -24,6 +24,9 @@ const BUSY_DAYS = 14;
 /** A task elsewhere, on the household clock. */
 export type BusySlot = BusyElsewhere & { dayIso: string; minute: number };
 
+/** Where a length matters, a task without one counts as half an hour. */
+export const DEFAULT_TASK_MINUTES = 30;
+
 const EMPTY: SharingSnapshot = {
   available: false,
   sharedHelpers: [],
@@ -120,20 +123,23 @@ export function useSharing({
       busy
         .filter((b) => b.helperId === helperId && b.dayIso === dayIso)
         .sort((a, b) => a.minute - b.minute),
-    /** Her open task at another house within `withinMin` of this time, if any. */
-    busyNear: (
+    /** Her open task at another house overlapping [minute, minute + length), if any. */
+    busyOverlap: (
       helperId: string,
       dayIso: string,
       minute: number,
-      withinMin = 60,
-    ): BusySlot | undefined =>
-      busy.find(
+      lengthMin: number | null,
+    ): BusySlot | undefined => {
+      const end = minute + (lengthMin ?? DEFAULT_TASK_MINUTES);
+      return busy.find(
         (b) =>
           b.helperId === helperId &&
           b.dayIso === dayIso &&
           b.status !== "done" &&
-          Math.abs(b.minute - minute) < withinMin,
-      ),
+          b.minute < end &&
+          minute < b.minute + (b.durationMinutes ?? DEFAULT_TASK_MINUTES),
+      );
+    },
     /** "Beach House", "School", or null when it can't be named. */
     placeName: (ref: PlaceRef | undefined): string | null =>
       !ref

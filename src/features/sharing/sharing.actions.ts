@@ -74,6 +74,8 @@ export type BusyElsewhere = {
   householdName: string;
   /** ISO instant. */
   start: string;
+  /** Null when the task has no length (counts as 30 minutes). */
+  durationMinutes: number | null;
   status: string;
 };
 
@@ -93,12 +95,14 @@ export const listBusyElsewhereFn = createServerFn({ method: "POST" })
         helper_id: string;
         household_name: string;
         scheduled_start: string;
+        duration_minutes?: number | null;
         status: string;
       }[]
     ).map((r) => ({
       helperId: r.helper_id,
       householdName: r.household_name,
       start: r.scheduled_start,
+      durationMinutes: r.duration_minutes ?? null,
       status: r.status,
     }));
   });

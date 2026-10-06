@@ -9,7 +9,7 @@ import { findHelper } from "@/features/people/people.utils";
 import type { Task } from "../task.types";
 import { TripChip } from "@/features/sharing/components/trip-chip";
 import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
-import { isPastDue } from "../task.utils";
+import { isPastDue, timeSpan } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { TONE_EDGE } from "./planner-tone";
 
@@ -121,7 +121,7 @@ export function PlannerTaskRow({
     <>
       <span className="flex flex-wrap items-center justify-between gap-x-2">
         <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
-          {task.time}
+          {timeSpan(task)}
         </span>
         <span className="flex items-center gap-1">
           <CommentBadge taskId={task.id} />

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { Task } from "./task.types";
 import {
   byStart,
+  durationLabel,
+  timeSpan,
   isLaterThanToday,
   isPastDue,
   movedFromLabel,
@@ -142,5 +144,19 @@ describe("taskFormErrors", () => {
       date: "Pick a day.",
       time: "Pick a time.",
     });
+  });
+});
+
+describe("task length", () => {
+  it("names a length the way people say it", () => {
+    expect(durationLabel(45)).toBe("45 min");
+    expect(durationLabel(60)).toBe("1 hr");
+    expect(durationLabel(90)).toBe("1 hr 30 min");
+  });
+
+  it("shows a span only when there's a length", () => {
+    expect(timeSpan({ time: "2:00 PM" })).toBe("2:00 PM");
+    expect(timeSpan({ time: "2:00 PM", durationMinutes: 90 })).toBe("2:00 PM – 3:30 PM");
+    expect(timeSpan({ time: "11:30 PM", durationMinutes: 60 })).toBe("11:30 PM – 12:30 AM");
   });
 });

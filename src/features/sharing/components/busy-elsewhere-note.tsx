@@ -1,8 +1,7 @@
 import { MapPin } from "lucide-react";
 
-import { formatDisplayTime } from "@/lib/time";
-
 import { useBusyElsewhere } from "../hooks/use-busy-elsewhere";
+import { slotTime } from "../sharing.utils";
 
 /**
  * When someone who works here is also booked at another of the family's
@@ -21,7 +20,7 @@ export function BusyElsewhereNote({ helperId, dayIso }: { helperId: string; dayI
     .map(([house, list]) =>
       list.some((s) => s.status === "in_progress")
         ? `At ${house} now`
-        : `At ${house} ${list.map((s) => formatDisplayTime(s.minute)).join(", ")}`,
+        : `At ${house} ${list.map(slotTime).join(", ")}`,
     )
     .join(" · ");
 

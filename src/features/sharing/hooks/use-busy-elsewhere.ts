@@ -4,9 +4,9 @@ import { AppStoreContext } from "@/features/dashboard/app-store-context";
 
 import type { SharingStore } from "./use-sharing";
 
-type Busy = Pick<SharingStore, "busyOn" | "busyNear">;
+type Busy = Pick<SharingStore, "busyOn" | "busyOverlap">;
 
-const NONE: Busy = { busyOn: () => [], busyNear: () => undefined };
+const NONE: Busy = { busyOn: () => [], busyOverlap: () => undefined };
 
 /**
  * Her tasks at the family's other houses, when the app's stores are there;

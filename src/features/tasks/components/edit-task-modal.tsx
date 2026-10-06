@@ -12,10 +12,10 @@ import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import { useBusyElsewhere } from "@/features/sharing/hooks/use-busy-elsewhere";
+import { slotTime } from "@/features/sharing/sharing.utils";
 import {
   combineDateAndTime,
   displayTimeTo24h,
-  formatDisplayTime,
   householdNow,
   householdTimeZone,
   isoToISODate,
@@ -28,6 +28,7 @@ import {
 
 import type { Task } from "../task.types";
 import { taskFormErrors } from "../task.utils";
+import { DurationField } from "./duration-field";
 import { TaskUpdates } from "./task-updates";
 
 export type TaskEdit = {
@@ -39,6 +40,8 @@ export type TaskEdit = {
   /** A trip's ends; null clears one. */
   from?: PlaceRef | null;
   to?: PlaceRef | null;
+  /** How long; null clears it. Only sent when it changed. */
+  durationMinutes?: number | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -99,6 +102,7 @@ export function EditTaskModal({
     task.scheduledStart ? isoToISODate(task.scheduledStart) : toISODate(householdNow()),
   );
   const [time, setTime] = useState(() => displayTimeTo24h(task.time));
+  const [duration, setDuration] = useState<number | null>(task.durationMinutes ?? null);
 
   // Editing never bypasses her boundaries silently: say so when the new time
   // lands outside her shift, on a break, or on her rest day.
@@ -107,7 +111,12 @@ export function EditTaskModal({
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
   // Booked at another of the family's houses around then (O41).
-  const elsewhere = useBusyElsewhere().busyNear(helperId ?? "", date, time ? parseHM(time) : -1);
+  const elsewhere = useBusyElsewhere().busyOverlap(
+    helperId ?? "",
+    date,
+    time ? parseHM(time) : -1,
+    duration,
+  );
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
 
@@ -122,6 +131,7 @@ export function EditTaskModal({
       note: note.trim() || undefined,
       scheduledStartIso: combineDateAndTime(date, fmtHM12(time)),
       helperId,
+      ...(duration !== (task.durationMinutes ?? null) ? { durationMinutes: duration } : {}),
       // Only sent when it changed: a plain task saves as before.
       ...(trip.from !== task.from || trip.to !== task.to
         ? { from: trip.from ?? null, to: trip.to ?? null }
@@ -293,6 +303,7 @@ export function EditTaskModal({
               />
             </Field>
           </div>
+          <DurationField value={duration} onChange={setDuration} className={inputCls} />
           {(inTimeOff || outsideShift) && (
             <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
@@ -305,8 +316,7 @@ export function EditTaskModal({
           {elsewhere && (
             <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-              {helperName} has a task at {elsewhere.householdName} at{" "}
-              {formatDisplayTime(elsewhere.minute)}.
+              {helperName} is at {elsewhere.householdName} {slotTime(elsewhere)}.
             </p>
           )}
           <Field label="House-standard note (optional)">

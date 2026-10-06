@@ -94,6 +94,7 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
     // day than today" concept -- see supabase/add-ticket-board-columns.sql.
     scheduledDate: row.appointment_id ? isoToISODate(row.scheduled_start) : undefined,
     leadMinutes: row.lead_minutes ?? undefined,
+    durationMinutes: row.duration_minutes ?? undefined,
     from: placeFromColumns(row.from_household_id, row.from_place_id),
     to: placeFromColumns(row.to_household_id, row.to_place_id),
     rescheduleNotice: row.reschedule_notice
@@ -270,6 +271,7 @@ export function useTaskBoard({
         routineId: t.routineId,
         from: t.from,
         to: t.to,
+        durationMinutes: t.durationMinutes,
       },
     })
       .then(() => refresh())
@@ -409,6 +411,8 @@ export function useTaskBoard({
       /** A trip's ends; null clears one, absent leaves it. */
       from?: PlaceRef | null;
       to?: PlaceRef | null;
+      /** How long; null clears it, absent leaves it. */
+      durationMinutes?: number | null;
     },
   ): Promise<boolean> => {
     if (!token) return Promise.resolve(false);
@@ -423,6 +427,7 @@ export function useTaskBoard({
           helperId: edit.helperId,
           from: edit.from,
           to: edit.to,
+          durationMinutes: edit.durationMinutes,
         },
         notifyHelper: !!edit.helperId && !!isReachable?.(edit.helperId),
       },

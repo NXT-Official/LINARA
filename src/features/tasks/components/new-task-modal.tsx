@@ -11,9 +11,9 @@ import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import { useBusyElsewhere } from "@/features/sharing/hooks/use-busy-elsewhere";
+import { slotTime } from "@/features/sharing/sharing.utils";
 import {
   WEEKDAYS,
-  formatDisplayTime,
   householdNow,
   parseHM,
   parseISODate,
@@ -24,6 +24,7 @@ import {
 
 import type { Recurrence, Task } from "../task.types";
 import { taskFormErrors } from "../task.utils";
+import { DurationField } from "./duration-field";
 
 export function NewTaskModal({
   activeHelpers,
@@ -53,6 +54,7 @@ export function NewTaskModal({
   const [helperId, setHelperId] = useState(defaultHelperId ?? activeHelpers[0]?.id ?? "");
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("08:00");
+  const [duration, setDuration] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
   const [days, setDays] = useState<Weekday[]>([]);
@@ -70,7 +72,12 @@ export function NewTaskModal({
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
   // Booked at another of the family's houses around then (O41).
-  const elsewhere = useBusyElsewhere().busyNear(helperId, date, time ? parseHM(time) : -1);
+  const elsewhere = useBusyElsewhere().busyOverlap(
+    helperId,
+    date,
+    time ? parseHM(time) : -1,
+    duration,
+  );
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
   const todayIso = toISODate(householdNow());
@@ -99,6 +106,7 @@ export function NewTaskModal({
         note: note.trim() || undefined,
         recurrence,
         scheduledDate: date,
+        durationMinutes: duration ?? undefined,
         from: trip.from,
         to: trip.to,
       },
@@ -166,6 +174,11 @@ export function NewTaskModal({
             />
           </Field>
         </div>
+        <DurationField
+          value={duration}
+          onChange={setDuration}
+          className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+        />
         {(inTimeOff || outsideShift) && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
@@ -178,8 +191,7 @@ export function NewTaskModal({
         {elsewhere && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            {assignee?.short ?? "She"} has a task at {elsewhere.householdName} at{" "}
-            {formatDisplayTime(elsewhere.minute)}.
+            {assignee?.short ?? "She"} is at {elsewhere.householdName} {slotTime(elsewhere)}.
           </p>
         )}
         <Field label="House-standard note (optional)">

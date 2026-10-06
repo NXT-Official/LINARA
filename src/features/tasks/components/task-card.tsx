@@ -8,7 +8,7 @@ import { findHelper } from "@/features/people/people.utils";
 import { formatAppointmentDate } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { recurrenceLabel } from "../task.utils";
+import { recurrenceLabel, timeSpan } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
 
@@ -59,7 +59,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
           <Avatar initials={helper.initials} />
           <span className="text-xs font-medium text-foreground">{helper.short}</span>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+        <span className="text-xs font-medium text-muted-foreground">{timeSpan(task)}</span>
       </div>
       {task.createdBy && (
         <div className="mt-1.5 text-xs font-medium text-muted-foreground">

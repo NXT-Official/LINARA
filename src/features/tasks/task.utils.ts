@@ -1,5 +1,6 @@
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
+  formatDisplayTime,
   fromHouseholdClock,
   isoToDisplayTime,
   parseTimeToMinutes,
@@ -69,12 +70,30 @@ export const byStart = (a: Task, b: Task): number => {
  * 7:30 PM" beyond that. The board holds every unfinished task whatever its
  * date, so a bare time is ambiguous for anything not today.
  */
+/** The lengths offered for a task, in minutes. */
+export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240, 360, 480];
+
+/** "45 min", "1 hr", "1 hr 30 min". */
+export function durationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
+}
+
+/** "2:00 PM – 3:30 PM" for a task with a length; just its time without one. */
+export function timeSpan(t: Pick<Task, "time" | "durationMinutes">): string {
+  if (!t.durationMinutes) return t.time;
+  const end = (parseTimeToMinutes(t.time) + t.durationMinutes) % (24 * 60);
+  return `${t.time} – ${formatDisplayTime(end)}`;
+}
+
 export function taskWhen(t: Task, nowTs: number): string {
   const ms = startMs(t);
-  if (Number.isNaN(ms)) return t.time;
+  if (Number.isNaN(ms)) return timeSpan(t);
   const start = toHouseholdClock(ms);
   const now = toHouseholdClock(nowTs);
-  if (toISODate(start) === toISODate(now)) return t.time;
+  if (toISODate(start) === toISODate(now)) return timeSpan(t);
   const days = Math.abs(ms - nowTs) / 86_400_000;
   if (days < 6.5) return `${weekdayOf(start)} ${t.time}`;
   return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${t.time}`;

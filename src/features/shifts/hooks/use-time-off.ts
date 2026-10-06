@@ -11,7 +11,7 @@ import type { LeaveKind, LeaveReason, LeaveRequest } from "@/features/leave/leav
 import { leaveRangeIso } from "@/features/leave/leave.utils";
 import { listRestOffRequestsFn, type RestOffRequestRow } from "@/features/ledger/rest-off.actions";
 import { listSharedTimeOffFn, type SharedTimeOffRow } from "@/features/sharing/sharing.actions";
-import { unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
+import { unassignForLeaveFn, unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
 
 import { timeOffFromLeave, timeOffFromRestOff, timeOffFromShared, type TimeOff } from "../time-off";
 import { householdNow, toISODate } from "@/lib/time";
@@ -138,12 +138,24 @@ export function useTimeOff({
   const unassignDuring = useCallback(
     async (helperId: string, startDate: string, endDate: string) => {
       if (!token) return;
+      const tasks = (n: number) => `${n} ${n === 1 ? "task" : "tasks"}`;
       try {
-        const moved = await unassignOpenTasksBetweenFn({
-          data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
-        });
-        if (moved > 0)
-          toast.success(`${moved} ${moved === 1 ? "task" : "tasks"} moved to Unassigned.`);
+        // Every house she works in; this house only before that SQL is applied.
+        const all = await unassignForLeaveFn({ data: { token, helperId, startDate, endDate } });
+        const here =
+          all?.here ??
+          (await unassignOpenTasksBetweenFn({
+            data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
+          }));
+        const elsewhere = (all?.elsewhere ?? [])
+          .map((h) => `${tasks(h.moved)} at ${h.name}`)
+          .join(", ");
+        if (here > 0 || elsewhere) {
+          toast.success(
+            [here > 0 && `${tasks(here)} here`, elsewhere].filter(Boolean).join(" and ") +
+              " moved to Unassigned.",
+          );
+        }
       } catch (err) {
         console.error("[useTimeOff] Failed to move tasks off leave days:", err);
         toast.error(
