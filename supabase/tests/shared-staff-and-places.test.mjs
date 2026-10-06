@@ -16,6 +16,7 @@ let failures = 0;
 
 const as = async (uid) => db.query("SELECT set_config('test.uid', $1, false)", [uid ?? ""]);
 const q = async (sql, params = []) => (await db.query(sql, params)).rows;
+const one = async (sql, params) => (await q(sql, params))[0];
 const check = (label, ok, detail) => {
   if (!ok) failures++;
   console.log(
@@ -106,6 +107,9 @@ await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/fix-label-policy-recursion.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-ticket-comments.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-task-length-and-leave-unassign.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-task-length-and-leave-unassign.sql`, "utf8"));
 console.log("migrations applied (shared staff twice, the label fix, availability twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
@@ -432,6 +436,73 @@ await as(ROSA);
 check(
   "a helper gets nothing from it",
   (await q(`SELECT * FROM staff_elsewhere($1, $2)`, RANGE)).length === 0,
+);
+
+// --- Leave and length (add-task-length-and-leave-unassign.sql) ---------------------
+await as(ANA);
+await expectError(
+  "the Beach House can't clear Rosa's tasks for leave: her home household does",
+  () => q(`SELECT * FROM unassign_tasks_for_leave($1, '2026-10-12', '2026-10-14')`, [HP_ROSA]),
+  /own household's managers/,
+);
+await as(BEN);
+await expectError(
+  "nor for days that aren't on her leave",
+  () => q(`SELECT * FROM unassign_tasks_for_leave($1, '2026-10-16', '2026-10-16')`, [HP_ROSA]),
+  /aren't on her leave/,
+);
+const cleared = await q(
+  `SELECT household_name, moved FROM unassign_tasks_for_leave($1, '2026-10-12', '2026-10-14')
+   ORDER BY household_name`,
+  [HP_ROSA],
+);
+check(
+  "Ben, at her home house, clears her leave days in both houses",
+  cleared.length === 2 &&
+    cleared.every((r) => r.moved >= 1) &&
+    cleared.some((r) => r.household_name === "Beach House"),
+  cleared,
+);
+const beachRun = await asOwner(() =>
+  one(`SELECT id, helper_id FROM tickets WHERE title = 'Beach run'`),
+);
+check("the Beach House task is now unassigned", beachRun.helper_id === null);
+const note = await asOwner(() =>
+  q(`SELECT body, author_id FROM ticket_comments WHERE ticket_id = $1`, [beachRun.id]),
+);
+check(
+  "with a comment saying why, from Ben",
+  note.length === 1 &&
+    note[0].body === "Moved to Unassigned: Rosa is on leave Oct 12 – Oct 14." &&
+    note[0].author_id === BEN,
+  note,
+);
+check(
+  "the cancelled task was left alone",
+  (await asOwner(() => one(`SELECT helper_id FROM tickets WHERE title = 'Cancelled at home'`)))
+    .helper_id === HP_ROSA,
+);
+
+await asOwner(() =>
+  q(
+    `INSERT INTO tickets (household_id, title, helper_id, scheduled_start, duration_minutes)
+     VALUES ($1, 'Long drive', $2, '2026-10-20T01:00:00Z', 120)`,
+    [H2, HP_ROSA],
+  ),
+);
+await as(BEN);
+const longOne = await q(
+  `SELECT duration_minutes FROM staff_elsewhere('2026-10-20T02:30:00Z', '2026-10-20T04:00:00Z')`,
+);
+check(
+  "a two-hour task that started before the window still shows her busy in it",
+  longOne.length === 1 && longOne[0].duration_minutes === 120,
+  longOne,
+);
+await expectError(
+  "a task can't be given a twenty-hour length",
+  () => asOwner(() => q(`UPDATE tickets SET duration_minutes = 1200 WHERE title = 'Long drive'`)),
+  /check constraint/,
 );
 
 // --- Ending -----------------------------------------------------------------------
