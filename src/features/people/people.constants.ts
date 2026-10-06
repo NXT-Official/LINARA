@@ -47,7 +47,7 @@ export const stationTone: Record<Station, string> = {
   Yaya: "bg-terracotta-soft/60 text-pine-deep",
   Cook: "bg-[oklch(0.92_0.05_140)] text-[oklch(0.35_0.08_140)]",
   Laundry: "bg-[oklch(0.92_0.04_240)] text-[oklch(0.35_0.08_240)]",
-  Driver: "bg-[oklch(0.92_0.05_60)] text-[oklch(0.38_0.09_60)]",
+  Driver: "bg-[oklch(0.92_0.05_60)] text-accent-foreground",
   House: "bg-secondary text-pine-deep",
 };
 

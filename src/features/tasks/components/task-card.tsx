@@ -28,7 +28,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <RecurrenceBadge recurrence={task.recurrence} />
           {task.appointmentTitle && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-medium text-[oklch(0.38_0.09_60)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-medium text-accent-foreground">
               <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
             </span>
           )}

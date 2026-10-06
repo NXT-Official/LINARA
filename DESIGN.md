@@ -178,14 +178,22 @@ Warm daylight neutrals with one cool anchor and one warm accent, all in OKLCH.
 - **Destructive** (`destructive`): errors and irreversible actions (Cancel
   task, payout needs review). 5.2:1 both as text on cream and under cream text.
 
-### Status (tokens started)
-`src/styles.css` now has semantic status tokens: **Done** (`status-done`,
-`status-done-soft`, `status-done-ink`) and **Late** (`status-late`,
-`status-late-soft`, `status-late-ink`). Late covers overdue, over budget and
-petty cash that doesn't add up. The `-ink` value is for text; the bare value
-is for fills, bars and dots only. The grocery section uses them. Everywhere
-else still hard-codes the same values, and a few pills use Tailwind's
-off-palette `emerald`. Moving those over is open work (UI refresh step 5).
+### Status
+Semantic status tokens in `src/styles.css`. The `-ink` value is for text, on
+cream and on its own `-soft` tint; the bare value is for fills, bars and dots
+only.
+- **Done** (`status-done`, `status-done-soft`, `status-done-ink`): done,
+  paid, approved, on shift, on track.
+- **Late** (`status-late`, `status-late-soft`, `status-late-ink`): overdue,
+  late, needs you, over budget, petty cash that doesn't add up, a payout
+  needing review, pay below the legal minimum, emergencies.
+- Gentler warnings (off-shift, "send anyway", check before paying) use the
+  Soft Terracotta wash with Hearth Ink text, and "doing" uses terracotta, as
+  above. Errors and failures stay Destructive.
+
+Team and role colours (`teams.constants.ts`, `people.constants.ts`) are
+categories, not status, and keep their own hues. Nothing else hard-codes a
+colour or uses Tailwind's stock palette (emerald, amber, red).
 
 ### Named Rules
 **The One Hearth Rule.** Terracotta is the only warm accent, and it marks

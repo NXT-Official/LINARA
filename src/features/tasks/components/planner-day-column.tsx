@@ -81,7 +81,7 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
     );
   if (isPastDue(task, nowTs))
     return (
-      <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+      <span className="rounded-full bg-status-late-soft px-1.5 text-xs font-bold text-status-late-ink">
         Late
       </span>
     );

@@ -120,7 +120,7 @@ export function PayoutConfirmModal({
       {phase.kind === "done" && phase.status === "needs_review" && (
         <p
           role="alert"
-          className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-200"
+          className="mt-4 flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2.5 text-sm text-accent-foreground"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           Xendit couldn&apos;t confirm it, so it&apos;s held for review. Check Xendit before trying

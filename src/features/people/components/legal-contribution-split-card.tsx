@@ -41,7 +41,7 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
               <td className="py-2 text-right tabular-nums">₱{sssEmployer.toLocaleString()}</td>
               <td className="py-2 text-right tabular-nums">
                 {isUnder5k ? (
-                  <span className="text-emerald font-semibold">0% (₱0)</span>
+                  <span className="text-status-done-ink font-semibold">0% (₱0)</span>
                 ) : (
                   `₱${sssEmployee.toLocaleString()}`
                 )}
@@ -54,7 +54,7 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
               </td>
               <td className="py-2 text-right tabular-nums">
                 {isUnder5k ? (
-                  <span className="text-emerald font-semibold">0% (₱0)</span>
+                  <span className="text-status-done-ink font-semibold">0% (₱0)</span>
                 ) : (
                   `₱${philhealthEmployee.toLocaleString()}`
                 )}
@@ -65,7 +65,7 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
               <td className="py-2 text-right tabular-nums">₱{pagibigEmployer.toLocaleString()}</td>
               <td className="py-2 text-right tabular-nums">
                 {isUnder5k ? (
-                  <span className="text-emerald font-semibold">0% (₱0)</span>
+                  <span className="text-status-done-ink font-semibold">0% (₱0)</span>
                 ) : (
                   `₱${pagibigEmployee.toLocaleString()}`
                 )}
@@ -78,7 +78,7 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
               </td>
               <td className="pt-2 text-right tabular-nums text-primary">
                 {isUnder5k ? (
-                  <span className="text-emerald font-semibold">₱0</span>
+                  <span className="text-status-done-ink font-semibold">₱0</span>
                 ) : (
                   `₱${totalEmployee.toLocaleString()}`
                 )}
@@ -89,7 +89,7 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
       </div>
 
       {isUnder5k && (
-        <p className="text-xs italic text-emerald leading-relaxed">
+        <p className="text-xs italic text-status-done-ink leading-relaxed">
           * Dahil ang buwanang sweldo ay mas mababa sa ₱5,000, ang Employer ay obligadong magbayad
           ng 100% ng kontribusyon ayon sa batas.
         </p>

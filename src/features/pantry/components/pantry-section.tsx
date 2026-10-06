@@ -66,7 +66,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           {items.length === 0 ? null : lowCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-[oklch(0.42_0.12_50)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-accent-foreground">
               <AlertCircle className="h-3 w-3" /> {lowCount} running low
             </span>
           ) : (

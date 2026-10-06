@@ -19,7 +19,7 @@ type InviteRole = Exclude<ManagerRole, "primary_manager">;
 const roleBadge: Record<Admin["type"], string> = {
   primary: "bg-primary/10 text-primary",
   co: "bg-secondary text-pine-deep",
-  remote: "bg-terracotta-soft/60 text-[oklch(0.38_0.09_60)]",
+  remote: "bg-terracotta-soft/60 text-accent-foreground",
 };
 
 const whenExpires = (iso: string) =>

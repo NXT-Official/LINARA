@@ -151,7 +151,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
         {/* Micro status details */}
         <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <span
-            className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
+            className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-status-done-ink"}`}
           >
             {runsAvailable && budget === 0 ? (
               <>Set one on the Pantry page</>
@@ -191,7 +191,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               {payroll.loading ? (
                 "Checking this cutoff…"
               ) : allSettled ? (
-                <span className="inline-flex items-center gap-1 text-emerald font-semibold">
+                <span className="inline-flex items-center gap-1 text-status-done-ink font-semibold">
                   <CheckCircle2 className="h-3 w-3" />
                   {isHouseholdView
                     ? `All ${rows.length === 1 ? "" : `${rows.length} `}paid this cutoff`

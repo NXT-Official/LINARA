@@ -48,7 +48,7 @@ export function TeamGroup({
           {summary && <span className="mt-0.5 block text-xs text-muted-foreground">{summary}</span>}
         </span>
         {attention > 0 && (
-          <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-2.5 py-1 text-xs font-semibold text-[oklch(0.42_0.15_35)]">
+          <span className="shrink-0 rounded-full bg-status-late-soft px-2.5 py-1 text-xs font-semibold text-status-late-ink">
             {attention} {attention === 1 ? "needs" : "need"} you
           </span>
         )}

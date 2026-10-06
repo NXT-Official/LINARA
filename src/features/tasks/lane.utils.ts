@@ -41,20 +41,20 @@ export function lanePill(s: LaneSummary): LanePill {
   if (n > 0) {
     return {
       text: `${n} ${n === 1 ? "needs" : "need"} you`,
-      cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
+      cls: "bg-status-late-soft text-status-late-ink",
     };
   }
   if (s.inProg) {
     return {
       text: `Now: ${s.inProg.title}`,
-      cls: "bg-[oklch(0.93_0.08_75)] text-[oklch(0.4_0.13_75)]",
+      cls: "bg-terracotta-soft text-accent-foreground",
     };
   }
   if (s.total === 0) return { text: "Nothing today", cls: "bg-secondary text-muted-foreground" };
   if (s.done === s.total) {
-    return { text: "All done", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
+    return { text: "All done", cls: "bg-status-done-soft text-status-done-ink" };
   }
-  return { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
+  return { text: "On track", cls: "bg-status-done-soft text-status-done-ink" };
 }
 
 /** Lanes that need a decision first, then whoever is mid-task; otherwise as given. */

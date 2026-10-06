@@ -43,7 +43,7 @@ export function AvailabilityGate({
     <Modal onClose={onCancel}>
       <div className="flex items-start gap-3">
         <div
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${hard ? "bg-[oklch(0.95_0.06_35)] text-[oklch(0.42_0.15_35)]" : "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]"}`}
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${hard ? "bg-status-late-soft text-status-late-ink" : "bg-terracotta-soft/70 text-accent-foreground"}`}
         >
           <AlertCircle className="h-5 w-5" />
         </div>
@@ -82,7 +82,7 @@ export function AvailabilityGate({
               onClick={() => onChoose("override")}
               className="flex w-full items-start gap-3 rounded-2xl border border-accent/40 bg-terracotta-soft/40 p-3 text-left transition hover:bg-terracotta-soft/60"
             >
-              <Send className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.42_0.13_60)]" />
+              <Send className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
               <div>
                 <div className="text-sm font-semibold text-foreground">
                   Send anyway · after-hours
@@ -95,12 +95,12 @@ export function AvailabilityGate({
 
             <button
               onClick={() => onChoose("emergency")}
-              className="flex w-full items-start gap-3 rounded-2xl border border-[oklch(0.75_0.15_35)] bg-[oklch(0.96_0.05_35)] p-3 text-left transition hover:bg-[oklch(0.93_0.07_35)]"
+              className="flex w-full items-start gap-3 rounded-2xl border border-status-late/40 bg-status-late-soft/60 p-3 text-left transition hover:bg-status-late-soft"
             >
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.5_0.18_30)]" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-status-late-ink" />
               <div>
-                <div className="text-sm font-semibold text-[oklch(0.35_0.15_30)]">Emergency</div>
-                <div className="text-xs text-[oklch(0.4_0.1_30)]">
+                <div className="text-sm font-semibold text-status-late-ink">Emergency</div>
+                <div className="text-xs text-status-late-ink">
                   Crosses even quiet hours. Always logged as after-hours. Use only if it truly can't
                   wait.
                 </div>

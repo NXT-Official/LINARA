@@ -60,11 +60,11 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
           : Clock;
   const tone =
     status === "succeeded"
-      ? "text-emerald bg-emerald/10"
+      ? "text-status-done-ink bg-status-done-soft"
       : status === "failed"
         ? "text-destructive bg-destructive/10"
         : status === "needs_review"
-          ? "text-amber-600 bg-amber-500/10"
+          ? "text-status-late-ink bg-status-late-soft"
           : "text-terracotta-ink bg-accent/10";
   return (
     <span
@@ -198,7 +198,7 @@ export function PayslipHistory({
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={currentCutoffPayslip.payoutStatus} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
-              <span className="text-xs text-amber-600 text-right max-w-[11rem]">
+              <span className="text-xs text-terracotta-ink text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
               </span>
             )}
@@ -209,13 +209,13 @@ export function PayslipHistory({
                 assuming otherwise is how a cutoff gets paid twice. */}
             {staleness.isStale && (
               <div className="flex flex-col items-end gap-1">
-                <span className="text-xs text-amber-600 text-right max-w-[13rem]">
+                <span className="text-xs text-terracotta-ink text-right max-w-[13rem]">
                   Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
                 </span>
                 <button
                   onClick={reconcile}
                   disabled={reconciling}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/50 bg-terracotta-soft/50 px-3 py-1 text-xs font-semibold text-accent-foreground transition hover:bg-terracotta-soft disabled:opacity-60"
                 >
                   <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
                   {reconciling ? "Checking…" : "Check with Xendit"}

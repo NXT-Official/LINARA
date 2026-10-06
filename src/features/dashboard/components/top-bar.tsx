@@ -53,7 +53,7 @@ export function TopBar() {
               aria-label={isOfflineSimulated ? "Simulate online" : "Simulate offline"}
               className={`hidden shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:inline-flex ${
                 isOfflineSimulated
-                  ? "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                  ? "border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   : "border-border bg-card text-muted-foreground hover:bg-secondary/40"
               }`}
               title={isOfflineSimulated ? "Simulate Online" : "Simulate Offline"}
@@ -65,7 +65,7 @@ export function TopBar() {
                 </>
               ) : (
                 <>
-                  <Wifi className="h-3.5 w-3.5 text-emerald-600" />
+                  <Wifi className="h-3.5 w-3.5 text-status-done-ink" />
                   <span className="hidden sm:inline">Dev: online</span>
                 </>
               )}

@@ -159,7 +159,7 @@ export function PayDirectModal({
         <div className="mt-4 space-y-3">
           {account.source === "invite" && (
             <>
-              <p className="flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+              <p className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2.5 text-xs text-accent-foreground">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 This is the number from her invite. She hasn&apos;t confirmed it in her app, so
                 check it with her before you send.

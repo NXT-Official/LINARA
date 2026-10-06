@@ -341,7 +341,7 @@ export function ManagerPassTab({
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-sm">
-            <span className="h-2 w-2 rounded-full bg-[oklch(0.68_0.14_150)]" />
+            <span className="h-2 w-2 rounded-full bg-status-done" />
             <span className="font-semibold text-foreground tabular-nums">{counts.done}</span>
             <span className="text-muted-foreground">done</span>
           </span>
@@ -360,10 +360,10 @@ export function ManagerPassTab({
               // The count depends on the clock: shown once mounted, like the
               // single-helper chip, so the server's render doesn't disagree.
               <span
-                className="inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.95_0.05_150)] px-2.5 py-1 text-xs font-semibold text-[oklch(0.32_0.1_150)]"
+                className="inline-flex items-center gap-1.5 rounded-full bg-status-done-soft px-2.5 py-1 text-xs font-semibold text-status-done-ink"
                 suppressHydrationWarning
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.68_0.14_150)]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-status-done" />
                 <span className="tabular-nums">
                   {mounted ? `${onShift.on} of ${onShift.total}` : "—"}
                 </span>{" "}

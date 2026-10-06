@@ -369,7 +369,7 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={initialsOf(displayName)} />
                     <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                       <Coins className="h-3 w-3" />{" "}
                       {left ? "Left · still owed" : "Unpaid pay period"}
                     </span>
@@ -505,7 +505,7 @@ export function NeedsYou({
                           <span className="text-xs font-semibold text-foreground">
                             {displayName}
                           </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                             <AlertCircle className="h-3 w-3" />{" "}
                             {isSystemCheck ? "Compliance check" : "Flagged a detail"}
                           </span>

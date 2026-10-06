@@ -85,7 +85,7 @@ export function HelperRow({
             {inv.station}
           </span>
           {!isActive && (
-            <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+            <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
               Invited — pending
             </span>
           )}
@@ -104,14 +104,14 @@ export function HelperRow({
             </span>
           )}
           {inv.flags.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-              <AlertCircle className="h-2.5 w-2.5" /> {inv.flags.length} flag
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
+              <AlertCircle className="h-3 w-3" /> {inv.flags.length} flag
               {inv.flags.length > 1 ? "s" : ""}
             </span>
           )}
           {compact && belowMinimum && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
-              <AlertCircle className="h-2.5 w-2.5" /> Below minimum
+            <span className="inline-flex items-center gap-1 rounded-full bg-status-late-soft px-2 py-0.5 text-xs font-semibold text-status-late-ink">
+              <AlertCircle className="h-3 w-3" /> Below minimum
             </span>
           )}
         </div>
@@ -157,13 +157,11 @@ export function HelperRow({
             )}
 
             {belowMinimum && (
-              <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
-                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="mt-2 flex items-start gap-2 rounded-xl border border-status-late/30 bg-status-late-soft/60 p-2.5 text-xs text-status-late-ink">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-late-ink" />
                 <div>
-                  <span className="font-semibold text-amber-900 dark:text-amber-200">
-                    Batas Kasambahay Compliance Warning:
-                  </span>{" "}
-                  Wage is below the regional minimum of{" "}
+                  <span className="font-semibold">Batas Kasambahay Compliance Warning:</span> Wage
+                  is below the regional minimum of{" "}
                   <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>.
                 </div>
               </div>
@@ -213,7 +211,7 @@ export function HelperRow({
               </div>
             )}
             {inv.flags.length > 0 && (
-              <ul className="mt-1.5 space-y-0.5 text-xs text-[oklch(0.38_0.09_60)]">
+              <ul className="mt-1.5 space-y-0.5 text-xs text-accent-foreground">
                 {inv.flags.map((f) => (
                   <li key={f.id}>
                     Flagged: <span className="font-semibold">{f.field}</span>

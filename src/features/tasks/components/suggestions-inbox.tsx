@@ -29,7 +29,7 @@ export function SuggestionsInbox({
   return (
     <section className="rounded-3xl border border-terracotta/40 bg-terracotta-soft/30 p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center gap-2">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta/20 text-[oklch(0.42_0.15_60)]">
+        <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta/20 text-accent-foreground">
           <HelpCircle className="h-4 w-4" />
         </div>
         <div>

@@ -25,13 +25,13 @@ export function ledgerEntryMinutes(e: LedgerEntry) {
 
 export function reasonLabel(r: LedgerReason) {
   if (r === "available")
-    return { label: "Available", cls: "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]" };
+    return { label: "Available", cls: "bg-terracotta-soft/70 text-accent-foreground" };
   if (r === "emergency")
-    return { label: "Emergency", cls: "bg-[oklch(0.95_0.06_35)] text-[oklch(0.42_0.15_30)]" };
+    return { label: "Emergency", cls: "bg-status-late-soft text-status-late-ink" };
   if (r === "rest_day")
-    return { label: "Rest day", cls: "bg-[oklch(0.94_0.08_30)] text-[oklch(0.38_0.15_25)]" };
+    return { label: "Rest day", cls: "bg-status-late-soft text-status-late-ink" };
   if (r === "rest_break")
-    return { label: "Rest break", cls: "bg-[oklch(0.93_0.05_40)] text-[oklch(0.42_0.12_35)]" };
+    return { label: "Rest break", cls: "bg-terracotta-soft text-accent-foreground" };
   return { label: "After shift", cls: "bg-secondary text-pine-deep" };
 }
 

@@ -195,7 +195,7 @@ function LandingPage() {
                 sees.
               </p>
               <div className="mt-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand-deep text-pine">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div className="text-xs text-muted-foreground">

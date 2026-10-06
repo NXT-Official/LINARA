@@ -108,7 +108,7 @@ export function ShiftsSection({
           {warnings.map(({ key, team, day, names }) => (
             <div
               key={key}
-              className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2 text-xs text-[oklch(0.38_0.09_60)]"
+              className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2 text-xs text-accent-foreground"
             >
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>

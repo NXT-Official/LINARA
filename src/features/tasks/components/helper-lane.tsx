@@ -130,11 +130,11 @@ export function HelperLane({
               const isLate = overdueSet.has(t.id);
               const dotCls =
                 t.status === "done"
-                  ? "bg-[oklch(0.68_0.14_150)]"
+                  ? "bg-status-done"
                   : t.status === "in_progress"
                     ? "bg-accent"
                     : isLate
-                      ? "bg-[oklch(0.6_0.18_35)]"
+                      ? "bg-status-late"
                       : "bg-muted-foreground/40";
               return (
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
@@ -167,7 +167,7 @@ export function HelperLane({
                   </div>
                   <CommentBadge taskId={t.id} />
                   {isLate && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+                    <span className="shrink-0 rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
                       Late
                     </span>
                   )}
