@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Pencil,
   RotateCcw,
+  Smartphone,
   X,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -306,7 +307,9 @@ export function NeedsYou({
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Link
-                    to={left ? "/manager/people" : "/manager/money"}
+                    {...(left
+                      ? { to: "/manager/people" as const }
+                      : { to: "/manager/money" as const, search: { helper: payslip.helperId } })}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                   >
                     Review the payment
@@ -375,14 +378,22 @@ export function NeedsYou({
                     {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment on
                     record.
                   </h4>
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {/* Opens Money on HER, at her unpaid periods: GCash or Maya,
+                        or record it as paid outside Linara (KNOWN_GAPS O35). */}
                     <Link
-                      to={left ? "/manager/people" : "/manager/money"}
+                      {...(left
+                        ? { to: "/manager/people" as const }
+                        : { to: "/manager/money" as const, search: { helper: inv.id } })}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      <Coins className="h-3.5 w-3.5" />{" "}
-                      {left ? "Pay from Past staff" : "Pay from Money"}
+                      <Smartphone className="h-3.5 w-3.5" /> Pay by GCash or Maya
                     </Link>
+                    <span className="text-xs text-muted-foreground">
+                      {left
+                        ? "In People → Past staff. Or record it as paid outside Linara."
+                        : "In Money. Or record it as paid outside Linara."}
+                    </span>
                   </div>
                 </div>
               );

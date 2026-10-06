@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
@@ -15,7 +15,7 @@ import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
-export function ManagerMoneyPage() {
+export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) {
   const {
     ledger,
     helper,
@@ -36,8 +36,10 @@ export function ManagerMoneyPage() {
   // explicitly switched. Local to this page: unlike the Quick Utos
   // recipient, nothing else (no write path, no realtime channel) depends on
   // this selection. See MULTI_HELPER_HANDLING.md.
+  // A link from Needs You names the helper it's about (?helper=), so it opens
+  // on her, not on the default.
   const [pickedPayHelperId, setPickedPayHelperId] = useState<string | null>(null);
-  const selectedHelperId = pickedPayHelperId ?? helper?.id ?? null;
+  const selectedHelperId = pickedPayHelperId ?? focusHelperId ?? helper?.id ?? null;
   const selectedHelper = helpers.find((h) => h.id === selectedHelperId) ?? helper ?? null;
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === selectedHelper?.id);
   const periods = selectedHelper ? (payPeriods.byHelper[selectedHelper.id] ?? []) : [];
@@ -56,6 +58,16 @@ export function ManagerMoneyPage() {
       : [],
     `${payslipsVersion}|${timeOff.leave.map((l) => `${l.id}:${l.status}`).join(",")}`,
   );
+
+  // Opened from Needs You: once her unpaid periods have loaded, bring them
+  // into view, since they sit below this cutoff's payslip.
+  const missed = selectedHelper ? payPeriods.missed(selectedHelper.id) : [];
+  const scrolledToOwed = useRef(false);
+  useEffect(() => {
+    if (!focusHelperId || scrolledToOwed.current || missed.length === 0) return;
+    scrolledToOwed.current = true;
+    document.getElementById("owed-pay")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusHelperId, missed.length]);
 
   // Keyed on the SELECTED helper's interval, not the household default -- see
   // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
@@ -125,8 +137,9 @@ export function ManagerMoneyPage() {
       />
       {selectedHelper && (
         <MissedPeriodsCard
+          id="owed-pay"
           helper={selectedHelper}
-          missed={payPeriods.missed(selectedHelper.id)}
+          missed={missed}
           token={session.token}
           payslipsVersion={payslipsVersion}
           unsettledVales={unsettledVales}
