@@ -41,6 +41,68 @@ const EMPTY: SharingSnapshot = {
   places: [],
 };
 
+/** A shared helper's approved leave (whole days) or rest off (a window), dates only. */
+export type SharedTimeOffRow = {
+  helper_id: string;
+  day_from: string;
+  day_to: string;
+  start_time: string | null;
+  end_time: string | null;
+};
+
+/**
+ * Approved time off of staff shared into this household
+ * (add-shared-staff-availability.sql): her leave belongs to her home
+ * household, so it isn't otherwise readable here. Never the kind or reason.
+ */
+export const listSharedTimeOffFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; from: string; to: string }) => data)
+  .handler(async ({ data }): Promise<SharedTimeOffRow[]> => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client.rpc("shared_staff_time_off", {
+      p_from: data.from,
+      p_to: data.to,
+    });
+    if (isMissing(error)) return [];
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as SharedTimeOffRow[];
+  });
+
+/** A task of someone who works here, at another of the family's houses. */
+export type BusyElsewhere = {
+  helperId: string;
+  householdName: string;
+  /** ISO instant. */
+  start: string;
+  status: string;
+};
+
+/** When staff who work here are booked at the family's other houses: time, house and status only. */
+export const listBusyElsewhereFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; from: string; to: string }) => data)
+  .handler(async ({ data }): Promise<BusyElsewhere[]> => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client.rpc("staff_elsewhere", {
+      p_from: data.from,
+      p_to: data.to,
+    });
+    if (isMissing(error)) return [];
+    if (error) throw new Error(error.message);
+    return (
+      (rows ?? []) as {
+        helper_id: string;
+        household_name: string;
+        scheduled_start: string;
+        status: string;
+      }[]
+    ).map((r) => ({
+      helperId: r.helper_id,
+      householdName: r.household_name,
+      start: r.scheduled_start,
+      status: r.status,
+    }));
+  });
+
 export const listSharingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }): Promise<SharingSnapshot> => {

@@ -50,7 +50,11 @@ await db.exec(`
   ALTER TABLE households ADD COLUMN board_closed BOOLEAN NOT NULL DEFAULT false,
                          ADD COLUMN petty_cash_budget NUMERIC(10,2) NOT NULL DEFAULT 1500;
   ALTER TABLE helper_profiles ADD COLUMN employment TEXT, ADD COLUMN break_start TIME,
-                              ADD COLUMN break_end TIME;
+                              ADD COLUMN break_end TIME, ADD COLUMN started_on DATE;
+  ALTER TABLE rest_off_requests ADD COLUMN start_time TIME, ADD COLUMN end_time TIME;
+  CREATE FUNCTION public.household_today() RETURNS DATE LANGUAGE sql STABLE AS
+  $$ SELECT '2026-10-02'::date $$;
+  GRANT EXECUTE ON FUNCTION public.household_today() TO authenticated;
   ALTER TABLE tickets ADD COLUMN suggested BOOLEAN NOT NULL DEFAULT false,
                       ADD COLUMN emergency BOOLEAN NOT NULL DEFAULT false,
                       ADD COLUMN is_after_hours BOOLEAN NOT NULL DEFAULT false,
@@ -91,6 +95,7 @@ await db.exec(`
   GRANT SELECT, INSERT, UPDATE, DELETE ON public.pantry_items TO authenticated;
 `);
 await db.exec(readFileSync(`${REPO}/fix-helper-write-access.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-leave.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-account-deletion.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-household-managers.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-helper-task-edit.sql`, "utf8"));
@@ -99,7 +104,9 @@ await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
 // What a database that ran the first version of it was given (O39).
 await db.exec(readFileSync(`${REPO}/fix-label-policy-recursion.sql`, "utf8"));
-console.log("migrations applied (shared staff twice, then the label fix)");
+await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"));
+console.log("migrations applied (shared staff twice, the label fix, availability twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
@@ -345,6 +352,86 @@ check(
   "another helper sees neither",
   (await q(`SELECT id FROM household_labels`)).length === 0 &&
     (await q(`SELECT label_id FROM helper_labels`)).length === 0,
+);
+
+// --- Availability across houses (add-shared-staff-availability.sql) ---------------
+await asOwner(() =>
+  q(
+    `INSERT INTO leave_requests (helper_id, kind, reason, start_date, end_date, days, status, note)
+     VALUES ($1, 'sil', 'sick', '2026-10-12', '2026-10-14', 3, 'approved', 'private'),
+            ($1, 'unpaid', 'family', '2026-10-20', '2026-10-20', 1, 'pending', NULL)`,
+    [HP_ROSA],
+  ),
+);
+await asOwner(() =>
+  q(
+    `INSERT INTO rest_off_requests (helper_id, rest_date, start_time, end_time, minutes, status)
+     VALUES ($1, '2026-10-15', '13:00', '17:00', 240, 'approved')`,
+    [HP_ROSA],
+  ),
+);
+await as(ANA);
+const away = await q(
+  `SELECT helper_id, day_from::text, day_to::text, start_time::text, end_time::text
+   FROM shared_staff_time_off('2026-10-13', '2026-10-31') ORDER BY day_from`,
+);
+check(
+  "the Beach House sees Rosa's approved leave (clipped to the range) and rest off",
+  away.length === 2 &&
+    away[0].day_from === "2026-10-13" &&
+    away[0].day_to === "2026-10-14" &&
+    away[0].start_time === null &&
+    away[1].start_time === "13:00:00",
+  away,
+);
+check(
+  "but not what kind of leave, why, or her note",
+  !("kind" in away[0]) && !("reason" in away[0]) && !("note" in away[0]),
+);
+check(
+  "and can't read her leave requests directly",
+  (await q(`SELECT id FROM leave_requests WHERE helper_id = $1`, [HP_ROSA])).length === 0,
+);
+await as(JOY);
+check(
+  "another family sees none of it",
+  (await q(`SELECT * FROM shared_staff_time_off('2026-10-01', '2026-10-31')`)).length === 0,
+);
+await as(LITA);
+check(
+  "nor does a helper",
+  (await q(`SELECT * FROM shared_staff_time_off('2026-10-01', '2026-10-31')`)).length === 0,
+);
+
+await asOwner(() =>
+  q(
+    `INSERT INTO tickets (household_id, title, helper_id, scheduled_start, status) VALUES
+       ($1, 'Errand at home', $3, '2026-10-13T02:00:00Z', 'todo'),
+       ($1, 'Cancelled at home', $3, '2026-10-13T03:00:00Z', 'cancelled'),
+       ($2, 'Beach run', $3, '2026-10-13T05:00:00Z', 'todo')`,
+    [H1, H2, HP_ROSA],
+  ),
+);
+const RANGE = ["2026-10-13T00:00:00Z", "2026-10-14T00:00:00Z"];
+await as(ANA);
+const fromBeach = await q(`SELECT * FROM staff_elsewhere($1, $2)`, RANGE);
+check(
+  "the Beach House sees when Rosa is busy at the Main House, not the cancelled one",
+  fromBeach.length === 1 && fromBeach[0].household_name === "Main House",
+  fromBeach,
+);
+check("without the task's title", !("title" in fromBeach[0]));
+await as(BEN);
+const fromHome = await q(`SELECT * FROM staff_elsewhere($1, $2)`, RANGE);
+check(
+  "and the Main House sees her Beach House task",
+  fromHome.length === 1 && fromHome[0].household_name === "Beach House",
+  fromHome,
+);
+await as(ROSA);
+check(
+  "a helper gets nothing from it",
+  (await q(`SELECT * FROM staff_elsewhere($1, $2)`, RANGE)).length === 0,
 );
 
 // --- Ending -----------------------------------------------------------------------

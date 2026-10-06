@@ -10,9 +10,11 @@ import {
 import type { LeaveKind, LeaveReason, LeaveRequest } from "@/features/leave/leave.types";
 import { leaveRangeIso } from "@/features/leave/leave.utils";
 import { listRestOffRequestsFn, type RestOffRequestRow } from "@/features/ledger/rest-off.actions";
+import { listSharedTimeOffFn, type SharedTimeOffRow } from "@/features/sharing/sharing.actions";
 import { unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
 
-import { timeOffFromLeave, timeOffFromRestOff, type TimeOff } from "../time-off";
+import { timeOffFromLeave, timeOffFromRestOff, timeOffFromShared, type TimeOff } from "../time-off";
+import { householdNow, toISODate } from "@/lib/time";
 
 export type RecordLeaveInput = {
   helperId: string;
@@ -56,6 +58,8 @@ export function useTimeOff({
 }): TimeOffStore {
   const [restOff, setRestOff] = useState<RestOffRequestRow[]>([]);
   const [leave, setLeave] = useState<LeaveRequest[]>([]);
+  // Staff shared in from another house: their approved time off, dates only.
+  const [shared, setShared] = useState<SharedTimeOffRow[]>([]);
   const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
@@ -71,6 +75,17 @@ export function useTimeOff({
         .catch((err) => {
           console.error("[useTimeOff] Failed to load time off:", err);
         });
+    // Separate, so a problem here never hides this house's own time off.
+    const day = (n: number) => {
+      const d = householdNow();
+      d.setDate(d.getDate() + n);
+      return toISODate(d);
+    };
+    listSharedTimeOffFn({ data: { token, from: day(-31), to: day(120) } })
+      .then((rows) => {
+        if (!cancelled) setShared(rows);
+      })
+      .catch((err) => console.error("[useTimeOff] Failed to load shared staff's time off:", err));
     void load();
     const timer = window.setInterval(() => void load(), POLL_MS);
     return () => {
@@ -82,8 +97,12 @@ export function useTimeOff({
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   const list = useMemo(
-    () => [...timeOffFromRestOff(restOff), ...timeOffFromLeave(leave)],
-    [restOff, leave],
+    () => [
+      ...timeOffFromRestOff(restOff),
+      ...timeOffFromLeave(leave),
+      ...timeOffFromShared(shared),
+    ],
+    [restOff, leave, shared],
   );
 
   const run = useCallback(

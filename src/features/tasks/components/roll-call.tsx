@@ -6,7 +6,9 @@ import type { Helper } from "@/features/people/people.types";
 import { lanePill, type LaneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
+import { BusyElsewhereNote } from "@/features/sharing/components/busy-elsewhere-note";
 import { TripChip } from "@/features/sharing/components/trip-chip";
+import { toHouseholdClock, toISODate } from "@/lib/time";
 import { byStart, taskWhen } from "../task.utils";
 
 /**
@@ -66,6 +68,7 @@ export function RollCall({
                 <span className="block truncate text-xs text-muted-foreground">
                   {team ? `${team} · ${h.station}` : h.station}
                 </span>
+                <BusyElsewhereNote helperId={h.id} dayIso={toISODate(toHouseholdClock(nowTs))} />
               </span>
               <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
                 {s.nowTask ? (

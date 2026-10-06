@@ -6,7 +6,9 @@ import type { Helper } from "@/features/people/people.types";
 import { lanePill, laneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
+import { BusyElsewhereNote } from "@/features/sharing/components/busy-elsewhere-note";
 import { TripChip } from "@/features/sharing/components/trip-chip";
+import { toHouseholdClock, toISODate } from "@/lib/time";
 import { byStart, taskWhen } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
@@ -77,6 +79,9 @@ export function HelperLane({
               {unassigned ? "On no one's phone yet" : helper.station}
             </span>
           </div>
+          {!unassigned && (
+            <BusyElsewhereNote helperId={helper.id} dayIso={toISODate(toHouseholdClock(nowTs))} />
+          )}
           {/* Progress means nothing until someone is doing them. */}
           {!unassigned && (
             <div className="mt-1.5 flex items-center gap-2.5">

@@ -10,8 +10,10 @@ import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
+import { useBusyElsewhere } from "@/features/sharing/hooks/use-busy-elsewhere";
 import {
   WEEKDAYS,
+  formatDisplayTime,
   householdNow,
   parseHM,
   parseISODate,
@@ -67,6 +69,8 @@ export function NewTaskModal({
     schedule && date && time
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
+  // Booked at another of the family's houses around then (O41).
+  const elsewhere = useBusyElsewhere().busyNear(helperId, date, time ? parseHM(time) : -1);
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
   const todayIso = toISODate(householdNow());
@@ -169,6 +173,13 @@ export function NewTaskModal({
               ? `That's in ${assignee?.short ?? "her"}'s approved time off.`
               : `That's outside ${assignee?.short ?? "her"}'s shift.`}{" "}
             Doing it then counts as after-hours work and adds to rest owed.
+          </p>
+        )}
+        {elsewhere && (
+          <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
+            {assignee?.short ?? "She"} has a task at {elsewhere.householdName} at{" "}
+            {formatDisplayTime(elsewhere.minute)}.
           </p>
         )}
         <Field label="House-standard note (optional)">
