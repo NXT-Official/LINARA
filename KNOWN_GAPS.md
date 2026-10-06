@@ -281,6 +281,18 @@ the bottom.
 
 
 
+### O44. The APK can sit on its startup spinner forever on an older phone
+
+- **Found:** 2026-10-06. The preview APK from `4d99858` (LINARA_MOBILE) stayed on a spinner on an older test phone that was already signed in from an earlier build. Earlier builds had worked on the same phone.
+- **Ruled out:** Supabase was up and the build had its `EXPO_PUBLIC_*` values. The last three builds installed identical packages, and the live dashboard loaded for the test manager. Nothing on the signed-out route to sign-in changed. The root cause wasn't found: there's no emulator here, and no log from the phone.
+- **What's wrong:** On a signed-in launch the app waits, with no time limit, on three things in order: reading the saved session (`supabase.auth.getSession()`), the account kind (`getAccountKind`), and her employments. If any of these stalls instead of failing, the spinner never ends and there's no way back to sign-in. A `getSession()` that rejected also left the spinner up, because nothing ended the loading state.
+- **Safety net, built 2026-10-06 (LINARA_MOBILE):**
+  - `components/ui/startup-wait.tsx` replaces the startup spinners in `app/index.tsx`, `app/(app)/_layout.tsx` and `app/manager.tsx`. After 12 seconds it offers **Subukan ulit**, which reads the session again and restarts any hanging requests, and **Sign out** (or **Go to sign in**).
+  - Sign-out still refuses while actions wait to sync. If signing out itself stalls for 8 seconds, the phone forgets the session locally (`dropSession`).
+  - `getSession()` failing now ends the loading state.
+- **Still open:** Why it stalled. If `supabase.auth` itself is wedged, signing in again may stall the same way.
+- **To close:** On the affected phone, install a build with the safety net and note which button gets her through. Capture `adb logcat` (`ReactNativeJS` plus errors) from launch. Fix the stall it shows, then move this to Closed Gaps. Owned by `LINARA_MOBILE`.
+
 ### O42. Some lists still load everything ever, or don't scale to a large staff
 
 - **Found:** 2026-10-06, feature audit after O40.
