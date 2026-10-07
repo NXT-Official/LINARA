@@ -40,7 +40,7 @@ export function TheBoardStatusLists({
   const overdueId = (t: Task) => t.status === "blocked" || isPastDue(t, nowTs);
 
   const tabs = [
-    { key: "todo" as const, label: "To-do", count: todo.length, list: todo },
+    { key: "todo" as const, label: "To do", count: todo.length, list: todo },
     { key: "doing" as const, label: "Doing", count: doing.length, list: doing },
     { key: "done" as const, label: "Done", count: done.length, list: done },
   ];

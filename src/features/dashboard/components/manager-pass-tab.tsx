@@ -356,7 +356,7 @@ export function ManagerPassTab({
           <span className="inline-flex items-center gap-1.5 text-sm">
             <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />
             <span className="font-semibold text-foreground tabular-nums">{counts.todo}</span>
-            <span className="text-muted-foreground">to-do</span>
+            <span className="text-muted-foreground">to do</span>
           </span>
           <span className="ml-auto">
             {onShift ? (

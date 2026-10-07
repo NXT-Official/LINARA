@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
@@ -161,6 +161,11 @@ export function TaskPlanner({
   const [who, setWho] = useState<Who>("all");
   const [status, setStatus] = useState<PlanStatus>("all");
   const [query, setQuery] = useState("");
+  // On a phone, search, status and the legend wait behind Filter: eight rows
+  // of controls came before the first day (UX review 2026-10-07). A filter
+  // that's applying stays on show, so it can't narrow the plan unseen.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtering = query.trim() !== "" || status !== "all";
   // Phones stack the week, so days already gone would push today off screen.
   const [showEarlier, setShowEarlier] = useState(false);
 
@@ -466,10 +471,28 @@ export function TaskPlanner({
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-expanded={filtersOpen || filtering}
+            aria-controls="plan-filters"
+            className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition lg:hidden ${
+              filtering
+                ? "border-primary bg-primary/5 text-primary"
+                : "border-border bg-card text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Filter{filtering ? " · on" : ""}
+          </button>
         </div>
       </div>
 
-      <div className="px-1">
+      <div
+        id="plan-filters"
+        className={`px-1 ${filtersOpen || filtering ? "block" : "hidden"} lg:block`}
+      >
         <ListFilter
           query={query}
           onQuery={setQuery}
@@ -504,7 +527,9 @@ export function TaskPlanner({
             </p>
           )}
 
-          <TaskToneLegend />
+          <div className={`${filtersOpen ? "block" : "hidden"} lg:block`}>
+            <TaskToneLegend />
+          </div>
 
           {view === "week" ? (
             <div className="grid gap-3 lg:grid-cols-7 lg:gap-2">

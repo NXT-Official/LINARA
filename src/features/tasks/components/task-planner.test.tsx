@@ -181,6 +181,24 @@ describe("TaskPlanner, week", () => {
   });
 });
 
+describe("TaskPlanner, phone filters", () => {
+  it("keeps search and status behind Filter until opened, and shows them while one applies", () => {
+    renderPlanner();
+    const filter = screen.getByRole("button", { name: "Filter" });
+    const panel = document.getElementById("plan-filters")!;
+    expect(filter.getAttribute("aria-expanded")).toBe("false");
+    expect(panel.className).toMatch(/(^|\s)hidden(\s|$)/);
+
+    fireEvent.click(filter);
+    expect(filter.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(filter);
+    // Closed again, but a status filter is applying, so it stays on show.
+    expect(screen.getByRole("button", { name: "Filter · on" })).toBeTruthy();
+    expect(panel.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+  });
+});
+
 describe("TaskPlanner, month", () => {
   it("shows the month and opens a day's week from it", () => {
     renderPlanner();
