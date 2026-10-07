@@ -368,7 +368,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••"
+              placeholder={mode === "signup" ? "At least 6 characters" : undefined}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
             />
           </Field>
@@ -379,7 +379,6 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
               />
             </Field>

@@ -185,7 +185,7 @@ export function PasswordResetFlow() {
                     setPassword(e.target.value);
                     setFormError(null);
                   }}
-                  placeholder="••••••"
+                  placeholder="At least 6 characters"
                   className={inputClass}
                 />
               </Field>
@@ -198,7 +198,6 @@ export function PasswordResetFlow() {
                     setConfirmPassword(e.target.value);
                     setFormError(null);
                   }}
-                  placeholder="••••••"
                   className={inputClass}
                 />
               </Field>
