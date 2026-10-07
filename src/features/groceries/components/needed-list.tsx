@@ -106,7 +106,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
                   item={g}
                   onRemove={() => ctx.remove(g)}
                   onEdit={(patch) => ctx.edit(g, patch)}
-                  onAddSuggestion={() => ctx.addSuggestion(g)}
+                  onAddSuggestion={() => void ctx.addSuggestion(g).catch(() => {})}
                   onToggleBought={() => ctx.toggleBought(g)}
                 />
               ))}

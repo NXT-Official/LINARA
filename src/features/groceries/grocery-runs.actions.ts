@@ -355,6 +355,29 @@ async function syncShoppers(client: Client, runId: string, helperIds: string[]) 
 }
 
 /**
+ * Puts lines on a run, or back in the pool (`runId` null). The database
+ * skips a row it won't let the caller change without an error, so the rows
+ * that moved are counted and a shortfall is said rather than looking saved.
+ */
+async function moveLines(client: Client, itemIds: string[], runId: string | null) {
+  const { data, error } = await client
+    .from("grocery_items")
+    .update({ run_id: runId })
+    .in("id", itemIds)
+    .select("id");
+  if (error) throw new Error(error.message);
+  const moved = data?.length ?? 0;
+  if (moved < itemIds.length) {
+    throw new Error(
+      moved === 0
+        ? "Those lines didn't move. Refresh the page and try again."
+        : `Only ${moved} of ${itemIds.length} lines moved. Refresh the page and try again.`,
+    );
+  }
+  return moved;
+}
+
+/**
  * Makes a run, or saves one. `itemIds` come off the pool onto it and
  * `newItems` (pantry-low suggestions nobody had listed yet) go straight on;
  * with `send` a new run goes out ready to shop (a manager's own run needs no
@@ -396,13 +419,7 @@ export const saveGroceryRunFn = createServerFn({ method: "POST" })
       id = row.id as string;
     }
     await syncShoppers(client, id, draft.shopperIds);
-    if (data.itemIds?.length) {
-      const { error } = await client
-        .from("grocery_items")
-        .update({ run_id: id })
-        .in("id", data.itemIds);
-      if (error) throw new Error(error.message);
-    }
+    if (data.itemIds?.length) await moveLines(client, data.itemIds, id);
     if (data.newItems?.length) {
       const household = await client
         .from("grocery_runs")
@@ -466,12 +483,7 @@ export const moveGroceryItemsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; itemIds: string[]; runId: string | null }) => data)
   .handler(async ({ data }) => {
     const client = createAuthedClient(data.token);
-    const { error } = await client
-      .from("grocery_items")
-      .update({ run_id: data.runId })
-      .in("id", data.itemIds);
-    if (error) throw new Error(error.message);
-    return { moved: data.itemIds.length };
+    return { moved: await moveLines(client, data.itemIds, data.runId) };
   });
 
 /** Makes or replaces a repeat, its items included. */

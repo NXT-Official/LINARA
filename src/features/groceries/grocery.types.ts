@@ -145,8 +145,11 @@ export type GroceryContextValue = {
   /** Shrinks and uploads a receipt the manager took; rejects on failure. */
   addReceipt: (file: File, runId?: string) => Promise<void>;
   addManual: (name: string, qty: number, unit: string, runId?: string) => void;
-  /** Puts a low-stock suggestion on the real list, so her app shows it too. */
-  addSuggestion: (item: GroceryItem) => void;
+  /**
+   * Puts a low-stock suggestion on the real list (or straight onto a run),
+   * linked to its pantry item so buying it restocks. Rejects on failure.
+   */
+  addSuggestion: (item: GroceryItem, runId?: string) => Promise<void>;
   /** Fixes a not-yet-bought item's name or amount. */
   edit: (item: GroceryItem, patch: { name: string; qty: number; unit: string }) => void;
   /** Only for a not-yet-bought item: curating the plan, not erasing a purchase. */

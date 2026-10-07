@@ -193,10 +193,11 @@ export function RunModal({
       "add",
       async () => {
         if (!run) return;
-        const { itemIds, newItems } = pickedLines();
+        const { itemIds } = pickedLines();
         if (itemIds.length) await ctx.moveItems(itemIds, run.id);
-        for (const g of newItems) {
-          ctx.addManual(g.name, g.qty, g.unit, run.id);
+        // Suggestions go on linked to their pantry item, so buying them restocks it.
+        for (const g of ctx.needed.filter((s) => picked.has(s.id) && s.id.startsWith("sug-"))) {
+          await ctx.addSuggestion(g, run.id);
         }
         setPicked(new Set());
         setPickingFromPool(false);

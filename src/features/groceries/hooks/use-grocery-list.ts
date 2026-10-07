@@ -197,17 +197,15 @@ export function useGroceryList({
         ),
       );
     },
-    addSuggestion: (item) => {
+    addSuggestion: async (item, runId) => {
       if (!token || !item.pantryItemId) return;
       const pantryItemId = item.pantryItemId;
-      quiet(
-        write(
-          () =>
-            insertGroceryItemFn({
-              data: { token, name: item.name, qty: item.qty, unit: item.unit, pantryItemId },
-            }),
-          "Couldn't add the item.",
-        ),
+      await write(
+        () =>
+          insertGroceryItemFn({
+            data: { token, name: item.name, qty: item.qty, unit: item.unit, pantryItemId, runId },
+          }),
+        "Couldn't add the item.",
       );
     },
     edit: (item, patch) => {
