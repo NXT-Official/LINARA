@@ -21,9 +21,10 @@ function toValeRequest(row: ValeRow): ValeRequest {
  * Cash-advance requests: the helper asks, any manager approves or declines.
  * Real Supabase-backed as of KNOWN_GAPS.md Closed Gap C9 -- request()/decide()
  * write through to `vales` and refetch, same pattern as useSchedules' update().
- * Errors are caught and toasted here rather than left to callers, since both
- * ValeRequestModal and the approve/decline buttons in NeedsYou call these as
- * plain fire-and-forget handlers (no await, matching their pre-existing UX).
+ * Errors are caught and toasted here rather than left to callers, since the
+ * approve/decline buttons in NeedsYou call these as plain fire-and-forget
+ * handlers (no await, matching their pre-existing UX). Helpers ask from the
+ * mobile app; request() has no web caller since the web's helper form went.
  */
 export function useVales({ token, ready }: { token: string | null; ready: boolean }) {
   const [vales, setVales] = useState<ValeRequest[]>([]);
