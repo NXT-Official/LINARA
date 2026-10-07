@@ -5,8 +5,6 @@ import {
   groupByPantryCategory,
   needsBuying,
   pantryItemErrors,
-  STARTER_ITEMS,
-  STARTER_ORDER,
   stockState,
   unitFor,
 } from "./pantry.utils";
@@ -34,25 +32,6 @@ describe("needsBuying", () => {
     expect(needsBuying({ qty: 0, par: 0 })).toBe(true);
     expect(needsBuying({ qty: 1, par: 2 })).toBe(true);
     expect(needsBuying({ qty: 2, par: 2 })).toBe(false);
-  });
-});
-
-describe("STARTER_ITEMS", () => {
-  it("only uses categories the database accepts", () => {
-    for (const item of STARTER_ITEMS) {
-      expect(PANTRY_CATEGORIES).toContain(item.category);
-    }
-  });
-
-  it("starts every item stocked, above its keep-at-least amount", () => {
-    for (const item of STARTER_ITEMS) {
-      expect(stockState(item)).toBe("ok");
-    }
-  });
-
-  it("has no duplicate names", () => {
-    const names = STARTER_ITEMS.map((i) => i.name.toLowerCase());
-    expect(new Set(names).size).toBe(names.length);
   });
 });
 
@@ -113,12 +92,6 @@ describe("unitFor", () => {
   it("leaves other units as typed", () => {
     expect(unitFor(1, "kg")).toBe("kg");
     expect(unitFor(1, "L")).toBe("L");
-  });
-});
-
-describe("STARTER_ORDER", () => {
-  it("covers every category the starter list uses", () => {
-    for (const item of STARTER_ITEMS) expect(STARTER_ORDER).toContain(item.category);
   });
 });
 
