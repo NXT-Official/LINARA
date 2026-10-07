@@ -6,7 +6,7 @@ import { FILTER_FROM, matchesQuery } from "@/components/shared/list-filter.utils
 
 import type { PantryStore } from "../hooks/use-pantry";
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
-import { CATEGORY_LABEL } from "../pantry.utils";
+import { CATEGORY_LABEL, needsBuying } from "../pantry.utils";
 import { PantryItemModal } from "./pantry-item-modal";
 import { PantryRow } from "./pantry-row";
 import { PantryStarter } from "./pantry-starter";
@@ -32,7 +32,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
   const [editing, setEditing] = useState<PantryItem | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PantryFilter>("all");
-  const lowCount = items.filter((i) => i.qty <= i.par).length;
+  const lowCount = items.filter(needsBuying).length;
   // Below FILTER_FROM the controls are hidden, so a leftover search can't hide items.
   const showFilter = items.length >= FILTER_FROM;
   const activeQuery = showFilter ? query : "";
@@ -51,13 +51,13 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
     (i) =>
       matchesQuery(i.name, activeQuery) &&
       (activeFilter === "all" ||
-        (activeFilter === "low" ? i.qty <= i.par : i.category === activeFilter)),
+        (activeFilter === "low" ? needsBuying(i) : i.category === activeFilter)),
   );
   const grouped = PANTRY_CATEGORIES.map((cat) => ({
     cat,
     items: shown
       .filter((i) => i.category === cat)
-      .sort((a, b) => (a.qty <= a.par ? -1 : 1) - (b.qty <= b.par ? -1 : 1)),
+      .sort((a, b) => (needsBuying(a) ? -1 : 1) - (needsBuying(b) ? -1 : 1)),
   })).filter((g) => g.items.length > 0);
 
   return (

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import { needsBuying } from "@/features/pantry/pantry.utils";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 
 import {
@@ -108,7 +109,7 @@ export function useGroceryList({
       board.items.filter((g) => !g.bought && g.pantryItemId).map((g) => g.pantryItemId as string),
     );
     const suggestions: GroceryItem[] = pantryItems
-      .filter((p) => p.qty <= p.par && !covered.has(p.id) && !dismissedSuggestions.has(p.id))
+      .filter((p) => needsBuying(p) && !covered.has(p.id) && !dismissedSuggestions.has(p.id))
       .map((p) => ({
         id: `sug-${p.id}`,
         name: p.name,
@@ -127,7 +128,7 @@ export function useGroceryList({
       const next = new Set(prev);
       for (const id of prev) {
         const p = pantryItems.find((x) => x.id === id);
-        if (!p || p.qty > p.par) {
+        if (!p || !needsBuying(p)) {
           next.delete(id);
           changed = true;
         }

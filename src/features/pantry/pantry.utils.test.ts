@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PANTRY_CATEGORIES } from "./pantry.types";
 import {
   groupByPantryCategory,
+  needsBuying,
   pantryItemErrors,
   STARTER_ITEMS,
   STARTER_ORDER,
@@ -11,15 +12,28 @@ import {
 } from "./pantry.utils";
 
 describe("stockState", () => {
-  it("is out at zero, low at or under the buy-more point, else ok", () => {
+  it("is out at zero, low under the keep-at-least amount, else ok", () => {
     expect(stockState({ qty: 0, par: 2 })).toBe("out");
-    expect(stockState({ qty: 2, par: 2 })).toBe("low");
     expect(stockState({ qty: 1.5, par: 2 })).toBe("low");
+    expect(stockState({ qty: 2, par: 2 })).toBe("ok");
     expect(stockState({ qty: 3, par: 2 })).toBe("ok");
   });
 
-  it("counts zero as out even with no buy-more point", () => {
+  it("counts zero as out even with no keep-at-least amount", () => {
     expect(stockState({ qty: 0, par: 0 })).toBe("out");
+  });
+
+  it("is enough once the suggested amount is bought", () => {
+    // Out of toilet roll, keep at least 1: the suggestion is 1, and after it, it's fine.
+    expect(stockState({ qty: 0 + 1, par: 1 })).toBe("ok");
+  });
+});
+
+describe("needsBuying", () => {
+  it("is true for out and low, false at or over the amount", () => {
+    expect(needsBuying({ qty: 0, par: 0 })).toBe(true);
+    expect(needsBuying({ qty: 1, par: 2 })).toBe(true);
+    expect(needsBuying({ qty: 2, par: 2 })).toBe(false);
   });
 });
 
@@ -30,7 +44,7 @@ describe("STARTER_ITEMS", () => {
     }
   });
 
-  it("starts every item stocked, above its buy-more point", () => {
+  it("starts every item stocked, above its keep-at-least amount", () => {
     for (const item of STARTER_ITEMS) {
       expect(stockState(item)).toBe("ok");
     }
