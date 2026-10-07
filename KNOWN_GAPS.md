@@ -166,7 +166,7 @@ the bottom.
   - Home team plus teams she also covers.
   - Every task is at a house; a trip has a from and a to, each a house or a saved place.
   - Her app gets a house switcher, Today across all her houses, a Today layout choice, and a read-only "my team's day" showing who, what, when, where and status only.
-- **Fix, built 2026-10-05, SQL not applied yet:** `supabase/add-shared-staff-and-places.sql`, tested in `supabase/tests/shared-staff-and-places.test.mjs` (in `npm run test:sql`).
+- **Fix, built 2026-10-05, SQL applied (confirmed live 2026-10-07):** `supabase/add-shared-staff-and-places.sql`, tested in `supabase/tests/shared-staff-and-places.test.mjs` (in `npm run test:sql`).
   - **Schema:** `helper_households`, `helper_team_covers`, `household_places`, `tickets.from_*/to_*`, `quick_utos.household_id` (ARCHITECTURE.md §8, 2c).
   - **Her login** reaches every house she works in (`my_household_ids()`): her own tasks (update, add), each house's pantry, palengke list and receipts, team names and saved places, and the photo folder in the evidence bucket. Her session stays in her home household, so pay is unchanged.
   - **Other houses' managers** see her through `shared_helpers()`: shift, availability and team there, never pay.
@@ -207,7 +207,7 @@ the bottom.
   - **Money.** Each run records the cash handed over (abono) and the change returned (sukli), so petty cash reconciles. There's also an optional monthly budget for the house and for each team.
   - **Who sees a run.** Its shoppers, its team (people covering that team too), the helper on its linked task, pantry leads and managers.
   - **Extras chosen:** repeat runs, lead drafts with manager approval (this supersedes O33), and a run linked to a task or trip. Price history per item was not chosen.
-- **Fix, built 2026-10-06, SQL not applied yet:** `supabase/add-grocery-runs.sql` (apply after `add-shared-staff-and-places.sql`), tested in `supabase/tests/grocery-runs.test.mjs` (52 checks, in `npm run test:sql`).
+- **Fix, built 2026-10-06, SQL applied (confirmed live 2026-10-07):** `supabase/add-grocery-runs.sql` (apply after `add-shared-staff-and-places.sql`), tested in `supabase/tests/grocery-runs.test.mjs` (52 checks, in `npm run test:sql`).
   - **Schema:** `grocery_runs`, `grocery_run_shoppers`, `grocery_templates`, `grocery_template_items`, `grocery_budgets`, `grocery_items.run_id`/`bought_at`, `grocery_receipts.run_id` (ARCHITECTURE.md §8, 9b).
   - **Guards:**
     - **Run lifecycle:** draft → pending (a lead asks) → ready (a manager approves and records the cash) → done or cancelled. Leads can't approve or set cash. Anyone who sees a ready run can tick lines, price them, enter the change and close it. Only a manager touches a closed run.
@@ -245,7 +245,7 @@ the bottom.
   - **Leave and rest off.** Both belong to her home household, which pays her, and their read policies cover only that household's managers. The Beach House's Pass, planner and send gate showed her available on her leave day, with no warning.
   - **Her other house's tasks.** Each house saw only its own tasks for her, so two houses could book her for the same hour.
 - **Decided (user, 2026-10-06):** The second house sees that she's away and when she's busy elsewhere, but not the kind of leave, the reason, or the other house's task details.
-- **Fix, built 2026-10-06, SQL not applied yet:** `supabase/add-shared-staff-availability.sql`. Tested in `supabase/tests/shared-staff-and-places.test.mjs` ("Availability"), and `time-off.test.ts`.
+- **Fix, built 2026-10-06, SQL applied 2026-10-07:** `supabase/add-shared-staff-availability.sql`. Tested in `supabase/tests/shared-staff-and-places.test.mjs` ("Availability"), and `time-off.test.ts`.
   - **`shared_staff_time_off()`:** approved leave (whole days) and rest off (windows) of staff shared into the caller's household. Dates only.
   - **`staff_elsewhere()`:** tasks of anyone who works here, at the family's other houses, in either direction. Time, house and status only.
   - **Web:**
@@ -253,7 +253,7 @@ the bottom.
     - Lanes and Roll call say "At Main House 2:00 PM, 4:30 PM", or "now" while a task there is in progress.
     - The task dialogs warn when the time is within an hour of a task at another house.
     - Before the SQL is applied, nothing shows.
-- **Follow-up, built 2026-10-06, SQL not applied yet:** `supabase/add-task-length-and-leave-unassign.sql`. Tested in the same PGlite file ("Leave and length"), and in `task.utils.test.ts` and LINARA_MOBILE `lib/format.test.ts`.
+- **Follow-up, built 2026-10-06, SQL applied 2026-10-07:** `supabase/add-task-length-and-leave-unassign.sql`. Tested in the same PGlite file ("Leave and length"), and in `task.utils.test.ts` and LINARA_MOBILE `lib/format.test.ts`.
   - **Leave clears every house.** `unassign_tasks_for_leave()` runs when leave is approved or recorded with "move her tasks". It moves her open tasks on those days to Unassigned in every house she works in, using each house's own timezone for the day boundaries.
     - **Who can run it:** only a manager of her home household, and only for dates her live leave covers.
     - **The other house:** each moved task gets a comment from the approving manager: "Moved to Unassigned: Rosa is on leave Oct 12 – Oct 14."
@@ -265,8 +265,9 @@ the bottom.
 - **Still open:**
   - **Busy covers yesterday to 14 days out.** A task further ahead gets no warning.
   - **No same-house overlap check.** Two tasks for her at the same time in the same house don't warn.
-  - **My Week doesn't show the length** on her phone. It reads a fixed column list, so it was left alone until the SQL is applied.
-- **To close:** Apply both SQL files. In two test households sharing a helper:
+  - **My Week doesn't show the length** on her phone. It reads a fixed column list, left alone until the SQL was applied; it can be added now.
+- **Applied and checked (2026-10-07):** live as the e2e manager, `tickets.duration_minutes` reads, `shared_staff_time_off()` and `staff_elsewhere()` answer (empty: the sandbox has no shared helper with leave or tasks elsewhere), and `unassign_tasks_for_leave()` refuses a helper whose home household isn't the caller's.
+- **To close:** In two test households sharing a helper:
   1. Give her tasks at both houses during an upcoming leave, then approve the leave at home with "move her tasks". Check that both houses' tasks are Unassigned and the Beach House task has the comment.
   2. Check that the Beach House's Pass shows her off and its send gate warns.
   3. Give her a two-hour task at one house and try to book her inside that window at the other: the dialog warns.
@@ -302,14 +303,6 @@ the bottom.
   - **Appointment prep tasks** go to the first helper with a matching station, or to `activeHelpers[0]` (`appointments-section.tsx`). With several drivers it's always the same one, even when she's off. They should go to someone available with that station, or stay Unassigned.
 - **Blocks:** Nothing yet. The cost grows with staff and time.
 - **To close:** Build when chosen; owned by `LINARA`.
-
-### O46. A grocery line typed by hand never restocked the pantry, even for a pantry item of that name
-
-- **Found:** 2026-10-07, checking runs and the pantry against the sandbox project after "Add from Needed doesn't add items" (couldn't be reproduced on this branch; see C87 for what was found).
-- **What's wrong:** only a `grocery_items` row with `pantry_item_id` restocks when bought (C82), and only lines added from a low pantry item had one. Lines typed by hand (Needed's add box, "Add a line" on a run, a lead's own line in LINARA_MOBILE) stayed unlinked, even "Rice Crackers" with a pantry item called Rice Crackers. They also didn't count as covering that item, so its suggestion still showed and it got listed twice (the sandbox has two Rice Crackers lines that way).
-- **Built, not applied:** `supabase/add-grocery-pantry-link.sql`. A trigger links a not-yet-bought line with no pantry item to the one pantry item in its household with the same name and unit, ignoring case and spaces; no match, a different unit, or two items of that name leave it unlinked. An existing link is never changed. It also links the unbought lines already listed. A runner still can't add a typed line (the runner guard runs first). PGlite: `supabase/tests/grocery-pantry-link.test.mjs`, and `grocery-runs.test.mjs` now loads it on top of the run guards.
-- **Not done, on purpose:** items with no pantry row (kangkong for tonight) don't create one, and a renamed line isn't unlinked.
-- **To close:** apply the SQL by hand after `add-grocery-restock.sql`, check a typed "Rice Crackers" line gets `pantry_item_id`, then delete the duplicate Rice Crackers line in the sandbox. Owned by `LINARA`.
 
 ## Closed Gaps
 
@@ -3537,6 +3530,13 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-07, checking runs and the pantry against the sandbox project (no SQL).
 - **Was:** an item was low at or under its level (`qty <= par`), and both apps suggest buying `par - qty`. Buying exactly that left it at `par`, still low, so it went back into Needed (web) and showed "Paubos" again (mobile). Separately, "Add from Needed" on an existing run put a picked suggestion on through `addManual`, without its `pantry_item_id`, so buying it restocked nothing; Plan a run kept the link. The tested sandbox restock itself worked: ticking the linked toilet-roll line bought took its pantry count from 0 to 1, and unticking it back to 0.
 - **Fix (user's choice of two):** low is now out, or under the level (`qty < par`), with one `needsBuying()` for the count, filter, sort and suggestions (web `pantry.utils.ts`, mobile `lib/pantry.ts`). The level reads "Keep at least" on the web and "Laging may" in the app, instead of "Buy more at" / "Bilhin kapag ... na lang". Suggestions added to a run go on through `addSuggestion(item, runId)` with their link. Moving lines onto or off a run now counts the rows changed and errors on a shortfall, rather than looking saved when the database skips a row. Unit tests in both repos; the run fix checked in a browser against the sandbox.
+
+### C88. A grocery line typed by hand never restocked the pantry, even for a pantry item of that name (former Open Gap O46)
+
+- **Found:** 2026-10-07, checking runs and the pantry against the sandbox project (see C87). **Fixed:** 2026-10-07, SQL applied by hand the same day.
+- **Was:** only a `grocery_items` row with `pantry_item_id` restocks when bought (C82), and only lines added from a low pantry item had one. Lines typed by hand (Needed's add box, "Add a line" on a run, a lead's own line in LINARA_MOBILE) stayed unlinked, even "Rice Crackers" with a pantry item called Rice Crackers. They also didn't count as covering that item, so its suggestion still showed and it got listed twice.
+- **Fix:** `supabase/add-grocery-pantry-link.sql`. A trigger links a not-yet-bought line with no pantry item to the one pantry item in its household with the same name and unit, ignoring case and spaces; no match, a different unit, or two items of that name leave it unlinked. An existing link is never changed. Applying it linked the unbought lines already listed. A runner still can't add a typed line (the runner guard runs first). Items with no pantry row (kangkong for tonight) don't create one, and a renamed line isn't unlinked.
+- **Verified (2026-10-07):** PGlite `supabase/tests/grocery-pantry-link.test.mjs` (in `npm run test:sql`; `grocery-runs.test.mjs` loads it on top of the run guards). Live as the e2e manager: the typed Rice Crackers line was linked on apply, kangkong, bok choy and Kamatis stayed unlinked, and a new typed " TOILET roll" line linked itself to the pantry's toilet roll (then deleted). The sandbox still has two Rice Crackers lines from before, both now linked: buying both would restock twice.
 
 ---
 

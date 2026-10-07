@@ -1,5 +1,5 @@
 -- A typed grocery line links itself to the pantry item it names (decided
--- 2026-10-07, KNOWN_GAPS.md O46).
+-- 2026-10-07, KNOWN_GAPS.md C88, former O46).
 --
 -- Only a line with pantry_item_id restocks the pantry when it's bought
 -- (add-grocery-restock.sql), and only lines added from a low pantry item had
