@@ -303,6 +303,14 @@ the bottom.
 - **Blocks:** Nothing yet. The cost grows with staff and time.
 - **To close:** Build when chosen; owned by `LINARA`.
 
+### O46. A grocery line typed by hand never restocked the pantry, even for a pantry item of that name
+
+- **Found:** 2026-10-07, checking runs and the pantry against the sandbox project after "Add from Needed doesn't add items" (couldn't be reproduced on this branch; see C87 for what was found).
+- **What's wrong:** only a `grocery_items` row with `pantry_item_id` restocks when bought (C82), and only lines added from a low pantry item had one. Lines typed by hand (Needed's add box, "Add a line" on a run, a lead's own line in LINARA_MOBILE) stayed unlinked, even "Rice Crackers" with a pantry item called Rice Crackers. They also didn't count as covering that item, so its suggestion still showed and it got listed twice (the sandbox has two Rice Crackers lines that way).
+- **Built, not applied:** `supabase/add-grocery-pantry-link.sql`. A trigger links a not-yet-bought line with no pantry item to the one pantry item in its household with the same name and unit, ignoring case and spaces; no match, a different unit, or two items of that name leave it unlinked. An existing link is never changed. It also links the unbought lines already listed. A runner still can't add a typed line (the runner guard runs first). PGlite: `supabase/tests/grocery-pantry-link.test.mjs`, and `grocery-runs.test.mjs` now loads it on top of the run guards.
+- **Not done, on purpose:** items with no pantry row (kangkong for tonight) don't create one, and a renamed line isn't unlinked.
+- **To close:** apply the SQL by hand after `add-grocery-restock.sql`, check a typed "Rice Crackers" line gets `pantry_item_id`, then delete the duplicate Rice Crackers line in the sandbox. Owned by `LINARA`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo
@@ -3523,6 +3531,12 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Was:** the household read policies on `helper_profiles`, `payslips`, `vales`, `ledger_entries`, `rest_off_requests`, `leave_requests` and `payout_attempts` allowed any row whose helper is in `public.current_household_id()`. That returns `user_profiles.household_id`, which is set for helpers too, so every helper could read coworkers' wages (`monthly_rate`), payslips, vales, ledger, rest-off and leave requests (sick days included) and payout attempts. Before the fix the staff account saw 3 coworkers' profiles, 3 of their payslips, 1 vale and all 6 payout attempts. Writes were never affected: `acknowledge_offapp_payslip` checks `hp.user_id = auth.uid()`.
 - **Fix:** `supabase/fix-helper-coworker-reads.sql`. Each household read branch also requires `current_user_type() IS DISTINCT FROM 'helper'`, so managers and remote admins read what they did before; helpers fall back to their own rows (`*_own_read`, with `vales_own_read` and `ledger_entries_own_read` new). No write policy changed. Coworkers' names and shifts still reach helpers through the SECURITY DEFINER `team_day` / `my_workplaces` / `family_households`, so no wage split was needed. Side effect: `quick_utos_isolation` and `invite_flags` now show a helper only her own rows, which is all the app reads. LINARA_MOBILE `getPaymentsAwaitingMe()` also filters to her own helper profiles (mobile `jamesDev-improved-ui`, c246c06), so the screen stays right if a policy regresses.
 - **Verified (2026-10-07):** `supabase/tests/coworker-reads.test.mjs` (in `npm run test:sql`) in PGlite. Live against the sandbox after applying: the staff account sees 1 helper profile (its own), 4 payslips and 1 ledger entry (all its own), 0 vales and 0 payout attempts; the primary manager still sees 4 profiles, 7 payslips, 1 vale and 6 payout attempts, as before.
+
+### C87. A bought pantry item went straight back on the grocery list, and suggestions added to a run lost their pantry link
+
+- **Found / fixed:** 2026-10-07, checking runs and the pantry against the sandbox project (no SQL).
+- **Was:** an item was low at or under its level (`qty <= par`), and both apps suggest buying `par - qty`. Buying exactly that left it at `par`, still low, so it went back into Needed (web) and showed "Paubos" again (mobile). Separately, "Add from Needed" on an existing run put a picked suggestion on through `addManual`, without its `pantry_item_id`, so buying it restocked nothing; Plan a run kept the link. The tested sandbox restock itself worked: ticking the linked toilet-roll line bought took its pantry count from 0 to 1, and unticking it back to 0.
+- **Fix (user's choice of two):** low is now out, or under the level (`qty < par`), with one `needsBuying()` for the count, filter, sort and suggestions (web `pantry.utils.ts`, mobile `lib/pantry.ts`). The level reads "Keep at least" on the web and "Laging may" in the app, instead of "Buy more at" / "Bilhin kapag ... na lang". Suggestions added to a run go on through `addSuggestion(item, runId)` with their link. Moving lines onto or off a run now counts the rows changed and errors on a shortfall, rather than looking saved when the database skips a row. Unit tests in both repos; the run fix checked in a browser against the sandbox.
 
 ---
 

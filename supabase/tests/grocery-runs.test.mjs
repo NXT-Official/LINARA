@@ -117,6 +117,8 @@ await db.exec(readFileSync(`${REPO}/add-teams-and-labels.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-shared-staff-and-places.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-grocery-runs.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-grocery-runs.sql`, "utf8"));
+// Applied after runs on the live project; its link must not upset the guards.
+await db.exec(readFileSync(`${REPO}/add-grocery-pantry-link.sql`, "utf8"));
 console.log("migrations applied (grocery runs twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
