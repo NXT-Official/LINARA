@@ -99,7 +99,7 @@ export function InviteHelperModal({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Ate Marites"
+            placeholder="e.g. Marites Santos"
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
