@@ -34,6 +34,16 @@ test.describe("signed out", () => {
     });
   }
 
+  // QA LM-4: the server redirects, rather than rendering the page and leaving
+  // the browser to move on once its scripts load.
+  for (const path of MANAGER_ROUTES) {
+    test(`${path} answers a signed-out request with a 307 to /login`, async ({ request }) => {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toBe("/login");
+    });
+  }
+
   test("an unknown page says so", async ({ page }) => {
     await page.goto("/no-such-page");
     await expect(page.getByText(/not found|404/i).first()).toBeVisible();

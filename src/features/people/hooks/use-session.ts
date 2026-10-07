@@ -25,6 +25,7 @@ import type {
   ManagerMember,
   ManagerRole,
 } from "../people.types";
+import { markSignedIn } from "@/lib/signed-in-cookie";
 import { setHouseholdTimeZone } from "@/lib/time";
 import { managerRoleType } from "../people.constants";
 import { initialsOf, isDueForRenewal, msUntilRenewal, shortNameOf } from "../people.utils";
@@ -187,11 +188,20 @@ export function useSession(): Session {
   };
 
   const clear = () => {
+    markSignedIn(false);
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_KEY);
     window.localStorage.removeItem(USER_ID_KEY);
     window.localStorage.removeItem(HOUSEHOLD_ID_KEY);
   };
+
+  // The marker the server reads to send a signed-out visitor of /manager/*
+  // straight to /login (lib/signed-in-cookie.ts). Set on every signed-in load,
+  // so a session the LINARA_MOBILE WebView wrote gets one too.
+  useEffect(() => {
+    if (status === "authed") markSignedIn(true);
+    else if (status !== "loading") markSignedIn(false);
+  }, [status]);
 
   // Client-only: localStorage doesn't exist during SSR, so status starts
   // "loading" on both server and client render (no hydration mismatch) and

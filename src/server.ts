@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { signedOutRedirect } from "./lib/signed-in-cookie";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -46,6 +47,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // Signed out: straight to /login, before a manager page renders (QA LM-4).
+    const redirect = signedOutRedirect(request);
+    if (redirect) return redirect;
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
