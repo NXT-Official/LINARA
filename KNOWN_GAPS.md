@@ -304,6 +304,21 @@ the bottom.
 - **Blocks:** Nothing yet. The cost grows with staff and time.
 - **To close:** Build when chosen; owned by `LINARA`.
 
+### O47. The AI edge functions answered anyone with the public anon key (QA LM-A6)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`, LM-A6, Critical): a call to `route-utos` with only the anon key, which ships in the site's JS, returned a live OpenAI answer; fifteen in a row all succeeded.
+- **Was:** `verify_jwt = true` only checks that a token is validly signed, and the anon key is. None of `route-utos`, `generate-sop`, `parse-scheduler`, `simplify-sop`, `promote-voice-task` or `transcribe-notes` asked who the caller was or limited calls, so anyone could run up the OpenAI bill or use them as a free AI proxy. The web dashboard itself called three of them with the anon key, from server functions (`routeUtosFn`, `generateSopFn`, `parseSchedulerFn`) that took no login, so `/_serverFn` was a second open door.
+- **Built 2026-10-07, not deployed:**
+  - `supabase/functions/_shared/ai-guard.ts`, called by all six before any work: 401 unless `auth.getUser()` finds a signed-in user, 429 when that user is out of calls.
+  - `supabase/add-ai-call-limits.sql`: `take_ai_call()` counts per user, 60 calls an hour to any one function and 300 a day across all. The table can't be read or changed except through the function. PGlite: `supabase/tests/ai-call-limits.test.mjs`. Until it's applied, the functions let signed-in calls through.
+  - Web: the three server functions require the manager's session token and send it to the function instead of the anon key. LINARA_MOBILE's `supabase.functions.invoke` already sends the signed-in user's token, so it needs no change.
+- **To close, in this order:**
+  1. Apply `add-ai-call-limits.sql` by hand.
+  2. Deploy the web (merge to `main`). The new web sends the manager's token, which the current functions accept; the old web sends the anon key, which the new functions refuse, so the web goes first.
+  3. Deploy the six functions (`npm run deploy:functions`).
+  4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
+  5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

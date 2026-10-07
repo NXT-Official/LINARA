@@ -45,6 +45,7 @@ export function NewRoutineModal({
     try {
       const result = await generateSopFn({
         data: {
+          token: token ?? "",
           prompt: title.trim(),
           station: assignedHelper?.station,
         },

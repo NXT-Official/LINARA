@@ -71,6 +71,7 @@ export function ManagerSchedulePage({
   const authorName = currentAdmin?.name ?? "Manager";
 
   const gate = useSendGate({
+    token: session.token,
     authorName,
     isRemote,
     schedules,
@@ -154,6 +155,7 @@ export function ManagerSchedulePage({
           simDate={simDate}
           helpers={helpers}
           activeHelpers={activeHelpers}
+          token={session.token}
         />
       )}
       {tab === "shifts" && (

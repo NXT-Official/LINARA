@@ -169,6 +169,7 @@ export interface ParsedUtos {
 export const routeUtosFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
+      token: string;
       prompt: string;
       helperId: string;
       helperStatus: "on_shift" | "available" | "off";
@@ -176,7 +177,8 @@ export const routeUtosFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { prompt, helperId, helperStatus, senderType = "manager" } = data;
+    const { token, prompt, helperId, helperStatus, senderType = "manager" } = data;
+    if (!token) throw new Error("Sign in to use this.");
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {
@@ -266,7 +268,8 @@ export const routeUtosFn = createServerFn({ method: "POST" })
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+        // The manager's own token: the function turns away the anon key (LM-A6).
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ prompt, helperId, helperStatus, senderType }),
     });

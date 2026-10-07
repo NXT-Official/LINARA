@@ -24,10 +24,15 @@ export interface HouseStandardSOP {
  */
 export const generateSopFn = createServerFn({ method: "POST" })
   .validator(
-    (data: { prompt: string; station?: "Yaya" | "Cook" | "Laundry" | "Driver" | "House" }) => data,
+    (data: {
+      token: string;
+      prompt: string;
+      station?: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+    }) => data,
   )
   .handler(async ({ data }) => {
-    const { prompt, station } = data;
+    const { token, prompt, station } = data;
+    if (!token) throw new Error("Sign in to use this.");
 
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
@@ -133,7 +138,8 @@ export const generateSopFn = createServerFn({ method: "POST" })
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+        // The manager's own token: the function turns away the anon key (LM-A6).
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ prompt, station }),
     });

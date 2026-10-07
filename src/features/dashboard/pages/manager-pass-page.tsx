@@ -140,6 +140,7 @@ export function ManagerPassPage({
     pendingLeave.map((l) => ({ key: l.id, ...l })),
   );
   const gate = useSendGate({
+    token: session.token,
     authorName,
     isRemote,
     schedules,
