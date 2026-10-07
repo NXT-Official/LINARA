@@ -6,6 +6,7 @@ import { useAppStores } from "../app-store-context";
 import { fmtHoursMinutes } from "@/features/ledger/ledger.utils";
 import { useHouseholdPayroll } from "@/features/pay/hooks/use-household-payroll";
 import { formatCutoffRange } from "@/features/pay/pay.utils";
+import { earlierOwed } from "@/features/pay/period-estimate";
 import type { Helper } from "@/features/people/people.types";
 
 /**
@@ -71,12 +72,22 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
     payroll;
   const restOwedMin = restOwedMinutesTotal;
 
-  const allSettled = !payroll.loading && rows.length > 0 && dueTotal === 0;
+  // Cutoffs before this one that closed unpaid. Left out, the Pass said "All
+  // paid this cutoff, ₱0" while Needs You listed unpaid periods right above it.
+  const earlierByHelper = new Map(
+    scoped.map((h) => [h.id, earlierOwed(h, payPeriods.missed(h.id))]),
+  );
+  const earlierTotal = [...earlierByHelper.values()].reduce((sum, n) => sum + n, 0);
+  const stillToPay = dueTotal + earlierTotal;
+
+  const allSettled = !payroll.loading && rows.length > 0 && stillToPay === 0;
 
   const valeDeductionsTotal = rows.reduce((sum, r) => sum + r.valeDeductions, 0);
   // Unpaid leave comes out of pay like a vale (LEAVE_PLAN.md step 5).
   const unpaidLeaveTotal = rows.reduce((sum, r) => sum + r.unpaidLeaveDeduction, 0);
-  const paidCount = rows.filter((r) => r.state === "paid").length;
+  const owingCount = rows.filter(
+    (r) => r.state !== "paid" || (earlierByHelper.get(r.helper.id) ?? 0) > 0,
+  ).length;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -138,11 +149,12 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-xs font-bold text-muted-foreground block">
-              {isHouseholdView ? "Payroll due this cutoff" : "Due this cutoff"}
+              {isHouseholdView ? "Payroll still to pay" : "Still to pay"}
               {/* Which cutoff, so "this cutoff" isn't a guess (client
                   feedback 2026-10-02). One helper has one; the household
-                  view can span two intervals, so it names none. */}
-              {!isHouseholdView && rows[0]?.cutoff
+                  view can span two intervals, so it names none. Once earlier
+                  cutoffs are owed too, the figure isn't one cutoff's. */}
+              {!isHouseholdView && earlierTotal === 0 && rows[0]?.cutoff
                 ? ` · ${formatCutoffRange(rows[0].cutoff.cutoffStart, rows[0].cutoff.cutoffEnd)}`
                 : ""}
             </span>
@@ -150,11 +162,15 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               {/* While the cutoff is unknown, show nothing rather than a
                   number. Rendering a peso figure against a cutoff the server
                   has not confirmed is what Session B removed from this app. */}
-              {payroll.loading ? "—" : fmtPeso(dueTotal)}
+              {payroll.loading ? "—" : fmtPeso(stillToPay)}
             </h3>
             <p className="text-xs text-muted-foreground">
               {payroll.loading ? (
                 "Checking this cutoff…"
+              ) : earlierTotal > 0 ? (
+                <span className="font-semibold text-status-late-ink">
+                  {dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+                </span>
               ) : allSettled ? (
                 <span className="inline-flex items-center gap-1 text-status-done-ink font-semibold">
                   <CheckCircle2 className="h-3 w-3" />
@@ -166,7 +182,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 <>
                   across{" "}
                   <span className="font-semibold text-foreground">
-                    {rows.length - paidCount} of {rows.length}
+                    {owingCount} of {rows.length}
                   </span>{" "}
                   {rows.length === 1 ? "helper" : "helpers"}
                 </>

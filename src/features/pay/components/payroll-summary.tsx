@@ -11,7 +11,7 @@ import { LARGE_STAFF } from "@/features/teams/teams.constants";
 import { useHouseholdPayroll, type PayrollState } from "../hooks/use-household-payroll";
 import { formatCutoffRange } from "../pay.utils";
 import { manualAckState } from "../payslip-ack";
-import { periodEstimate } from "../period-estimate";
+import { earlierOwed } from "../period-estimate";
 
 const STATE_LABEL: Record<PayrollState, string> = {
   due: "Due",
@@ -72,10 +72,7 @@ export function PayrollSummary({
   // away thinking nothing was due. Estimates before vale, as the unpaid
   // periods card shows them.
   const earlier = new Map(
-    activeHelpers.map((h) => [
-      h.id,
-      payPeriods.missed(h.id).reduce((sum, p) => sum + periodEstimate(h, p), 0),
-    ]),
+    activeHelpers.map((h) => [h.id, earlierOwed(h, payPeriods.missed(h.id))]),
   );
   const earlierTotal = [...earlier.values()].reduce((sum, n) => sum + n, 0);
 
