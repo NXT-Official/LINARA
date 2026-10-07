@@ -9,13 +9,15 @@ export const Route = createFileRoute("/_app/manager")({
   component: ManagerLayoutRoute,
 });
 
+// The gate wraps the shell so the bottom nav never shows to a signed-out
+// visitor while the session is still resolving.
 function ManagerLayoutRoute() {
   return (
-    <ManagerShell>
-      <RequireManagerAuth>
+    <RequireManagerAuth>
+      <ManagerShell>
         <Outlet />
-      </RequireManagerAuth>
-    </ManagerShell>
+      </ManagerShell>
+    </RequireManagerAuth>
   );
 }
 
