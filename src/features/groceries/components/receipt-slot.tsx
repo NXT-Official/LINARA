@@ -7,6 +7,7 @@ import { photoFilename, savePhotoUrl } from "@/lib/evidence-photo";
 
 import { useGrocery } from "../grocery-context";
 import type { GroceryReceipt } from "../grocery.types";
+import { shortNameOf } from "@/features/people/people.utils";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-PH", {
@@ -105,7 +106,7 @@ export function ReceiptSlot({
       id: r.id,
       url: r.url,
       thumb: r.thumbUrl ?? r.url,
-      label: r.byName ? `From ${r.byName.split(" ")[0]}` : "Receipt",
+      label: r.byName ? `From ${shortNameOf(r.byName)}` : "Receipt",
       sub: when(r.createdAt),
       takenAt: r.createdAt,
     })),

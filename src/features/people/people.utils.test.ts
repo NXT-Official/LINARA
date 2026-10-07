@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { computeStatutorySplit } from "./people.utils";
+import { computeStatutorySplit, initialsOf, shortNameOf } from "./people.utils";
 
 /**
  * Batas Kasambahay's statutory split exists in BOTH repos -- here and in
@@ -116,5 +116,28 @@ describe("computeStatutorySplit", () => {
     // If this fails: a rate changed on one side only. Both repos move together,
     // in one pass -- do not "fix" it by editing this test.
     expect(theirs).toBe(ours);
+  });
+});
+
+describe("names", () => {
+  it("drops a leading title before shortening", () => {
+    expect(shortNameOf("Ate Marites")).toBe("Marites");
+    expect(shortNameOf("Kuya Marito")).toBe("Marito");
+    expect(shortNameOf("Manang Rosa Dela Cruz")).toBe("Rosa");
+    expect(initialsOf("Ate Marites")).toBe("M");
+    expect(initialsOf("Manang Rosa Dela Cruz")).toBe("RD");
+  });
+
+  it("uses the first name of a full name, not the surname", () => {
+    expect(shortNameOf("Nicole Azachee")).toBe("Nicole");
+    expect(initialsOf("Nicole Azachee")).toBe("NA");
+  });
+
+  it("handles Ma., a title on its own, and one-word names", () => {
+    expect(shortNameOf("Ma. Theresa Cruz")).toBe("Theresa");
+    expect(initialsOf("Ma. Theresa Cruz")).toBe("MT");
+    expect(shortNameOf("Kuya")).toBe("Kuya");
+    expect(shortNameOf("Jessa")).toBe("Jessa");
+    expect(initialsOf("")).toBe("??");
   });
 });

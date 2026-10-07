@@ -15,6 +15,7 @@ import {
   spentOn,
 } from "../grocery.utils";
 import { RunStatusPill } from "./run-status-pill";
+import { shortNameOf } from "@/features/people/people.utils";
 
 const GROUPS: { status: RunStatus; label: string }[] = [
   { status: "pending", label: "Waiting for your approval" },
@@ -153,7 +154,8 @@ export function RunRow({ run, onOpen }: { run: GroceryRun; onOpen: () => void })
   const p = progress(items);
   const spent = spentOn(items);
   const who = run.shopperIds
-    .map((id) => activeHelpers.find((h) => h.id === id)?.name.split(" ")[0])
+    .map((id) => activeHelpers.find((h) => h.id === id))
+    .map((h) => h && shortNameOf(h.name))
     .filter(Boolean);
   const task = run.ticketId ? board.tasks.find((t) => t.id === run.ticketId) : undefined;
   const meta = [

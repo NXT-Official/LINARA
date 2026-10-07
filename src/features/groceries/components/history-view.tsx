@@ -9,6 +9,7 @@ import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn, unpricedCount } from 
 import { useGroceryHistory } from "../hooks/use-grocery-history";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
+import { shortNameOf } from "@/features/people/people.utils";
 
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
@@ -108,7 +109,8 @@ export function HistoryView() {
                 // A gap with costs still missing is most likely those costs.
                 const costsMissing = gap !== null && gap !== 0 && unpricedCount(r.items) > 0;
                 const who = r.shopperIds
-                  .map((id) => activeHelpers.find((h) => h.id === id)?.name.split(" ")[0])
+                  .map((id) => activeHelpers.find((h) => h.id === id))
+                  .map((h) => h && shortNameOf(h.name))
                   .filter(Boolean);
                 const meta = [
                   r.closedAt && day(r.closedAt),
