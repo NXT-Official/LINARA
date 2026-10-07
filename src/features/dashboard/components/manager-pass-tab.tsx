@@ -256,7 +256,7 @@ export function ManagerPassTab({
       <div className="flex items-center justify-end gap-3">
         <div
           className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
-          role="tablist"
+          role="group"
           aria-label="Pass layout"
         >
           {[
@@ -269,16 +269,17 @@ export function ManagerPassTab({
               <button
                 key={key}
                 onClick={() => updatePassMode(key)}
-                aria-label={label}
                 aria-pressed={active}
-                title={label}
-                className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+                // Named, not icons alone: three pictograms didn't say what
+                // they switched between (UX review 2026-10-07).
+                className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition ${
                   active
                     ? "bg-primary text-primary-foreground shadow-soft"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden />
+                {label}
               </button>
             );
           })}
@@ -301,8 +302,10 @@ export function ManagerPassTab({
             </button>
             {/* The date, once. It used to appear three times: a "The Pass ·
                 Today" eyebrow, a date pill, and the weekday again below. */}
-            <h2 className="min-w-0 font-display text-2xl leading-tight text-foreground">
-              {formatSimDate(shownDate)}
+            {/* "October 7" stays on one line: on a phone the day was wrapping
+                onto a line of its own. */}
+            <h2 className="min-w-0 text-balance font-display text-xl leading-tight text-foreground sm:text-2xl">
+              {formatSimDate(shownDate).replace(/ (\d+)$/, "\u00a0$1")}
             </h2>
             <button
               type="button"

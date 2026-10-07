@@ -90,9 +90,14 @@ describe("unitFor", () => {
     expect(unitFor(2, "packs")).toBe("packs");
   });
 
+  it("says 1 pc, as the grocery list does", () => {
+    expect(unitFor(1, "pcs")).toBe("pc");
+    expect(unitFor(0, "pcs")).toBe("pcs");
+    expect(unitFor(3, "pcs")).toBe("pcs");
+  });
+
   it("leaves other units as typed", () => {
     expect(unitFor(1, "kg")).toBe("kg");
-    expect(unitFor(1, "pcs")).toBe("pcs");
     expect(unitFor(1, "L")).toBe("L");
   });
 });

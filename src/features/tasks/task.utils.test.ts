@@ -67,9 +67,14 @@ describe("taskWhen", () => {
     expect(taskWhen(task(at(30, 19, 30)), now)).toBe("7:30 PM");
   });
 
-  it("adds the weekday for nearby days, before or after", () => {
-    expect(taskWhen(task(at(31 + 0, 19, 30)), now)).toBe("Thu 7:30 PM"); // Oct 1
-    expect(taskWhen(task(at(25, 19, 30)), now)).toBe("Fri 7:30 PM");
+  it("names tomorrow and yesterday", () => {
+    expect(taskWhen(task(at(31 + 0, 19, 30)), now)).toBe("Tomorrow 7:30 PM"); // Oct 1
+    expect(taskWhen(task(at(29, 8, 0)), now)).toBe("Yesterday 8:00 AM");
+  });
+
+  it("gives nearby days their date as well as the weekday, before or after", () => {
+    expect(taskWhen(task(at(25, 19, 30)), now)).toBe("Fri Sep 25, 7:30 PM");
+    expect(taskWhen(task(at(36, 8, 0)), now)).toBe("Tue Oct 6, 8:00 AM");
   });
 
   it("uses the date further out", () => {

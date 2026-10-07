@@ -71,7 +71,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
             <h2 className="font-display text-xl text-foreground">Pantry</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Shared with your helper. What runs low goes on the grocery list.
+            Shared with your staff. What runs low goes on the grocery list.
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">

@@ -29,8 +29,9 @@ export const STOCK_LABEL: Record<Exclude<StockState, "ok">, string> = {
 // Plural units the starter list uses, and anyone typing "packs" by hand.
 const PLURAL_UNITS = new Set(["packs", "bottles", "cans", "bars", "rolls", "heads", "boxes"]);
 
-/** "1 pack", "2 packs": drops a plural unit's "s" at exactly one. Other units as typed. */
+/** "1 pack", "2 packs", "1 pc": drops a plural unit's "s" at exactly one. Other units as typed. */
 export function unitFor(n: number, unit: string): string {
+  if (n === 1 && unit.toLowerCase() === "pcs") return unit.slice(0, -1);
   if (n !== 1 || !PLURAL_UNITS.has(unit.toLowerCase())) return unit;
   return unit.toLowerCase() === "boxes" ? unit.slice(0, -2) : unit.slice(0, -1);
 }

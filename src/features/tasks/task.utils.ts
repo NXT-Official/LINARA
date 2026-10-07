@@ -96,9 +96,19 @@ export function taskWhen(t: Task, nowTs: number): string {
   const start = toHouseholdClock(ms);
   const now = toHouseholdClock(nowTs);
   if (toISODate(start) === toISODate(now)) return timeSpan(t);
-  const days = Math.abs(ms - nowTs) / 86_400_000;
-  if (days < 6.5) return `${weekdayOf(start)} ${t.time}`;
-  return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${t.time}`;
+  // Calendar days apart on the household's clock. A bare weekday read the same
+  // for last Friday and next Friday ("Next up · Fri 7:30 PM · Late"), so a
+  // nearby day carries its date too.
+  const dayDiff = Math.round(
+    (new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime() -
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+      86_400_000,
+  );
+  if (dayDiff === 1) return `Tomorrow ${t.time}`;
+  if (dayDiff === -1) return `Yesterday ${t.time}`;
+  const date = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (Math.abs(dayDiff) < 7) return `${weekdayOf(start)} ${date}, ${t.time}`;
+  return `${date}, ${t.time}`;
 }
 
 /**
