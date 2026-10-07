@@ -1,7 +1,8 @@
-import { AlertCircle, ChevronDown, Info, LogOut, Pencil, Tags } from "lucide-react";
+import { AlertCircle, ChevronDown, Info, LogOut, Package, Pencil, Tags, X } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
+import { Modal } from "@/components/shared/modal";
 import { LabelChips } from "@/features/teams/components/label-chip";
 import type { Label } from "@/features/teams/teams.types";
 
@@ -9,12 +10,14 @@ import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Invite, PantryRole } from "../people.types";
 import { initialsOf } from "../people.utils";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
-import { PantryRolePicker } from "./pantry-role-picker";
+import { PANTRY_ROLE_LABEL, PantryRolePicker } from "./pantry-role-picker";
 
 /**
  * One helper, or one pending invite, on People. In a large household
  * (`compact`) the row is one line of who and where, and opens for the rest:
- * terms, pantry role, contributions and actions.
+ * terms, pantry role, contributions and actions. The pantry role is a line of
+ * text with its picker one tap away; the always-open switch and its hint made
+ * every card several lines longer (UX review 2026-10-07).
  */
 export function HelperRow({
   inv,
@@ -55,6 +58,7 @@ export function HelperRow({
 }) {
   const [open, setOpen] = useState(false);
   const [showContributions, setShowContributions] = useState(false);
+  const [editingPantry, setEditingPantry] = useState(false);
   const displayName = inv.claimedName || inv.name;
   const isActive = inv.status === "active";
   const expanded = !compact || open;
@@ -136,25 +140,25 @@ export function HelperRow({
 
         {expanded && (
           <>
-            {!isActive ? (
-              <div className="text-xs text-muted-foreground">
-                Code: <span className="font-mono font-semibold text-foreground">{inv.code}</span> ·
-                invited by {inv.createdBy}
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">
-                Claimed their own account · joined via {inv.createdBy}
-              </div>
-            )}
-
-            {inv.pantryRole && (
-              <PantryRolePicker
-                name={displayName}
-                role={inv.pantryRole}
-                canChange={canInvite}
-                onChange={onSetPantryRole}
-              />
-            )}
+            <div className="text-xs text-muted-foreground">
+              {!isActive ? (
+                <>
+                  Code: <span className="font-mono font-semibold text-foreground">{inv.code}</span>{" "}
+                  · invited by {inv.createdBy}
+                </>
+              ) : (
+                "Claimed their own account"
+              )}
+              {inv.pantryRole && (
+                <>
+                  {" "}
+                  · Pantry:{" "}
+                  <span className="font-semibold text-foreground">
+                    {PANTRY_ROLE_LABEL[inv.pantryRole]}
+                  </span>
+                </>
+              )}
+            </div>
 
             {belowMinimum && (
               <div className="mt-2 flex items-start gap-2 rounded-xl border border-status-late/30 bg-status-late-soft/60 p-2.5 text-xs text-status-late-ink">
@@ -174,7 +178,7 @@ export function HelperRow({
                 className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
               >
                 <Info className="h-3 w-3" />{" "}
-                {showContributions ? "Hide contributions" : "View contributions split"}
+                {showContributions ? "Hide contributions" : "Contributions"}
               </button>
               {canInvite && (
                 <button
@@ -194,6 +198,15 @@ export function HelperRow({
                   <Tags className="h-3 w-3" /> Teams & houses
                 </button>
               )}
+              {canInvite && inv.pantryRole && (
+                <button
+                  type="button"
+                  onClick={() => setEditingPantry(true)}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Package className="h-3 w-3" /> Pantry role
+                </button>
+              )}
               {canInvite && isActive && (
                 <button
                   type="button"
@@ -209,6 +222,38 @@ export function HelperRow({
               <div className="mt-2.5">
                 <LegalContributionSplitCard wagePHP={inv.wagePHP} />
               </div>
+            )}
+            {editingPantry && inv.pantryRole && (
+              <Modal onClose={() => setEditingPantry(false)}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl text-foreground">
+                    {displayName}&apos;s pantry role
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPantry(false)}
+                    aria-label="Close"
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <PantryRolePicker
+                  name={displayName}
+                  role={inv.pantryRole}
+                  canChange={canInvite}
+                  onChange={onSetPantryRole}
+                />
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPantry(false)}
+                    className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90"
+                  >
+                    Done
+                  </button>
+                </div>
+              </Modal>
             )}
             {inv.flags.length > 0 && (
               <ul className="mt-1.5 space-y-0.5 text-xs text-accent-foreground">

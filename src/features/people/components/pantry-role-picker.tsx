@@ -16,6 +16,11 @@ const OPTIONS: { role: PantryRole; label: string; hint: string }[] = [
   },
 ];
 
+/** "In charge" / "Buys from the list", for a line of text about a helper. */
+export const PANTRY_ROLE_LABEL: Record<PantryRole, string> = Object.fromEntries(
+  OPTIONS.map((o) => [o.role, o.label]),
+) as Record<PantryRole, string>;
+
 /**
  * Who keeps the pantry, per helper (client feedback, 2026-10-02: some homes
  * have a mayordoma, others someone who just does the pabili). Any number of
