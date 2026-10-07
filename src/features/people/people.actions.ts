@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
-import { supabaseClient, createAuthedClient } from "@/lib/supabase";
+import { createAuthedClient } from "@/lib/supabase";
 
 // The Supabase client here isn't generated against a Database type, so
 // .rpc() calls resolve to `{}` instead of the function's actual return
@@ -220,66 +220,32 @@ export async function householdTimeZoneOf(
 }
 
 /**
- * 5. Manager Sign-Up Endpoint (Server Function)
- * Registers a brand-new manager and bootstraps their own household via
+ * 5. Manager Sign-Up, after Supabase Auth (Server Function)
+ * The browser makes the account itself (auth.client.ts), straight with
+ * Supabase Auth, so Auth's per-IP limits see the visitor rather than this
+ * server (QA LM-A7). With the session it got, this joins the household a
+ * manager invite code names, or bootstraps a new one via
  * bootstrap_manager_household() (supabase/add-manager-bootstrap.sql), which
  * sidesteps the same current_household_id() bootstrap deadlock that
  * claim_helper_invite() solves for helpers.
  */
-export const managerSignUpFn = createServerFn({ method: "POST" })
+export const setUpNewManagerFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
+      accessToken: string;
       fullName: string;
       householdName?: string;
-      email: string;
-      password: string;
-      /** Where the confirmation email's link lands (/email-confirmed on this site). */
-      emailRedirectTo?: string;
       /** A manager invite code: join that household instead of starting one. */
       inviteCode?: string;
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { fullName, householdName, email, password, emailRedirectTo, inviteCode } = data;
+    const { accessToken, fullName, householdName, inviteCode } = data;
+    const authedClient = createAuthedClient(accessToken);
 
-    // Without emailRedirectTo the link goes to Supabase's Site URL setting,
-    // which pointed at a retired deployment (404). It must also be listed in
-    // Supabase Auth > URL Configuration > Redirect URLs, or Supabase ignores it.
-    const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: emailRedirectTo ? { emailRedirectTo } : undefined,
-    });
-
-    if (signUpError && signUpError.code !== "user_already_exists") {
-      throw new Error(signUpError.message);
-    }
-
-    let session = signUpData?.session ?? null;
-
-    if (!session) {
-      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword(
-        {
-          email,
-          password,
-        },
-      );
-
-      if (signInError) {
-        if (signInError.code === "email_not_confirmed") {
-          return { status: "confirmation_pending" as const };
-        }
-        throw new Error(signInError.message);
-      }
-      session = signInData.session;
-    }
-
-    if (!session) {
-      return { status: "confirmation_pending" as const };
-    }
-
-    const authedClient = createAuthedClient(session.access_token);
     if (inviteCode) {
+      const { data: user, error: userError } = await authedClient.auth.getUser(accessToken);
+      if (userError || !user.user) throw new Error("Sign in again to finish joining.");
       const { data: claimed, error: claimError } = await authedClient
         .rpc("claim_manager_invite", { p_code: inviteCode, p_full_name: fullName })
         .maybeSingle();
@@ -288,10 +254,7 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
         throw new Error(claimError?.message || "Couldn't join with that code");
       }
       return {
-        status: "authed" as const,
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-        userId: signUpData?.user?.id ?? session.user.id,
+        userId: user.user.id,
         householdId: row.household_id,
         fullName,
         userType: row.user_type,
@@ -312,9 +275,6 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
     }
 
     return {
-      status: "authed" as const,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
       userId: bootstrap.user_id,
       householdId: bootstrap.household_id,
       fullName: bootstrap.full_name,
@@ -324,38 +284,25 @@ export const managerSignUpFn = createServerFn({ method: "POST" })
   });
 
 /**
- * 6. Manager Log-In Endpoint (Server Function)
- * Signs an existing manager in. If this is their first successful login
- * after confirming their email (signup never got to bootstrap because
- * there was no session yet), reports needs_bootstrap instead of failing.
+ * 6. Manager Log-In, after Supabase Auth (Server Function)
+ * The browser signs in itself (auth.client.ts), straight with Supabase Auth,
+ * so Auth's per-IP limits see the visitor rather than this server (QA
+ * LM-A7). With the session it got, this says who that is: a manager to let
+ * in, one who hasn't set up a household yet (first login after confirming
+ * their email, or left their last one), or a kasambahay, whose Linara is the
+ * app.
  */
-export const managerLoginFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; password: string }) => data)
+export const resolveManagerLoginFn = createServerFn({ method: "POST" })
+  .validator((data: { accessToken: string }) => data)
   .handler(async ({ data }) => {
-    const { email, password } = data;
+    const authedClient = createAuthedClient(data.accessToken);
+    const { data: user, error: userError } = await authedClient.auth.getUser(data.accessToken);
+    if (userError || !user.user) throw new Error("Login failed");
 
-    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      if (signInError.code === "email_not_confirmed") {
-        return { status: "confirmation_pending" as const };
-      }
-      throw new Error(signInError.message);
-    }
-
-    const session = signInData.session;
-    if (!session || !signInData.user) {
-      throw new Error("Login failed");
-    }
-
-    const authedClient = createAuthedClient(session.access_token);
     const { data: profileData, error: profileError } = await authedClient
       .from("user_profiles")
       .select("*")
-      .eq("id", signInData.user.id)
+      .eq("id", user.user.id)
       .maybeSingle();
     const profile = profileData as UserProfileRow | null;
 
@@ -365,24 +312,17 @@ export const managerLoginFn = createServerFn({ method: "POST" })
 
     // No profile, or a manager in no household now: set one up or join one.
     if (!profile || (profile.user_type !== "helper" && !profile.household_id)) {
-      return {
-        status: "needs_bootstrap" as const,
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-        userId: signInData.user.id,
-      };
+      return { status: "needs_bootstrap" as const, userId: user.user.id };
     }
 
     // One sign-in for everyone: a kasambahay is told her Linara is in the
-    // app, rather than refused. No tokens go back, so no web session starts.
+    // app, rather than refused. The browser keeps no web session for her.
     if (profile.user_type === "helper") {
       return { status: "helper" as const };
     }
 
     return {
       status: "authed" as const,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
       userId: profile.id,
       householdId: profile.household_id,
       fullName: profile.full_name,
@@ -429,7 +369,7 @@ export const refreshManagerSessionFn = createServerFn({ method: "POST" })
 
 /**
  * 7. Finish Bootstrap Endpoint (Server Function)
- * Called at first-login when managerLoginFn/getManagerProfileFn reports
+ * Called at first-login when resolveManagerLoginFn/getManagerProfileFn reports
  * needs_bootstrap -- reuses the same RPC signup would have called, just
  * triggered at login time instead.
  */
@@ -837,25 +777,6 @@ export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
     }
 
     return { helperId, pantryRole };
-  });
-
-/**
- * 13. Request Password Reset Endpoint (Server Function)
- * Shared by managers (web /login) and helpers (LINARA_MOBILE sign-in, which
- * calls Supabase directly with the same redirect). Supabase only sends mail
- * to redirect URLs on the project's Auth allow-list, and never reveals
- * whether the address has an account -- neither does this.
- */
-export const requestPasswordResetFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; redirectTo: string }) => data)
-  .handler(async ({ data }) => {
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(data.email.trim(), {
-      redirectTo: data.redirectTo,
-    });
-    if (error) {
-      throw new Error(error.message);
-    }
-    return { sent: true };
   });
 
 /**
