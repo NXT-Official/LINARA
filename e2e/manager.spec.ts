@@ -36,7 +36,7 @@ test.describe("manager", () => {
     await expect(dialog.getByRole("alert").filter({ hasText: "Give it a name." })).toBeVisible();
 
     await dialog.getByLabel("Name").fill("E2E check, not saved");
-    await dialog.getByLabel("Buy more at").fill("-5");
+    await dialog.getByLabel("Keep at least").fill("-5");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(
       dialog.getByRole("alert").filter({ hasText: "A number, 0 or more." }),

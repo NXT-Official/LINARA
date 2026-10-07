@@ -42,7 +42,7 @@ test("an item that's run out is suggested for the list", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("On hand").fill("0");
-  await dialog.getByLabel("Buy more at").fill("3");
+  await dialog.getByLabel("Keep at least").fill("3");
   await dialog.getByRole("button", { name: "Add", exact: true }).click();
   await expect(dialog).toBeHidden();
 
