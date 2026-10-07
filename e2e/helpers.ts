@@ -18,7 +18,7 @@ export const MANAGER_ROUTES = [
 ];
 
 /** Pages anyone can open. */
-export const PUBLIC_ROUTES = ["/login", "/privacy", "/terms", "/reset-password"];
+export const PUBLIC_ROUTES = ["/login", "/signup", "/privacy", "/terms", "/reset-password"];
 
 /**
  * Collects console errors and uncaught exceptions (React's #418 shows up as

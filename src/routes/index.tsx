@@ -67,8 +67,8 @@ function LandingPage() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           {/* Opens on Set up your household; a signed-in visitor is sent on to the Pass. */}
           <Link
-            to="/login"
-            search={{ mode: "signup" }}
+            to="/signup"
+            search={{ step: "household" }}
             className="w-full rounded-lg bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
           >
             Start Household Pass
