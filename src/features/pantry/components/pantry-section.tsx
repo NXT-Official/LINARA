@@ -9,7 +9,6 @@ import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pant
 import { CATEGORY_LABEL, needsBuying } from "../pantry.utils";
 import { PantryItemModal } from "./pantry-item-modal";
 import { PantryRow } from "./pantry-row";
-import { PantryStarter } from "./pantry-starter";
 
 type PantryFilter = "all" | "low" | PantryCategory;
 
@@ -24,7 +23,6 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
     adjust: onAdjust,
     setQty: onSetQty,
     add: onAdd,
-    addMany,
     edit: onEdit,
     remove: onRemove,
   } = pantry;
@@ -84,12 +82,15 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
               <Check className="h-3 w-3" /> All stocked
             </span>
           )}
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add item
-          </button>
+          {/* Empty, the card's own Add item says it. */}
+          {items.length > 0 && (
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add item
+            </button>
+          )}
         </div>
       </div>
 
@@ -107,7 +108,22 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {items.length === 0 && <PantryStarter onAdd={addMany} onAddOwn={() => setAdding(true)} />}
+        {/* Empty until the house adds its own; no pre-ticked starter list
+            (user, 2026-10-07: it couldn't be dismissed, and empty is fine). */}
+        {items.length === 0 && (
+          <div className="rounded-2xl bg-background/60 px-4 py-6 text-center">
+            <p className="text-sm text-foreground">Nothing in the pantry yet.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add what your home keeps. What runs low goes on the grocery list.
+            </p>
+            <button
+              onClick={() => setAdding(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add item
+            </button>
+          </div>
+        )}
         {items.length > 0 && grouped.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">Nothing matches.</p>
         )}
