@@ -52,9 +52,13 @@ export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
   cancelled: "Cancelled",
 };
 
-/** helper_profiles.pay_days_per_year: the unpaid-leave divisor (LEGAL_CONSIDERATIONS.md). */
+/**
+ * helper_profiles.pay_days_per_year: the unpaid-leave divisor (LEGAL_CONSIDERATIONS.md).
+ * 365 is every helper's default, live-in or not, and the smallest deduction;
+ * the label used to say "(live-in)" and read as if it followed the arrangement.
+ */
 export const PAY_DAYS_OPTIONS = [
-  { value: 365, label: "Every day (live-in)" },
+  { value: 365, label: "Every calendar day (smallest deduction)" },
   { value: 313, label: "Six days a week" },
   { value: 261, label: "Five days a week" },
 ] as const;
