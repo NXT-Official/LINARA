@@ -4,10 +4,10 @@ import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
 import { photoFilename, savePhotoUrl } from "@/lib/evidence-photo";
+import { shortNameOf } from "@/features/people/people.utils";
 
 import { useGrocery } from "../grocery-context";
 import type { GroceryReceipt } from "../grocery.types";
-import { shortNameOf } from "@/features/people/people.utils";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-PH", {
@@ -27,6 +27,8 @@ const when = (iso: string) =>
  * on the list items -- so the full view offers to save one.
  *
  * With `runId`, just that run's receipts, and a new one goes with it.
+ * Without, only receipts that belong to no run (the Needed list): a run's
+ * receipts live with the run, and listing them here too showed them twice.
  * `receipts` shows a given list instead (a closed run in History), with no
  * add button.
  */
@@ -37,7 +39,7 @@ export function ReceiptSlot({
 }: { compact?: boolean; runId?: string; receipts?: GroceryReceipt[] } = {}) {
   const ctx = useGrocery();
   const readOnly = receipts !== undefined;
-  const list = receipts ?? (runId ? ctx.receipts.filter((r) => r.runId === runId) : ctx.receipts);
+  const list = receipts ?? ctx.receipts.filter((r) => (runId ? r.runId === runId : !r.runId));
   const [preview, setPreview] = useState<{ url: string; takenAt?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);

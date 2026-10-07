@@ -2,6 +2,7 @@ import { CalendarClock, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { shortNameOf } from "@/features/people/people.utils";
 
 import { useGrocery } from "../grocery-context";
 import type { GroceryRun, RunStatus } from "../grocery.types";
@@ -15,7 +16,6 @@ import {
   spentOn,
 } from "../grocery.utils";
 import { RunStatusPill } from "./run-status-pill";
-import { shortNameOf } from "@/features/people/people.utils";
 
 const GROUPS: { status: RunStatus; label: string }[] = [
   { status: "pending", label: "Waiting for your approval" },

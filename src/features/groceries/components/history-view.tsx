@@ -3,13 +3,13 @@ import { useState } from "react";
 
 import { matchesQuery } from "@/components/shared/list-filter.utils";
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { shortNameOf } from "@/features/people/people.utils";
 
 import type { GroceryHistory } from "../grocery.types";
 import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn, unpricedCount } from "../grocery.utils";
 import { useGroceryHistory } from "../hooks/use-grocery-history";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
-import { shortNameOf } from "@/features/people/people.utils";
 
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
