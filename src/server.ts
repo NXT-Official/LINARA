@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { withSecurityHeaders } from "./lib/security-headers";
 import { signedOutRedirect } from "./lib/signed-in-cookie";
 
 type ServerEntry = {
@@ -45,21 +46,26 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+async function respond(request: Request, env: unknown, ctx: unknown): Promise<Response> {
+  // Signed out: straight to /login, before a manager page renders (QA LM-4).
+  const redirect = signedOutRedirect(request);
+  if (redirect) return redirect;
+  try {
+    const handler = await getServerEntry();
+    const response = await handler.fetch(request, env, ctx);
+    return await normalizeCatastrophicSsrResponse(response);
+  } catch (error) {
+    console.error(error);
+    return new Response(renderErrorPage(), {
+      status: 500,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    // Signed out: straight to /login, before a manager page renders (QA LM-4).
-    const redirect = signedOutRedirect(request);
-    if (redirect) return redirect;
-    try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
+    // Every response, error pages and redirects too (QA LM-A8).
+    return withSecurityHeaders(await respond(request, env, ctx));
   },
 };

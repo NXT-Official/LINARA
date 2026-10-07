@@ -320,6 +320,13 @@ the bottom.
   4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
   5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
 
+### O48. No full Content-Security-Policy yet
+
+- **Found:** 2026-10-07, security QA LM-A8 (see C91), which named "a real CSP" as the higher-value header.
+- **What's missing:** pages send `Content-Security-Policy: frame-ancestors 'none'` and nothing else, so the browser doesn't restrict where scripts, styles, images or connections may come from.
+- **Why not yet:** a working policy has to allow the Supabase project (REST, Auth, Realtime websockets, Storage signed URLs for photos), Google Fonts, `data:`/`blob:` images from the camera and receipt previews, and TanStack Start's inline hydration scripts (a nonce or hash). A wrong one breaks the app quietly, in the LINARA_MOBILE WebView too.
+- **To close:** ship it first as `Content-Security-Policy-Report-Only` from `src/lib/security-headers.ts`, run the e2e suite and the app's manager view with the console open, fix what it reports, then switch it to enforcing. Owned by `LINARA`.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo
@@ -3561,6 +3568,20 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** a `linara_signed_in=1` cookie (`src/lib/signed-in-cookie.ts`), set by `useSession` whenever a session is confirmed and cleared when there isn't one or on log out. `src/server.ts` answers a GET for `/manager` or `/manager/*` without it with a 307 to `/login`, before anything renders. The cookie holds no token and grants nothing; a stale one falls through to the client check as before. The WebView's first open hops once through `/login` (O18).
 - **Verified (2026-10-07):** unit tests in `signed-in-cookie.test.ts`; e2e `public.spec.ts` checks every manager route answers a signed-out request with a 307 to `/login`, and the signed-in suites still pass (the saved session carries the cookie). Against a local production build: 307 without the cookie, 200 with it.
 - **Also fixed:** `e2e/manager.spec.ts` and `e2e/deep/pantry.spec.ts` still looked for the old "Buy more at" label (C87 renamed it "Keep at least").
+
+### C90. Login, sign-up and reset emails went through this site's server, so nothing slowed guessing or email floods (QA LM-A7, F4)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`): LM-A7 (High), 12 of 12 wrong logins replayed against `/_serverFn` all answered at once, no 429; F4 (Medium), the reset request could be looped to use up the project's email allowance, with a `redirectTo` the browser chose. **Fixed:** 2026-10-07 (web only, no SQL).
+- **Was:** `managerLoginFn`, `managerSignUpFn` and `requestPasswordResetFn` called Supabase Auth from the server, so Auth's per-IP limits only ever saw Vercel's addresses: an attacker wasn't slowed, and could get every manager's login throttled at once. They also signed in on the shared module-level `supabaseClient`.
+- **Fix:** the browser calls Supabase Auth itself (`src/features/people/people.auth.ts`, a throwaway client per call): sign-in, sign-up and the reset email. What comes after stays on the server with the session it got: `resolveManagerLoginFn` (who the account is) and `setUpNewManagerFn` (join with a code, or bootstrap a household). Auth's limits now apply to the visitor's own IP; a throttled try says "Too many tries. Wait a few minutes, then try again." Supabase already only links reset emails to URLs on the project's Redirect URLs allow-list (anything else falls back to the Site URL) and allows one email a minute per address.
+- **Verified (2026-10-07):** against the sandbox from one machine, the 33rd wrong-password sign-in straight to Auth got `429 over_request_rate_limit` (about 30 per 5 minutes per IP). The e2e suite signs in through the new path (53 passed; 4 skipped for want of test data). A Playwright check saw the reset page call `supabase.co/auth/v1/recover` from the browser, with no server function.
+- **Not done, on purpose:** a per-account lockout. It would let anyone lock a manager out by guessing their email; per-IP limits stop one machine, and a stronger minimum password (now 6, set in Supabase Auth > Policies) is the account-side defence.
+
+### C91. Pages could be framed by another site, and sent no nosniff or referrer policy (QA LM-A8)
+
+- **Found:** 2026-10-07, security QA LM-A8 (Medium): only `Strict-Transport-Security` came back, and `/login` loaded inside an iframe on a `file://` page. **Fixed:** 2026-10-07 (web only).
+- **Fix:** `src/server.ts` adds `src/lib/security-headers.ts` to every response it serves, redirects and error pages included: `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. The LINARA_MOBILE WebView loads the dashboard as the whole page, not a frame, so it isn't affected. Static JS and CSS files are served by Vercel directly and don't pass through it; they're never framed and carry the right types. The full CSP is O48.
+- **Verified (2026-10-07):** unit tests in `security-headers.test.ts`; against a local production build, `/login` (200), `/manager/pass` (307) and an unknown page (404) all carry the four headers.
 
 ---
 
