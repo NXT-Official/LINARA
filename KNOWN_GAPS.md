@@ -312,6 +312,7 @@ the bottom.
   - `supabase/functions/_shared/ai-guard.ts`, called by all six before any work: 401 unless `auth.getUser()` finds a signed-in user, 429 when that user is out of calls.
   - `supabase/add-ai-call-limits.sql`: `take_ai_call()` counts per user, 60 calls an hour to any one function and 300 a day across all. The table can't be read or changed except through the function. PGlite: `supabase/tests/ai-call-limits.test.mjs`. Until it's applied, the functions let signed-in calls through.
   - Web: the three server functions require the manager's session token and send it to the function instead of the anon key. LINARA_MOBILE's `supabase.functions.invoke` already sends the signed-in user's token, so it needs no change.
+- **Not urgent while AI is off (checked 2026-10-07):** the project has no `OPENAI_API_KEY` secret, so every function answers from its built-in mock (`useMockAI || !apiKey`); the tester's "buy milk → Yaya" is the mock's answer. Nothing reaches OpenAI or costs anything today. **Do the steps below before adding `OPENAI_API_KEY`.** The web change is safe to ship on its own: the current functions accept the manager's token too.
 - **To close, in this order:**
   1. Apply `add-ai-call-limits.sql` by hand.
   2. Deploy the web (merge to `main`). The new web sends the manager's token, which the current functions accept; the old web sends the anon key, which the new functions refuse, so the web goes first.
