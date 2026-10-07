@@ -10,7 +10,8 @@ export type BottomNavItem = {
 /**
  * Primary navigation. On a phone it is a standard tab bar: full width, flush
  * to the bottom edge, with the home-indicator inset inside it rather than a
- * floating pill hovering over content. From `sm` it becomes a centred dock.
+ * floating pill hovering over content. From `sm` it becomes a centred dock,
+ * and from `lg` the header carries the pages instead (TopBar).
  * Solid unless the browser can blur what's behind it (some Android WebViews
  * can't, and see-through text under the tabs is unreadable); then 90%.
  * Modals (z-50) sit above it. Active state comes from the router and is shown
@@ -20,7 +21,7 @@ export type BottomNavItem = {
 export function BottomNav({ items }: { items: BottomNavItem[] }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 sm:pointer-events-none sm:border-t-0 sm:bg-transparent sm:supports-[backdrop-filter]:bg-transparent sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:backdrop-blur-none"
+      className="fixed inset-x-0 bottom-0 z-40 border-t lg:hidden border-border bg-card pb-[env(safe-area-inset-bottom)] backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 sm:pointer-events-none sm:border-t-0 sm:bg-transparent sm:supports-[backdrop-filter]:bg-transparent sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:backdrop-blur-none"
       aria-label="Primary"
     >
       <div className="mx-auto flex max-w-lg items-stretch gap-1 px-2 py-1.5 sm:pointer-events-auto sm:w-fit sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-1.5 sm:shadow-lift sm:backdrop-blur-xl sm:supports-[backdrop-filter]:bg-card/90">
