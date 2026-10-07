@@ -1,7 +1,10 @@
+import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
+  formatDisplayTime,
   fromHouseholdClock,
   isoToDisplayTime,
+  parseHM,
   parseTimeToMinutes,
   toHouseholdClock,
   toISODate,
@@ -69,15 +72,43 @@ export const byStart = (a: Task, b: Task): number => {
  * 7:30 PM" beyond that. The board holds every unfinished task whatever its
  * date, so a bare time is ambiguous for anything not today.
  */
+/** The lengths offered for a task, in minutes. */
+export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240, 360, 480];
+
+/** "45 min", "1 hr", "1 hr 30 min". */
+export function durationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
+}
+
+/** "2:00 PM – 3:30 PM" for a task with a length; just its time without one. */
+export function timeSpan(t: Pick<Task, "time" | "durationMinutes">): string {
+  if (!t.durationMinutes) return t.time;
+  const end = (parseTimeToMinutes(t.time) + t.durationMinutes) % (24 * 60);
+  return `${t.time} – ${formatDisplayTime(end)}`;
+}
+
 export function taskWhen(t: Task, nowTs: number): string {
   const ms = startMs(t);
-  if (Number.isNaN(ms)) return t.time;
+  if (Number.isNaN(ms)) return timeSpan(t);
   const start = toHouseholdClock(ms);
   const now = toHouseholdClock(nowTs);
-  if (toISODate(start) === toISODate(now)) return t.time;
-  const days = Math.abs(ms - nowTs) / 86_400_000;
-  if (days < 6.5) return `${weekdayOf(start)} ${t.time}`;
-  return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${t.time}`;
+  if (toISODate(start) === toISODate(now)) return timeSpan(t);
+  // Calendar days apart on the household's clock. A bare weekday read the same
+  // for last Friday and next Friday ("Next up · Fri 7:30 PM · Late"), so a
+  // nearby day carries its date too.
+  const dayDiff = Math.round(
+    (new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime() -
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+      86_400_000,
+  );
+  if (dayDiff === 1) return `Tomorrow ${t.time}`;
+  if (dayDiff === -1) return `Yesterday ${t.time}`;
+  const date = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (Math.abs(dayDiff) < 7) return `${weekdayOf(start)} ${date}, ${t.time}`;
+  return `${date}, ${t.time}`;
 }
 
 /**
@@ -128,4 +159,31 @@ export function taskFormErrors(form: {
   if (!form.date) errors.date = "Pick a day.";
   if (!form.time) errors.time = "Pick a time.";
   return errors;
+}
+
+const toHHMM = (minutes: number): string =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/**
+ * The time a new task form opens on. A fixed 8:00 sat outside many shifts, so
+ * the form opened with an out-of-shift warning before anything was typed.
+ * Today: the next whole hour, no earlier than the shift starts. Another day:
+ * when the shift starts. Out of the break either way. When nothing fits (the
+ * shift is over for today), the next hour stands and the warning is true.
+ */
+export function defaultTaskTime(
+  date: string,
+  todayIso: string,
+  nowMinutes: number,
+  schedule?: HelperSchedule,
+): string {
+  const start = schedule ? parseHM(schedule.shiftStart) : 8 * 60;
+  const nextHour = Math.min(23 * 60, Math.floor(nowMinutes / 60) * 60 + 60);
+  let t = date === todayIso ? Math.max(nextHour, start) : start;
+  if (schedule?.breakStart && schedule.breakEnd) {
+    const bs = parseHM(schedule.breakStart);
+    const be = parseHM(schedule.breakEnd);
+    if (t >= bs && t < be) t = be;
+  }
+  return toHHMM(t);
 }

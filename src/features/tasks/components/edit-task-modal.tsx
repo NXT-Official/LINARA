@@ -1,12 +1,18 @@
-import { AlertTriangle, Ban, Camera, CheckCircle2, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, CheckCircle2, Download, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
+import { TripFields } from "@/features/sharing/components/trip-fields";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
+import { photoFilename, savePhotoUrl, TASK_PHOTO_DAYS } from "@/lib/evidence-photo";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
+import { useBusyElsewhere } from "@/features/sharing/hooks/use-busy-elsewhere";
+import { slotTime } from "@/features/sharing/sharing.utils";
 import {
   combineDateAndTime,
   displayTimeTo24h,
@@ -22,6 +28,7 @@ import {
 
 import type { Task } from "../task.types";
 import { taskFormErrors } from "../task.utils";
+import { DurationField } from "./duration-field";
 import { TaskUpdates } from "./task-updates";
 
 export type TaskEdit = {
@@ -30,7 +37,14 @@ export type TaskEdit = {
   scheduledStartIso: string;
   /** null = Unassigned. */
   helperId: string | null;
+  /** A trip's ends; null clears one. */
+  from?: PlaceRef | null;
+  to?: PlaceRef | null;
+  /** How long; null clears it. Only sent when it changed. */
+  durationMinutes?: number | null;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const inputCls =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
@@ -75,6 +89,10 @@ export function EditTaskModal({
   const locked = task.status === "done";
   const canCancel = !!onCancelTask && (task.status === "todo" || task.status === "blocked");
   const [helperId, setHelperId] = useState<string | null>(task.helperId);
+  const [trip, setTrip] = useState<{ from?: PlaceRef; to?: PlaceRef }>({
+    from: task.from,
+    to: task.to,
+  });
   const assignee = helpers.find((h) => h.id === helperId);
   const helperName = assignee?.short ?? "your helper";
   const schedule = helperId ? scheduleFor(helperId) : undefined;
@@ -84,6 +102,7 @@ export function EditTaskModal({
     task.scheduledStart ? isoToISODate(task.scheduledStart) : toISODate(householdNow()),
   );
   const [time, setTime] = useState(() => displayTimeTo24h(task.time));
+  const [duration, setDuration] = useState<number | null>(task.durationMinutes ?? null);
 
   // Editing never bypasses her boundaries silently: say so when the new time
   // lands outside her shift, on a break, or on her rest day.
@@ -91,6 +110,13 @@ export function EditTaskModal({
     schedule && date && time
       ? !isMinuteInShift(parseHM(time), weekdayOf(parseISODate(date)), schedule)
       : false;
+  // Booked at another of the family's houses around then (O41).
+  const elsewhere = useBusyElsewhere().busyOverlap(
+    helperId ?? "",
+    date,
+    time ? parseHM(time) : -1,
+    duration,
+  );
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
 
@@ -105,6 +131,11 @@ export function EditTaskModal({
       note: note.trim() || undefined,
       scheduledStartIso: combineDateAndTime(date, fmtHM12(time)),
       helperId,
+      ...(duration !== (task.durationMinutes ?? null) ? { durationMinutes: duration } : {}),
+      // Only sent when it changed: a plain task saves as before.
+      ...(trip.from !== task.from || trip.to !== task.to
+        ? { from: trip.from ?? null, to: trip.to ?? null }
+        : {}),
     });
   };
 
@@ -144,22 +175,42 @@ export function EditTaskModal({
               : ""}
           </p>
           {task.photo ? (
-            <a
-              href={task.photo}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
-              aria-label="Open the photo full size"
-            >
-              <img
-                src={task.photo}
-                alt="Photo from finishing this task"
-                className="max-h-64 w-full object-cover"
-              />
-            </a>
+            <>
+              <a
+                href={task.photo}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
+                aria-label="Open the photo full size"
+              >
+                <img
+                  src={task.photo}
+                  alt="Photo from finishing this task"
+                  className="max-h-64 w-full object-cover"
+                />
+              </a>
+              {/* Photos are deleted after a while (KNOWN_GAPS.md O28); what
+                  the task was, who did it and when stay. A palengke run's
+                  photo is its receipt, kept as long as receipts are. */}
+              <p className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  Photos are kept{" "}
+                  {task.photo.includes("/receipts/") ? "2 months" : `${TASK_PHOTO_DAYS} days`}.
+                </span>
+                <a
+                  href={savePhotoUrl(task.photo, photoFilename("task", task.finishedAt))}
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" /> Save photo
+                </a>
+              </p>
+            </>
           ) : (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Camera className="h-3.5 w-3.5" /> No photo with this one.
+              <Camera className="h-3.5 w-3.5" />
+              {task.finishedAt && Date.now() - task.finishedAt > TASK_PHOTO_DAYS * DAY_MS
+                ? `No photo now. Photos are kept ${TASK_PHOTO_DAYS} days.`
+                : "No photo with this one."}
             </p>
           )}
         </div>
@@ -172,7 +223,7 @@ export function EditTaskModal({
             {task.cancelledAt
               ? ` on ${new Date(task.cancelledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
               : ""}
-            . It's off the board and her phone.
+            . It's off the board and the helper's phone.
           </span>
           {onRestore && (
             <button
@@ -212,19 +263,21 @@ export function EditTaskModal({
             />
           </Field>
           <Field label="Assigned to">
-            <select
+            <HelperPicker
+              helpers={helpers}
               value={helperId ?? ""}
-              onChange={(e) => setHelperId(e.target.value || null)}
+              onChange={(v) => setHelperId(v || null)}
+              ariaLabel="Assigned to"
+              before={[{ value: "", label: "Unassigned (decide later)" }]}
+              describe={(h) => `${h.short} · ${h.station}`}
               className={inputCls}
-            >
-              <option value="">Unassigned (decide later)</option>
-              {helpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.short} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
+          <TripFields
+            from={trip.from}
+            to={trip.to}
+            onChange={(from, to) => setTrip({ from, to })}
+          />
           {helperId === null && (
             <p className="text-sm text-muted-foreground">
               Stays on your board only. Nobody sees it on their phone until you assign it.
@@ -250,6 +303,7 @@ export function EditTaskModal({
               />
             </Field>
           </div>
+          <DurationField value={duration} onChange={setDuration} className={inputCls} />
           {(inTimeOff || outsideShift) && (
             <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
@@ -257,6 +311,12 @@ export function EditTaskModal({
                 ? `That's in ${helperName}'s approved time off.`
                 : `That's outside ${helperName}'s shift.`}{" "}
               Doing it then counts as after-hours work and adds to rest owed.
+            </p>
+          )}
+          {elsewhere && (
+            <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
+              {helperName} is at {elsewhere.householdName} {slotTime(elsewhere)}.
             </p>
           )}
           <Field label="House-standard note (optional)">

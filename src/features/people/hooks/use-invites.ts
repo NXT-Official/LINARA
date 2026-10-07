@@ -55,6 +55,8 @@ export interface HelperProfileRow {
   notice_note?: string | null;
   /** add-pantry-roles.sql: in charge of the pantry, or buys from the list. */
   pantry_role?: PantryRole;
+  /** add-teams-and-labels.sql: her team, if any. */
+  team_id?: string | null;
   created_at: string;
 }
 
@@ -88,6 +90,7 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
     noticeLastDay: row.notice_last_day ?? undefined,
     noticeNote: row.notice_note ?? undefined,
     pantryRole: row.pantry_role,
+    teamId: row.team_id ?? null,
     flags,
   };
 }
@@ -135,6 +138,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     // back into data.
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: "semi_monthly" | "monthly";
+      labelIds?: string[];
     },
     byName: string,
   ): Promise<Invite> => {
@@ -157,6 +161,8 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
         employment: data.employment,
         phone: data.phone,
         startedOn: data.startedOn,
+        teamId: data.teamId ?? null,
+        labelIds: data.labelIds,
         token,
       },
     });
@@ -176,9 +182,12 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
       createdAt: Date.now(),
       createdBy: byName,
       status: "pending",
+      teamId: data.teamId ?? null,
       flags: [],
     };
     setInvites((prev) => [invite, ...prev]);
+    // The roster rows (helpers, schedules, team) come from the database.
+    refresh().catch(() => {});
     return invite;
   };
 

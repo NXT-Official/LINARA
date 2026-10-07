@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { TeamLabelFields } from "@/features/teams/components/team-label-fields";
 import { householdNow, toISODate } from "@/lib/time";
 
 import type { Employment, Invite, Station } from "../people.types";
@@ -19,6 +20,7 @@ export function InviteHelperModal({
   onSubmit: (
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: PaydayInterval;
+      labelIds?: string[];
     },
   ) => Promise<void>;
 }) {
@@ -29,14 +31,21 @@ export function InviteHelperModal({
   const [shiftEnd, setShiftEnd] = useState("19:00");
   const [restDay, setRestDay] = useState<(typeof WEEKLY_REST_DAY_NAMES)[number]>("Sunday");
   const [paydayInterval, setPaydayInterval] = useState<PaydayInterval>("semi_monthly");
-  const [wage, setWage] = useState("8000");
+  // Empty, not a sample figure: a wage is the household's to state, and a
+  // pre-filled one gets accepted unread.
+  const [wage, setWage] = useState("");
   const [phone, setPhone] = useState("");
   const [startedOn, setStartedOn] = useState(() => toISODate(householdNow()));
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const wageNum = parseInt(wage, 10) || 0;
+  const canSubmit = !!name.trim() && wageNum > 0;
+
   const submit = async () => {
-    if (!name.trim()) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -48,9 +57,11 @@ export function InviteHelperModal({
         shiftEnd,
         restDay,
         paydayInterval,
-        wagePHP: parseInt(wage, 10) || 0,
+        wagePHP: wageNum,
         phone: phone.trim(),
         startedOn,
+        teamId,
+        labelIds,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create the invite.");
@@ -67,8 +78,8 @@ export function InviteHelperModal({
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">Invite a helper</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're entering the household's record of the arrangement — not creating her account.
-            She'll claim it herself with the invite code.
+            You're entering the household's record of the arrangement — not creating their account.
+            They'll claim it themselves with the invite code.
           </p>
         </div>
         <button
@@ -88,7 +99,7 @@ export function InviteHelperModal({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Ate Marites"
+            placeholder="e.g. Marites Santos"
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
@@ -116,6 +127,12 @@ export function InviteHelperModal({
             </select>
           </Field>
         </div>
+        <TeamLabelFields
+          teamId={teamId}
+          onTeam={setTeamId}
+          labelIds={labelIds}
+          onLabels={setLabelIds}
+        />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Shift start">
             <input
@@ -165,8 +182,8 @@ export function InviteHelperModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
           <span className="mt-1 block text-xs text-muted-foreground">
-            Her real first day, even if it was years ago; it goes on her record. Linara tracks pay
-            from today, and a first day later than that pro-rates her first cutoff.
+            Their real first day, even if it was years ago; it goes on their record. Linara tracks
+            pay from today, and a first day later than that pro-rates their first cutoff.
           </span>
         </Field>
         <Field label="Payday interval">
@@ -180,22 +197,21 @@ export function InviteHelperModal({
           </select>
         </Field>
 
-        {parseInt(wage, 10) < REGIONAL_MINIMUM_WAGE && (
-          <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+        {wageNum > 0 && wageNum < REGIONAL_MINIMUM_WAGE && (
+          <div className="rounded-2xl bg-status-late-soft/60 border border-status-late/30 p-3.5 text-xs text-status-late-ink flex items-start gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0 text-status-late-ink mt-0.5" />
             <div>
               <span className="font-semibold block mb-0.5">
                 Batas Kasambahay Compliance Warning
               </span>
-              Ang sweldong ₱{(parseInt(wage, 10) || 0).toLocaleString()} ay mababa sa regional
-              minimum wage na{" "}
+              Ang sweldong ₱{wageNum.toLocaleString()} ay mababa sa regional minimum wage na{" "}
               <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span> para
               sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
             </div>
           </div>
         )}
 
-        <LegalContributionSplitCard wagePHP={parseInt(wage, 10) || 0} />
+        {wageNum > 0 && <LegalContributionSplitCard wagePHP={wageNum} />}
         <Field label="Contact number">
           <input
             value={phone}
@@ -224,7 +240,7 @@ export function InviteHelperModal({
         </button>
         <button
           onClick={submit}
-          disabled={!name.trim() || submitting}
+          disabled={!canSubmit || submitting}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
           {submitting ? (

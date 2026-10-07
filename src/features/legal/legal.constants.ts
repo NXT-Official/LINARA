@@ -1,6 +1,6 @@
 // KNOWN_GAPS.md O8. Both documents are drafts until a lawyer has reviewed
 // them; update the date whenever either one changes.
-export const LEGAL_LAST_UPDATED = "October 1, 2026";
+export const LEGAL_LAST_UPDATED = "October 7, 2026";
 
 /**
  * Where people write about their data (RA 10173 needs a named contact). Not

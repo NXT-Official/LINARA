@@ -10,9 +10,11 @@ import {
 import type { LeaveKind, LeaveReason, LeaveRequest } from "@/features/leave/leave.types";
 import { leaveRangeIso } from "@/features/leave/leave.utils";
 import { listRestOffRequestsFn, type RestOffRequestRow } from "@/features/ledger/rest-off.actions";
-import { unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
+import { listSharedTimeOffFn, type SharedTimeOffRow } from "@/features/sharing/sharing.actions";
+import { unassignForLeaveFn, unassignOpenTasksBetweenFn } from "@/features/tasks/task.actions";
 
-import { timeOffFromLeave, timeOffFromRestOff, type TimeOff } from "../time-off";
+import { timeOffFromLeave, timeOffFromRestOff, timeOffFromShared, type TimeOff } from "../time-off";
+import { householdNow, toISODate } from "@/lib/time";
 
 export type RecordLeaveInput = {
   helperId: string;
@@ -56,6 +58,8 @@ export function useTimeOff({
 }): TimeOffStore {
   const [restOff, setRestOff] = useState<RestOffRequestRow[]>([]);
   const [leave, setLeave] = useState<LeaveRequest[]>([]);
+  // Staff shared in from another house: their approved time off, dates only.
+  const [shared, setShared] = useState<SharedTimeOffRow[]>([]);
   const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
@@ -71,6 +75,17 @@ export function useTimeOff({
         .catch((err) => {
           console.error("[useTimeOff] Failed to load time off:", err);
         });
+    // Separate, so a problem here never hides this house's own time off.
+    const day = (n: number) => {
+      const d = householdNow();
+      d.setDate(d.getDate() + n);
+      return toISODate(d);
+    };
+    listSharedTimeOffFn({ data: { token, from: day(-31), to: day(120) } })
+      .then((rows) => {
+        if (!cancelled) setShared(rows);
+      })
+      .catch((err) => console.error("[useTimeOff] Failed to load shared staff's time off:", err));
     void load();
     const timer = window.setInterval(() => void load(), POLL_MS);
     return () => {
@@ -82,8 +97,12 @@ export function useTimeOff({
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   const list = useMemo(
-    () => [...timeOffFromRestOff(restOff), ...timeOffFromLeave(leave)],
-    [restOff, leave],
+    () => [
+      ...timeOffFromRestOff(restOff),
+      ...timeOffFromLeave(leave),
+      ...timeOffFromShared(shared),
+    ],
+    [restOff, leave, shared],
   );
 
   const run = useCallback(
@@ -119,12 +138,24 @@ export function useTimeOff({
   const unassignDuring = useCallback(
     async (helperId: string, startDate: string, endDate: string) => {
       if (!token) return;
+      const tasks = (n: number) => `${n} ${n === 1 ? "task" : "tasks"}`;
       try {
-        const moved = await unassignOpenTasksBetweenFn({
-          data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
-        });
-        if (moved > 0)
-          toast.success(`${moved} ${moved === 1 ? "task" : "tasks"} moved to Unassigned.`);
+        // Every house she works in; this house only before that SQL is applied.
+        const all = await unassignForLeaveFn({ data: { token, helperId, startDate, endDate } });
+        const here =
+          all?.here ??
+          (await unassignOpenTasksBetweenFn({
+            data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
+          }));
+        const elsewhere = (all?.elsewhere ?? [])
+          .map((h) => `${tasks(h.moved)} at ${h.name}`)
+          .join(", ");
+        if (here > 0 || elsewhere) {
+          toast.success(
+            [here > 0 && `${tasks(here)} here`, elsewhere].filter(Boolean).join(" and ") +
+              " moved to Unassigned.",
+          );
+        }
       } catch (err) {
         console.error("[useTimeOff] Failed to move tasks off leave days:", err);
         toast.error(
@@ -156,7 +187,7 @@ export function useTimeOff({
       token
         ? run(
             () => recordLeaveFn({ data: { token, ...input } }),
-            "Leave recorded. She'll be asked to confirm it.",
+            "Leave recorded. They'll be asked to confirm it.",
             "Couldn't record that leave.",
             unassignTasks
               ? () => unassignDuring(input.helperId, input.startDate, input.endDate)

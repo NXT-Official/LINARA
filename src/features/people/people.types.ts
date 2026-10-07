@@ -30,6 +30,12 @@ export type Helper = {
    */
   defaultResolution: LedgerResolution | null;
   effectiveResolution: LedgerResolution;
+  /** Her team (household_teams), or null. Labels live in the team store. For
+   * shared staff, her team in this household. */
+  teamId: string | null;
+  /** Employed by another household of the family (named here) and shared in:
+   * she works here, but her pay and record are that household's. */
+  sharedFrom?: string;
 };
 
 export type AdminType = "primary" | "co" | "remote";
@@ -97,5 +103,7 @@ export type Invite = {
   claimedAt?: number;
   /** Unset until add-pantry-roles.sql is applied; People hides the choice then. */
   pantryRole?: PantryRole;
+  /** Her team (add-teams-and-labels.sql); null for none. */
+  teamId?: string | null;
   flags: InviteFlag[];
 };

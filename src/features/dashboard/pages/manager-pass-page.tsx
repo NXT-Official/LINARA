@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
 import { useOpenTaskCounts } from "@/features/leave/hooks/use-open-task-counts";
@@ -36,6 +37,7 @@ export function ManagerPassPage({
     helper,
     helpers,
     activeHelpers,
+    staffProfiles,
     utos,
     utosRecipientId,
     timeOff,
@@ -83,6 +85,20 @@ export function ManagerPassPage({
   const canEndDay = adminType === "primary" || adminType === "co";
   const authorName = currentAdmin?.name ?? "Manager";
   const rosaStatus = availability.status;
+  // One helper's chip says nothing about a staff of forty: count who's on shift.
+  const onShift =
+    activeHelpers.length > 1
+      ? {
+          on: activeHelpers.filter((h) => {
+            const row = staffProfiles.find((p) => p.id === h.id);
+            return (
+              statusFor(h.id, schedules, clock.nowTs, manualFromRow(row), timeOff.list).status ===
+              "on_shift"
+            );
+          }).length,
+          total: activeHelpers.length,
+        }
+      : undefined;
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -128,7 +144,7 @@ export function ManagerPassPage({
     isRemote,
     schedules,
     nowTs: clock.nowTs,
-    helperProfiles: inviteStore.helperProfiles,
+    helperProfiles: staffProfiles,
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,
@@ -169,6 +185,7 @@ export function ManagerPassPage({
         boardClosed={boardClosed}
         rosaStatus={rosaStatus}
         helperName={helper?.name ?? "your helper"}
+        onShift={onShift}
         authorName={authorName}
         isRemote={isRemote}
         canEndDay={canEndDay}

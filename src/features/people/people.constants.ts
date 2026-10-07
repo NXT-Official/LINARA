@@ -32,7 +32,7 @@ export const adminPermSummary: Record<AdminType, string> = {
   primary: "Runs the household, and the only one who adds or removes managers.",
   co: "Manages everything with the primary manager, except who the managers are.",
   remote:
-    "Sees everything, pays the helper, and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and she's on shift.",
+    "Sees everything, pays the helper, and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and the helper is on shift.",
 };
 
 // household_managers.role (database) -> AdminType (what the UI is keyed on).
@@ -47,7 +47,7 @@ export const stationTone: Record<Station, string> = {
   Yaya: "bg-terracotta-soft/60 text-pine-deep",
   Cook: "bg-[oklch(0.92_0.05_140)] text-[oklch(0.35_0.08_140)]",
   Laundry: "bg-[oklch(0.92_0.04_240)] text-[oklch(0.35_0.08_240)]",
-  Driver: "bg-[oklch(0.92_0.05_60)] text-[oklch(0.38_0.09_60)]",
+  Driver: "bg-[oklch(0.92_0.05_60)] text-accent-foreground",
   House: "bg-secondary text-pine-deep",
 };
 

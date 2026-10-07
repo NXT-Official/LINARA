@@ -64,7 +64,7 @@ export function PantryRow({
           )}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          Buy more at {item.par} {unitFor(item.par, item.unit)}
+          Keep at least {item.par} {unitFor(item.par, item.unit)}
         </div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">

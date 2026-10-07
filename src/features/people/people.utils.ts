@@ -5,20 +5,53 @@ import { WEEKLY_REST_DAY_NAMES } from "./people.constants";
 import type { Helper, PaydayInterval, Station } from "./people.types";
 import { fmtHM12 } from "@/lib/time";
 
-// "Ate Marites" -> "AM". Used for invited helpers, who have no seeded initials yet.
+// Titles a household puts before a name ("Ate Marites", "Kuya Marito",
+// "Manang Rosa"). Dropped before shortening, so the short name and initials
+// are the person's own, not the title's.
+const HONORIFICS = new Set([
+  "ate",
+  "kuya",
+  "manang",
+  "manong",
+  "nanay",
+  "tatay",
+  "lola",
+  "lolo",
+  "tita",
+  "tito",
+  "ninang",
+  "ninong",
+  "yaya",
+  "aling",
+  "mang",
+  "ms",
+  "mr",
+  "mrs",
+  "miss",
+  "sir",
+  "maam",
+  "ma'am",
+]);
+
+/** The words of a name without a leading title; a title alone is kept. */
+const givenNames = (name: string): string[] => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.toLowerCase().replace(/\.$/, "");
+  return parts.length > 1 && first && HONORIFICS.has(first) ? parts.slice(1) : parts;
+};
+
+// "Ate Marites" -> "M", "Nicole Azachee" -> "NA".
 export const initialsOf = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
+  givenNames(name)
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("") || "??";
 
-// "Ate Rosa" -> "Rosa", "Kuya Manuel" -> "Manuel" -- drops a leading honorific by
-// taking the last token; a bare one-word name passes through unchanged.
-const shortNameOf = (name: string): string => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts[parts.length - 1] ?? name;
+// "Ate Rosa" -> "Rosa", "Kuya Manuel" -> "Manuel", "Nicole Azachee" -> "Nicole".
+// "Ma." is Maria, and a "Ma. Theresa" goes by Theresa.
+export const shortNameOf = (name: string): string => {
+  const given = givenNames(name);
+  return (/^ma\.$/i.test(given[0] ?? "") ? given[1] : given[0]) ?? name.trim();
 };
 
 /** Maps a real helper_profiles row (see use-invites.ts) onto the display-shaped Helper type. */
@@ -40,6 +73,7 @@ export function toHelper(row: HelperProfileRow): Helper {
     // yet -- it must never become a place the rule is re-implemented.
     defaultResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.default_resolution ?? ""] ?? null,
     effectiveResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.effective_resolution ?? ""] ?? "rest",
+    teamId: row.team_id ?? null,
   };
 }
 
@@ -58,6 +92,7 @@ export const UNKNOWN_HELPER: Helper = {
   phone: "",
   defaultResolution: null,
   effectiveResolution: "rest",
+  teamId: null,
 };
 
 /** A task nobody is assigned to yet (tickets.helper_id NULL). */

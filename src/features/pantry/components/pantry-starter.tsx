@@ -71,7 +71,7 @@ export function PantryStarter({
                       </span>
                       <span className="min-w-0 flex-1 text-sm text-foreground">{item.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        buy more at {item.par} {unitFor(item.par, item.unit)}
+                        keep at least {item.par} {unitFor(item.par, item.unit)}
                       </span>
                     </label>
                   );

@@ -30,6 +30,16 @@ const dates = (l: LeaveRequest) =>
 const longDate = (iso: string) =>
   parseISODate(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
+/** Why SIL can't be recorded for her now, or null when it can (or isn't known yet). */
+const silUnavailable = (b: LeaveBalance | undefined): string | null =>
+  !b || b.silDays > 0
+    ? null
+    : b.silYearEnd
+      ? "has none left this service year"
+      : b.silEligibleFrom
+        ? `starts ${longDate(b.silEligibleFrom)}`
+        : "starts after a year of service";
+
 /**
  * Leave on People: per helper, what she has left (service incentive leave
  * this service year, rest owed for days off in kind), her recent leave with
@@ -225,6 +235,7 @@ export function LeaveSection({
           helperId={recordingFor.id}
           token={token}
           defaultDate={todayIso}
+          silUnavailable={silUnavailable(balances[recordingFor.id])}
           onClose={() => setRecordingFor(null)}
           onRecord={onRecord}
           silHintText={silHint(policy)}

@@ -62,8 +62,8 @@ export function RecordPaymentModal({
           <p className="mt-1 text-xs text-muted-foreground">
             {periodLabel} ·{" "}
             <span className="font-semibold text-foreground">{fmtPeso(estimate)}</span> for{" "}
-            {helperName}. It goes on both your records, and {helperName} is asked in her app to
-            confirm she received it.
+            {helperName}. It goes on both your records, and {helperName} is asked in the Linara app
+            to confirm it arrived.
           </p>
         </div>
         <button

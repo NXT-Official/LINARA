@@ -3,9 +3,13 @@ import { useMemo, useState } from "react";
 import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
+import { lanePill, laneSummary } from "../lane.utils";
 import { taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
-import { byStart, isPastDue, taskWhen } from "../task.utils";
+import { BusyElsewhereNote } from "@/features/sharing/components/busy-elsewhere-note";
+import { TripChip } from "@/features/sharing/components/trip-chip";
+import { toHouseholdClock, toISODate } from "@/lib/time";
+import { byStart, taskWhen } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
 
@@ -33,12 +37,9 @@ export function HelperLane({
 }) {
   const [open, setOpen] = useState(false);
   const color = unassigned ? UNASSIGNED_HEX : STATION_HEX[helper.station];
-  const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
-  const doneCount = sorted.filter((t) => t.status === "done").length;
-  const inProg = sorted.find((t) => t.status === "in_progress");
-  const upcoming = sorted.filter((t) => t.status === "todo" || t.status === "blocked");
-  const nowTask = inProg ?? upcoming[0];
-  const nextTask = upcoming.find((t) => t.id !== nowTask?.id);
+  const summary = useMemo(() => laneSummary(tasks, nowTs), [tasks, nowTs]);
+  const { sorted, inProg, nowTask, nextTask, overdueIds: overdueSet } = summary;
+  const doneCount = summary.done;
   const later = useMemo(() => [...laterTasks].sort(byStart), [laterTasks]);
   // Two slots: today's now/next first; a later day's task only fills a gap,
   // and says so rather than posing as "next up" today.
@@ -46,30 +47,13 @@ export function HelperLane({
   if (nowTask) rows.push({ label: inProg ? "Now" : "Next up", task: nowTask, muted: false });
   if (nextTask) rows.push({ label: "Next", task: nextTask, muted: true });
   if (rows.length < 2 && later[0]) rows.push({ label: "Coming up", task: later[0], muted: true });
-  // Same rule as Needs You: blocked, or past its planned time on the clock.
-  const overdueSet = new Set(
-    sorted.filter((t) => t.status === "blocked" || isPastDue(t, nowTs)).map((t) => t.id),
-  );
-
   const toAssign = sorted.filter((t) => t.status !== "done").length + later.length;
   const pill = unassigned
     ? {
         text: `${toAssign} to assign`,
         cls: "bg-secondary text-muted-foreground",
       }
-    : overdueSet.size > 0
-      ? {
-          text: `${overdueSet.size} ${overdueSet.size === 1 ? "needs" : "need"} you`,
-          cls: "bg-[oklch(0.93_0.06_35)] text-[oklch(0.42_0.15_35)]",
-        }
-      : inProg
-        ? {
-            text: `Now: ${inProg.title}`,
-            cls: "bg-[oklch(0.93_0.08_75)] text-[oklch(0.4_0.13_75)]",
-          }
-        : sorted.length === 0
-          ? { text: "Nothing today", cls: "bg-secondary text-muted-foreground" }
-          : { text: "On track", cls: "bg-[oklch(0.93_0.05_150)] text-[oklch(0.36_0.1_150)]" };
+    : lanePill(summary);
 
   const pct = sorted.length === 0 ? 0 : Math.round((doneCount / sorted.length) * 100);
 
@@ -95,6 +79,9 @@ export function HelperLane({
               {unassigned ? "On no one's phone yet" : helper.station}
             </span>
           </div>
+          {!unassigned && (
+            <BusyElsewhereNote helperId={helper.id} dayIso={toISODate(toHouseholdClock(nowTs))} />
+          )}
           {/* Progress means nothing until someone is doing them. */}
           {!unassigned && (
             <div className="mt-1.5 flex items-center gap-2.5">
@@ -143,11 +130,11 @@ export function HelperLane({
               const isLate = overdueSet.has(t.id);
               const dotCls =
                 t.status === "done"
-                  ? "bg-[oklch(0.68_0.14_150)]"
+                  ? "bg-status-done"
                   : t.status === "in_progress"
                     ? "bg-accent"
                     : isLate
-                      ? "bg-[oklch(0.6_0.18_35)]"
+                      ? "bg-status-late"
                       : "bg-muted-foreground/40";
               return (
                 <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
@@ -171,6 +158,7 @@ export function HelperLane({
                         t.title
                       )}
                     </div>
+                    <TripChip from={t.from} to={t.to} />
                     {t.note && (
                       <div className="mt-0.5 line-clamp-2 text-xs italic text-muted-foreground">
                         "{t.note}"
@@ -179,7 +167,7 @@ export function HelperLane({
                   </div>
                   <CommentBadge taskId={t.id} />
                   {isLate && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+                    <span className="shrink-0 rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
                       Late
                     </span>
                   )}

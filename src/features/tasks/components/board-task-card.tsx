@@ -7,7 +7,7 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
-import { isPalengke } from "../task.utils";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { CommentBadge } from "./comment-badge";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
@@ -62,13 +62,14 @@ export function BoardTaskCard({
                 task.title
               )}
             </h4>
+            <TripChip from={task.from} to={task.to} />
             {isDoing && (
               <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">
                 Doing
               </span>
             )}
             {late && (
-              <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+              <span className="rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
                 Late
               </span>
             )}
@@ -103,7 +104,7 @@ export function BoardTaskCard({
                 <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
               </button>
             )}
-            {isPalengke(task) && <PalengkeChip />}
+            <PalengkeChip task={task} />
             <CommentBadge taskId={task.id} />
           </div>
           <RescheduleNotice task={task} />
@@ -114,7 +115,12 @@ export function BoardTaskCard({
           )}
           {showPhoto && task.photo && (
             <div className="mt-2 overflow-hidden rounded-xl">
-              <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
+              <img
+                src={task.photoThumb ?? task.photo}
+                alt=""
+                className="h-28 w-full object-cover"
+                loading="lazy"
+              />
             </div>
           )}
         </div>

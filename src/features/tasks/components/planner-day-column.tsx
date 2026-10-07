@@ -7,8 +7,9 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
-import { isPastDue } from "../task.utils";
+import { isPastDue, timeSpan } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { TONE_EDGE } from "./planner-tone";
 
@@ -80,7 +81,7 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
     );
   if (isPastDue(task, nowTs))
     return (
-      <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+      <span className="rounded-full bg-status-late-soft px-1.5 text-xs font-bold text-status-late-ink">
         Late
       </span>
     );
@@ -120,7 +121,7 @@ export function PlannerTaskRow({
     <>
       <span className="flex flex-wrap items-center justify-between gap-x-2">
         <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
-          {task.time}
+          {timeSpan(task)}
         </span>
         <span className="flex items-center gap-1">
           <CommentBadge taskId={task.id} />
@@ -134,6 +135,11 @@ export function PlannerTaskRow({
       >
         {task.title}
       </span>
+      {(task.from || task.to) && (
+        <span className="mt-0.5 block">
+          <TripChip from={task.from} to={task.to} />
+        </span>
+      )}
       {cancelled && task.cancelledBy && (
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           By {task.cancelledBy}

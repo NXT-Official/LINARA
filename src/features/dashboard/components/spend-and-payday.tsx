@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useGrocery } from "@/features/groceries/grocery-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
@@ -5,6 +6,7 @@ import { useAppStores } from "../app-store-context";
 import { fmtHoursMinutes } from "@/features/ledger/ledger.utils";
 import { useHouseholdPayroll } from "@/features/pay/hooks/use-household-payroll";
 import { formatCutoffRange } from "@/features/pay/pay.utils";
+import { earlierOwed } from "@/features/pay/period-estimate";
 import type { Helper } from "@/features/people/people.types";
 
 /**
@@ -28,8 +30,16 @@ import type { Helper } from "@/features/people/people.types";
  * the MULTI_HELPER_HANDLING.md failure mode this card previously embodied.
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
-  const { spent, budget, remaining } = useGrocery();
-  const { vales, payslips, payPeriods, activeHelpers, session, timeOff } = useAppStores();
+  const { spent, budget, remaining, runsAvailable } = useGrocery();
+  // Pay is for the staff this household employs, not those shared in.
+  const {
+    vales,
+    payslips,
+    payPeriods,
+    employedHelpers: activeHelpers,
+    session,
+    timeOff,
+  } = useAppStores();
 
   const scoped = helperOverride ? [helperOverride] : activeHelpers;
   const payroll = useHouseholdPayroll({
@@ -43,15 +53,10 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
   });
   const isHouseholdView = !helperOverride;
 
-  // 1. Spend Dial Calculations
+  // 1. Spend against the budget. A bar only when there is a budget to fill;
+  // rings standing in for content are out (DESIGN.md, Don'ts).
   const spendPct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
   const isSpendOver = spent > budget;
-
-  // Circular SVG configuration
-  const radius = 24;
-  const strokeWidth = 5;
-  const circumference = 2 * Math.PI * radius;
-  const spendDashoffset = circumference - (spendPct / 100) * circumference;
 
   // 2. Pay Dial -- everything below comes from useHouseholdPayroll, which owns
   // the arithmetic (net-pay.ts) AND the payslip lookup. Nothing about pay is
@@ -67,77 +72,66 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
     payroll;
   const restOwedMin = restOwedMinutesTotal;
 
-  const cutoffTotal = dueTotal + paidTotal + inFlightTotal;
-  const allSettled = !payroll.loading && rows.length > 0 && dueTotal === 0;
+  // Cutoffs before this one that closed unpaid. Left out, the Pass said "All
+  // paid this cutoff, ₱0" while Needs You listed unpaid periods right above it.
+  const earlierByHelper = new Map(
+    scoped.map((h) => [h.id, earlierOwed(h, payPeriods.missed(h.id))]),
+  );
+  const earlierTotal = [...earlierByHelper.values()].reduce((sum, n) => sum + n, 0);
+  const stillToPay = dueTotal + earlierTotal;
 
-  // The ring reads "how much of this cutoff's payroll is settled", which is the
-  // question a glance is actually asking. It fills as helpers get paid, rather
-  // than the old "net as a fraction of base", which barely moved and meant
-  // little.
-  const settledPct =
-    cutoffTotal > 0
-      ? Math.min(100, Math.round(((paidTotal + inFlightTotal) / cutoffTotal) * 100))
-      : 0;
+  const allSettled = !payroll.loading && rows.length > 0 && stillToPay === 0;
 
   const valeDeductionsTotal = rows.reduce((sum, r) => sum + r.valeDeductions, 0);
   // Unpaid leave comes out of pay like a vale (LEAVE_PLAN.md step 5).
   const unpaidLeaveTotal = rows.reduce((sum, r) => sum + r.unpaidLeaveDeduction, 0);
-  const paidCount = rows.filter((r) => r.state === "paid").length;
-
-  const payPct = settledPct;
-  const payDashoffset = circumference - (payPct / 100) * circumference;
+  const owingCount = rows.filter(
+    (r) => r.state !== "paid" || (earlierByHelper.get(r.helper.id) ?? 0) > 0,
+  ).length;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {/* 📈 Spend Dial Card */}
-      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
+      {/* Spend */}
+      <div className="rounded-3xl bg-card p-5 shadow-soft">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-muted-foreground block">Petty cash spend</span>
+            <span className="text-xs font-bold text-muted-foreground block">
+              {runsAvailable ? "Palengke this month" : "Petty cash spend"}
+            </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
             <p className="text-xs text-muted-foreground">
-              out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span> weekly
-              target
+              {runsAvailable && budget === 0 ? (
+                "No monthly budget set"
+              ) : (
+                <>
+                  out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span>{" "}
+                  {runsAvailable ? "monthly budget" : "weekly target"}
+                </>
+              )}
             </p>
           </div>
-
-          {/* Circular Progress Ring */}
-          <div className="relative h-16 w-16 shrink-0 flex items-center justify-center">
-            <svg className="h-full w-full -rotate-90">
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                className="stroke-secondary fill-transparent"
-                strokeWidth={strokeWidth}
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                className={`fill-transparent transition-all duration-300 ${
-                  isSpendOver ? "stroke-destructive" : "stroke-primary"
-                }`}
-                strokeWidth={strokeWidth}
-                strokeDasharray={circumference}
-                strokeDashoffset={spendDashoffset}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums">
-              {Math.round(spendPct)}%
-            </div>
-          </div>
         </div>
+        {budget > 0 && (
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div
+              className={`h-full rounded-full ${isSpendOver ? "bg-status-late" : "bg-primary"}`}
+              style={{ width: `${spendPct}%` }}
+            />
+          </div>
+        )}
 
         {/* Micro status details */}
         <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between text-xs">
           <span
-            className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-destructive" : "text-emerald"}`}
+            className={`inline-flex items-center gap-1 font-medium ${isSpendOver ? "text-status-late-ink" : "text-status-done-ink"}`}
           >
-            {isSpendOver ? (
+            {runsAvailable && budget === 0 ? (
+              <Link to="/manager/pantry" className="font-semibold text-primary hover:underline">
+                Set a budget on the Pantry page
+              </Link>
+            ) : isSpendOver ? (
               <>
                 <ArrowUpRight className="h-3 w-3" /> Over by {fmtPeso(spent - budget)}
               </>
@@ -150,16 +144,17 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
         </div>
       </div>
 
-      {/* 📉 Pay Dial Card */}
-      <div className="rounded-3xl bg-card p-5 shadow-soft hover:shadow-lift transition duration-300">
+      {/* Payday */}
+      <div className="rounded-3xl bg-card p-5 shadow-soft">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-xs font-bold text-muted-foreground block">
-              {isHouseholdView ? "Payroll due this cutoff" : "Due this cutoff"}
+              {isHouseholdView ? "Payroll still to pay" : "Still to pay"}
               {/* Which cutoff, so "this cutoff" isn't a guess (client
                   feedback 2026-10-02). One helper has one; the household
-                  view can span two intervals, so it names none. */}
-              {!isHouseholdView && rows[0]?.cutoff
+                  view can span two intervals, so it names none. Once earlier
+                  cutoffs are owed too, the figure isn't one cutoff's. */}
+              {!isHouseholdView && earlierTotal === 0 && rows[0]?.cutoff
                 ? ` · ${formatCutoffRange(rows[0].cutoff.cutoffStart, rows[0].cutoff.cutoffEnd)}`
                 : ""}
             </span>
@@ -167,13 +162,17 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               {/* While the cutoff is unknown, show nothing rather than a
                   number. Rendering a peso figure against a cutoff the server
                   has not confirmed is what Session B removed from this app. */}
-              {payroll.loading ? "—" : fmtPeso(dueTotal)}
+              {payroll.loading ? "—" : fmtPeso(stillToPay)}
             </h3>
             <p className="text-xs text-muted-foreground">
               {payroll.loading ? (
                 "Checking this cutoff…"
+              ) : earlierTotal > 0 ? (
+                <span className="font-semibold text-status-late-ink">
+                  {dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+                </span>
               ) : allSettled ? (
-                <span className="inline-flex items-center gap-1 text-emerald font-semibold">
+                <span className="inline-flex items-center gap-1 text-status-done-ink font-semibold">
                   <CheckCircle2 className="h-3 w-3" />
                   {isHouseholdView
                     ? `All ${rows.length === 1 ? "" : `${rows.length} `}paid this cutoff`
@@ -183,7 +182,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 <>
                   across{" "}
                   <span className="font-semibold text-foreground">
-                    {rows.length - paidCount} of {rows.length}
+                    {owingCount} of {rows.length}
                   </span>{" "}
                   {rows.length === 1 ? "helper" : "helpers"}
                 </>
@@ -194,32 +193,6 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 </>
               )}
             </p>
-          </div>
-
-          {/* Circular Progress Ring */}
-          <div className="relative h-16 w-16 shrink-0 flex items-center justify-center">
-            <svg className="h-full w-full -rotate-90">
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                className="stroke-secondary fill-transparent"
-                strokeWidth={strokeWidth}
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                className="stroke-accent fill-transparent transition-all duration-300"
-                strokeWidth={strokeWidth}
-                strokeDasharray={circumference}
-                strokeDashoffset={payDashoffset}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center text-xs font-bold tabular-nums text-terracotta-ink">
-              {payPct}%
-            </div>
           </div>
         </div>
 

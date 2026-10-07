@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
@@ -8,18 +8,20 @@ import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
 import { PayrollSummary } from "@/features/pay/components/payroll-summary";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
-export function ManagerMoneyPage() {
+export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) {
   const {
     ledger,
     helper,
     helpers,
-    activeHelpers,
+    // Only the staff this household pays; shared staff are paid at home.
+    employedHelpers: activeHelpers,
     invites,
     payslips,
     payPeriods,
@@ -34,8 +36,10 @@ export function ManagerMoneyPage() {
   // explicitly switched. Local to this page: unlike the Quick Utos
   // recipient, nothing else (no write path, no realtime channel) depends on
   // this selection. See MULTI_HELPER_HANDLING.md.
+  // A link from Needs You names the helper it's about (?helper=), so it opens
+  // on her, not on the default.
   const [pickedPayHelperId, setPickedPayHelperId] = useState<string | null>(null);
-  const selectedHelperId = pickedPayHelperId ?? helper?.id ?? null;
+  const selectedHelperId = pickedPayHelperId ?? focusHelperId ?? helper?.id ?? null;
   const selectedHelper = helpers.find((h) => h.id === selectedHelperId) ?? helper ?? null;
   const helperLedgerEntries = ledger.entries.filter((e) => e.helperId === selectedHelper?.id);
   const periods = selectedHelper ? (payPeriods.byHelper[selectedHelper.id] ?? []) : [];
@@ -54,6 +58,28 @@ export function ManagerMoneyPage() {
       : [],
     `${payslipsVersion}|${timeOff.leave.map((l) => `${l.id}:${l.status}`).join(",")}`,
   );
+
+  // Opened from Needs You: once her unpaid periods have loaded, bring them
+  // into view, since they sit below this cutoff's payslip.
+  const missed = selectedHelper ? payPeriods.missed(selectedHelper.id) : [];
+  const scrolledToOwed = useRef(false);
+  useEffect(() => {
+    if (!focusHelperId || scrolledToOwed.current || missed.length === 0) return;
+    // The router's scroll restoration puts a newly opened page back at the top
+    // after this effect, which cancelled a scroll started here (the page never
+    // moved). Two frames later it has run, so the scroll sticks.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        scrolledToOwed.current = true;
+        document.getElementById("owed-pay")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [focusHelperId, missed.length]);
 
   // Keyed on the SELECTED helper's interval, not the household default -- see
   // useHouseholdCutoff's note and MULTI_HELPER_HANDLING.md.
@@ -90,18 +116,14 @@ export function ManagerMoneyPage() {
           <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
             <span className="text-xs font-bold text-primary">Showing</span>
             <Avatar initials={selectedHelper?.initials ?? "??"} />
-            <select
+            <HelperPicker
+              helpers={activeHelpers}
               value={selectedHelperId ?? ""}
-              onChange={(e) => setPickedPayHelperId(e.target.value)}
-              aria-label="Whose money to show"
+              onChange={setPickedPayHelperId}
+              ariaLabel="Whose money to show"
+              align="right"
               className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
-            >
-              {activeHelpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         )}
       </div>
@@ -127,8 +149,9 @@ export function ManagerMoneyPage() {
       />
       {selectedHelper && (
         <MissedPeriodsCard
+          id="owed-pay"
           helper={selectedHelper}
-          missed={payPeriods.missed(selectedHelper.id)}
+          missed={missed}
           token={session.token}
           payslipsVersion={payslipsVersion}
           unsettledVales={unsettledVales}

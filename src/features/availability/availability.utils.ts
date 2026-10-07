@@ -70,14 +70,14 @@ export function statusMeta(s: RosaStatus["status"]) {
   if (s === "on_shift")
     return {
       label: "On shift",
-      dot: "bg-[oklch(0.68_0.14_150)]",
-      cls: "bg-[oklch(0.95_0.05_150)] text-[oklch(0.32_0.1_150)]",
+      dot: "bg-status-done",
+      cls: "bg-status-done-soft text-status-done-ink",
     };
   if (s === "available")
     return {
       label: "Available",
       dot: "bg-accent",
-      cls: "bg-terracotta-soft/70 text-[oklch(0.38_0.09_60)]",
+      cls: "bg-terracotta-soft/70 text-accent-foreground",
     };
   return { label: "Off", dot: "bg-muted-foreground/50", cls: "bg-secondary text-muted-foreground" };
 }

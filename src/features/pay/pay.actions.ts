@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { mapLimit } from "@/lib/map-limit";
 import { createAuthedClient } from "@/lib/supabase";
 import type { PaydayInterval } from "@/features/people/people.types";
 
@@ -250,34 +251,51 @@ export const getHelperPayCutoffFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => readHelperPayCutoff(createAuthedClient(data.token), data.helperId));
 
 /**
- * Every pay period of one employment, oldest first, with the payment that
- * settled each (supabase/add-pay-periods.sql's helper_pay_periods). Empty
- * before that migration is applied.
+ * Every pay period of each employment asked for, oldest first, with the
+ * payment that settled each (supabase/add-pay-periods.sql's
+ * helper_pay_periods); empty before that migration is applied. One request
+ * from the browser for the whole staff, not one per helper (KNOWN_GAPS.md
+ * O36). One that fails comes back empty and is logged.
  */
-export const listPayPeriodsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; helperId: string }) => data)
-  .handler(async ({ data }): Promise<PayPeriod[]> => {
+export const listPayPeriodsForFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperIds: string[] }) => data)
+  .handler(async ({ data }): Promise<Record<string, PayPeriod[]>> => {
     const client = createAuthedClient(data.token);
-    const { data: rows, error } = await client.rpc("helper_pay_periods", {
-      p_helper_id: data.helperId,
-    });
-    if (error) {
-      if (/could not find the function|does not exist/i.test(error.message)) return [];
-      throw new Error(error.message);
-    }
-    return ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
-      fullStart: r.full_start as string,
-      fullEnd: r.full_end as string,
-      workedStart: r.worked_start as string,
-      workedEnd: r.worked_end as string,
-      isCurrent: Boolean(r.is_current),
-      isFinal: Boolean(r.is_final),
-      payslipId: (r.payslip_id as string | null) ?? null,
-      payslipStatus: (r.payslip_status as PayoutStatus | null) ?? null,
-      payslipProvider: (r.payslip_provider as string | null) ?? null,
-      payslipAck: (r.payslip_ack as HelperAck | null) ?? null,
-    }));
+    const entries = await mapLimit(data.helperIds, 8, (helperId) =>
+      readPayPeriods(client, helperId)
+        .then((periods) => [helperId, periods] as const)
+        .catch((err) => {
+          console.error(`[listPayPeriodsForFn] Periods failed for ${helperId}:`, err);
+          return [helperId, [] as PayPeriod[]] as const;
+        }),
+    );
+    return Object.fromEntries(entries);
   });
+
+async function readPayPeriods(
+  client: ReturnType<typeof createAuthedClient>,
+  helperId: string,
+): Promise<PayPeriod[]> {
+  const { data: rows, error } = await client.rpc("helper_pay_periods", {
+    p_helper_id: helperId,
+  });
+  if (error) {
+    if (/could not find the function|does not exist/i.test(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+    fullStart: r.full_start as string,
+    fullEnd: r.full_end as string,
+    workedStart: r.worked_start as string,
+    workedEnd: r.worked_end as string,
+    isCurrent: Boolean(r.is_current),
+    isFinal: Boolean(r.is_final),
+    payslipId: (r.payslip_id as string | null) ?? null,
+    payslipStatus: (r.payslip_status as PayoutStatus | null) ?? null,
+    payslipProvider: (r.payslip_provider as string | null) ?? null,
+    payslipAck: (r.payslip_ack as HelperAck | null) ?? null,
+  }));
+}
 
 /** 13th-month pay for one employment, this year (or the year she left). */
 export const getThirteenthMonthFn = createServerFn({ method: "POST" })
@@ -570,7 +588,9 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     // Off unless the build turns it on: households pay her directly and
     // Linara records it (payout-mode.ts, KNOWN_GAPS O35).
     if (!XENDIT_PAYOUTS_ON) {
-      throw new Error("Paying through Linara is turned off. Pay her GCash or Maya directly.");
+      throw new Error(
+        "Paying through Linara is turned off. Send it to their GCash or Maya directly.",
+      );
     }
     const { token, helperId, channelCode } = data;
     const kind = data.kind ?? "regular";

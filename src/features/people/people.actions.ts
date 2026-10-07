@@ -83,6 +83,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       phone?: string;
       /** Her first working day, "YYYY-MM-DD"; defaults to today in Postgres. */
       startedOn?: string;
+      /** add-teams-and-labels.sql: her team, and any labels. */
+      teamId?: string | null;
+      labelIds?: string[];
       token: string;
     }) => data,
   )
@@ -147,6 +150,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
         employment: employment ?? null,
         phone: phone ?? null,
         ...(data.startedOn ? { started_on: data.startedOn } : {}),
+        // Only sent when chosen, so an invite still works before
+        // add-teams-and-labels.sql is applied.
+        ...(data.teamId ? { team_id: data.teamId } : {}),
         created_by: profile.id,
       })
       .select()
@@ -154,6 +160,18 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
 
     if (insertError || !helperProfile) {
       throw new Error(insertError?.message || "Failed to create helper profile");
+    }
+
+    if (data.labelIds && data.labelIds.length > 0) {
+      const { error: labelError } = await authedClient
+        .from("helper_labels")
+        .insert(
+          data.labelIds.map((labelId) => ({ helper_id: helperProfile.id, label_id: labelId })),
+        );
+      // The invite stands without them; People can add them again.
+      if (labelError) {
+        console.error("[inviteHelperFn] Failed to add labels:", labelError.message);
+      }
     }
 
     // D. Batas Kasambahay compliance minimum wage check

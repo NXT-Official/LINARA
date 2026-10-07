@@ -1,11 +1,17 @@
 import { ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { fmtPeso } from "@/features/groceries/grocery.utils";
+import { StaffScopeBar } from "@/features/teams/components/staff-scope-bar";
+import { useStaffScope } from "@/features/teams/hooks/use-staff-scope";
+import { LARGE_STAFF } from "@/features/teams/teams.constants";
 
 import { useHouseholdPayroll, type PayrollState } from "../hooks/use-household-payroll";
 import { formatCutoffRange } from "../pay.utils";
+import { manualAckState } from "../payslip-ack";
+import { earlierOwed } from "../period-estimate";
 
 const STATE_LABEL: Record<PayrollState, string> = {
   due: "Due",
@@ -18,8 +24,15 @@ const STATE_TONE: Record<PayrollState, string> = {
   due: "bg-terracotta-soft/60 text-terracotta-ink",
   in_flight: "bg-secondary text-pine-deep",
   needs_review: "bg-destructive/10 text-destructive",
-  paid: "bg-primary/10 text-primary",
+  paid: "bg-status-done-soft text-status-done-ink",
 };
+
+/** A paid row whose payment was recorded outside Linara and not yet confirmed. */
+const ACK_LABEL = { recorded: "Recorded", disputed: "Not received" } as const;
+const ACK_TONE = {
+  recorded: "bg-secondary text-pine-deep",
+  disputed: "bg-destructive/10 text-destructive",
+} as const;
 
 /**
  * Every helper's pay for their current cutoff, on one card (client feedback,
@@ -35,7 +48,15 @@ export function PayrollSummary({
   selectedId: string | null;
   onSelect: (helperId: string) => void;
 }) {
-  const { vales, payslips, payPeriods, activeHelpers, session, timeOff } = useAppStores();
+  // Staff shared in from another household are paid there, not here.
+  const {
+    vales,
+    payslips,
+    payPeriods,
+    employedHelpers: activeHelpers,
+    session,
+    timeOff,
+  } = useAppStores();
   const payroll = useHouseholdPayroll({
     token: session.token,
     ready: session.status === "authed",
@@ -46,7 +67,36 @@ export function PayrollSummary({
     leaveVersion: timeOff.leave,
   });
 
+  // Cutoffs before this one that closed unpaid. The card is about the current
+  // cutoff, but "Still to pay ₱0" while earlier ones were owed sent managers
+  // away thinking nothing was due. Estimates before vale, as the unpaid
+  // periods card shows them.
+  const earlier = new Map(
+    activeHelpers.map((h) => [h.id, earlierOwed(h, payPeriods.missed(h.id))]),
+  );
+  const earlierTotal = [...earlier.values()].reduce((sum, n) => sum + n, 0);
+
+  const staff = useStaffScope();
+  const [stateFilter, setStateFilter] = useState<"all" | "unpaid">("all");
+
   if (activeHelpers.length === 0) return null;
+
+  // A large payroll narrows by name, team and label, and to what's still
+  // unpaid, and subtotals by team. The heading's figures stay the household's.
+  const rows = staff
+    .apply(
+      payroll.rows.map((r) => ({
+        ...r,
+        id: r.helper.id,
+        name: r.helper.name,
+        teamId: r.helper.teamId,
+      })),
+    )
+    .filter(
+      (r) => stateFilter === "all" || r.state !== "paid" || (earlier.get(r.helper.id) ?? 0) > 0,
+    );
+  const groups = staff.group(rows);
+  const large = payroll.rows.length > LARGE_STAFF;
 
   const ranges = new Set(
     payroll.rows.flatMap((r) =>
@@ -71,58 +121,146 @@ export function PayrollSummary({
           <p className="text-xs text-muted-foreground">
             {payroll.loading
               ? "Checking this cutoff…"
-              : `${paidCount} of ${payroll.rows.length} paid · ${fmtPeso(total)} for everyone this cutoff`}
+              : `${paidCount} of ${payroll.rows.length} paid this cutoff · ${fmtPeso(total)} for everyone`}
           </p>
         </div>
         <div className="text-right">
           <div className="text-xs font-semibold text-muted-foreground">Still to pay</div>
           <div className="font-display text-2xl tabular-nums text-foreground">
-            {payroll.loading ? "—" : fmtPeso(payroll.dueTotal)}
+            {payroll.loading ? "—" : fmtPeso(payroll.dueTotal + earlierTotal)}
           </div>
+          {!payroll.loading && earlierTotal > 0 && (
+            <div className="text-xs font-semibold text-status-late-ink">
+              {payroll.dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-3 divide-y divide-border/70 border-t border-border/40">
-        {payroll.rows.map((r) => {
-          const selected = r.helper.id === selectedId;
-          return (
+      {staff.show && (
+        <div className="mt-3">
+          <StaffScopeBar api={staff} shown={rows.length} total={payroll.rows.length} />
+        </div>
+      )}
+      {large && (
+        <div className="mt-3 flex gap-1.5" role="group" aria-label="Which pay to show">
+          {(
+            [
+              ["all", "Everyone"],
+              ["unpaid", "Still to pay"],
+            ] as const
+          ).map(([key, label]) => (
             <button
-              key={r.helper.id}
+              key={key}
               type="button"
-              onClick={() => onSelect(r.helper.id)}
-              aria-current={selected ? "true" : undefined}
-              className={`flex w-full items-center gap-3 py-3 text-left transition hover:bg-secondary/30 ${
-                selected ? "bg-primary/5" : ""
+              onClick={() => setStateFilter(key)}
+              aria-pressed={stateFilter === key}
+              className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                stateFilter === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Avatar initials={r.helper.initials} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-foreground">
-                  {r.helper.name}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {r.cutoff ? formatCutoffRange(r.cutoff.cutoffStart, r.cutoff.cutoffEnd) : "…"}
-                  {r.valeDeductions > 0 ? ` · −${fmtPeso(r.valeDeductions)} vale` : ""}
-                  {r.unpaidLeaveDeduction > 0
-                    ? ` · −${fmtPeso(r.unpaidLeaveDeduction)} unpaid leave`
-                    : ""}
-                </span>
-              </span>
-              <span className="text-right">
-                <span className="block text-sm font-semibold tabular-nums text-foreground">
-                  {payroll.loading ? "—" : fmtPeso(r.netPay)}
-                </span>
-                <span
-                  className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STATE_TONE[r.state]}`}
-                >
-                  {STATE_LABEL[r.state]}
-                </span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              {label}
             </button>
+          ))}
+        </div>
+      )}
+
+      {groups ? (
+        groups.map((g) => {
+          const due = g.items.reduce(
+            (n, r) => n + (r.state !== "paid" ? r.netPay : 0) + (earlier.get(r.helper.id) ?? 0),
+            0,
           );
-        })}
-      </div>
+          return (
+            <PayGroup
+              key={g.key}
+              title={g.title}
+              subtitle={payroll.loading ? "…" : `${fmtPeso(due)} still to pay`}
+            >
+              {g.items.map(payRow)}
+            </PayGroup>
+          );
+        })
+      ) : (
+        <PayGroup>{rows.map(payRow)}</PayGroup>
+      )}
+      {rows.length === 0 && (
+        <p className="py-4 text-center text-sm text-muted-foreground">Nobody to show.</p>
+      )}
     </section>
+  );
+
+  function payRow(r: (typeof rows)[number]) {
+    const selected = r.helper.id === selectedId;
+    const ack = r.state === "paid" ? manualAckState(r.payslip) : null;
+    const owedBefore = earlier.get(r.helper.id) ?? 0;
+    return (
+      <button
+        key={r.helper.id}
+        type="button"
+        onClick={() => onSelect(r.helper.id)}
+        aria-current={selected ? "true" : undefined}
+        className={`flex w-full items-center gap-3 py-3 text-left transition hover:bg-secondary/30 ${
+          selected ? "bg-primary/5" : ""
+        }`}
+      >
+        <Avatar initials={r.helper.initials} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-foreground">
+            {r.helper.name}
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            {r.cutoff ? formatCutoffRange(r.cutoff.cutoffStart, r.cutoff.cutoffEnd) : "…"}
+            {r.valeDeductions > 0 ? ` · −${fmtPeso(r.valeDeductions)} vale` : ""}
+            {r.unpaidLeaveDeduction > 0
+              ? ` · −${fmtPeso(r.unpaidLeaveDeduction)} unpaid leave`
+              : ""}
+          </span>
+        </span>
+        <span className="text-right">
+          <span className="block text-sm font-semibold tabular-nums text-foreground">
+            {payroll.loading ? "—" : fmtPeso(r.netPay)}
+          </span>
+          <span
+            className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ack ? ACK_TONE[ack] : STATE_TONE[r.state]}`}
+          >
+            {ack ? ACK_LABEL[ack] : STATE_LABEL[r.state]}
+          </span>
+          {!payroll.loading && owedBefore > 0 && (
+            <span className="block text-xs font-semibold tabular-nums text-status-late-ink">
+              +{fmtPeso(owedBefore)} earlier
+            </span>
+          )}
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      </button>
+    );
+  }
+}
+
+/** A team's rows on the payroll card, under its name and what it's still owed. */
+function PayGroup({
+  title,
+  subtitle,
+  children,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-3">
+      {title && (
+        <h3 className="flex items-baseline justify-between gap-2 pb-1 text-sm font-semibold text-foreground">
+          {title}
+          {subtitle && (
+            <span className="text-xs font-semibold text-muted-foreground">{subtitle}</span>
+          )}
+        </h3>
+      )}
+      <div className="divide-y divide-border/70 border-t border-border/40">{children}</div>
+    </div>
   );
 }

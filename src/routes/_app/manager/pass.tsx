@@ -11,7 +11,10 @@ type PassSearch = {
 
 export const Route = createFileRoute("/_app/manager/pass")({
   validateSearch: (search: Record<string, unknown>): PassSearch => ({
-    view: search.view === "line" || search.view === "board" ? search.view : undefined,
+    view:
+      search.view === "line" || search.view === "board" || search.view === "roll"
+        ? search.view
+        : undefined,
   }),
   head: () => ({ meta: [{ title: "The Pass | Linara" }] }),
   component: ManagerPassRoute,

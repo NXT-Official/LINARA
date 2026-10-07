@@ -499,7 +499,7 @@ OFW view. The remote admin gets a tailored view emphasising the live board glanc
 
 An on-thesis feature because it's two-sided and ties existing threads together (the palengke task and the "spend" dial). One loop: inventory with par levels **→** auto-builds the grocery list **→** the palengke run reconciles spend against a budget with receipts.
 
-- Pantry (shared with the cook/marketer): items with quantity, unit, and a par level; anything at/below par flags "Low." A header stat shows how many are running low.
+- Pantry (shared with the cook/marketer): items with quantity, unit, and a par level; anything below par (or out) flags "Low." A header stat shows how many are running low.
 
 - Grocery list derives from pantry items below par (with suggested quantities to reach par), plus manual adds. It rides along on the existing "Palengke / marketing run" task so whoever shops sees exactly what to buy; checking items off restocks the matching pantry item.
 

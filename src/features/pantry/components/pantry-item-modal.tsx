@@ -93,7 +93,7 @@ export function PantryItemModal({
               className={INPUT}
             />
           </Field>
-          <Field label="Buy more at" error={errors.par}>
+          <Field label="Keep at least" error={errors.par}>
             <input
               type="number"
               min={0}

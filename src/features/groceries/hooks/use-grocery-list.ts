@@ -2,46 +2,54 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
+import { needsBuying } from "@/features/pantry/pantry.utils";
+import { shrinkPhoto } from "@/lib/shrink-photo";
 
 import {
+  addGroceryReceiptFn,
   deleteGroceryItemFn,
-  getHouseholdBudgetFn,
   insertGroceryItemFn,
-  listGroceryItemsFn,
   listGroceryReceiptsFn,
   setGroceryItemBoughtFn,
+  setGroceryItemCostFn,
   updateGroceryItemFn,
   updateHouseholdBudgetFn,
-  type GroceryItemRow,
 } from "../grocery.actions";
-import type { GroceryContextValue, GroceryItem } from "../grocery.types";
+import {
+  deleteGroceryRunFn,
+  deleteGroceryTemplateFn,
+  listGroceryBoardFn,
+  moveGroceryItemsFn,
+  saveGroceryRunFn,
+  saveGroceryTemplateFn,
+  setGroceryBudgetFn,
+  setGroceryRunStatusFn,
+  startGroceryTemplateFn,
+  type GroceryBoard,
+} from "../grocery-runs.actions";
+import type { GroceryContextValue, GroceryItem, GroceryReceipt } from "../grocery.types";
+import { monthBounds, startOfDay } from "../grocery.utils";
 
 const isSuggestion = (item: GroceryItem) => item.id.startsWith("sug-");
 
-function toGroceryItem(row: GroceryItemRow): GroceryItem {
-  return {
-    id: row.id,
-    name: row.name,
-    qty: Number(row.qty),
-    unit: row.unit,
-    pantryItemId: row.pantry_item_id ?? undefined,
-    bought: row.bought,
-    costPHP: row.actual_cost ?? undefined,
-  };
-}
+const EMPTY: GroceryBoard = {
+  available: false,
+  items: [],
+  runs: [],
+  templates: [],
+  budgets: { house: null, byTeam: {} },
+  month: { total: 0, byTeam: {}, noTeam: 0 },
+};
 
 /**
- * The grocery list and its petty-cash budget -- real Supabase-backed as of
- * KNOWN_GAPS.md Closed Gap C13. `items`/`budget` are fetched on mount/token
- * change and refetched after every write, same "write then refresh" pattern
- * as useVales/useLedger/useUtos/useTaskBoard. `receiptPhoto` isn't fetched
- * here at all -- it's threaded in from the board's own already-real `tasks`
- * (see app-store-provider.tsx), since a Palengke receipt lives on
- * `tickets.photo_evidence_url`, not on any grocery_items row.
+ * The palengke (supabase/add-grocery-runs.sql, KNOWN_GAPS.md O40): the
+ * Needed pool, open runs and their lines, repeats, budgets and this month's
+ * spend, fetched together and refetched after every write -- the same
+ * "write then refresh" pattern as the other stores. `receiptPhoto` comes in
+ * from the board's own tasks (a Palengke task's Done photo).
  *
- * The displayed list is the real items plus auto-suggestions derived from
- * low pantry stock. A suggestion is local to this browser until someone
- * adds it (addSuggestion): only real rows reach her list on mobile.
+ * The pool shown is the real lines plus suggestions from low pantry stock.
+ * A suggestion is local to this browser until someone adds it.
  */
 export function useGroceryList({
   pantry,
@@ -54,21 +62,24 @@ export function useGroceryList({
   ready: boolean;
   receiptPhoto: string | null;
 }): GroceryContextValue {
-  const [items, setItems] = useState<GroceryItem[]>([]);
-  const [budget, setBudgetState] = useState(1500);
-  const [receipts, setReceipts] = useState<GroceryContextValue["receipts"]>([]);
+  const [board, setBoard] = useState<GroceryBoard>(EMPTY);
+  const [receipts, setReceipts] = useState<GroceryReceipt[]>([]);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
   const pantryItems = pantry.items;
 
   const refresh = useCallback(async () => {
     if (!token) return;
-    const [rows, householdBudget] = await Promise.all([
-      listGroceryItemsFn({ data: { token } }),
-      getHouseholdBudgetFn({ data: { token } }),
-    ]);
-    setItems(rows.map(toGroceryItem));
-    setBudgetState(householdBudget.budget);
+    const now = new Date();
+    setBoard(
+      await listGroceryBoardFn({
+        data: {
+          token,
+          monthStart: monthBounds(now).start.toISOString(),
+          dayStart: startOfDay(now).toISOString(),
+        },
+      }),
+    );
     // Separate so a receipt problem never blanks the list.
     listGroceryReceiptsFn({ data: { token } })
       .then(setReceipts)
@@ -82,11 +93,23 @@ export function useGroceryList({
     });
   }, [ready, token, refresh]);
 
-  // Auto-derived suggestions: low pantry items not already in the real list and not dismissed.
-  const display = useMemo<GroceryItem[]>(() => {
-    const covered = new Set(items.map((g) => g.pantryItemId).filter(Boolean) as string[]);
+  const { pool, itemsByRun } = useMemo(() => {
+    const byRun = new Map<string, GroceryItem[]>();
+    const inPool: GroceryItem[] = [];
+    for (const g of board.items) {
+      if (g.runId) byRun.set(g.runId, [...(byRun.get(g.runId) ?? []), g]);
+      else inPool.push(g);
+    }
+    return { pool: inPool, itemsByRun: byRun };
+  }, [board.items]);
+
+  // Suggestions: low pantry items not already listed anywhere, and not dismissed.
+  const needed = useMemo<GroceryItem[]>(() => {
+    const covered = new Set(
+      board.items.filter((g) => !g.bought && g.pantryItemId).map((g) => g.pantryItemId as string),
+    );
     const suggestions: GroceryItem[] = pantryItems
-      .filter((p) => p.qty <= p.par && !covered.has(p.id) && !dismissedSuggestions.has(p.id))
+      .filter((p) => needsBuying(p) && !covered.has(p.id) && !dismissedSuggestions.has(p.id))
       .map((p) => ({
         id: `sug-${p.id}`,
         name: p.name,
@@ -95,13 +118,8 @@ export function useGroceryList({
         pantryItemId: p.id,
         bought: false,
       }));
-    return [...items, ...suggestions];
-  }, [items, pantryItems, dismissedSuggestions]);
-
-  const spent = useMemo(
-    () => items.filter((g) => g.bought).reduce((s, g) => s + (g.costPHP ?? 0), 0),
-    [items],
-  );
+    return [...pool, ...suggestions];
+  }, [board.items, pool, pantryItems, dismissedSuggestions]);
 
   // Clear dismissals if the pantry item is no longer low (so a fresh dip re-suggests).
   useEffect(() => {
@@ -110,7 +128,7 @@ export function useGroceryList({
       const next = new Set(prev);
       for (const id of prev) {
         const p = pantryItems.find((x) => x.id === id);
-        if (!p || p.qty > p.par) {
+        if (!p || !needsBuying(p)) {
           next.delete(id);
           changed = true;
         }
@@ -119,105 +137,191 @@ export function useGroceryList({
     });
   }, [pantryItems]);
 
-  const addManual = (name: string, qty: number, unit: string) => {
-    if (!name.trim() || !token) return;
-    insertGroceryItemFn({ data: { token, name: name.trim(), qty, unit: unit.trim() || "pcs" } })
-      .then(() => refresh())
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to add grocery item:", err);
-        toast.error("Hindi na-add ang grocery item.");
-      });
-  };
-
-  const addSuggestion = (item: GroceryItem) => {
-    if (!token || !item.pantryItemId) return;
-    insertGroceryItemFn({
-      data: {
-        token,
-        name: item.name,
-        qty: item.qty,
-        unit: item.unit,
-        pantryItemId: item.pantryItemId,
-      },
-    })
-      .then(() => refresh())
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to add suggestion:", err);
-        toast.error("Hindi na-add ang grocery item.");
-      });
-  };
-
-  const edit = (item: GroceryItem, patch: { name: string; qty: number; unit: string }) => {
-    if (!token || isSuggestion(item) || !patch.name.trim()) return;
-    updateGroceryItemFn({
-      data: {
-        token,
-        itemId: item.id,
-        name: patch.name.trim(),
-        qty: patch.qty,
-        unit: patch.unit.trim() || "pcs",
-      },
-    })
-      .then(() => refresh())
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to edit grocery item:", err);
-        toast.error("Hindi na-save ang grocery item.");
-      });
-  };
-
-  /** Ticks it bought, or unticks it; the pantry count follows in the database. */
-  const toggleBought = (item: GroceryItem) => {
-    if (!token || isSuggestion(item)) return;
-    setGroceryItemBoughtFn({ data: { token, itemId: item.id, bought: !item.bought } })
-      .then(() => Promise.all([refresh(), pantry.refresh()]))
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to tick grocery item:", err);
-        toast.error("Couldn't update the item. Try again.");
-      });
-  };
-
-  const remove = (item: GroceryItem) => {
-    if (isSuggestion(item)) {
-      // Dismiss this suggestion until pantry qty changes and it re-qualifies.
-      if (item.pantryItemId) {
-        const pantryItemId = item.pantryItemId;
-        setDismissedSuggestions((prev) => new Set(prev).add(pantryItemId));
+  /** Runs a write, then refreshes; a failure is toasted with `failMsg` and rethrown. */
+  const write = useCallback(
+    async <T>(work: () => Promise<T>, failMsg: string, alsoPantry = false): Promise<T> => {
+      try {
+        const out = await work();
+        await Promise.all([refresh(), alsoPantry ? pantry.refresh() : null]);
+        return out;
+      } catch (err) {
+        console.error(`[useGroceryList] ${failMsg}`, err);
+        toast.error(err instanceof Error && err.message ? err.message : failMsg);
+        throw err;
       }
-      return;
-    }
-    if (!token) return;
-    deleteGroceryItemFn({ data: { token, itemId: item.id } })
-      .then(() => refresh())
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to remove grocery item:", err);
-        toast.error("Hindi na-remove ang grocery item.");
-      });
-  };
+    },
+    [refresh, pantry],
+  );
+  // For the fire-and-forget ones: the toast already said what went wrong.
+  const quiet = (p: Promise<unknown>) => void p.catch(() => {});
 
-  const setBudget = (n: number) => {
-    if (!token) return;
-    updateHouseholdBudgetFn({ data: { token, budget: Math.max(0, n) } })
-      .then(() => refresh())
-      .catch((err) => {
-        console.error("[useGroceryList] Failed to update budget:", err);
-        toast.error("Hindi na-save ang budget.");
-      });
-  };
+  const runForTask = useCallback(
+    (taskId: string) => board.runs.find((r) => r.ticketId === taskId),
+    [board.runs],
+  );
+
+  const spent = board.month.total;
+  const budget = board.budgets.house ?? 0;
 
   return {
-    display,
-    toBuyCount: display.filter((g) => !g.bought).length,
-    budget,
+    runsAvailable: board.available,
+    needed,
+    toBuyCount: needed.filter((g) => !g.bought).length,
+    runs: board.runs,
+    itemsByRun,
+    runForTask,
+    templates: board.templates,
+    budgets: board.budgets,
+    month: board.month,
     spent,
+    budget,
     remaining: budget - spent,
     receiptPhoto,
     receipts,
-    addManual,
-    addSuggestion,
-    edit,
     refresh,
-    setBudget,
-    remove,
-    toggleBought,
+
+    addReceipt: async (file, runId) => {
+      if (!token) throw new Error("Not signed in.");
+      const { photo, thumb } = await shrinkPhoto(file);
+      await addGroceryReceiptFn({ data: { token, photo, thumb, runId } });
+      setReceipts(await listGroceryReceiptsFn({ data: { token } }));
+    },
+    addManual: (name, qty, unit, runId) => {
+      if (!name.trim() || !token) return;
+      quiet(
+        write(
+          () =>
+            insertGroceryItemFn({
+              data: { token, name: name.trim(), qty, unit: unit.trim() || "pcs", runId },
+            }),
+          "Couldn't add the item.",
+        ),
+      );
+    },
+    addSuggestion: async (item, runId) => {
+      if (!token || !item.pantryItemId) return;
+      const pantryItemId = item.pantryItemId;
+      await write(
+        () =>
+          insertGroceryItemFn({
+            data: { token, name: item.name, qty: item.qty, unit: item.unit, pantryItemId, runId },
+          }),
+        "Couldn't add the item.",
+      );
+    },
+    edit: (item, patch) => {
+      if (!token || isSuggestion(item) || !patch.name.trim()) return;
+      quiet(
+        write(
+          () =>
+            updateGroceryItemFn({
+              data: {
+                token,
+                itemId: item.id,
+                name: patch.name.trim(),
+                qty: patch.qty,
+                unit: patch.unit.trim() || "pcs",
+              },
+            }),
+          "Couldn't save the item.",
+        ),
+      );
+    },
+    remove: (item) => {
+      if (isSuggestion(item)) {
+        // Dismissed until the pantry count changes and it qualifies again.
+        if (item.pantryItemId) {
+          const pantryItemId = item.pantryItemId;
+          setDismissedSuggestions((prev) => new Set(prev).add(pantryItemId));
+        }
+        return;
+      }
+      if (!token) return;
+      quiet(
+        write(
+          () => deleteGroceryItemFn({ data: { token, itemId: item.id } }),
+          "Couldn't remove the item.",
+        ),
+      );
+    },
+    // The pantry count follows in the database (add-grocery-restock.sql).
+    toggleBought: (item) => {
+      if (!token || isSuggestion(item)) return;
+      quiet(
+        write(
+          () => setGroceryItemBoughtFn({ data: { token, itemId: item.id, bought: !item.bought } }),
+          "Couldn't update the item. Try again.",
+          true,
+        ),
+      );
+    },
+    setCost: (item, cost) => {
+      if (!token || isSuggestion(item)) return;
+      quiet(
+        write(
+          () => setGroceryItemCostFn({ data: { token, itemId: item.id, cost } }),
+          "Couldn't save the cost.",
+        ),
+      );
+    },
+    moveItems: async (itemIds, runId) => {
+      if (!token || itemIds.length === 0) return;
+      await write(
+        () => moveGroceryItemsFn({ data: { token, itemIds, runId } }),
+        "Couldn't move those items.",
+      );
+    },
+
+    saveRun: async (draft, opts) => {
+      if (!token) throw new Error("Not signed in.");
+      const { id } = await write(
+        () => saveGroceryRunFn({ data: { token, draft, ...opts } }),
+        "Couldn't save the run.",
+      );
+      return id;
+    },
+    setRunStatus: async (run, status, money) => {
+      if (!token) return;
+      await write(
+        () => setGroceryRunStatusFn({ data: { token, id: run.id, status, ...money } }),
+        "Couldn't update the run.",
+      );
+    },
+    deleteRun: async (run) => {
+      if (!token) return;
+      await write(() => deleteGroceryRunFn({ data: { token, id: run.id } }), "Couldn't delete it.");
+    },
+
+    saveTemplate: async (draft, id) => {
+      if (!token) return;
+      await write(
+        () => saveGroceryTemplateFn({ data: { token, draft, id } }),
+        "Couldn't save the repeat.",
+      );
+    },
+    deleteTemplate: async (id) => {
+      if (!token) return;
+      await write(
+        () => deleteGroceryTemplateFn({ data: { token, id } }),
+        "Couldn't delete the repeat.",
+      );
+    },
+    startTemplate: async (id, shopOn) => {
+      if (!token) throw new Error("Not signed in.");
+      const out = await write(
+        () => startGroceryTemplateFn({ data: { token, id, shopOn } }),
+        "Couldn't start the run.",
+      );
+      return out.id;
+    },
+
+    setBudget: async (teamId, amount) => {
+      if (!token) return;
+      // Before add-grocery-runs.sql there is only the one household number.
+      await write(async () => {
+        if (board.available) await setGroceryBudgetFn({ data: { token, teamId, amount } });
+        else await updateHouseholdBudgetFn({ data: { token, budget: Math.max(0, amount ?? 0) } });
+      }, "Couldn't save the budget.");
+    },
   };
 }

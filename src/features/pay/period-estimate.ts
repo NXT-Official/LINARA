@@ -20,3 +20,12 @@ export function periodEstimate(helper: Helper, period: PayPeriod): number {
   );
   return netPayForCutoff(helper.monthlyRate, helper.paydayInterval, 0, share);
 }
+
+/**
+ * What earlier cutoffs that closed unpaid still owe one helper, as the unpaid
+ * periods card estimates them. Shared by every "still to pay" figure so the
+ * Pass and Money can't disagree.
+ */
+export function earlierOwed(helper: Helper, missed: PayPeriod[]): number {
+  return missed.reduce((sum, p) => sum + periodEstimate(helper, p), 0);
+}

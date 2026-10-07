@@ -1,18 +1,21 @@
-import { AlertCircle, Info, LogOut, Pencil, Plus, Users } from "lucide-react";
-import { useState } from "react";
+import { CheckSquare, Plus, Users } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { Avatar } from "@/components/shared/avatar";
+import { useAppStores } from "@/features/dashboard/app-store-context";
+import { BulkStaffBar } from "@/features/teams/components/bulk-staff-bar";
+import { EditTeamLabelsModal } from "@/features/teams/components/edit-team-labels-modal";
+import { StaffScopeBar } from "@/features/teams/components/staff-scope-bar";
+import { useStaffScope } from "@/features/teams/hooks/use-staff-scope";
+import { LARGE_STAFF } from "@/features/teams/teams.constants";
 
-import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Helper, Invite, PantryRole } from "../people.types";
-import { findHelper, initialsOf } from "../people.utils";
+import { findHelper } from "../people.utils";
 import { EditWageModal } from "./edit-wage-modal";
 import { EndEmploymentModal } from "./end-employment-modal";
+import { HelperRow } from "./helper-row";
 import { InviteCodeScreen } from "./invite-code-screen";
 import { InviteHelperModal } from "./invite-helper-modal";
-import { LegalContributionSplitCard } from "./legal-contribution-split-card";
-import { PantryRolePicker } from "./pantry-role-picker";
 
 /** The household's helpers and pending invites, from the database. Managers: ManagersSection. */
 export function PeopleSection({
@@ -33,6 +36,7 @@ export function PeopleSection({
   onInvite: (
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: "semi_monthly" | "monthly";
+      labelIds?: string[];
     },
   ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
@@ -46,16 +50,63 @@ export function PeopleSection({
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issued, setIssued] = useState<Invite | null>(null);
-  const [showContributions, setShowContributions] = useState<Record<string, boolean>>({});
   const [editingWage, setEditingWage] = useState<Invite | null>(null);
+  const [editingTeam, setEditingTeam] = useState<Invite | null>(null);
   const [ending, setEnding] = useState<Invite | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const { teams, sharing } = useAppStores();
+  const staff = useStaffScope();
+
+  // Search, team and labels narrow the list; pending invites stay on top,
+  // and the rest group by team when the household has teams. A large staff
+  // gets one-line rows that open for the details.
+  const current = invites;
+  const shown = staff.apply(current.map((i) => ({ ...i, name: i.claimedName || i.name })));
+  const pending = shown.filter((i) => i.status !== "active");
+  const active = shown.filter((i) => i.status === "active");
+  const groups = staff.group(active);
+  const compact = current.length > LARGE_STAFF;
+
+  const row = (inv: Invite) => (
+    <HelperRow
+      key={inv.id}
+      inv={inv}
+      canInvite={canInvite}
+      compact={compact}
+      teamName={groups || !inv.teamId ? null : (teams.teamById.get(inv.teamId)?.name ?? null)}
+      labels={teams.labelsOf(inv.id)}
+      alsoAt={sharing
+        .householdsOf(inv.id)
+        .map((id) => sharing.family.find((h) => h.id === id)?.name)
+        .filter((n): n is string => !!n)}
+      selectable={selecting}
+      selected={selected.includes(inv.id)}
+      onSelect={() =>
+        setSelected((prev) =>
+          prev.includes(inv.id) ? prev.filter((x) => x !== inv.id) : [...prev, inv.id],
+        )
+      }
+      onShowCode={() => setIssued(inv)}
+      onCancelInvite={() => onCancelInvite(inv.id)}
+      onEditWage={() => setEditingWage(inv)}
+      onEditTeam={teams.available ? () => setEditingTeam(inv) : undefined}
+      onEnd={() => setEnding(inv)}
+      onSetPantryRole={(role) => onSetPantryRole(inv.id, role)}
+    />
+  );
+
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-foreground">Helpers</h2>
-            <p className="text-xs text-muted-foreground">Your household team, by station.</p>
+            <p className="text-xs text-muted-foreground">
+              {teams.teams.length > 0
+                ? "Your household staff, by team."
+                : "Your household team, by station."}
+            </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
             <Users className="h-3 w-3" /> {invites.length}
@@ -71,168 +122,61 @@ export function PeopleSection({
           </button>
         )}
 
-        <div className="divide-y divide-border/70">
-          {invites.map((inv) => {
-            const displayName = inv.claimedName || inv.name;
-            const initials = initialsOf(displayName);
-            const isActive = inv.status === "active";
-            return (
-              <div
-                key={inv.id}
-                className={`flex flex-wrap items-start gap-3 ${
-                  isActive
-                    ? "py-3.5 first:pt-0 last:pb-0"
-                    : "my-1 rounded-lg bg-terracotta-soft/40 p-3 first:mt-0"
-                }`}
-              >
-                <Avatar initials={initials} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">{displayName}</span>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-pine-deep">
-                      {inv.station}
-                    </span>
-                    {isActive ? (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-                        Invited — pending
-                      </span>
-                    )}
-                    {isActive && inv.noticeLastDay && (
-                      <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
-                        Leaving{" "}
-                        {new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-PH", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                    )}
-                    {inv.flags.length > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
-                        <AlertCircle className="h-2.5 w-2.5" /> {inv.flags.length} flag
-                        {inv.flags.length > 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {inv.employment === "live-in" ? "Live-in" : "Live-out"} · {inv.shift} · Rest:{" "}
-                    {inv.restDay} · Wage: ₱{(inv.wagePHP || 0).toLocaleString()}
-                  </div>
-                  {!isActive ? (
-                    <div className="text-xs text-muted-foreground">
-                      Code:{" "}
-                      <span className="font-mono font-semibold text-foreground">{inv.code}</span> ·
-                      invited by {inv.createdBy}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      Claimed her own account · joined via {inv.createdBy}
-                    </div>
-                  )}
+        {canInvite && teams.available && current.length > 1 && !selecting && (
+          <button
+            onClick={() => setSelecting(true)}
+            className="mb-4 ml-2 inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-card px-4 py-2 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+          >
+            <CheckSquare className="h-3.5 w-3.5" /> Choose several
+          </button>
+        )}
 
-                  {inv.pantryRole && (
-                    <PantryRolePicker
-                      name={displayName}
-                      role={inv.pantryRole}
-                      canChange={canInvite}
-                      onChange={(role) => onSetPantryRole(inv.id, role)}
-                    />
-                  )}
+        {staff.show && (
+          <div className="mb-4">
+            <StaffScopeBar api={staff} shown={shown.length} total={current.length} />
+          </div>
+        )}
 
-                  {inv.wagePHP < REGIONAL_MINIMUM_WAGE && (
-                    <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                      <div>
-                        <span className="font-semibold text-amber-900 dark:text-amber-200">
-                          Batas Kasambahay Compliance Warning:
-                        </span>{" "}
-                        Wage is below the regional minimum of{" "}
-                        <span className="font-semibold">
-                          ₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}
-                        </span>
-                        .
-                      </div>
-                    </div>
-                  )}
+        {shown.length === 0 && current.length > 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nobody matches. Try another name, team or label.
+          </p>
+        )}
 
-                  <div className="mt-2 flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowContributions((prev) => ({ ...prev, [inv.id]: !prev[inv.id] }))
-                      }
-                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                    >
-                      <Info className="h-3 w-3" />{" "}
-                      {showContributions[inv.id]
-                        ? "Hide contributions"
-                        : "View contributions split"}
-                    </button>
-                    {canInvite && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingWage(inv)}
-                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Pencil className="h-3 w-3" /> Edit wage
-                      </button>
-                    )}
-                    {canInvite && isActive && (
-                      <button
-                        type="button"
-                        onClick={() => setEnding(inv)}
-                        className="ml-auto text-xs font-semibold text-muted-foreground hover:text-destructive flex items-center gap-1"
-                      >
-                        <LogOut className="h-3 w-3" /> End employment
-                      </button>
-                    )}
-                  </div>
+        {pending.length > 0 && (
+          <RosterGroup title="Waiting to join" count={pending.length} grouped={!!groups}>
+            {pending.map(row)}
+          </RosterGroup>
+        )}
+        {groups
+          ? groups.map((g) => (
+              <RosterGroup key={g.key} title={g.title} count={g.items.length} grouped>
+                {g.items.map(row)}
+              </RosterGroup>
+            ))
+          : active.length > 0 && (
+              <RosterGroup title="" count={active.length} grouped={false}>
+                {active.map(row)}
+              </RosterGroup>
+            )}
 
-                  {showContributions[inv.id] && (
-                    <div className="mt-2.5">
-                      <LegalContributionSplitCard wagePHP={inv.wagePHP} />
-                    </div>
-                  )}
-                  {inv.flags.length > 0 && (
-                    <ul className="mt-1.5 space-y-0.5 text-xs text-[oklch(0.38_0.09_60)]">
-                      {inv.flags.map((f) => (
-                        <li key={f.id}>
-                          Flagged: <span className="font-semibold">{f.field}</span>
-                          {f.note ? ` — "${f.note}"` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                {!isActive && (
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <button
-                      onClick={() => setIssued(inv)}
-                      className="rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
-                    >
-                      Show code
-                    </button>
-                    {canInvite && (
-                      <button
-                        onClick={() => onCancelInvite(inv.id)}
-                        className="rounded-lg px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-destructive"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {selecting && (
+          <div className="mt-4">
+            <BulkStaffBar
+              selectedIds={selected}
+              shownIds={shown.map((i) => i.id)}
+              onSelectAll={setSelected}
+              onDone={() => {
+                setSelecting(false);
+                setSelected([]);
+              }}
+            />
+          </div>
+        )}
 
         <p className="mt-4 text-xs italic text-muted-foreground">
-          You're entering the household's record and sending an invite — you're not creating her
-          login. She'll set up and control her own account, and her record stays hers.
+          You're entering the household's record and sending an invite — you're not creating their
+          login. They'll set up and control their own account, and their record stays theirs.
         </p>
       </section>
 
@@ -261,6 +205,14 @@ export function PeopleSection({
           }}
         />
       )}
+      {editingTeam && (
+        <EditTeamLabelsModal
+          helperId={editingTeam.id}
+          name={editingTeam.claimedName || editingTeam.name}
+          initialTeamId={editingTeam.teamId ?? null}
+          onClose={() => setEditingTeam(null)}
+        />
+      )}
       {editingWage && (
         <EditWageModal
           name={editingWage.claimedName || editingWage.name}
@@ -269,6 +221,32 @@ export function PeopleSection({
           onSubmit={(wagePHP) => onUpdateWage(editingWage.id, wagePHP)}
         />
       )}
+    </div>
+  );
+}
+
+/** A titled block of roster rows: one team, or the invites still waiting. */
+function RosterGroup({
+  title,
+  count,
+  grouped,
+  children,
+}: {
+  title: string;
+  count: number;
+  /** Other groups sit beside it, so it carries a heading. */
+  grouped: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      {grouped && title && (
+        <h3 className="mb-2 flex items-baseline gap-2 border-b border-border/60 pb-1.5 text-sm font-semibold text-foreground">
+          {title}
+          <span className="text-xs font-semibold text-muted-foreground tabular-nums">{count}</span>
+        </h3>
+      )}
+      <div className="divide-y divide-border/70">{children}</div>
     </div>
   );
 }

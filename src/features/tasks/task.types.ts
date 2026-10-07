@@ -1,4 +1,5 @@
 import type { Station } from "@/features/people/people.types";
+import type { PlaceRef } from "@/features/sharing/sharing.types";
 import type { Weekday } from "@/lib/time";
 
 /** "cancelled" (add-cancelled-tasks.sql): kept for the record, off the board and every to-do count. */
@@ -10,12 +11,16 @@ export type Task = {
   title: string;
   note?: string;
   time: string;
+  /** How long it takes, if set (tickets.duration_minutes). */
+  durationMinutes?: number;
   scheduledStart?: string; // ISO, tickets.scheduled_start -- the real instant behind `time`
   /** null = Unassigned (supabase/add-unassigned-tasks.sql): on the managers' board only. */
   helperId: string | null;
   station: Station;
   status: Status;
   photo?: string;
+  /** The 480px copy of `photo` for cards; absent for photos from before thumbnails. */
+  photoThumb?: string;
   blockReason?: string;
   queued?: boolean;
   recurrence?: Recurrence;
@@ -44,6 +49,9 @@ export type Task = {
   /** For a cancelled task: when (ISO) and by whom (name), from the trigger's stamp. */
   cancelledAt?: string;
   cancelledBy?: string;
+  /** A trip's ends (add-shared-staff-and-places.sql): a house of the family or a saved place. */
+  from?: PlaceRef;
+  to?: PlaceRef;
 };
 
 // A recurring template that spawns a Task on matching weekdays.

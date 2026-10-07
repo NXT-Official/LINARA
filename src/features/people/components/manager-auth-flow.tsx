@@ -21,30 +21,60 @@ function pendingCode(): string {
   }
 }
 
+/** The steps of /signup after "Which one are you?", each its own `?step=`. */
+export const SIGNUP_STEPS = ["household", "join", "kasambahay"] as const;
+export type SignupStep = (typeof SIGNUP_STEPS)[number];
+
 /**
- * Full-page manager sign up / log in. Not mounted under `_app` (no
- * AppStoreProvider there yet, since there's no session to build one from),
- * so this owns its own `useSession()` call rather than reading one from
- * context -- after a successful auth, navigating into `/manager/*` mounts
- * `_app.tsx` fresh, which builds its own session that re-resolves from the
- * same localStorage tokens this flow just wrote.
+ * Full-page manager log in (/login) and sign up (/signup). Not mounted under
+ * `_app` (no AppStoreProvider there yet, since there's no session to build
+ * one from), so this owns its own `useSession()` call rather than reading one
+ * from context -- after a successful auth, navigating into `/manager/*`
+ * mounts `_app.tsx` fresh, which builds its own session that re-resolves
+ * from the same localStorage tokens this flow just wrote.
+ *
+ * The sign-up step lives in the URL, not in state, so the browser's Back
+ * returns to the previous step. Steps share this one mounted component, so
+ * what was typed survives going back and forth.
  */
-export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode }) {
+export function ManagerAuthFlow({
+  page,
+  step,
+  confirmationSent = false,
+}: {
+  page: "login" | "signup";
+  step?: SignupStep;
+  confirmationSent?: boolean;
+}) {
   const session = useSession();
   const navigate = useNavigate();
 
   // One flow for everyone: sign in, or create an account after saying
   // which kind. A kasambahay's Linara is the app; the web says so.
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [helperSignedIn, setHelperSignedIn] = useState(false);
+  const mode: Mode =
+    page === "login"
+      ? helperSignedIn
+        ? "kasambahay-signed-in"
+        : "login"
+      : step === "kasambahay"
+        ? "kasambahay"
+        : step
+          ? "signup"
+          : "choose";
+  // Sign-up joining a household that already exists, with its code.
+  const withCode = step === "join";
+  const goToStep = (next?: SignupStep) =>
+    navigate({ to: "/signup", search: next ? { step: next } : {} });
+  const goToLogin = () => navigate({ to: "/login" });
+
   const [fullName, setFullName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [confirmationPending, setConfirmationPending] = useState(false);
-  // Sign-up joining a household that already exists, with its code.
-  const [withCode, setWithCode] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(confirmationSent);
   const [inviteCode, setInviteCode] = useState("");
   // The setup screen: join one instead of starting one.
   const [joining, setJoining] = useState(false);
@@ -82,7 +112,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         toast.error("Dapat may kahit anim (6) na characters ang password.");
         return;
       }
-      if (withCode && inviteCode.replace(/s/g, "").length !== 8) {
+      if (withCode && inviteCode.replace(/\s/g, "").length !== 8) {
         toast.error("The invite code is 8 letters and numbers.");
         return;
       }
@@ -91,7 +121,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
     setLoading(true);
     try {
       if (mode === "signup") {
-        const code = withCode ? inviteCode.replace(/s/g, "").toUpperCase() : undefined;
+        const code = withCode ? inviteCode.replace(/\s/g, "").toUpperCase() : undefined;
         const result = await session.signUp({
           fullName: fullName.trim(),
           householdName: code ? undefined : householdName.trim() || undefined,
@@ -101,11 +131,10 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         });
         if (result === "confirmation_pending") {
           if (code) window.localStorage.setItem(PENDING_CODE_KEY, code);
-          setConfirmationPending(true);
           toast.info(
             "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos mag-log in.",
           );
-          setMode("login");
+          navigate({ to: "/login", search: { sent: true } });
           return;
         }
         toast.success(
@@ -121,7 +150,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
           return;
         }
         if (result === "helper") {
-          setMode("kasambahay-signed-in");
+          setHelperSignedIn(true);
           return;
         }
         if (result === "needs_bootstrap") {
@@ -245,16 +274,16 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
             icon={<Home className="h-5 w-5" />}
             title="I run a household"
             body="Employer. Set up your household, then invite the people who work in it."
-            onClick={() => setMode("signup")}
+            onClick={() => goToStep("household")}
           />
           <ChoiceButton
             icon={<UserRound className="h-5 w-5" />}
             title="I work in a household"
             body="Kasambahay. Join with the invite code your employer gave you."
-            onClick={() => setMode("kasambahay")}
+            onClick={() => goToStep("kasambahay")}
           />
         </div>
-        <SwitchLink onClick={() => setMode("login")}>Already have an account? Log in</SwitchLink>
+        <SwitchLink onClick={goToLogin}>Already have an account? Log in</SwitchLink>
       </AuthCard>
     );
   }
@@ -279,7 +308,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Wala pa ang app sa phone mo? Hingin sa employer mo ang link para ma-download ito.
         </p>
-        <SwitchLink onClick={() => setMode("login")}>
+        <SwitchLink onClick={() => (page === "login" ? setHelperSignedIn(false) : goToLogin())}>
           <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
         </SwitchLink>
       </AuthCard>
@@ -368,7 +397,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••"
+              placeholder={mode === "signup" ? "At least 6 characters" : undefined}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
             />
           </Field>
@@ -379,7 +408,6 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
               />
             </Field>
@@ -410,10 +438,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
         <button
           type="button"
           disabled={loading}
-          onClick={() => {
-            setMode(mode === "signup" ? "login" : "choose");
-            setConfirmationPending(false);
-          }}
+          onClick={() => (mode === "signup" ? goToLogin() : goToStep())}
           className="mt-3 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
         >
           {mode === "signup"
@@ -425,7 +450,7 @@ export function ManagerAuthFlow({ initialMode = "login" }: { initialMode?: Mode 
           <button
             type="button"
             disabled={loading}
-            onClick={() => setWithCode(!withCode)}
+            onClick={() => goToStep(withCode ? "household" : "join")}
             className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
           >
             {withCode

@@ -8,7 +8,7 @@ import { findHelper } from "@/features/people/people.utils";
 import { formatAppointmentDate } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { isPalengke, recurrenceLabel } from "../task.utils";
+import { recurrenceLabel, timeSpan } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
 
@@ -28,7 +28,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           <RecurrenceBadge recurrence={task.recurrence} />
           {task.appointmentTitle && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-medium text-[oklch(0.38_0.09_60)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-medium text-accent-foreground">
               <Link2 className="h-2.5 w-2.5" /> {task.appointmentTitle}
             </span>
           )}
@@ -43,14 +43,15 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       {task.note && (
         <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{task.note}</p>
       )}
-      {isPalengke(task) && (
-        <div className="mt-2">
-          <PalengkeChip />
-        </div>
-      )}
+      <PalengkeChip task={task} className="mt-2" />
       {task.photo && (
         <div className="mt-3 overflow-hidden rounded-xl">
-          <img src={task.photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
+          <img
+            src={task.photoThumb ?? task.photo}
+            alt=""
+            className="h-28 w-full object-cover"
+            loading="lazy"
+          />
         </div>
       )}
       <div className="mt-3 flex items-center justify-between">
@@ -58,7 +59,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
           <Avatar initials={helper.initials} />
           <span className="text-xs font-medium text-foreground">{helper.short}</span>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+        <span className="text-xs font-medium text-muted-foreground">{timeSpan(task)}</span>
       </div>
       {task.createdBy && (
         <div className="mt-1.5 text-xs font-medium text-muted-foreground">

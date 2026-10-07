@@ -6,7 +6,7 @@ const LEGEND = [
   { tone: "doing", dot: TONE_DOT.doing, label: "Doing" },
   { tone: "done", dot: TONE_DOT.done, label: "Done" },
   { tone: "cancelled", dot: TONE_DOT.cancelled, label: "Cancelled" },
-  { tone: "planned", dot: TONE_DOT.planned, label: "Planned" },
+  { tone: "planned", dot: TONE_DOT.planned, label: "To do" },
 ];
 
 /** What the colours mean, once, above the plan. */

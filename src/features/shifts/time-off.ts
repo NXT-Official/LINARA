@@ -5,6 +5,7 @@
 import { LEAVE_ASKED, LEAVE_ON } from "@/features/leave/leave.constants";
 import type { LeaveKind, LeaveRequest } from "@/features/leave/leave.types";
 import type { RestOffRequestRow } from "@/features/ledger/rest-off.actions";
+import type { SharedTimeOffRow } from "@/features/sharing/sharing.actions";
 import { formatDisplayTime, parseHM, parseISODate, toISODate } from "@/lib/time";
 
 export type TimeOff = {
@@ -18,7 +19,8 @@ export type TimeOff = {
   endMin: number;
   /** Pending is shown as asked for; only approved time off counts as off. */
   status: "approved" | "pending";
-  kind: "rest_off" | LeaveKind;
+  /** "away": a shared helper's approved time off as another house sees it, without what kind. */
+  kind: "rest_off" | LeaveKind | "away";
 };
 
 const live = (status: string): status is TimeOff["status"] =>
@@ -67,6 +69,30 @@ export function timeOffFromLeave(rows: LeaveRequest[]): TimeOff[] {
   });
 }
 
+/**
+ * A shared helper's approved leave and rest off, as this house sees it
+ * (add-shared-staff-availability.sql): whole days, or a window, with no kind.
+ */
+export function timeOffFromShared(rows: SharedTimeOffRow[]): TimeOff[] {
+  return rows.flatMap((r, i) => {
+    const out: TimeOff[] = [];
+    const end = parseISODate(r.day_to);
+    for (let d = parseISODate(r.day_from); d <= end; d.setDate(d.getDate() + 1)) {
+      const date = toISODate(d);
+      out.push({
+        id: `away:${r.helper_id}:${date}:${i}`,
+        helperId: r.helper_id,
+        date,
+        startMin: r.start_time ? parseHM(r.start_time) : 0,
+        endMin: r.end_time ? parseHM(r.end_time) : 24 * 60,
+        status: "approved",
+        kind: "away",
+      });
+    }
+    return out;
+  });
+}
+
 /** Her approved time off covering this minute of this day, if any. */
 export const approvedTimeOffAt = (
   list: TimeOff[],
@@ -98,10 +124,14 @@ export const timeOffWindow = (o: TimeOff): string =>
 export function describeTimeOff(o: TimeOff, name?: string): string {
   const approved = o.status === "approved";
   const what =
-    o.kind === "rest_off"
-      ? `${approved ? "off" : "asked off"} ${timeOffWindow(o)}`
-      : approved
-        ? LEAVE_ON[o.kind]
-        : LEAVE_ASKED[o.kind];
+    o.kind === "away"
+      ? o.startMin === 0 && o.endMin === 24 * 60
+        ? "on leave"
+        : `off ${timeOffWindow(o)}`
+      : o.kind === "rest_off"
+        ? `${approved ? "off" : "asked off"} ${timeOffWindow(o)}`
+        : approved
+          ? LEAVE_ON[o.kind]
+          : LEAVE_ASKED[o.kind];
   return name ? `${name} ${what}` : what.charAt(0).toUpperCase() + what.slice(1);
 }

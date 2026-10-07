@@ -27,7 +27,7 @@ import type {
 } from "../people.types";
 import { setHouseholdTimeZone } from "@/lib/time";
 import { managerRoleType } from "../people.constants";
-import { isDueForRenewal, msUntilRenewal } from "../people.utils";
+import { initialsOf, isDueForRenewal, msUntilRenewal, shortNameOf } from "../people.utils";
 
 const TOKEN_KEY = "linara_manager_token";
 const REFRESH_KEY = "linara_manager_refresh_token";
@@ -88,15 +88,8 @@ export type SessionStatus = "loading" | "anon" | "needs_bootstrap" | "authed";
 
 function buildAdmin(id: string, fullName: string, userType: string): Admin {
   const trimmed = fullName.trim() || "Manager";
-  const short = trimmed.split(" ")[0] || trimmed;
-  const initials =
-    trimmed
-      .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "M";
+  const short = shortNameOf(trimmed);
+  const initials = initialsOf(trimmed);
   // people.constants.ts's labels and every consumer of Admin.type are keyed
   // on the UI side, so the database role is mapped once, here.
   const type = managerRoleType[userType as ManagerRole] ?? "primary";

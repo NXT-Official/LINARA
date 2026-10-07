@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Pencil,
   RotateCcw,
+  Smartphone,
   X,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -290,7 +291,7 @@ export function NeedsYou({
                   <Avatar initials={initialsOf(name)} />
                   <span className="text-xs font-semibold text-foreground">{name}</span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                    <AlertCircle className="h-3 w-3" /> Says she wasn't paid
+                    <AlertCircle className="h-3 w-3" /> Says it didn't arrive
                   </span>
                 </div>
                 <h4 className="mt-1.5 text-sm font-semibold text-foreground">
@@ -306,14 +307,16 @@ export function NeedsYou({
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Link
-                    to={left ? "/manager/people" : "/manager/money"}
+                    {...(left
+                      ? { to: "/manager/people" as const }
+                      : { to: "/manager/money" as const, search: { helper: payslip.helperId } })}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                   >
                     Review the payment
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    Talk it through with her, then withdraw the record and pay it again if it didn't
-                    reach her.
+                    Talk it through with {name}, then withdraw the record and pay it again if it
+                    didn't arrive.
                   </span>
                 </div>
               </div>
@@ -330,7 +333,7 @@ export function NeedsYou({
                     </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                    Her last day:{" "}
+                    Last day:{" "}
                     {inv.noticeLastDay
                       ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
                           weekday: "short",
@@ -352,7 +355,7 @@ export function NeedsYou({
                       End employment on that day
                     </Link>
                     <span className="text-xs text-muted-foreground">
-                      In People. Her final pay and open tasks are settled there.
+                      In People. Final pay and open tasks are settled there.
                     </span>
                   </div>
                 </div>
@@ -366,7 +369,7 @@ export function NeedsYou({
                   <div className="flex items-center gap-2">
                     <Avatar initials={initialsOf(displayName)} />
                     <span className="text-xs font-semibold text-foreground">{displayName}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                       <Coins className="h-3 w-3" />{" "}
                       {left ? "Left · still owed" : "Unpaid pay period"}
                     </span>
@@ -376,12 +379,15 @@ export function NeedsYou({
                     record.
                   </h4>
                   <div className="mt-3">
+                    {/* Opens Money on HER, at her unpaid periods: GCash or Maya,
+                        or record it as paid outside Linara (KNOWN_GAPS O35). */}
                     <Link
-                      to={left ? "/manager/people" : "/manager/money"}
+                      {...(left
+                        ? { to: "/manager/people" as const }
+                        : { to: "/manager/money" as const, search: { helper: inv.id } })}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      <Coins className="h-3.5 w-3.5" />{" "}
-                      {left ? "Pay from Past staff" : "Pay from Money"}
+                      <Smartphone className="h-3.5 w-3.5" /> Pay by GCash or Maya
                     </Link>
                   </div>
                 </div>
@@ -499,7 +505,7 @@ export function NeedsYou({
                           <span className="text-xs font-semibold text-foreground">
                             {displayName}
                           </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                             <AlertCircle className="h-3 w-3" />{" "}
                             {isSystemCheck ? "Compliance check" : "Flagged a detail"}
                           </span>

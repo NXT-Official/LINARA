@@ -54,6 +54,12 @@
   --color-card-cream: var(--card-cream);
   --color-terracotta-gold: var(--terracotta-gold);
   --color-ink: var(--ink);
+  --color-status-done: var(--status-done);
+  --color-status-done-soft: var(--status-done-soft);
+  --color-status-done-ink: var(--status-done-ink);
+  --color-status-late: var(--status-late);
+  --color-status-late-soft: var(--status-late-soft);
+  --color-status-late-ink: var(--status-late-ink);
   --shadow-soft:
     0 2px 8px -2px oklch(0.2 0.05 170 / 0.05), 0 1px 3px 0 oklch(0.2 0.05 170 / 0.02),
     inset 0 1px 0 0 oklch(1 0 0 / 0.8), inset 0 0 0 1px oklch(0 0 0 / 0.02);
@@ -77,6 +83,18 @@
      2.2:1 there — use it for fills, dots and strokes, never for words. */
   --terracotta-ink: oklch(0.52 0.12 48);
   --ink: oklch(0.22 0.015 180);
+
+  /* Status (DESIGN.md, Colors > Status). Done is green; late, overdue, over
+     budget and money that doesn't add up share the red-orange. `-ink` is the
+     text colour (on cream and on its own `-soft` tint); the bare one is for
+     fills, bars and dots only. The grocery section uses these; the rest of
+     the app still hard-codes the same values (UI refresh step 5). */
+  --status-done: oklch(0.68 0.14 150);
+  --status-done-soft: oklch(0.95 0.05 150);
+  --status-done-ink: oklch(0.32 0.1 150);
+  --status-late: oklch(0.55 0.18 35);
+  --status-late-soft: oklch(0.93 0.06 35);
+  --status-late-ink: oklch(0.42 0.15 35);
 
   --pine-teal: var(--pine);
   --card-cream: oklch(0.99 0.008 82);
