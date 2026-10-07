@@ -184,15 +184,15 @@ function LandingPage() {
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
             <div className="relative">
               <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
-                Her Own Account
+                The Helper&apos;s Own Account
               </span>
               <h3 className="mt-3 font-display text-xl font-semibold text-primary">
-                Her login, her pay record
+                Their login, their pay record
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                The helper sets her own password — the household never holds it. Her payslips, vale
-                balance, and rest owed live in her own app, showing the same numbers the family
-                sees.
+                The helper sets their own password — the household never holds it. Their payslips,
+                vale balance, and rest owed live in their own app, showing the same numbers the
+                family sees.
               </p>
               <div className="mt-6 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand-deep text-pine">

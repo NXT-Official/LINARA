@@ -37,10 +37,10 @@ export function PrivacyPolicy() {
       <h2>Who is responsible for your data</h2>
       <p>
         Linara Home runs Linara and stores everything described here. When a household keeps
-        employment records about its helper (her wage, hours, pay and leave), the household is her
-        employer and is responsible for those records under the Batas Kasambahay (RA 10361); Linara
-        keeps them on the household&rsquo;s behalf. Both of us handle personal data under the Data
-        Privacy Act of 2012 (RA 10173).
+        employment records about its helper (their wage, hours, pay and leave), the household is the
+        helper&rsquo;s employer and is responsible for those records under the Batas Kasambahay (RA
+        10361); Linara keeps them on the household&rsquo;s behalf. Both of us handle personal data
+        under the Data Privacy Act of 2012 (RA 10173).
       </p>
 
       <h2>What Linara keeps</h2>
