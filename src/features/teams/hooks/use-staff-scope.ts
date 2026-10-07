@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
-import { EMPTY_SCOPE, LARGE_STAFF } from "../teams.constants";
+import { EMPTY_SCOPE, LARGE_STAFF, NO_TEAM } from "../teams.constants";
 import type { StaffScope } from "../teams.types";
 import { useTeamView } from "./use-team-view";
 import { filterStaff, groupByTeam, isScoped, type StaffGroup } from "../teams.utils";
@@ -71,25 +71,43 @@ function subscribe(fn: () => void) {
  * views it has always had, and nothing is filtered.
  */
 export function useStaffScope() {
-  const { teams, activeCount, coversByHelper } = useTeamView();
+  const { teams, activeCount, coversByHelper, inUse } = useTeamView();
   const saved = useSyncExternalStore(subscribe, read, () => SAVED_EMPTY);
   const [query, setQuery] = useState("");
 
   // Search needs nothing from the database; teams and labels need
   // add-teams-and-labels.sql (and ids saved from before are ignored without it).
+  // Teams and labels count once someone is in them: a household that made
+  // "Kitchen" but put nobody in it still has two helpers, not something to
+  // filter (UX review 2026-10-07).
   const show =
     activeCount > LARGE_STAFF ||
-    (teams.available && (teams.teams.length > 0 || teams.labels.length > 0));
-  const scope: StaffScope = show ? { ...saved, query } : EMPTY_SCOPE;
-  const hasTeams = show && teams.teams.length > 0;
-
-  const known = useMemo(
-    () => ({
-      teamIds: new Set(teams.teams.map((t) => t.id)),
-      labelIds: new Set(teams.labels.map((l) => l.id)),
-    }),
-    [teams.teams, teams.labels],
+    (teams.available && (inUse.teamIds.size > 0 || inUse.labelIds.size > 0));
+  const hasTeams = show && inUse.teamIds.size > 0;
+  const teamsInUse = useMemo(
+    () => teams.teams.filter((t) => inUse.teamIds.has(t.id)),
+    [teams.teams, inUse.teamIds],
   );
+  const labelsInUse = useMemo(
+    () => teams.labels.filter((l) => inUse.labelIds.has(l.id)),
+    [teams.labels, inUse.labelIds],
+  );
+  // A saved team or label nobody is in any more stops applying, so the list
+  // can't be narrowed by a filter the bar no longer shows.
+  const scope: StaffScope = show
+    ? {
+        ...saved,
+        query,
+        teamId:
+          saved.teamId &&
+          (inUse.teamIds.has(saved.teamId) || (hasTeams && saved.teamId === NO_TEAM))
+            ? saved.teamId
+            : null,
+        labelIds: saved.labelIds.filter((id) => inUse.labelIds.has(id)),
+      }
+    : EMPTY_SCOPE;
+
+  const known = inUse;
 
   const update = useCallback((patch: Partial<StaffScope>) => {
     const { query: q, ...rest } = patch;
@@ -117,14 +135,17 @@ export function useStaffScope() {
     <T extends { id: string; name: string; teamId?: string | null }>(
       items: T[],
     ): StaffGroup<T>[] | null =>
-      hasTeams && scope.groupBy === "team" ? groupByTeam(items, teams.teams) : null,
-    [hasTeams, scope.groupBy, teams.teams],
+      hasTeams && scope.groupBy === "team" ? groupByTeam(items, teamsInUse) : null,
+    [hasTeams, scope.groupBy, teamsInUse],
   );
 
   return {
     /** Offer search, filters and grouping. */
     show,
     hasTeams,
+    /** What the bar offers: only teams and labels someone is in. */
+    teamsInUse,
+    labelsInUse,
     scope,
     update,
     clear: () => update({ query: "", teamId: null, labelIds: [] }),

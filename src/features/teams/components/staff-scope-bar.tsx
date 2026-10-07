@@ -2,7 +2,6 @@ import { Layers, Search, X } from "lucide-react";
 import { useState } from "react";
 
 import type { StaffScopeApi } from "../hooks/use-staff-scope";
-import { useTeamView } from "../hooks/use-team-view";
 import { NO_TEAM } from "../teams.constants";
 
 const LABELS_SHOWN = 8;
@@ -10,8 +9,8 @@ const LABELS_SHOWN = 8;
 /**
  * Search, team, labels and grouping over a list of staff. The team, labels
  * and grouping follow the manager from tab to tab (useStaffScope); the
- * search is this view's own. Renders nothing for a small household with no
- * teams.
+ * search is this view's own. Renders nothing for a small household where
+ * nobody is in a team or label.
  */
 export function StaffScopeBar({
   api,
@@ -27,12 +26,11 @@ export function StaffScopeBar({
   noun?: [string, string];
   searchLabel?: string;
 }) {
-  const { teams } = useTeamView();
   const [allLabels, setAllLabels] = useState(false);
   if (!api.show) return null;
-  const { scope, update } = api;
-  const labels = allLabels ? teams.labels : teams.labels.slice(0, LABELS_SHOWN);
-  const hidden = teams.labels.length - labels.length;
+  const { scope, update, teamsInUse, labelsInUse } = api;
+  const labels = allLabels ? labelsInUse : labelsInUse.slice(0, LABELS_SHOWN);
+  const hidden = labelsInUse.length - labels.length;
   const filtered = api.scoped || scope.query.trim() !== "";
 
   const toggleLabel = (id: string) =>
@@ -74,7 +72,7 @@ export function StaffScopeBar({
             className="rounded-xl border border-input bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none focus:border-primary"
           >
             <option value="">Every team</option>
-            {teams.teams.map((t) => (
+            {teamsInUse.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
@@ -98,7 +96,7 @@ export function StaffScopeBar({
         )}
       </div>
 
-      {teams.labels.length > 0 && (
+      {labelsInUse.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Labels">
           {labels.map((l) => {
             const on = scope.labelIds.includes(l.id);
@@ -118,7 +116,7 @@ export function StaffScopeBar({
               </button>
             );
           })}
-          {(hidden > 0 || allLabels) && teams.labels.length > LABELS_SHOWN && (
+          {(hidden > 0 || allLabels) && labelsInUse.length > LABELS_SHOWN && (
             <button
               type="button"
               onClick={() => setAllLabels((v) => !v)}

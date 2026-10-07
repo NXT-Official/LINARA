@@ -2,7 +2,7 @@ import { Plus, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 import { ListFilter } from "@/components/shared/list-filter";
-import { matchesQuery } from "@/components/shared/list-filter.utils";
+import { FILTER_FROM, matchesQuery } from "@/components/shared/list-filter.utils";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { PANTRY_CATEGORIES } from "@/features/pantry/pantry.types";
 import { groupByPantryCategory, parseAmount } from "@/features/pantry/pantry.utils";
@@ -12,9 +12,6 @@ import { GroceryRow } from "./grocery-row";
 import { ReceiptSlot } from "./receipt-slot";
 
 type GroceryFilter = "all" | "to_buy" | "bought";
-
-/** Search and filter only earn their space once the list is longer than a glance. */
-const FILTER_FROM = 9;
 
 /**
  * The Needed pool: what's running low, "Ubos na" from staff, and anything

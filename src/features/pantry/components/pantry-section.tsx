@@ -2,7 +2,7 @@ import { AlertCircle, Check, Package, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ListFilter } from "@/components/shared/list-filter";
-import { matchesQuery } from "@/components/shared/list-filter.utils";
+import { FILTER_FROM, matchesQuery } from "@/components/shared/list-filter.utils";
 
 import type { PantryStore } from "../hooks/use-pantry";
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
@@ -12,11 +12,6 @@ import { PantryRow } from "./pantry-row";
 import { PantryStarter } from "./pantry-starter";
 
 type PantryFilter = "all" | "low" | PantryCategory;
-const FILTER_CHIPS: { key: PantryFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "low", label: "Running low" },
-  ...PANTRY_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c] })),
-];
 
 /**
  * Stock levels grouped by category, lows first, with search and a filter.
@@ -38,10 +33,25 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PantryFilter>("all");
   const lowCount = items.filter((i) => i.qty <= i.par).length;
+  // Below FILTER_FROM the controls are hidden, so a leftover search can't hide items.
+  const showFilter = items.length >= FILTER_FROM;
+  const activeQuery = showFilter ? query : "";
+  // Only shelves that hold something: a chip that shows nothing is a dead end.
+  const chips: { key: PantryFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    ...(lowCount > 0 ? [{ key: "low" as const, label: "Running low" }] : []),
+    ...PANTRY_CATEGORIES.filter((c) => items.some((i) => i.category === c)).map((c) => ({
+      key: c,
+      label: CATEGORY_LABEL[c],
+    })),
+  ];
+  // A chip that went away (the last low item restocked) stops filtering.
+  const activeFilter = showFilter && chips.some((c) => c.key === filter) ? filter : "all";
   const shown = items.filter(
     (i) =>
-      matchesQuery(i.name, query) &&
-      (filter === "all" || (filter === "low" ? i.qty <= i.par : i.category === filter)),
+      matchesQuery(i.name, activeQuery) &&
+      (activeFilter === "all" ||
+        (activeFilter === "low" ? i.qty <= i.par : i.category === activeFilter)),
   );
   const grouped = PANTRY_CATEGORIES.map((cat) => ({
     cat,
@@ -83,13 +93,13 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
         </div>
       </div>
 
-      {items.length > 0 && (
+      {showFilter && (
         <div className="mt-4">
           <ListFilter
             query={query}
             onQuery={setQuery}
-            chips={FILTER_CHIPS}
-            active={filter}
+            chips={chips}
+            active={activeFilter}
             onChip={setFilter}
             label="Search pantry"
           />
