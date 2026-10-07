@@ -21,9 +21,11 @@ export function stockState(item: Pick<PantryItem, "qty" | "par">): StockState {
   return item.qty <= item.par ? "low" : "ok";
 }
 
+// English on the manager web until its Filipino toggle exists; the helper app
+// keeps "Ubos" / "Paubos" (decision 2026-10-07).
 export const STOCK_LABEL: Record<Exclude<StockState, "ok">, string> = {
-  out: "Ubos",
-  low: "Paubos",
+  out: "Out",
+  low: "Running low",
 };
 
 // Plural units the starter list uses, and anyone typing "packs" by hand.
