@@ -23,7 +23,7 @@ import {
 } from "@/lib/time";
 
 import type { Recurrence, Task } from "../task.types";
-import { taskFormErrors } from "../task.utils";
+import { defaultTaskTime, taskFormErrors } from "../task.utils";
 import { DurationField } from "./duration-field";
 
 export function NewTaskModal({
@@ -53,7 +53,8 @@ export function NewTaskModal({
   // "" = Unassigned: a task can wait on the board until someone is picked.
   const [helperId, setHelperId] = useState(defaultHelperId ?? activeHelpers[0]?.id ?? "");
   const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState("08:00");
+  // Follows the person and day until a time is picked (defaultTaskTime).
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [repeatKind, setRepeatKind] = useState<"none" | "daily" | "weekdays">("none");
@@ -62,10 +63,14 @@ export function NewTaskModal({
   const [trip, setTrip] = useState<{ from?: PlaceRef; to?: PlaceRef }>({});
   // Errors show once Save is pressed, then follow the typing.
   const [tried, setTried] = useState(false);
-  const errors = tried ? taskFormErrors({ title, date, time }) : {};
 
   // Planning never bypasses her boundaries silently, same as Edit.
   const schedule = helperId ? scheduleFor?.(helperId) : undefined;
+  const now = householdNow();
+  const todayIso = toISODate(now);
+  const time =
+    pickedTime ?? defaultTaskTime(date, todayIso, now.getHours() * 60 + now.getMinutes(), schedule);
+  const errors = tried ? taskFormErrors({ title, date, time }) : {};
   const assignee = activeHelpers.find((h) => h.id === helperId);
   const outsideShift =
     schedule && date && time
@@ -80,7 +85,6 @@ export function NewTaskModal({
   );
   const inTimeOff =
     !!helperId && !!date && !!time && !!approvedTimeOffAt(timeOff, helperId, date, parseHM(time));
-  const todayIso = toISODate(householdNow());
 
   const toggleDay = (d: Weekday) => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
@@ -168,7 +172,7 @@ export function NewTaskModal({
             <input
               type="time"
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={(e) => setPickedTime(e.target.value)}
               aria-invalid={!!errors.time}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
             />

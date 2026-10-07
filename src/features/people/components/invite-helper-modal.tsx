@@ -31,7 +31,9 @@ export function InviteHelperModal({
   const [shiftEnd, setShiftEnd] = useState("19:00");
   const [restDay, setRestDay] = useState<(typeof WEEKLY_REST_DAY_NAMES)[number]>("Sunday");
   const [paydayInterval, setPaydayInterval] = useState<PaydayInterval>("semi_monthly");
-  const [wage, setWage] = useState("8000");
+  // Empty, not a sample figure: a wage is the household's to state, and a
+  // pre-filled one gets accepted unread.
+  const [wage, setWage] = useState("");
   const [phone, setPhone] = useState("");
   const [startedOn, setStartedOn] = useState(() => toISODate(householdNow()));
   const [teamId, setTeamId] = useState<string | null>(null);
@@ -39,8 +41,11 @@ export function InviteHelperModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const wageNum = parseInt(wage, 10) || 0;
+  const canSubmit = !!name.trim() && wageNum > 0;
+
   const submit = async () => {
-    if (!name.trim()) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -52,7 +57,7 @@ export function InviteHelperModal({
         shiftEnd,
         restDay,
         paydayInterval,
-        wagePHP: parseInt(wage, 10) || 0,
+        wagePHP: wageNum,
         phone: phone.trim(),
         startedOn,
         teamId,
@@ -192,22 +197,21 @@ export function InviteHelperModal({
           </select>
         </Field>
 
-        {parseInt(wage, 10) < REGIONAL_MINIMUM_WAGE && (
+        {wageNum > 0 && wageNum < REGIONAL_MINIMUM_WAGE && (
           <div className="rounded-2xl bg-status-late-soft/60 border border-status-late/30 p-3.5 text-xs text-status-late-ink flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 shrink-0 text-status-late-ink mt-0.5" />
             <div>
               <span className="font-semibold block mb-0.5">
                 Batas Kasambahay Compliance Warning
               </span>
-              Ang sweldong ₱{(parseInt(wage, 10) || 0).toLocaleString()} ay mababa sa regional
-              minimum wage na{" "}
+              Ang sweldong ₱{wageNum.toLocaleString()} ay mababa sa regional minimum wage na{" "}
               <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span> para
               sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
             </div>
           </div>
         )}
 
-        <LegalContributionSplitCard wagePHP={parseInt(wage, 10) || 0} />
+        {wageNum > 0 && <LegalContributionSplitCard wagePHP={wageNum} />}
         <Field label="Contact number">
           <input
             value={phone}
@@ -236,7 +240,7 @@ export function InviteHelperModal({
         </button>
         <button
           onClick={submit}
-          disabled={!name.trim() || submitting}
+          disabled={!canSubmit || submitting}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
           {submitting ? (

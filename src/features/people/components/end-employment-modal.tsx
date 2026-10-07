@@ -1,5 +1,5 @@
 import { AlertCircle, Info, Loader2, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
@@ -35,7 +35,10 @@ function problemText(p: EmploymentEndPreview): string | null {
     case "before_start":
       return `That's before their first day (${longDay(p.startedOn)}).`;
     case "already_paid_past":
-      return `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
+      // Paid ahead: no day is valid yet, since a last day can't be in the future.
+      return p.latestPaidCutoffEnd && p.latestPaidCutoffEnd > p.today
+        ? `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd)}, so the last working day can't be earlier. You can end the employment from that day.`
+        : `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
     case "not_active":
       return "They aren't employed here any more.";
     default:
@@ -68,6 +71,8 @@ export function EndEmploymentModal({
   onConfirm: (lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
   const [lastDay, setLastDay] = useState(() => initialLastDay ?? toISODate(householdNow()));
+  // Until a day is picked, the form may move its default to the first valid one.
+  const dayPicked = useRef(Boolean(initialLastDay));
   const [reassignTo, setReassignTo] = useState<string>(otherHelpers[0]?.id ?? "");
   const [preview, setPreview] = useState<EmploymentEndPreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -83,6 +88,18 @@ export function EndEmploymentModal({
         // The device can be a day ahead of the household; its "today" wins.
         if (p.problem === "future" && lastDay === toISODate(householdNow())) {
           setLastDay(p.today);
+          return;
+        }
+        // Today's default would end it inside a cutoff already paid: open on
+        // the paid-through day instead, when that day has come.
+        if (
+          !dayPicked.current &&
+          p.problem === "already_paid_past" &&
+          p.latestPaidCutoffEnd &&
+          p.latestPaidCutoffEnd <= p.today &&
+          p.latestPaidCutoffEnd !== lastDay
+        ) {
+          setLastDay(p.latestPaidCutoffEnd);
           return;
         }
         setPreview(p);
@@ -163,7 +180,11 @@ export function EndEmploymentModal({
             type="date"
             value={lastDay}
             max={preview?.today}
-            onChange={(e) => e.target.value && setLastDay(e.target.value)}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              dayPicked.current = true;
+              setLastDay(e.target.value);
+            }}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>

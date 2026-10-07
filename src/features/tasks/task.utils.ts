@@ -1,8 +1,10 @@
+import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
   formatDisplayTime,
   fromHouseholdClock,
   isoToDisplayTime,
+  parseHM,
   parseTimeToMinutes,
   toHouseholdClock,
   toISODate,
@@ -147,4 +149,31 @@ export function taskFormErrors(form: {
   if (!form.date) errors.date = "Pick a day.";
   if (!form.time) errors.time = "Pick a time.";
   return errors;
+}
+
+const toHHMM = (minutes: number): string =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/**
+ * The time a new task form opens on. A fixed 8:00 sat outside many shifts, so
+ * the form opened with an out-of-shift warning before anything was typed.
+ * Today: the next whole hour, no earlier than the shift starts. Another day:
+ * when the shift starts. Out of the break either way. When nothing fits (the
+ * shift is over for today), the next hour stands and the warning is true.
+ */
+export function defaultTaskTime(
+  date: string,
+  todayIso: string,
+  nowMinutes: number,
+  schedule?: HelperSchedule,
+): string {
+  const start = schedule ? parseHM(schedule.shiftStart) : 8 * 60;
+  const nextHour = Math.min(23 * 60, Math.floor(nowMinutes / 60) * 60 + 60);
+  let t = date === todayIso ? Math.max(nextHour, start) : start;
+  if (schedule?.breakStart && schedule.breakEnd) {
+    const bs = parseHM(schedule.breakStart);
+    const be = parseHM(schedule.breakEnd);
+    if (t >= bs && t < be) t = be;
+  }
+  return toHHMM(t);
 }
