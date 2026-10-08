@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Helper } from "@/features/people/people.types";
@@ -59,5 +59,32 @@ describe("EditTaskModal", () => {
   it("says when a finished task has no photo", () => {
     open(task({ status: "done" }));
     expect(screen.getByText("No photo with this one.")).toBeTruthy();
+  });
+});
+
+describe("EditTaskModal, for a repeating task", () => {
+  it("says it repeats, and stops it only once confirmed", () => {
+    const onStopRepeating = vi.fn();
+    render(
+      <EditTaskModal
+        task={task({ recurrence: ["Mon", "Thu"], routineId: "t0" })}
+        helpers={[marito]}
+        scheduleFor={() => undefined}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        onStopRepeating={onStopRepeating}
+      />,
+    );
+    expect(screen.getByText(/Repeats on Mon, Thu\./)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stop repeating" }));
+    expect(onStopRepeating).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Stop repeating" }));
+    expect(onStopRepeating).toHaveBeenCalledTimes(1);
+  });
+
+  it("says nothing about repeating for a one-off task", () => {
+    open(task({}));
+    expect(screen.queryByText(/Repeats/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop repeating" })).toBeNull();
   });
 });

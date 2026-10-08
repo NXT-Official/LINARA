@@ -20,19 +20,44 @@ export function recurrenceLabel(r?: Recurrence): string | null {
   return null;
 }
 
-export const routineMatches = (r: Routine, wd: Weekday): boolean => {
+/** tickets.recurrence: ['daily'], the weekday codes, or null for a one-off. */
+export function encodeRecurrence(r?: Recurrence): string[] | null {
+  if (!r || r === "none") return null;
+  if (r === "daily") return ["daily"];
+  return r;
+}
+
+export function decodeRecurrence(r: string[] | null | undefined): Recurrence | undefined {
+  if (!r || r.length === 0) return undefined;
+  if (r.length === 1 && r[0] === "daily") return "daily";
+  return r as Weekday[];
+}
+
+export const routineMatches = (r: Pick<Routine, "recurrence">, wd: Weekday): boolean => {
   if (r.recurrence === "daily") return true;
   return r.recurrence.includes(wd);
 };
 
 /**
  * Who a routine's task goes to on a day: its helper, or no one (Unassigned)
- * when she has approved time off at its time (leave, or a rest-off window).
- * The work still needs doing, so it lands where a manager will hand it on
- * rather than on the phone of someone who's away (LEAVE_PLAN.md step 4).
+ * when she has approved time off at its time (leave, or a rest-off window),
+ * or, given who still works here, when she no longer does. The work still
+ * needs doing, so it lands where a manager will hand it on rather than on the
+ * phone of someone who's away (LEAVE_PLAN.md step 4). The database spawns by
+ * the same rule (add-repeating-tasks.sql's routine_helper_free).
  */
-export const routineAssignee = (r: Routine, dayIso: string, timeOff: TimeOff[]): string | null =>
-  approvedTimeOffAt(timeOff, r.helperId, dayIso, parseTimeToMinutes(r.time)) ? null : r.helperId;
+export const routineAssignee = (
+  r: Pick<Routine, "helperId" | "time">,
+  dayIso: string,
+  timeOff: TimeOff[],
+  activeHelperIds?: string[],
+): string | null => {
+  if (!r.helperId) return null;
+  if (activeHelperIds && !activeHelperIds.includes(r.helperId)) return null;
+  return approvedTimeOffAt(timeOff, r.helperId, dayIso, parseTimeToMinutes(r.time))
+    ? null
+    : r.helperId;
+};
 
 // The market run is the one task that carries the grocery list and its budget.
 export const isPalengke = (t: Task) => /pal[eé]ngke|marketing run/i.test(t.title);

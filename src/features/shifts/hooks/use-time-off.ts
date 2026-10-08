@@ -32,6 +32,8 @@ export type TimeOffStore = {
   list: TimeOff[];
   /** Every leave request in the household, any status, newest first. */
   leave: LeaveRequest[];
+  /** This household's time off has been read once (not counting shared staff's). */
+  loaded: boolean;
   /** Refetch now, e.g. after a manager decides a rest-off request. */
   reload: () => void;
   /** Each resolves true once saved; a refusal is shown as a toast with the server's reason. */
@@ -61,6 +63,7 @@ export function useTimeOff({
   // Staff shared in from another house: their approved time off, dates only.
   const [shared, setShared] = useState<SharedTimeOffRow[]>([]);
   const [reloads, setReloads] = useState(0);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!ready || !token) return;
@@ -71,6 +74,7 @@ export function useTimeOff({
           if (cancelled) return;
           setRestOff(restRows);
           setLeave(leaveRows);
+          setLoaded(true);
         })
         .catch((err) => {
           console.error("[useTimeOff] Failed to load time off:", err);
@@ -209,5 +213,5 @@ export function useTimeOff({
     [token, run],
   );
 
-  return { list, leave, reload, decideLeave, recordLeave, cancelLeave };
+  return { list, leave, loaded, reload, decideLeave, recordLeave, cancelLeave };
 }

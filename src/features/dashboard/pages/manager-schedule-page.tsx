@@ -58,6 +58,7 @@ export function ManagerSchedulePage({
     addTask,
     addRoutine,
     removeRoutine,
+    stopRepeating,
     editTask,
     cancelTask,
     restoreTask,
@@ -207,6 +208,14 @@ export function ManagerSchedulePage({
             restoreTask(editing.id);
             setEditing(null);
           }}
+          onStopRepeating={
+            isRemote
+              ? undefined
+              : () => {
+                  void stopRepeating(editing.routineId ?? editing.id);
+                  setEditing(null);
+                }
+          }
         />
       )}
       {gate.intent && (
