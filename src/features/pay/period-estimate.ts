@@ -3,6 +3,11 @@ import type { Helper } from "@/features/people/people.types";
 import { netPayForCutoff, workedShareOfCutoff } from "./net-pay";
 import type { PayPeriod } from "./pay.types";
 
+/** Her wage for a period: the one it had, or her current one before add-wage-history.sql. */
+export function periodRate(helper: Helper, period: PayPeriod | undefined): number {
+  return period?.monthlyRate ?? helper.monthlyRate;
+}
+
 /**
  * What a period pays before vale: basic for the days worked, less
  * contributions. Through netPayForCutoff, so it is the same rule the payout
@@ -18,7 +23,7 @@ export function periodEstimate(helper: Helper, period: PayPeriod): number {
     period.fullStart,
     period.fullEnd,
   );
-  return netPayForCutoff(helper.monthlyRate, helper.paydayInterval, 0, share);
+  return netPayForCutoff(periodRate(helper, period), helper.paydayInterval, 0, share);
 }
 
 /**

@@ -102,7 +102,12 @@ export function PeoplePage({
                 return invite;
               }}
               onCancelInvite={invites.cancel}
-              onUpdateWage={invites.updateWage}
+              onUpdateWage={async (id, wage, effectiveFrom) => {
+                await invites.updateWage(id, wage, effectiveFrom);
+                // Each period's wage comes with the periods.
+                await payPeriods.refresh();
+              }}
+              payPeriods={payPeriods}
               onSetPantryRole={invites.setPantryRole}
               helpers={helpers}
               activeHelpers={activeHelpers}

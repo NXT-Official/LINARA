@@ -3,6 +3,8 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
+import { formatCutoffDay } from "@/features/pay/pay.utils";
 import { BulkStaffBar } from "@/features/teams/components/bulk-staff-bar";
 import { EditTeamLabelsModal } from "@/features/teams/components/edit-team-labels-modal";
 import { StaffScopeBar } from "@/features/teams/components/staff-scope-bar";
@@ -24,6 +26,7 @@ export function PeopleSection({
   onInvite,
   onCancelInvite,
   onUpdateWage,
+  payPeriods,
   onSetPantryRole,
   helpers,
   activeHelpers,
@@ -40,7 +43,9 @@ export function PeopleSection({
     },
   ) => Promise<Invite>;
   onCancelInvite: (id: string) => void;
-  onUpdateWage: (id: string, wagePHP: number) => Promise<void>;
+  onUpdateWage: (id: string, wagePHP: number, effectiveFrom?: string) => Promise<void>;
+  /** For the cutoff a new wage can start in. */
+  payPeriods: PayPeriodStore;
   onSetPantryRole: (id: string, role: PantryRole) => Promise<void>;
   /** Every helper row, for the pay figures the end-employment preview needs. */
   helpers: Helper[];
@@ -221,8 +226,21 @@ export function PeopleSection({
         <EditWageModal
           name={editingWage.claimedName || editingWage.name}
           initialWagePHP={editingWage.wagePHP}
+          // Periods carry their wage once add-wage-history.sql is in; before
+          // that a wage can only change outright, so there's no start to pick.
+          currentPeriod={(payPeriods.byHelper[editingWage.id] ?? []).find(
+            (p) => p.isCurrent && p.monthlyRate !== null,
+          )}
           onClose={() => setEditingWage(null)}
-          onSubmit={(wagePHP) => onUpdateWage(editingWage.id, wagePHP)}
+          onSubmit={async (wagePHP, effectiveFrom) => {
+            await onUpdateWage(editingWage.id, wagePHP, effectiveFrom);
+            const who = editingWage.claimedName || editingWage.name;
+            toast.success(
+              effectiveFrom
+                ? `${who}'s new wage starts ${formatCutoffDay(effectiveFrom)}.`
+                : `${who}'s wage is saved.`,
+            );
+          }}
         />
       )}
     </div>

@@ -5,6 +5,7 @@ import type { Helper, PaydayInterval } from "@/features/people/people.types";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 
 import { netPayForCutoff, workedShareOfCutoff } from "../net-pay";
+import { periodRate } from "../period-estimate";
 import { getHouseholdCutoffFn, type HouseholdCutoff } from "../pay.actions";
 import type { PayPeriod, Payslip } from "../pay.types";
 import { payslipCovering } from "../payslip-match";
@@ -263,7 +264,7 @@ export function useHouseholdPayroll({
         netPay:
           state === "due"
             ? netPayForCutoff(
-                helper.monthlyRate,
+                periodRate(helper, period),
                 helper.paydayInterval,
                 unsettledVales,
                 workedShare,

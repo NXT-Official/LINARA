@@ -3,33 +3,54 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import type { PayPeriod } from "@/features/pay/pay.types";
+import { formatCutoffDay, formatCutoffRange } from "@/features/pay/pay.utils";
 
 import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 
+const dayAfter = (ymd: string) => {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
 /** Lets a manager change a helper's wage after invite -- previously
  * monthly_rate was write-once (only set at invite creation), see
- * KNOWN_GAPS.md's helper-wage-editing gap. */
+ * KNOWN_GAPS.md's helper-wage-editing gap. A new wage starts at the cutoff
+ * open now or the next one; closed periods keep the wage they had, paid or
+ * not (add-wage-history.sql, KNOWN_GAPS O50). */
 export function EditWageModal({
   name,
   initialWagePHP,
+  currentPeriod,
   onClose,
   onSubmit,
 }: {
   name: string;
   initialWagePHP: number;
+  /** The cutoff open now; none for an invite not yet claimed. */
+  currentPeriod?: PayPeriod;
   onClose: () => void;
-  onSubmit: (wagePHP: number) => Promise<void>;
+  onSubmit: (wagePHP: number, effectiveFrom?: string) => Promise<void>;
 }) {
   const [wage, setWage] = useState(String(initialWagePHP));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const thisPaid = Boolean(currentPeriod?.payslipId);
+  const nextStart = currentPeriod ? dayAfter(currentPeriod.fullEnd) : null;
+  const [startsNext, setStartsNext] = useState(thisPaid);
 
   const submit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(parseInt(wage, 10) || 0);
+      const effectiveFrom = currentPeriod
+        ? startsNext && nextStart
+          ? nextStart
+          : currentPeriod.fullStart
+        : undefined;
+      await onSubmit(parseInt(wage, 10) || 0, effectiveFrom);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update the wage.");
@@ -44,8 +65,7 @@ export function EditWageModal({
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">Edit {name}'s wage</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Updates the household's record. Takes effect on the Pay Dial and next contribution
-            split.
+            Pay periods that already closed keep the wage they had, paid or not.
           </p>
         </div>
         <button
@@ -64,6 +84,33 @@ export function EditWageModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
+
+        {currentPeriod && nextStart && (
+          <fieldset>
+            <legend className="mb-1.5 text-xs font-semibold text-muted-foreground">
+              Starts from
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <WhenOption
+                checked={!startsNext}
+                disabled={thisPaid}
+                onSelect={() => setStartsNext(false)}
+                title="This cutoff"
+                body={
+                  thisPaid
+                    ? "Already paid"
+                    : formatCutoffRange(currentPeriod.fullStart, currentPeriod.fullEnd)
+                }
+              />
+              <WhenOption
+                checked={startsNext}
+                onSelect={() => setStartsNext(true)}
+                title="Next cutoff"
+                body={`From ${formatCutoffDay(nextStart)}`}
+              />
+            </div>
+          </fieldset>
+        )}
 
         {parseInt(wage, 10) < REGIONAL_MINIMUM_WAGE && (
           <div className="rounded-2xl bg-status-late-soft/60 border border-status-late/30 p-3.5 text-xs text-status-late-ink flex items-start gap-2.5">
@@ -112,5 +159,40 @@ export function EditWageModal({
         </button>
       </div>
     </Modal>
+  );
+}
+
+function WhenOption({
+  checked,
+  disabled = false,
+  onSelect,
+  title,
+  body,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  title: string;
+  body: string;
+}) {
+  return (
+    <label
+      className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${
+        checked ? "border-primary bg-primary/5" : "border-input bg-background"
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-primary/60"}`}
+    >
+      <input
+        type="radio"
+        name="wage-starts"
+        checked={checked}
+        disabled={disabled}
+        onChange={onSelect}
+        className="mt-0.5 accent-[var(--pine)]"
+      />
+      <span>
+        <span className="block font-semibold text-foreground">{title}</span>
+        <span className="block text-xs text-muted-foreground">{body}</span>
+      </span>
+    </label>
   );
 }

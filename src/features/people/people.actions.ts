@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { createAuthedClient } from "@/lib/supabase";
+import { rateForCutoff } from "@/features/pay/wage-rate";
 
 // The Supabase client here isn't generated against a Database type, so
 // .rpc() calls resolve to `{}` instead of the function's actual return
@@ -505,6 +506,8 @@ export interface EmploymentEndPreview {
   futureRestOff: number;
   restOwedMinutes: number;
   basePaidThisYear: number;
+  /** Her wage for the final cutoff: the one it has, not a raise set for later. */
+  monthlyRate: number | null;
 }
 
 export const employmentEndPreviewFn = createServerFn({ method: "POST" })
@@ -519,6 +522,8 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       throw new Error(error?.message || "Failed to preview the end of employment");
     }
     const r = raw as Record<string, unknown>;
+    const fullCutoffStart =
+      (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string);
     return {
       problem: (r.problem as EmploymentEndPreview["problem"]) ?? null,
       today: r.today as string,
@@ -528,8 +533,7 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       finalCutoffEnd: r.final_cutoff_end as string,
       // Before add-pay-periods.sql the preview had no full start; the final
       // cutoff's start was the full one then.
-      fullCutoffStart:
-        (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string),
+      fullCutoffStart,
       fullCutoffEnd: r.full_cutoff_end as string,
       finalCutoffPaid: Boolean(r.final_cutoff_paid),
       // Before add-pay-periods.sql only the cutoff right before was checked.
@@ -543,6 +547,11 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       futureRestOff: Number(r.future_rest_off ?? 0),
       restOwedMinutes: Number(r.rest_owed_minutes ?? 0),
       basePaidThisYear: Number(r.base_paid_this_year ?? 0),
+      monthlyRate: fullCutoffStart
+        ? await rateForCutoff(authedClient, data.helperId, fullCutoffStart, NaN).then((n) =>
+            Number.isNaN(n) ? null : n,
+          )
+        : null,
     };
   });
 
@@ -622,9 +631,12 @@ export const updateHelperScheduleFn = createServerFn({ method: "POST" })
  * household-scoped RLS alone the way the schedule editor does.
  */
 export const updateHelperWageFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; helperId: string; monthlyRate: number }) => data)
+  .validator(
+    (data: { token: string; helperId: string; monthlyRate: number; effectiveFrom?: string }) =>
+      data,
+  )
   .handler(async ({ data }) => {
-    const { token, helperId, monthlyRate } = data;
+    const { token, helperId, monthlyRate, effectiveFrom } = data;
 
     const authedClient = createAuthedClient(token);
     const {
@@ -650,6 +662,22 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       throw new Error("Forbidden: Only managers can change a helper's wage");
     }
 
+    // From this cutoff or the next; closed periods keep their wage
+    // (add-wage-history.sql, KNOWN_GAPS O50).
+    const { data: rows, error: setError } = await authedClient.rpc("set_helper_wage", {
+      p_helper_id: helperId,
+      p_monthly_rate: monthlyRate,
+      p_effective_from: effectiveFrom ?? null,
+    });
+    if (!setError) {
+      const row = (rows as { effective_from: string }[] | null)?.[0];
+      return { helperId, monthlyRate, effectiveFrom: row?.effective_from ?? null };
+    }
+    if (setError.code !== "PGRST202" && setError.code !== "42883") {
+      throw new Error(setError.message);
+    }
+
+    // Before that migration: the one wage there is.
     const { error } = await authedClient
       .from("helper_profiles")
       .update({ monthly_rate: monthlyRate })
@@ -659,7 +687,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    return { helperId, monthlyRate };
+    return { helperId, monthlyRate, effectiveFrom: null };
   });
 
 /**

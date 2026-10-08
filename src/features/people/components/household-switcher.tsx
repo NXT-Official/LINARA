@@ -56,6 +56,7 @@ export function HouseholdSwitcher() {
 
   if (!session.multiManager || session.households.length === 0) return null;
   const current = session.households.find((h) => h.isCurrent);
+  const canStartHousehold = session.households.some((h) => h.role === "primary_manager");
 
   const pick = (id: string) => {
     if (id === current?.id) return;
@@ -103,9 +104,12 @@ export function HouseholdSwitcher() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setDialog("new")} className="gap-2">
-            <Plus className="h-4 w-4" /> New household
-          </DropdownMenuItem>
+          {/* Only a primary manager starts one (restrict-create-household.sql, O49). */}
+          {canStartHousehold && (
+            <DropdownMenuItem onSelect={() => setDialog("new")} className="gap-2">
+              <Plus className="h-4 w-4" /> New household
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setDialog("join")} className="gap-2">
             <KeyRound className="h-4 w-4" /> Join with a code
           </DropdownMenuItem>

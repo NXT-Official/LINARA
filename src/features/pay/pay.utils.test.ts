@@ -54,6 +54,7 @@ describe("formatCutoffRange", () => {
     // compared is computed in Postgres. If someone reintroduces a local
     // derivation here, this fails and points them at the reason.
     const mod = await import("./pay.utils");
-    expect(Object.keys(mod)).toEqual(["formatCutoffRange"]);
+    // Display only, both of them: formatCutoffDay shows a day Postgres gave.
+    expect(Object.keys(mod).sort()).toEqual(["formatCutoffDay", "formatCutoffRange"]);
   });
 });

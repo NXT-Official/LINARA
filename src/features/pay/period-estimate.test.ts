@@ -7,7 +7,12 @@ import { earlierOwed, periodEstimate } from "./period-estimate";
 
 const helper = { monthlyRate: 9000, paydayInterval: "semi_monthly" } as Helper;
 
-const period = (fullStart: string, fullEnd: string, workedStart = fullStart): PayPeriod => ({
+const period = (
+  fullStart: string,
+  fullEnd: string,
+  workedStart = fullStart,
+  monthlyRate: number | null = null,
+): PayPeriod => ({
   fullStart,
   fullEnd,
   workedStart,
@@ -18,6 +23,7 @@ const period = (fullStart: string, fullEnd: string, workedStart = fullStart): Pa
   payslipStatus: null,
   payslipProvider: null,
   payslipAck: null,
+  monthlyRate,
 });
 
 describe("earlierOwed", () => {
@@ -32,5 +38,23 @@ describe("earlierOwed", () => {
       periodEstimate(helper, full) + periodEstimate(helper, partial),
     );
     expect(periodEstimate(helper, partial)).toBeLessThan(periodEstimate(helper, full));
+  });
+});
+
+describe("periodEstimate", () => {
+  it("prices a period at the wage it had, not her wage today (KNOWN_GAPS O50)", () => {
+    const september = period("2026-09-01", "2026-09-15", "2026-09-01", 8000);
+    const raised = { ...helper, monthlyRate: 12000 };
+    expect(periodEstimate(raised, september)).toBe(periodEstimate(helper, september));
+    expect(periodEstimate(raised, september)).toBe(
+      periodEstimate({ ...helper, monthlyRate: 8000 }, period("2026-09-01", "2026-09-15")),
+    );
+  });
+
+  it("uses her current wage before the wage history exists", () => {
+    const old = period("2026-09-01", "2026-09-15");
+    expect(periodEstimate({ ...helper, monthlyRate: 12000 }, old)).toBeGreaterThan(
+      periodEstimate(helper, old),
+    );
   });
 });
