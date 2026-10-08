@@ -5,22 +5,12 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 import { LogoMark } from "@/components/shared/logo";
-import { openAppScreen } from "@/lib/mobile-app";
+import { inMobileApp, openAppScreen } from "@/lib/mobile-app";
 
 import { useSession } from "../hooks/use-session";
+import { ExistingAccountError } from "../people.auth";
+import { clearPendingCode, readPendingCode, savePendingCode } from "../pending-invite";
 import { JoinHouseholdForm } from "./household-switcher";
-
-// A manager code given at sign-up, kept while the email waits to be
-// confirmed, so the setup screen after it can join with it.
-const PENDING_CODE_KEY = "linara_pending_manager_code";
-
-function pendingCode(): string {
-  try {
-    return window.localStorage.getItem(PENDING_CODE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
 
 /** The steps of /signup after "Which one are you?", each its own `?step=`. */
 export const SIGNUP_STEPS = ["household", "join", "kasambahay"] as const;
@@ -84,15 +74,17 @@ export function ManagerAuthFlow({
   const [loading, setLoading] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(confirmationSent);
   const [inviteCode, setInviteCode] = useState("");
+  // Sign-up hit an account the email already had: say so, and offer log in.
+  const [existingAccount, setExistingAccount] = useState(false);
   // The setup screen: join one instead of starting one.
   const [joining, setJoining] = useState(false);
   useEffect(() => {
-    if (session.status === "needs_bootstrap" && pendingCode()) setJoining(true);
+    if (session.status === "needs_bootstrap" && readPendingCode()) setJoining(true);
   }, [session.status]);
 
   const joinAndForget = async (code: string, name?: string) => {
     await session.joinHousehold(code, name);
-    window.localStorage.removeItem(PENDING_CODE_KEY);
+    clearPendingCode();
   };
 
   // Signed in (already, or just now): into the app. Replace, so Back from the
@@ -128,14 +120,12 @@ export function ManagerAuthFlow({
         // Just the account here. Name, and the household to start or join,
         // are asked once, on "Finish setting up" at first login (QA LMM-A2).
         // A code waits there for it; no code means start one, so an old
-        // one from an earlier try mustn't open the join form instead.
+        // one from an earlier try mustn't open the join form instead. An
+        // account the email already had joins with it from the dashboard.
         if (withCode) {
-          window.localStorage.setItem(
-            PENDING_CODE_KEY,
-            inviteCode.replace(/\s/g, "").toUpperCase(),
-          );
+          savePendingCode(inviteCode.replace(/\s/g, "").toUpperCase());
         } else {
-          window.localStorage.removeItem(PENDING_CODE_KEY);
+          clearPendingCode();
         }
         const result = await session.signUp({ email: email.trim(), password });
         if (result === "confirmation_pending") {
@@ -173,6 +163,10 @@ export function ManagerAuthFlow({
         toast.success("Welcome back!");
       }
     } catch (err) {
+      if (err instanceof ExistingAccountError) {
+        setExistingAccount(true);
+        return;
+      }
       console.error(err);
       const message = err instanceof Error ? err.message : "May error na naganap.";
       toast.error(message);
@@ -212,78 +206,75 @@ export function ManagerAuthFlow({
 
   if (session.status === "needs_bootstrap") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
-          <LogoMark className="h-10 w-10" />
-          <h1 className="mt-4 font-display text-2xl text-foreground">
-            {joining ? "Join a household" : "Finish setting up"}
-          </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {joining
-              ? "Enter the code its primary manager gave you."
-              : "Set up your household: your name, and what to call it."}
-          </p>
-          {joining ? (
-            <JoinHouseholdForm
-              token={session.token}
-              onJoin={joinAndForget}
-              askName
-              initialCode={pendingCode()}
-            />
-          ) : (
-            <div className="mt-4 space-y-3">
-              <Field label="Your name">
-                <input
-                  disabled={loading}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Ben Santos"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-                />
-              </Field>
-              <Field label="Household name (optional)">
-                <input
-                  disabled={loading}
-                  value={householdName}
-                  onChange={(e) => setHouseholdName(e.target.value)}
-                  placeholder="e.g. Santos Household"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-                />
-              </Field>
-            </div>
-          )}
-          {!joining && (
-            <button
-              onClick={submitBootstrap}
-              disabled={loading || !fullName.trim()}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Setting up...
-                </>
-              ) : (
-                "Finish setup"
-              )}
-            </button>
-          )}
-          <SwitchLink onClick={() => setJoining(!joining)}>
-            {joining
-              ? "Setting up a new household instead? Go back"
-              : "Joining a household that's already set up? Use your code"}
-          </SwitchLink>
-          {/* The one way off this screen: in the app it also signs the app
-              out, back to its own sign-in (app/manager.tsx). */}
+      <AuthCard>
+        <h1 className="mt-4 font-display text-2xl text-foreground">
+          {joining ? "Join a household" : "Finish setting up"}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {joining
+            ? "Enter the code its primary manager gave you."
+            : "Set up your household: your name, and what to call it."}
+        </p>
+        {joining ? (
+          <JoinHouseholdForm
+            token={session.token}
+            onJoin={joinAndForget}
+            askName
+            initialCode={readPendingCode()}
+          />
+        ) : (
+          <div className="mt-4 space-y-3">
+            <Field label="Your name">
+              <input
+                disabled={loading}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Ben Santos"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+              />
+            </Field>
+            <Field label="Household name (optional)">
+              <input
+                disabled={loading}
+                value={householdName}
+                onChange={(e) => setHouseholdName(e.target.value)}
+                placeholder="e.g. Santos Household"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+              />
+            </Field>
+          </div>
+        )}
+        {!joining && (
           <button
-            type="button"
-            disabled={loading}
-            onClick={session.logOut}
-            className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
+            onClick={submitBootstrap}
+            disabled={loading || !fullName.trim()}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
           >
-            Not you? Log out
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Setting up...
+              </>
+            ) : (
+              "Finish setup"
+            )}
           </button>
-        </div>
-      </div>
+        )}
+        <SwitchLink onClick={() => setJoining(!joining)}>
+          {joining
+            ? "Setting up a new household instead? Go back"
+            : "Joining a household that's already set up? Use your code"}
+        </SwitchLink>
+        {/* The one way off this screen: in the app it also signs the app
+              out, back to its own sign-in (app/manager.tsx). */}
+        <button
+          type="button"
+          disabled={loading}
+          onClick={session.logOut}
+          className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
+        >
+          Not you? Log out
+        </button>
+      </AuthCard>
     );
   }
 
@@ -342,162 +333,215 @@ export function ManagerAuthFlow({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
-        <LogoMark className="h-10 w-10" />
-        <h1 className="mt-4 font-display text-2xl text-foreground">
-          {mode === "signup"
-            ? withCode
-              ? "Join a household"
-              : "Set up your household"
-            : "Welcome back"}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {mode === "signup"
-            ? withCode
-              ? "Make your manager account, with the code the household's primary manager gave you. Your name comes next."
-              : "Gawin ang employer account mo. Pagkatapos, ang pangalan mo at ng household."
-            : "Mag-sign in sa Linara, employer man o kasambahay."}
-        </p>
+    <AuthCard>
+      <h1 className="mt-4 font-display text-2xl text-foreground">
+        {mode === "signup"
+          ? withCode
+            ? "Join a household"
+            : "Set up your household"
+          : "Welcome back"}
+      </h1>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        {mode === "signup"
+          ? withCode
+            ? "Make your manager account, with the code the household's primary manager gave you. Your name comes next."
+            : "Gawin ang employer account mo. Pagkatapos, ang pangalan mo at ng household."
+          : "Mag-sign in sa Linara, employer man o kasambahay."}
+      </p>
 
-        {confirmationPending && (
-          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-primary/40 bg-primary/5 px-3 py-2.5 text-xs text-foreground">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+      {confirmationPending && (
+        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-primary/40 bg-primary/5 px-3 py-2.5 text-xs text-foreground">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <span>
+            Nagpadala kami ng confirmation link sa email mo. Buksan mo iyon bago mag-log in.
+          </span>
+        </div>
+      )}
+
+      {existingAccount && mode === "signup" && (
+        <div
+          role="alert"
+          className="mt-4 rounded-2xl border border-primary/40 bg-primary/5 px-3 py-2.5 text-sm text-foreground"
+        >
+          <p className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <span>
-              Nagpadala kami ng confirmation link sa email mo. Buksan mo iyon bago mag-log in.
+              <span className="font-semibold">{email.trim()}</span> already has a Linara account,
+              with a different password.{" "}
+              {withCode
+                ? "Log in to it instead; your code will be waiting there."
+                : "Log in to it instead."}
             </span>
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 pl-6">
+            <button
+              type="button"
+              onClick={goToLogin}
+              className="text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+            >
+              Log in instead
+            </button>
+            <Link
+              to="/reset-password"
+              onClick={(e) => {
+                if (openAppScreen("forgot-password")) e.preventDefault();
+              }}
+              className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Forgot the password?
+            </Link>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="mt-4 space-y-3">
-          {mode === "signup" && withCode && (
-            <Field label="Invite code">
-              <input
-                disabled={loading}
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="8 letters and numbers"
-                autoCapitalize="characters"
-                autoComplete="off"
-                spellCheck={false}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm uppercase tracking-widest outline-none focus:border-primary disabled:opacity-60"
-              />
-            </Field>
-          )}
-          <Field label="Email">
+      <div className="mt-4 space-y-3">
+        {mode === "signup" && withCode && (
+          <Field label="Invite code">
             <input
               disabled={loading}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. ben@gmail.com"
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="8 letters and numbers"
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm uppercase tracking-widest outline-none focus:border-primary disabled:opacity-60"
             />
           </Field>
-          <Field label="Password">
+        )}
+        <Field label="Email">
+          <input
+            disabled={loading}
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setExistingAccount(false);
+            }}
+            placeholder="e.g. ben@gmail.com"
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+          />
+        </Field>
+        <Field label="Password">
+          <input
+            disabled={loading}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={mode === "signup" ? "At least 6 characters" : undefined}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+          />
+        </Field>
+        {mode === "signup" && (
+          <Field label="Confirm password">
             <input
               disabled={loading}
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === "signup" ? "At least 6 characters" : undefined}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
             />
           </Field>
-          {mode === "signup" && (
-            <Field label="Confirm password">
-              <input
-                disabled={loading}
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-              />
-            </Field>
-          )}
-        </div>
+        )}
+      </div>
 
-        <button
-          onClick={submit}
-          disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />{" "}
-              {mode === "signup" ? "Setting up..." : "Logging in..."}
-            </>
-          ) : mode === "signup" ? (
-            withCode ? (
-              "Join household"
-            ) : (
-              "Create household"
-            )
+      <button
+        onClick={submit}
+        disabled={loading}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />{" "}
+            {mode === "signup" ? "Setting up..." : "Logging in..."}
+          </>
+        ) : mode === "signup" ? (
+          withCode ? (
+            "Join household"
           ) : (
-            "Log in"
-          )}
-        </button>
+            "Create household"
+          )
+        ) : (
+          "Log in"
+        )}
+      </button>
 
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => (mode === "signup" ? goToLogin() : goToStep())}
+        className="mt-3 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
+      >
+        {mode === "signup" ? "Already have an account? Log in" : "New to Linara? Create an account"}
+      </button>
+
+      {mode === "signup" && (
         <button
           type="button"
           disabled={loading}
-          onClick={() => (mode === "signup" ? goToLogin() : goToStep())}
-          className="mt-3 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
+          onClick={() => goToStep(withCode ? "household" : "join")}
+          className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
         >
-          {mode === "signup"
-            ? "Already have an account? Log in"
-            : "New to Linara? Create an account"}
+          {withCode
+            ? "Starting a new household instead?"
+            : "Joining a household that's already set up? Use your code"}
         </button>
+      )}
 
-        {mode === "signup" && (
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => goToStep(withCode ? "household" : "join")}
-            className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
-          >
-            {withCode
-              ? "Starting a new household instead?"
-              : "Joining a household that's already set up? Use your code"}
-          </button>
-        )}
+      {mode === "login" && (
+        <Link
+          to="/reset-password"
+          onClick={(e) => {
+            if (openAppScreen("forgot-password")) e.preventDefault();
+          }}
+          className="mt-2 block text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Forgot password?
+        </Link>
+      )}
 
-        {mode === "login" && (
-          <Link
-            to="/reset-password"
-            onClick={(e) => {
-              if (openAppScreen("forgot-password")) e.preventDefault();
-            }}
-            className="mt-2 block text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-          >
-            Forgot password?
-          </Link>
-        )}
-
-        <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-          {mode === "signup" ? "By creating a household you agree to the " : "Linara's "}
-          <Link to="/terms" className="underline underline-offset-4 hover:text-foreground">
-            terms
-          </Link>{" "}
-          and{" "}
-          <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">
-            privacy policy
-          </Link>
-          .
-        </p>
-      </div>
-    </div>
+      <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
+        {mode === "signup" ? "By creating a household you agree to the " : "Linara's "}
+        <Link to="/terms" className="underline underline-offset-4 hover:text-foreground">
+          terms
+        </Link>{" "}
+        and{" "}
+        <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          privacy policy
+        </Link>
+        .
+      </p>
+    </AuthCard>
   );
 }
 
 type Mode = "login" | "signup" | "choose" | "kasambahay" | "kasambahay-signed-in";
 
+// Every auth screen's card. On the web it leads back to the home page; in
+// the app there's no home page to go to, only the app's own screens.
 function AuthCard({ children }: { children: ReactNode }) {
+  const onWeb = !inMobileApp();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lift">
-        <LogoMark className="h-10 w-10" />
-        {children}
+      <div className="w-full max-w-md">
+        {onWeb && (
+          <Link
+            to="/"
+            className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to home
+          </Link>
+        )}
+        <div className="rounded-3xl border border-border bg-card p-6 shadow-lift">
+          {onWeb ? (
+            <Link to="/" aria-label="Linara home" className="inline-block rounded-xl">
+              <LogoMark className="h-10 w-10" />
+            </Link>
+          ) : (
+            <LogoMark className="h-10 w-10" />
+          )}
+          {children}
+        </div>
       </div>
     </div>
   );
