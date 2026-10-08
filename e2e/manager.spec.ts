@@ -58,6 +58,32 @@ test.describe("manager", () => {
     await expect(dialog).toBeHidden();
   });
 
+  // QA LMM-A4: the app's hardware Back closes an open form by sending the
+  // page Escape (LINARA_MOBILE app/manager.tsx BACK_SCRIPT), so every
+  // overlay must be a role="dialog" that Escape closes.
+  test("an open form closes on Escape sent to the page", async ({ page }) => {
+    await page.goto("/manager/pass");
+    await page.getByRole("button", { name: "New task" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await page.evaluate(() =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+    );
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/manager\/pass/);
+  });
+
+  // QA LMM-A5: on a phone Log out is a bare icon beside the household switcher.
+  test("logging out asks first, and Cancel stays signed in", async ({ page }) => {
+    await page.goto("/manager/pass");
+    await page.getByRole("button", { name: "Log out" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Log out?" })).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/manager\/pass/);
+  });
+
   test("palengke items have a Bought checkbox", async ({ page }) => {
     await page.goto("/manager/pantry");
     await settle(page);

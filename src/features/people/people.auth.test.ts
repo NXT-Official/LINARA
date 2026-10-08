@@ -74,7 +74,10 @@ describe("signUpWithSupabase", () => {
     expect(auth.signUp).toHaveBeenCalledWith({
       email: "new@example.com",
       password: "secret1",
-      options: { emailRedirectTo: "https://x/email-confirmed" },
+      options: {
+        emailRedirectTo: "https://x/email-confirmed",
+        data: { signed_up_as: "manager" },
+      },
     });
     expect(auth.signInWithPassword).not.toHaveBeenCalled();
   });

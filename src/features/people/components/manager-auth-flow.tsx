@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 import { LogoMark } from "@/components/shared/logo";
+import { openAppScreen } from "@/lib/mobile-app";
 
 import { useSession } from "../hooks/use-session";
 import { JoinHouseholdForm } from "./household-switcher";
@@ -64,9 +65,16 @@ export function ManagerAuthFlow({
           : "choose";
   // Sign-up joining a household that already exists, with its code.
   const withCode = step === "join";
-  const goToStep = (next?: SignupStep) =>
+  // Inside the app (QA LMM-A6), its own sign-in, chooser and kasambahay
+  // onboarding stand in for these pages: there is one of each, the app's.
+  const goToStep = (next?: SignupStep) => {
+    if (!next && openAppScreen("create-account")) return;
+    if (next === "kasambahay" && openAppScreen("kasambahay")) return;
     navigate({ to: "/signup", search: next ? { step: next } : {} });
-  const goToLogin = () => navigate({ to: "/login" });
+  };
+  const goToLogin = () => {
+    if (!openAppScreen("sign-in")) navigate({ to: "/login" });
+  };
 
   const [fullName, setFullName] = useState("");
   const [householdName, setHouseholdName] = useState("");
@@ -99,10 +107,6 @@ export function ManagerAuthFlow({
       return;
     }
     if (mode === "signup") {
-      if (!fullName.trim()) {
-        toast.error("Ilagay ang iyong pangalan.");
-        return;
-      }
       // eslint-disable-next-line security/detect-possible-timing-attacks -- Client-side double-entry check.
       if (password !== confirmPassword) {
         toast.error("Hindi magkatugma ang passwords.");
@@ -121,25 +125,34 @@ export function ManagerAuthFlow({
     setLoading(true);
     try {
       if (mode === "signup") {
-        const code = withCode ? inviteCode.replace(/\s/g, "").toUpperCase() : undefined;
-        const result = await session.signUp({
-          fullName: fullName.trim(),
-          householdName: code ? undefined : householdName.trim() || undefined,
-          email: email.trim(),
-          password,
-          inviteCode: code,
-        });
+        // Just the account here. Name, and the household to start or join,
+        // are asked once, on "Finish setting up" at first login (QA LMM-A2).
+        // A code waits there for it; no code means start one, so an old
+        // one from an earlier try mustn't open the join form instead.
+        if (withCode) {
+          window.localStorage.setItem(
+            PENDING_CODE_KEY,
+            inviteCode.replace(/\s/g, "").toUpperCase(),
+          );
+        } else {
+          window.localStorage.removeItem(PENDING_CODE_KEY);
+        }
+        const result = await session.signUp({ email: email.trim(), password });
         if (result === "confirmation_pending") {
-          if (code) window.localStorage.setItem(PENDING_CODE_KEY, code);
           toast.info(
             "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos mag-log in.",
           );
-          navigate({ to: "/login", search: { sent: true } });
+          if (!openAppScreen("sign-in", "confirm-email")) {
+            navigate({ to: "/login", search: { sent: true } });
+          }
           return;
         }
-        toast.success(
-          code ? "You've joined the household." : "Tagumpay! Nagawa na ang household mo.",
-        );
+        if (result === "helper") {
+          toast.info("Kasambahay account ang email na ito. Sa Linara app ito ginagamit.");
+          goToStep("kasambahay");
+          return;
+        }
+        if (result === "authed") toast.success("Welcome back!");
       } else {
         const result = await session.logIn({ email: email.trim(), password });
         if (result === "confirmation_pending") {
@@ -259,6 +272,16 @@ export function ManagerAuthFlow({
               ? "Setting up a new household instead? Go back"
               : "Joining a household that's already set up? Use your code"}
           </SwitchLink>
+          {/* The one way off this screen: in the app it also signs the app
+              out, back to its own sign-in (app/manager.tsx). */}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={session.logOut}
+            className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
+          >
+            Not you? Log out
+          </button>
         </div>
       </div>
     );
@@ -301,6 +324,9 @@ export function ManagerAuthFlow({
         </p>
         <a
           href="linaramobile://sign-in"
+          onClick={(e) => {
+            if (openAppScreen(mode === "kasambahay" ? "kasambahay" : "sign-in")) e.preventDefault();
+          }}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
         >
           <Smartphone className="h-4 w-4" /> Buksan ang Linara app
@@ -329,8 +355,8 @@ export function ManagerAuthFlow({
         <p className="mt-1.5 text-sm text-muted-foreground">
           {mode === "signup"
             ? withCode
-              ? "Make your manager account, with the code the household's primary manager gave you."
-              : "Gawin ang employer account mo para sa household mo."
+              ? "Make your manager account, with the code the household's primary manager gave you. Your name comes next."
+              : "Gawin ang employer account mo. Pagkatapos, ang pangalan mo at ng household."
             : "Mag-sign in sa Linara, employer man o kasambahay."}
         </p>
 
@@ -344,42 +370,19 @@ export function ManagerAuthFlow({
         )}
 
         <div className="mt-4 space-y-3">
-          {mode === "signup" && (
-            <>
-              <Field label="Your name">
-                <input
-                  disabled={loading}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Ben Santos"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-                />
-              </Field>
-              {withCode ? (
-                <Field label="Invite code">
-                  <input
-                    disabled={loading}
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    placeholder="8 letters and numbers"
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm uppercase tracking-widest outline-none focus:border-primary disabled:opacity-60"
-                  />
-                </Field>
-              ) : (
-                <Field label="Household name (optional)">
-                  <input
-                    disabled={loading}
-                    value={householdName}
-                    onChange={(e) => setHouseholdName(e.target.value)}
-                    placeholder="e.g. Santos Household"
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-                  />
-                </Field>
-              )}
-            </>
+          {mode === "signup" && withCode && (
+            <Field label="Invite code">
+              <input
+                disabled={loading}
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="8 letters and numbers"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 font-mono text-sm uppercase tracking-widest outline-none focus:border-primary disabled:opacity-60"
+              />
+            </Field>
           )}
           <Field label="Email">
             <input
@@ -462,6 +465,9 @@ export function ManagerAuthFlow({
         {mode === "login" && (
           <Link
             to="/reset-password"
+            onClick={(e) => {
+              if (openAppScreen("forgot-password")) e.preventDefault();
+            }}
             className="mt-2 block text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             Forgot password?
