@@ -8,6 +8,7 @@ import type { PantryStore } from "@/features/pantry/hooks/use-pantry";
 import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import type { PayslipStore } from "@/features/pay/hooks/use-payslips";
 import type { InviteStore } from "@/features/people/hooks/use-invites";
+import type { StationStore } from "@/features/people/hooks/use-stations";
 import type { Session } from "@/features/people/hooks/use-session";
 import type { Helper } from "@/features/people/people.types";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
@@ -46,6 +47,8 @@ export type AppStores = {
   invites: InviteStore;
   /** Teams and labels, for grouping and filtering staff (add-teams-and-labels.sql). */
   teams: TeamStore;
+  /** The household's stations, editable by its managers (add-household-stations.sql). */
+  stations: StationStore;
   /** Shared staff, covered teams and places (add-shared-staff-and-places.sql). */
   sharing: SharingStore;
   pantry: PantryStore;

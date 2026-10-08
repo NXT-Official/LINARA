@@ -206,7 +206,7 @@ export function AppointmentsSection({
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-foreground">{p.title}</span>
                               <span
-                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold ${stationTone[p.station]}`}
+                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold ${stationTone(p.station)}`}
                               >
                                 {p.station}
                               </span>

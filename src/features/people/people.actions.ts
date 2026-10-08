@@ -28,7 +28,7 @@ interface HelperProfileRow {
   user_id: string | null;
   household_id: string;
   name: string;
-  station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+  station: string;
   monthly_rate: number;
   payday_interval: "semi_monthly" | "monthly";
   shift_start: string;
@@ -72,7 +72,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
       name: string;
-      station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+      station: string;
       monthlyRate: number;
       paydayInterval: "semi_monthly" | "monthly";
       shiftStart: string;

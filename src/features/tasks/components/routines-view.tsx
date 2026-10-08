@@ -77,7 +77,7 @@ export function RoutinesView({
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[helper.station]}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone(helper.station)}`}
                   >
                     {items.length} routine{items.length === 1 ? "" : "s"}
                   </span>

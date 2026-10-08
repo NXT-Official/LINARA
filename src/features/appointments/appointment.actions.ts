@@ -10,7 +10,7 @@ export interface ParsedSchedule {
   };
   prepTasks: Array<{
     title: string;
-    station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+    station: string;
     offsetMinutes: number; // e.g. -720, -45
   }>;
 }

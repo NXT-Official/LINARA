@@ -2,7 +2,7 @@ import { CalendarClock, Camera, Check, GripVertical, Plus, Repeat } from "lucide
 import type { DragEvent } from "react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
+import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
@@ -109,7 +109,7 @@ export function PlannerTaskRow({
   onOpen?: () => void;
 }) {
   const helper = findHelper(task.helperId, helpers);
-  const color = task.helperId ? STATION_HEX[task.station] : UNASSIGNED_HEX;
+  const color = task.helperId ? stationHex(task.station) : UNASSIGNED_HEX;
   const cancelled = task.status === "cancelled";
   // Done and cancelled both read as settled: muted and struck through.
   const done = task.status === "done" || cancelled;

@@ -1,5 +1,17 @@
-import { AlertCircle, ChevronDown, Info, LogOut, Package, Pencil, Tags, X } from "lucide-react";
+import {
+  AlertCircle,
+  Briefcase,
+  ChevronDown,
+  Info,
+  Loader2,
+  LogOut,
+  Package,
+  Pencil,
+  Tags,
+  X,
+} from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
@@ -7,7 +19,7 @@ import { LabelChips } from "@/features/teams/components/label-chip";
 import type { Label } from "@/features/teams/teams.types";
 
 import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
-import type { Invite, PantryRole } from "../people.types";
+import type { Invite, PantryRole, Station } from "../people.types";
 import { initialsOf } from "../people.utils";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 import { PANTRY_ROLE_LABEL, PantryRolePicker } from "./pantry-role-picker";
@@ -35,6 +47,8 @@ export function HelperRow({
   onEditTeam,
   onEnd,
   onSetPantryRole,
+  stations = [],
+  onSetStation,
 }: {
   inv: Invite;
   canInvite: boolean;
@@ -55,10 +69,17 @@ export function HelperRow({
   onEditTeam?: () => void;
   onEnd: () => void;
   onSetPantryRole: (role: PantryRole) => Promise<void>;
+  /** The household's stations, for the Station picker. */
+  stations?: Station[];
+  /** Absent until add-household-stations.sql is applied. */
+  onSetStation?: (station: Station) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [showContributions, setShowContributions] = useState(false);
   const [editingPantry, setEditingPantry] = useState(false);
+  const [editingStation, setEditingStation] = useState(false);
+  const [stationDraft, setStationDraft] = useState(inv.station);
+  const [savingStation, setSavingStation] = useState(false);
   const displayName = inv.claimedName || inv.name;
   const isActive = inv.status === "active";
   const expanded = !compact || open;
@@ -198,6 +219,18 @@ export function HelperRow({
                   <Tags className="h-3 w-3" /> Teams & houses
                 </button>
               )}
+              {canInvite && onSetStation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStationDraft(inv.station);
+                    setEditingStation(true);
+                  }}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Briefcase className="h-3 w-3" /> Station
+                </button>
+              )}
               {canInvite && inv.pantryRole && (
                 <button
                   type="button"
@@ -222,6 +255,69 @@ export function HelperRow({
               <div className="mt-2.5">
                 <LegalContributionSplitCard wagePHP={inv.wagePHP} />
               </div>
+            )}
+            {editingStation && onSetStation && (
+              <Modal onClose={() => setEditingStation(false)}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl text-foreground">
+                    {displayName}&apos;s station
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setEditingStation(false)}
+                    aria-label="Close"
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Their colour on the Pass and Schedule, and the tasks that look for this station.
+                  Add or rename stations under People, Stations &amp; teams.
+                </p>
+                <select
+                  value={stationDraft}
+                  onChange={(e) => setStationDraft(e.target.value)}
+                  aria-label={`${displayName}'s station`}
+                  className="mt-4 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+                >
+                  {(stations.includes(inv.station) ? stations : [inv.station, ...stations]).map(
+                    (name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStation(false)}
+                    className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingStation || stationDraft === inv.station}
+                    onClick={async () => {
+                      setSavingStation(true);
+                      try {
+                        await onSetStation(stationDraft);
+                        toast.success(`${displayName} is on ${stationDraft} now.`);
+                        setEditingStation(false);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Couldn't save that.");
+                      } finally {
+                        setSavingStation(false);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {savingStation && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+                  </button>
+                </div>
+              </Modal>
             )}
             {editingPantry && inv.pantryRole && (
               <Modal onClose={() => setEditingPantry(false)}>

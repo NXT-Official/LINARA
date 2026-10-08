@@ -62,7 +62,7 @@ export function SuggestionsInbox({
                         {t.note && <p className="mt-1.5 text-xs text-muted-foreground">{t.note}</p>}
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[t.station]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone(t.station)}`}
                       >
                         {t.station}
                       </span>

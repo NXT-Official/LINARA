@@ -159,7 +159,7 @@ export function NeedsYou({
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone[t.station] : "bg-secondary text-muted-foreground"}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone(t.station) : "bg-secondary text-muted-foreground"}`}
                     >
                       {t.helperId ? t.station : "Unassigned"}
                     </span>
@@ -227,7 +227,7 @@ export function NeedsYou({
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone[t.station] : "bg-secondary text-muted-foreground"}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone(t.station) : "bg-secondary text-muted-foreground"}`}
                     >
                       {t.helperId ? t.station : "Unassigned"}
                     </span>

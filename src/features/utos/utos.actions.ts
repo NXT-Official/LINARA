@@ -158,7 +158,7 @@ export const listUtosForHelpersFn = createServerFn({ method: "POST" })
 export interface ParsedUtos {
   classification: "ROUTINE" | "TASK" | "QUICK_UTO" | "PRIVATE_NOTE";
   contentCleaned: string;
-  suggestedStation: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+  suggestedStation: string;
   boundaryWarn: boolean;
 }
 

@@ -17,6 +17,7 @@ import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import { useStations } from "@/features/people/hooks/use-stations";
 import { useTeams } from "@/features/teams/hooks/use-teams";
 import { useSharing } from "@/features/sharing/hooks/use-sharing";
 import { sharedToProfileRow } from "@/features/sharing/sharing.utils";
@@ -48,6 +49,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
   const teams = useTeams({
+    token: session.token,
+    ready: session.status === "authed",
+    onRosterChange: invites.refresh,
+  });
+  const stations = useStations({
     token: session.token,
     ready: session.status === "authed",
     onRosterChange: invites.refresh,
@@ -545,6 +551,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     session,
     invites,
     teams,
+    stations,
     sharing,
     pantry,
     schedules,

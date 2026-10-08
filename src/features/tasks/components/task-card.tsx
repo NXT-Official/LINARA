@@ -19,7 +19,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-semibold leading-snug text-foreground">{task.title}</h4>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${task.helperId ? stationTone[task.station] : "bg-secondary text-muted-foreground"}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${task.helperId ? stationTone(task.station) : "bg-secondary text-muted-foreground"}`}
         >
           {task.helperId ? task.station : "Unassigned"}
         </span>

@@ -135,9 +135,15 @@ the bottom.
 - **Verified (2026-10-05):** against the live database, the test manager and test staff account both read `household_teams`, `household_labels`, `helper_labels` and `helper_profiles.team_id`, and the staff account is refused creating a team. `npm run qa` (45 browser checks) passes on a local production build against the applied schema.
 - **To close:** On the deployed site, make a team and a label from the invite form, invite into them, check People, Pass (Roll call, grouping), Schedule, Shifts and Money with a seeded large household, and see the team and label on the helper's Record on a device. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the Record row in `LINARA_MOBILE`.
 
-### O37. Stations are a fixed list of five
+### O37. Stations were a fixed list of five
 
-- **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove. Being built.
+- **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove.
+- **Built 2026-10-08, SQL not applied:**
+  - `supabase/add-household-stations.sql`: `household_stations` per household, seeded with the five plus any name its staff already have; new households get the five. The fixed-five CHECK on `helper_profiles.station` goes; a new or changed station must be one of the household's (stored in its spelling). Renaming follows onto everyone on it, the ones who left included, and onto `house_sops`. Removing is refused while anyone current or invited is on it, and for the last one. Everyone in the household reads the list; primary and co-managers change it. PGlite: `supabase/tests/household-stations.test.mjs` (20 checks).
+  - Web: People > **Stations & teams** (was "Teams & places") has a Stations card: add, rename, remove, with how many people are on each. A helper card's **Station** button moves them. The invite form lists the household's stations. Colours: the five keep theirs; any other station gets one of four more, picked by its name. Before the SQL it shows the five, read-only.
+  - LINARA_MOBILE: station types widened to any name; it only ever shows the name.
+- **Still worth knowing:** appointment templates' prep tasks name a station ("Cook"); a household that renames Cook gets them on its first active helper instead, as when no one matches today.
+- **To close:** apply the SQL, then on the deployed site add a station, put someone on it, rename it, check their card and the Pass, try removing it while they're on it, move them back and remove it.
 - **Found:** 2026-10-05, while building O36.
 - **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
 - **Blocks:** Accurate roles for a large staff, and station-based routing for them.

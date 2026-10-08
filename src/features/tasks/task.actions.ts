@@ -12,7 +12,7 @@ import type { Status } from "./task.types";
 export interface HouseStandardSOP {
   title: string;
   description: string;
-  station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+  station: string;
   steps: string[];
   toolsRequired: string[];
   safetyProtocol: string;
@@ -23,13 +23,7 @@ export interface HouseStandardSOP {
  * Proxies request to Supabase edge function or runs local mock fallback.
  */
 export const generateSopFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      prompt: string;
-      station?: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
-    }) => data,
-  )
+  .validator((data: { token: string; prompt: string; station?: string }) => data)
   .handler(async ({ data }) => {
     const { token, prompt, station } = data;
     if (!token) throw new Error("Sign in to use this.");

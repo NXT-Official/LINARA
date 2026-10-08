@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { STATION_HEX } from "@/features/people/people.constants";
+import { stationHex } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
 import { lanePill, type LaneSummary } from "../lane.utils";
@@ -42,7 +42,7 @@ export function RollCall({
         const s = summaries.get(h.id);
         if (!s) return null;
         const pill = lanePill(s);
-        const color = STATION_HEX[h.station];
+        const color = stationHex(h.station);
         const team = teamNameOf(h);
         const open = openId === h.id;
         const pct = s.total === 0 ? 0 : Math.round((s.done / s.total) * 100);
