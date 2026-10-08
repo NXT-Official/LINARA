@@ -190,7 +190,9 @@ CREATE TRIGGER household_stations_guard
     FOR EACH ROW EXECUTE FUNCTION public.household_stations_guard();
 
 -- A new name follows onto everyone who had the old one, the ones who left
--- included, and onto the house's SOPs.
+-- included, and onto the house's SOPs if they carry a station (the live
+-- house_sops has no such column; every rename failed on it, fixed by
+-- fix-station-rename.sql).
 CREATE OR REPLACE FUNCTION public.household_stations_rename()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -204,7 +206,10 @@ BEGIN
     UPDATE public.helper_profiles
        SET station = NEW.name
      WHERE household_id = NEW.household_id AND lower(station) = lower(OLD.name);
-    IF to_regclass('public.house_sops') IS NOT NULL THEN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'house_sops' AND column_name = 'station'
+    ) THEN
         EXECUTE 'UPDATE public.house_sops SET station = $1
                  WHERE household_id = $2 AND lower(station) = lower($3)'
         USING NEW.name, NEW.household_id, OLD.name;
