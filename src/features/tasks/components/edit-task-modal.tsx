@@ -27,7 +27,7 @@ import {
 } from "@/lib/time";
 
 import type { Task } from "../task.types";
-import { taskFormErrors } from "../task.utils";
+import { recurrenceLabel, taskFormErrors } from "../task.utils";
 import { DurationField } from "./duration-field";
 import { TaskUpdates } from "./task-updates";
 
@@ -65,6 +65,7 @@ export function EditTaskModal({
   onSave,
   onCancelTask,
   onRestore,
+  onStopRepeating,
 }: {
   task: Task;
   /** Who it can go to: the household's current helpers. */
@@ -81,8 +82,12 @@ export function EditTaskModal({
   onCancelTask?: () => void;
   /** For a cancelled task: back on the board as To-do. */
   onRestore?: () => void;
+  /** For a repeating task: no more after the ones already there (KNOWN_GAPS O43). */
+  onStopRepeating?: () => void;
 }) {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingStop, setConfirmingStop] = useState(false);
+  const repeats = recurrenceLabel(task.recurrence);
   const cancelled = task.status === "cancelled";
   // Finished: the record of what she did, to read, not to change (client
   // feedback, 2026-10-02). Updates stay open; it's a conversation.
@@ -233,6 +238,40 @@ export function EditTaskModal({
               <RotateCcw className="h-3.5 w-3.5" /> Restore
             </button>
           )}
+        </div>
+      )}
+      {repeats && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
+          <span>
+            Repeats {repeats === "Daily" ? "every day" : `on ${repeats}`}.
+            {" Each next day copies its latest task."}
+            {canCancel && " Cancel task skips this day only."}
+          </span>
+          {onStopRepeating &&
+            (confirmingStop ? (
+              <span className="inline-flex items-center gap-2 text-xs">
+                No more after this one?
+                <button
+                  onClick={onStopRepeating}
+                  className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+                >
+                  Stop repeating
+                </button>
+                <button
+                  onClick={() => setConfirmingStop(false)}
+                  className="font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmingStop(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Stop repeating
+              </button>
+            ))}
         </div>
       )}
       {locked ? (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { Helper } from "@/features/people/people.types";
@@ -15,24 +15,27 @@ import {
   startOfDayIso,
   toHouseholdClock,
   toISODate,
-  weekdayOf,
-  type Weekday,
 } from "@/lib/time";
 import { addToQueue } from "@/lib/offline-queue";
 
 import {
   deleteTicketFn,
   getBoardClosedFn,
+  insertRoutineTasksFn,
   insertTicketFn,
+  listRepeatingTicketsFn,
   listTicketsFn,
   openQueuedTicketsFn,
   setBoardClosedFn,
   setBoardDateFn,
+  spawnRoutineTasksFn,
+  stopRepeatFn,
   updateTicketFn,
   type TicketRow,
 } from "../task.actions";
-import type { Recurrence, Routine, Status, Task } from "../task.types";
-import { movedFromLabel, routineAssignee, routineMatches } from "../task.utils";
+import { firstRoutineDay, routinesDueOn, routinesFromTickets } from "../routine.utils";
+import type { Routine, Status, Task } from "../task.types";
+import { decodeRecurrence, encodeRecurrence, movedFromLabel } from "../task.utils";
 
 export type AddTaskFlags = {
   afterHours?: boolean;
@@ -58,17 +61,8 @@ export type CompletionRecord = {
 
 export type TaskBoard = ReturnType<typeof useTaskBoard>;
 
-function encodeRecurrence(r?: Recurrence): string[] | null {
-  if (!r || r === "none") return null;
-  if (r === "daily") return ["daily"];
-  return r;
-}
-
-function decodeRecurrence(r: string[] | null): Recurrence | undefined {
-  if (r === null || r.length === 0) return undefined;
-  if (r.length === 1 && r[0] === "daily") return "daily";
-  return r as Weekday[];
-}
+/** How far back the Routines list reads a series' tasks. Each one still going has one at least weekly. */
+const ROUTINE_LOOKBACK_DAYS = 35;
 
 /** A tickets row as the board shows it. Shared with the planner (use-planner-tasks.ts). */
 export function toTask(row: TicketRow, helpers: Helper[]): Task {
@@ -135,10 +129,13 @@ export function toTask(row: TicketRow, helpers: Helper[]): Task {
  * would risk the same edit being applied twice under two different local
  * copies.
  *
- * `routines` stays local-only `useState` -- there is no real table for
- * routine templates yet (see KNOWN_GAPS.md gap #4's closure notes). Only the
- * *spawned* Task instances become real tickets rows, carrying `routineId` as
- * plain provenance (not a FK).
+ * `routines` are the household's repeating tasks, read off the tickets
+ * themselves (KNOWN_GAPS.md O43): a series of tickets sharing a routine_id,
+ * the newest of which is the pattern for the next day's (routine.utils.ts).
+ * Each day's task is made by the database (spawn_routine_tasks, from
+ * supabase/add-repeating-tasks.sql) whenever the board opens and at the
+ * midnight rollover, and by an hourly job; until that SQL is applied, this
+ * hook makes them itself.
  */
 export function useTaskBoard({
   nowTs,
@@ -150,13 +147,14 @@ export function useTaskBoard({
   activeHelperIds,
   isReachable,
   timeOff = [],
+  staffReady = true,
 }: {
   nowTs: number;
   /** Real helper_profiles rows (any status), for resolving a task/routine's station
    * from its assigned helperId. */
   helpers: Helper[];
-  /** Helpers still employed here. A routine assigned to someone who has left
-   * (O4) stops respawning; omitted means every helper counts as active. */
+  /** Helpers still working here. A routine of someone who has left (O4)
+   * spawns Unassigned (O43); omitted means every helper counts as active. */
   activeHelperIds?: string[];
   /** Whether a helper may be pinged right now (statusFor != off). A move or
    * hand-over pings only her; the rest see it next time they open the app. */
@@ -169,6 +167,10 @@ export function useTaskBoard({
   isOnline?: boolean;
   token: string | null;
   ready: boolean;
+  /** The roster and time off have loaded. Only the web's own spawn (before
+   * add-repeating-tasks.sql) waits for it, so nobody's task goes to the wrong
+   * person because they weren't known yet. */
+  staffReady?: boolean;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -184,15 +186,110 @@ export function useTaskBoard({
   // "Start new day" once this is non-null (KNOWN_GAPS.md C31).
   const [rolloverNeededFor, setRolloverNeededFor] = useState<Date | null>(null);
 
+  /** The household's repeating tasks, fresh. */
+  const loadRoutines = useCallback(async (): Promise<Routine[]> => {
+    if (!token) return [];
+    const since = householdNow();
+    since.setDate(since.getDate() - ROUTINE_LOOKBACK_DAYS);
+    const rows = await listRepeatingTicketsFn({ data: { token, sinceIso: startOfDayIso(since) } });
+    const list = routinesFromTickets(rows, helpers);
+    setRoutines(list);
+    return list;
+  }, [token, helpers]);
+
   const refresh = useCallback(
     async (dateOverride?: Date) => {
       if (!token) return;
       const sinceIso = startOfDayIso(dateOverride ?? simDate);
-      const rows = await listTicketsFn({ data: { token, sinceIso } });
+      const [rows] = await Promise.all([
+        listTicketsFn({ data: { token, sinceIso } }),
+        loadRoutines().catch((err) => {
+          console.error("[useTaskBoard] Failed to load routines:", err);
+        }),
+      ]);
       setTasks(rows.map((row) => toTask(row, helpers)));
     },
-    [token, simDate, helpers],
+    [token, simDate, helpers, loadRoutines],
   );
+
+  // Read at call time, so a spawn started before they load uses the latest.
+  const staffRef = useRef({ activeHelperIds, timeOff, staffReady });
+  staffRef.current = { activeHelperIds, timeOff, staffReady };
+
+  // One spawn per household day in flight, shared by the page load, the
+  // midnight rollover and any second call, so they report the same count.
+  const spawning = useRef(new Map<string, Promise<number>>());
+
+  /**
+   * Makes the household's repeating tasks due on `dayIso` (today), once:
+   * spawn_routine_tasks in the database, or, before add-repeating-tasks.sql is
+   * applied, the same thing from here, with an id per series and day so a
+   * second tab can't double one. Resolves to how many were made. Making them
+   * from here waits for the roster and time off (staffReady), so it's skipped
+   * until then and the next call tries again.
+   */
+  const ensureRoutineTasks = useCallback(
+    (dayIso: string): Promise<number> => {
+      if (!token) return Promise.resolve(0);
+      const running = spawning.current.get(dayIso);
+      if (running) return running;
+      const run = (async () => {
+        const res = await spawnRoutineTasksFn({ data: { token } });
+        if (res) return res.spawned;
+        const { activeHelperIds: active, timeOff: off, staffReady: known } = staffRef.current;
+        if (!known) {
+          spawning.current.delete(dayIso);
+          return 0;
+        }
+        const due = routinesDueOn(
+          await loadRoutines(),
+          dayIso,
+          off,
+          active ?? helpers.map((h) => h.id),
+        );
+        if (due.length === 0) return 0;
+        const made = await insertRoutineTasksFn({
+          data: {
+            token,
+            tasks: due.map(({ routine: r, helperId }) => ({
+              series: r.id,
+              dayIso,
+              title: r.title,
+              notes: r.note,
+              helperId,
+              scheduledStartIso: combineDateAndTime(dayIso, r.time),
+              recurrence: encodeRecurrence(r.recurrence) ?? ["daily"],
+              durationMinutes: r.durationMinutes,
+              from: r.from,
+              to: r.to,
+            })),
+          },
+        });
+        return made.spawned;
+      })().catch((err) => {
+        console.error("[useTaskBoard] Failed to make today's repeating tasks:", err);
+        // Let a later load try again.
+        spawning.current.delete(dayIso);
+        return 0;
+      });
+      spawning.current.set(dayIso, run);
+      return run;
+    },
+    [token, loadRoutines, helpers],
+  );
+
+  // Today's repeating tasks exist whenever the board is open: on load, and
+  // again once the household's day turns over with the tab left open.
+  const todayIso = toISODate(toHouseholdClock(nowTs));
+  useEffect(() => {
+    if (!ready || !token) return;
+    void ensureRoutineTasks(todayIso).then((made) => {
+      if (made > 0) return refresh();
+    });
+    // refresh is left out on purpose: it changes with every helper and date
+    // update, and this only needs to run once per day.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, token, staffReady, todayIso, ensureRoutineTasks]);
 
   useEffect(() => {
     if (!ready || !token) return;
@@ -534,39 +631,85 @@ export function useTaskBoard({
     }
   };
 
+  /**
+   * A new routine (Schedule -> Routines): its first task, which starts the
+   * series, on the first day it repeats whose time is still ahead. The days
+   * after are made from it.
+   */
   const addRoutine = (r: Omit<Routine, "id" | "station">) => {
-    const helper = findHelper(r.helperId, helpers);
-    const generatedId = `r${Date.now()}`;
-    const newRoutine: Routine = { ...r, id: generatedId, station: helper.station };
-    setRoutines((prev) => [...prev, newRoutine]);
+    if (!token) {
+      toast.error("Sign in to add a routine.");
+      return;
+    }
+    const now = householdNow();
+    const dayIso = firstRoutineDay(
+      r.recurrence,
+      toISODate(now),
+      now.getHours() * 60 + now.getMinutes(),
+      r.time,
+    );
+    insertTicketFn({
+      data: {
+        token,
+        title: r.title,
+        notes: r.note,
+        helperId: r.helperId,
+        scheduledStartIso: combineDateAndTime(dayIso, r.time),
+        recurrence: encodeRecurrence(r.recurrence),
+        queued: boardClosed && dayIso <= toISODate(simDate),
+        durationMinutes: r.durationMinutes,
+        from: r.from,
+        to: r.to,
+      },
+    })
+      .then(() => {
+        const first = parseISODate(dayIso).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+        toast.success(`Routine saved. The first one is ${first}.`);
+        return refresh();
+      })
+      .catch((err) => {
+        console.error("[useTaskBoard] Failed to add routine:", err);
+        toast.error("The routine wasn't saved.");
+      });
+  };
+
+  /**
+   * Stops a repeating task, by its series (a Routine's id, or a task's
+   * routineId): nothing more is made after the tasks already there, which
+   * stay as they are. Resolves false when it didn't stop.
+   */
+  const stopRepeating = (routineId: string): Promise<boolean> => {
+    if (!token) return Promise.resolve(false);
+    return stopRepeatFn({ data: { token, routineId } })
+      .then(async (changed) => {
+        if (changed === 0) throw new Error("No task of this routine could be changed.");
+        toast.success("It won't repeat any more. Tasks already planned stay.");
+        await refresh();
+        return true;
+      })
+      .catch((err) => {
+        console.error("[useTaskBoard] Failed to stop the repeat:", err);
+        toast.error("It's still repeating. Try again.");
+        return false;
+      });
   };
 
   const removeRoutine = (id: string) => {
-    setRoutines((prev) => prev.filter((r) => r.id !== id));
+    void stopRepeating(id);
   };
 
-  /** Which of today's local routines haven't already spawned a live ticket
-   * for `targetDate`'s weekday -- the pure half of startNewDay(). */
-  const routinesToSpawn = (targetDate: Date): Routine[] => {
-    const wd = weekdayOf(targetDate);
-    const liveRoutineIds = new Set(tasks.map((t) => t.routineId).filter(Boolean));
-    const employed = activeHelperIds ? new Set(activeHelperIds) : null;
-    return routines.filter(
-      (r) =>
-        routineMatches(r, wd) &&
-        !liveRoutineIds.has(r.id) &&
-        (!employed || employed.has(r.helperId)),
-    );
-  };
-
-  /** Roll the board to `targetDate`: respawn matching routines and persist
+  /** Roll the board to `targetDate`: make its repeating tasks and persist
    * the new board_date (KNOWN_GAPS.md C31) alongside the existing
    * board_closed reopen. Dropping finished/expired tasks off the visible
    * board is handled by refresh()'s query itself (see listTicketsFn), not by
-   * discarding local state. Used both for the manual "Start new day" click
-   * (targetDate = simDate + 1 day) and for silently catching up a board left
+   * discarding local state. Used for silently catching up a board left
    * behind a real day boundary (targetDate = today) -- see
-   * app-store-provider.tsx. */
+   * app-store-provider.tsx. The repeating tasks are always the household's
+   * real today's, whatever targetDate says: the database decides the day. */
   const startNewDay = async (targetDate: Date): Promise<{ routinesRespawned: number }> => {
     setSimDate(targetDate);
     setBoardClosed(false);
@@ -581,30 +724,14 @@ export function useTaskBoard({
       console.error("[useTaskBoard] Failed to persist the new board date:", err);
     });
 
-    const toSpawn = routinesToSpawn(targetDate);
-
+    const made = await ensureRoutineTasks(toISODate(targetDate));
     try {
-      await Promise.all(
-        toSpawn.map((r) =>
-          insertTicketFn({
-            data: {
-              token,
-              title: r.title,
-              notes: r.note,
-              helperId: routineAssignee(r, toISODate(targetDate), timeOff),
-              scheduledStartIso: combineDateAndTime(toISODate(targetDate), r.time),
-              recurrence: encodeRecurrence(r.recurrence),
-              routineId: r.id,
-            },
-          }),
-        ),
-      );
       await refresh(targetDate);
     } catch (err) {
       console.error("[useTaskBoard] Failed to roll over to the next day:", err);
       toast.error("Hindi na-simulan ang bagong araw nang maayos.");
     }
-    return { routinesRespawned: toSpawn.length };
+    return { routinesRespawned: made };
   };
 
   return {
@@ -626,6 +753,7 @@ export function useTaskBoard({
     setClosed,
     addRoutine,
     removeRoutine,
+    stopRepeating,
     startNewDay,
     refresh,
   };

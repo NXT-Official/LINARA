@@ -76,6 +76,7 @@ export function ManagerPassPage({
     rescheduleTask,
     editTask,
     cancelTask,
+    stopRepeating,
     approveSuggestion,
     dismissSuggestion,
   } = board;
@@ -240,6 +241,14 @@ export function ManagerPassPage({
             void editTask(editing.id, edit);
             setEditing(null);
           }}
+          onStopRepeating={
+            isRemote
+              ? undefined
+              : () => {
+                  void stopRepeating(editing.routineId ?? editing.id);
+                  setEditing(null);
+                }
+          }
         />
       )}
       {gate.intent && (

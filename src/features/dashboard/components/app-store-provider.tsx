@@ -169,6 +169,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ready: session.status === "authed",
     isReachable: (helperId) => reachableRef.current.includes(helperId),
     timeOff: timeOff.list,
+    // Who works here and who's away are known (for repeating tasks, O43).
+    staffReady: invites.loaded && sharing.loaded && timeOff.loaded,
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment
@@ -527,8 +529,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
         rejectedRolloverDayRef.current = null;
         return runDayRollover(serverToday).then(({ routinesRespawned, utosCleared }) => {
+          // The hourly job may already have made the day's routines (O43).
           toast.info(
-            `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
+            "Bumagong araw habang wala ka" +
+              (routinesRespawned > 0
+                ? ` — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
+                : "") +
               (utosCleared ? ", mga Quick Utos na-clear." : "."),
           );
         });

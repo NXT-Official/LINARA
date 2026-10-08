@@ -53,10 +53,13 @@ export function useSharing({
   householdId: string | null;
 }) {
   const [snapshot, setSnapshot] = useState<SharingSnapshot>(EMPTY);
+  // Read once, so "nobody shared in" is known rather than not loaded yet.
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) return;
     setSnapshot(await listSharingFn({ data: { token } }));
+    setLoaded(true);
   }, [token]);
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export function useSharing({
 
   return {
     ...snapshot,
+    loaded,
     coversByHelper,
     refresh,
     /** Her tasks at another house on this day (times and house only), earliest first. */

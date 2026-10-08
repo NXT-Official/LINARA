@@ -272,7 +272,24 @@ the bottom.
 - **Found:** 2026-10-06, while carrying task length onto repeating tasks.
 - **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
 - **Blocks:** Any household relying on daily chores showing up each day.
-- **To close:** Respawn from the database: for each open or recent ticket with a `recurrence` matching the new day, insert the next instance, carrying the title, note, assignee (or Unassigned if she's off), time, length and trip. Make it idempotent per `routine_id` and date, so two tabs rolling the day don't double it. Owned by `LINARA`.
+- **Decided (2026-10-08):** a repeating task is a series of ordinary tickets, no new table.
+  - `routine_id` names the series: the id of its first task. Older repeating tasks with no `routine_id` are their own first task.
+  - The series' newest task is the pattern for the next day's: title, note, time of day, length, trip ends and repeat. So editing today's task changes the days after it.
+  - The helper is the one on the newest task that has one, so a day made Unassigned while she was away doesn't stick. The next day's goes to no one (Unassigned) when she has approved leave that day, approved rest off covering its time, or no longer works here. This replaces O4's "a routine of someone who left stops respawning": the work still needs doing.
+  - Cancelling one day's task skips that day only. Stopping the repeat (Schedule → Routines → ×, or **Stop repeating** in a repeating task's Edit) clears `recurrence` on the whole series. Tasks already made stay.
+  - A remote admin's suggested repeating task starts repeating once approved.
+  - Only today's task is made; nothing is back-filled for days nobody opened the app. The planner shows the days after as greyed copies.
+  - Only the last five weeks are read (both the database and the web). A series with no task since then, such as old test data, doesn't wake up. One that's still going has a task at least weekly.
+- **Fix, built 2026-10-08, NOT yet applied:** `supabase/add-repeating-tasks.sql`, tested in `supabase/tests/repeating-tasks.test.mjs` (39 checks, in `npm run test:sql`).
+  - **Schema:** `tickets.occurrence_date` (the day a series' task is for; a move keeps it), a unique index on `(routine_id, occurrence_date)`, and trigger `tickets_series_defaults`, which fills both on a new repeating task. Backfills older repeating tasks.
+  - **Functions:** `spawn_routine_tasks()` (caller's household, its today; any member may call it), and two internal ones (`spawn_routine_tasks_for`, `routine_helper_free`). `INSERT ... ON CONFLICT DO NOTHING`, so a second tab, a reload or the job can't make two.
+  - **pg_cron** job `spawn-routine-tasks`, hourly at :02 (`spawn_routine_tasks_everywhere()`), so the day's tasks exist on her phone before any manager opens the dashboard.
+  - **Web:** `routine.utils.ts` reads series from tickets. The board calls `spawn_routine_tasks` on load, when the household's day turns over, and at the rollover. Schedule → Routines lists the real series, including Unassigned ones; New routine saves its first task on the first day it repeats whose time is ahead; × asks first, then stops it. Repeating tasks' Edit says how they repeat and offers **Stop repeating** (Pass and Schedule). The planner's greyed copies start after a series' newest task and show a departed helper's as Unassigned.
+  - **Until the SQL is applied** the web makes today's tasks itself, once the roster and time off have loaded. Each gets an id derived from series and day (`occurrenceId`), so the primary key refuses a second copy from another tab. Before the SQL, three things don't work. Nothing is made until a manager opens the dashboard. A remote admin's session can't make them (RLS). A task moved to another day counts as that day's.
+- **To close:** apply `supabase/add-repeating-tasks.sql` in the SQL editor, then check:
+  - `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` shows the job.
+  - A daily test task made yesterday has today's copy within the hour after midnight, or as soon as the Pass loads.
+  - Move this to Closed Gaps. LINARA_MOBILE needs nothing (the job covers her phone, and her reads take a fixed column list). It may call `spawn_routine_tasks()` when Today opens, as a backup to the job. Owned by `LINARA`.
 
 
 

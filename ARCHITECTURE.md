@@ -862,9 +862,15 @@ CREATE TABLE public.house_sops (
 -- routine_id/appointment_id/appointment_title/lead_minutes/reschedule_notice
 -- (added by supabase/add-ticket-board-columns.sql) denormalize what the Pass
 -- board UI needs per ticket onto the row itself, closing KNOWN_GAPS.md gap #4
--- (the board was never actually written to). routine_id stays plain TEXT
--- provenance, not a FK -- there is still no `routines` table (Routine
--- templates stay client-local, see use-task-board.ts). appointment_id
+-- (the board was never actually written to). routine_id stays plain TEXT,
+-- not a FK -- there is no `routines` table. Since KNOWN_GAPS.md O43
+-- (supabase/add-repeating-tasks.sql) it names a repeating task's SERIES: the
+-- id of its first task. occurrence_date is the household day a series' task is
+-- for (a move keeps it); one per (routine_id, occurrence_date), by a unique
+-- index. The newest task is the pattern for the next; spawn_routine_tasks()
+-- (web on load and at rollover) and an hourly pg_cron job make each day's,
+-- Unassigned when the helper is away or gone. Stopping a repeat clears
+-- recurrence on the whole series (src/features/tasks/routine.utils.ts). appointment_id
 -- started the same way (gap #4 landed before `appointments` was written to
 -- at all) but was upgraded to a real FK by
 -- supabase/add-appointment-atomic-writes.sql once gap #7 closed (Closed Gap
@@ -902,6 +908,7 @@ CREATE TABLE public.tickets (
     block_reason TEXT,
     recurrence TEXT[],
     routine_id TEXT,
+    occurrence_date DATE, -- add-repeating-tasks.sql; trigger tickets_series_defaults fills it
     appointment_id UUID REFERENCES public.appointments(id) ON DELETE CASCADE,
     appointment_title TEXT,
     lead_minutes INTEGER,

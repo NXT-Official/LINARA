@@ -7,6 +7,7 @@ import { extractHouseholdEvidencePath, signEvidencePhotos } from "@/lib/evidence
 import { pushToHelper } from "@/features/notifications/push";
 
 import { TASK_SEARCH_LIMIT } from "./planner.utils";
+import { occurrenceId } from "./routine.utils";
 import type { Status } from "./task.types";
 
 export interface HouseStandardSOP {
@@ -269,6 +270,8 @@ export interface TicketRow {
   from_place_id?: string | null;
   to_household_id?: string | null;
   to_place_id?: string | null;
+  /** The day a repeating task is for (add-repeating-tasks.sql); absent before it. */
+  occurrence_date?: string | null;
 }
 
 /**
@@ -488,7 +491,7 @@ export const unassignForLeaveFn = createServerFn({ method: "POST" })
     },
   );
 
-/** Creates one ticket -- addTask, and each freshly spawned routine instance. */
+/** Creates one ticket -- addTask, and a new routine's first task. */
 export const insertTicketFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
@@ -550,9 +553,15 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       throw new Error("Unauthorized: Profile not found");
     }
 
+    // A repeating task is the first of its series, which is named by its id
+    // (KNOWN_GAPS.md O43). add-repeating-tasks.sql's trigger does the same.
+    const repeats = !!recurrence && recurrence.length > 0;
+    const id = repeats && !routineId ? crypto.randomUUID() : undefined;
+
     const { data: row, error } = await authedClient
       .from("tickets")
       .insert({
+        ...(id ? { id } : {}),
         household_id: profile.household_id,
         title,
         notes: notes ?? null,
@@ -565,7 +574,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
         queued: !!queued,
         queued_for_shift: !!queuedForShift,
         recurrence: recurrence ?? null,
-        routine_id: routineId ?? null,
+        routine_id: routineId ?? id ?? null,
         ...tripColumns(data.from, data.to),
         ...(data.durationMinutes ? { duration_minutes: data.durationMinutes } : {}),
         created_by: user.id,
@@ -590,6 +599,140 @@ export const insertTicketFn = createServerFn({ method: "POST" })
     }
 
     return { id: row.id as string };
+  });
+
+// --------------------------------------------------------------------------
+// Repeating tasks (KNOWN_GAPS.md O43, supabase/add-repeating-tasks.sql): a
+// series of tickets named by routine_id, the id of its first task. See
+// routine.utils.ts for how a series is read.
+// --------------------------------------------------------------------------
+
+/** The function or column isn't there yet: add-repeating-tasks.sql isn't applied. */
+const isMissing = (error: { code?: string; message?: string } | null) =>
+  !!error &&
+  (error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    error.code === "42703" ||
+    error.code === "PGRST202" ||
+    /does not exist|could not find/i.test(error.message ?? ""));
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Makes today's task for every repeating task due today in the caller's
+ * household, once however often it's asked (spawn_routine_tasks). Null when
+ * add-repeating-tasks.sql isn't applied: the caller then makes them itself
+ * (insertRoutineTasksFn).
+ */
+export const spawnRoutineTasksFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }): Promise<{ spawned: number } | null> => {
+    const client = createAuthedClient(data.token);
+    const { data: spawned, error } = await client.rpc("spawn_routine_tasks");
+    if (isMissing(error)) return null;
+    if (error) throw new Error(error.message);
+    return { spawned: (spawned as number | null) ?? 0 };
+  });
+
+/**
+ * Every task that repeats, scheduled on or after `sinceIso`: what the
+ * Routines list and the planner's copies are read from. A series that's still
+ * going has a task at least weekly, so a few weeks back is plenty.
+ */
+export const listRepeatingTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; sinceIso: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const { data: rows, error } = await client
+      .from("tickets")
+      // "*": occurrence_date only exists once the SQL is applied.
+      .select("*")
+      .not("recurrence", "is", null)
+      .gte("scheduled_start", data.sinceIso)
+      .order("scheduled_start", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as TicketRow[];
+  });
+
+/** One series' task for one day, as the web makes it before the SQL is applied. */
+export type RoutineTaskInsert = {
+  series: string;
+  dayIso: string;
+  title: string;
+  notes?: string;
+  helperId: string | null;
+  scheduledStartIso: string;
+  recurrence: string[];
+  durationMinutes?: number;
+  from?: PlaceRef;
+  to?: PlaceRef;
+};
+
+/**
+ * The web's stand-in for spawn_routine_tasks until add-repeating-tasks.sql is
+ * applied. Each task's id comes from its series and day (occurrenceId), so a
+ * second tab, or a reload, making the same one is refused by the primary key
+ * and counted as already there rather than doubled. Returns how many it made.
+ */
+export const insertRoutineTasksFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; tasks: RoutineTaskInsert[] }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const {
+      data: { user },
+      error: authError,
+    } = await client.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+    const { data: profile, error: profileError } = await client
+      .from("user_profiles")
+      .select("household_id")
+      .eq("id", user.id)
+      .single();
+    if (profileError || !profile) throw new Error("Unauthorized: Profile not found");
+
+    const made = await Promise.all(
+      data.tasks.map(async (t) => {
+        const { error } = await client.from("tickets").insert({
+          id: await occurrenceId(t.series, t.dayIso),
+          household_id: profile.household_id,
+          title: t.title,
+          notes: t.notes ?? null,
+          helper_id: t.helperId,
+          scheduled_start: t.scheduledStartIso,
+          recurrence: t.recurrence,
+          routine_id: t.series,
+          ...tripColumns(t.from, t.to),
+          ...(t.durationMinutes ? { duration_minutes: t.durationMinutes } : {}),
+          created_by: user.id,
+        });
+        if (!error) return 1;
+        // Already made, by another tab or an earlier load.
+        if (error.code === "23505") return 0;
+        console.error(`[insertRoutineTasksFn] "${t.title}" on ${t.dayIso}:`, error.message);
+        return 0;
+      }),
+    );
+    return { spawned: made.reduce<number>((n, x) => n + x, 0) };
+  });
+
+/**
+ * Stops a repeating task: no task of its series repeats any more, so nothing
+ * is made after them. Tasks already made stay as they are. Returns how many
+ * tasks it changed.
+ */
+export const stopRepeatFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; routineId: string }) => data)
+  .handler(async ({ data }) => {
+    const client = createAuthedClient(data.token);
+    const request = client.from("tickets").update({ recurrence: null });
+    // A series from before routine_id was set is named by its first task's id.
+    const { data: rows, error } = await (
+      UUID_RE.test(data.routineId)
+        ? request.or(`routine_id.eq.${data.routineId},id.eq.${data.routineId}`)
+        : request.eq("routine_id", data.routineId)
+    ).select("id");
+    if (error) throw new Error(error.message);
+    return rows?.length ?? 0;
   });
 
 export interface TicketPatch {
