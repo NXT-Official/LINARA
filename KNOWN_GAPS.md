@@ -138,12 +138,13 @@ the bottom.
 ### O37. Stations were a fixed list of five
 
 - **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove.
-- **Built 2026-10-08, SQL not applied:**
-  - `supabase/add-household-stations.sql`: `household_stations` per household, seeded with the five plus any name its staff already have; new households get the five. The fixed-five CHECK on `helper_profiles.station` goes; a new or changed station must be one of the household's (stored in its spelling). Renaming follows onto everyone on it, the ones who left included, and onto `house_sops`. Removing is refused while anyone current or invited is on it, and for the last one. Everyone in the household reads the list; primary and co-managers change it. PGlite: `supabase/tests/household-stations.test.mjs` (20 checks).
+- **Applied 2026-10-08; one fix to apply.** Checked on live as the test manager: the household has the five, adding works, a second "zz verify" is refused, an unused station can be removed, one with staff on it can't, and staff read the list but can't add to it. **Renaming failed** (`column "station" does not exist`): the rename trigger also renamed the station on `house_sops`, which has no station column on live (only in the test fixture). `supabase/fix-station-rename.sql` makes that step run only when the column exists; `add-household-stations.sql` carries the same fix, and the PGlite test now drops the column and renames.
+- **Built 2026-10-08:**
+  - `supabase/add-household-stations.sql`: `household_stations` per household, seeded with the five plus any name its staff already have; new households get the five. The fixed-five CHECK on `helper_profiles.station` goes; a new or changed station must be one of the household's (stored in its spelling). Renaming follows onto everyone on it, the ones who left included, and onto `house_sops`. Removing is refused while anyone current or invited is on it, and for the last one. Everyone in the household reads the list; primary and co-managers change it. PGlite: `supabase/tests/household-stations.test.mjs` (22 checks).
   - Web: People > **Stations & teams** (was "Teams & places") has a Stations card: add, rename, remove, with how many people are on each. A helper card's **Station** button moves them. The invite form lists the household's stations. Colours: the five keep theirs; any other station gets one of four more, picked by its name. Before the SQL it shows the five, read-only.
   - LINARA_MOBILE: station types widened to any name; it only ever shows the name.
 - **Still worth knowing:** appointment templates' prep tasks name a station ("Cook"); a household that renames Cook gets them on its first active helper instead, as when no one matches today.
-- **To close:** apply the SQL, then on the deployed site add a station, put someone on it, rename it, check their card and the Pass, try removing it while they're on it, move them back and remove it.
+- **To close:** apply `fix-station-rename.sql`, then on the deployed site add a station, put someone on it, rename it, check their card and the Pass, try removing it while they're on it, move them back and remove it.
 - **Found:** 2026-10-05, while building O36.
 - **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
 - **Blocks:** Accurate roles for a large staff, and station-based routing for them.
@@ -266,32 +267,6 @@ the bottom.
   2. Check that the Beach House's Pass shows her off and its send gate warns.
   3. Give her a two-hour task at one house and try to book her inside that window at the other: the dialog warns.
   4. Then move this to Closed Gaps. Owned by `LINARA`, with the length shown in `LINARA_MOBILE`.
-
-### O43. "Repeat daily" tasks never come back the next day
-
-- **Found:** 2026-10-06, while carrying task length onto repeating tasks.
-- **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
-- **Blocks:** Any household relying on daily chores showing up each day.
-- **Decided (2026-10-08):** a repeating task is a series of ordinary tickets, no new table.
-  - `routine_id` names the series: the id of its first task. Older repeating tasks with no `routine_id` are their own first task.
-  - The series' newest task is the pattern for the next day's: title, note, time of day, length, trip ends and repeat. So editing today's task changes the days after it.
-  - The helper is the one on the newest task that has one, so a day made Unassigned while she was away doesn't stick. The next day's goes to no one (Unassigned) when she has approved leave that day, approved rest off covering its time, or no longer works here. This replaces O4's "a routine of someone who left stops respawning": the work still needs doing.
-  - Cancelling one day's task skips that day only. Stopping the repeat (Schedule → Routines → ×, or **Stop repeating** in a repeating task's Edit) clears `recurrence` on the whole series. Tasks already made stay.
-  - A remote admin's suggested repeating task starts repeating once approved.
-  - Only today's task is made; nothing is back-filled for days nobody opened the app. The planner shows the days after as greyed copies.
-  - Only the last five weeks are read (both the database and the web). A series with no task since then, such as old test data, doesn't wake up. One that's still going has a task at least weekly.
-- **Fix, built 2026-10-08, NOT yet applied:** `supabase/add-repeating-tasks.sql`, tested in `supabase/tests/repeating-tasks.test.mjs` (39 checks, in `npm run test:sql`).
-  - **Schema:** `tickets.occurrence_date` (the day a series' task is for; a move keeps it), a unique index on `(routine_id, occurrence_date)`, and trigger `tickets_series_defaults`, which fills both on a new repeating task. Backfills older repeating tasks.
-  - **Functions:** `spawn_routine_tasks()` (caller's household, its today; any member may call it), and two internal ones (`spawn_routine_tasks_for`, `routine_helper_free`). `INSERT ... ON CONFLICT DO NOTHING`, so a second tab, a reload or the job can't make two.
-  - **pg_cron** job `spawn-routine-tasks`, hourly at :02 (`spawn_routine_tasks_everywhere()`), so the day's tasks exist on her phone before any manager opens the dashboard.
-  - **Web:** `routine.utils.ts` reads series from tickets. The board calls `spawn_routine_tasks` on load, when the household's day turns over, and at the rollover. Schedule → Routines lists the real series, including Unassigned ones; New routine saves its first task on the first day it repeats whose time is ahead; × asks first, then stops it. Repeating tasks' Edit says how they repeat and offers **Stop repeating** (Pass and Schedule). The planner's greyed copies start after a series' newest task and show a departed helper's as Unassigned.
-  - **Until the SQL is applied** the web makes today's tasks itself, once the roster and time off have loaded. Each gets an id derived from series and day (`occurrenceId`), so the primary key refuses a second copy from another tab. Before the SQL, three things don't work. Nothing is made until a manager opens the dashboard. A remote admin's session can't make them (RLS). A task moved to another day counts as that day's.
-- **To close:** apply `supabase/add-repeating-tasks.sql` in the SQL editor, then check:
-  - `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` shows the job.
-  - A daily test task made yesterday has today's copy within the hour after midnight, or as soon as the Pass loads.
-  - Move this to Closed Gaps. LINARA_MOBILE needs nothing (the job covers her phone, and her reads take a fixed column list). It may call `spawn_routine_tasks()` when Today opens, as a backup to the job. Owned by `LINARA`.
-
-
 
 ### O44. The APK can sit on its startup spinner forever on an older phone
 
@@ -3612,6 +3587,32 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Blocks:** Delegating a large estate to department heads; announcements to a team.
 - **Current workaround:** The team filter, and sending to each person.
 - **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
+
+### C94. "Repeat daily" tasks never came back the next day (former Open Gap O43)
+
+- **Closed 2026-10-08:** the user applied `add-repeating-tasks.sql`. Checked on live as the test manager: a daily task dated yesterday got today's copy from `spawn_routine_tasks()` (1 made), a second call made none, and both test tasks were deleted. The cron job can't be read with a manager's key; `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` in the SQL editor confirms it.
+
+- **Found:** 2026-10-06, while carrying task length onto repeating tasks.
+- **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
+- **Blocks:** Any household relying on daily chores showing up each day.
+- **Decided (2026-10-08):** a repeating task is a series of ordinary tickets, no new table.
+  - `routine_id` names the series: the id of its first task. Older repeating tasks with no `routine_id` are their own first task.
+  - The series' newest task is the pattern for the next day's: title, note, time of day, length, trip ends and repeat. So editing today's task changes the days after it.
+  - The helper is the one on the newest task that has one, so a day made Unassigned while she was away doesn't stick. The next day's goes to no one (Unassigned) when she has approved leave that day, approved rest off covering its time, or no longer works here. This replaces O4's "a routine of someone who left stops respawning": the work still needs doing.
+  - Cancelling one day's task skips that day only. Stopping the repeat (Schedule → Routines → ×, or **Stop repeating** in a repeating task's Edit) clears `recurrence` on the whole series. Tasks already made stay.
+  - A remote admin's suggested repeating task starts repeating once approved.
+  - Only today's task is made; nothing is back-filled for days nobody opened the app. The planner shows the days after as greyed copies.
+  - Only the last five weeks are read (both the database and the web). A series with no task since then, such as old test data, doesn't wake up. One that's still going has a task at least weekly.
+- **Fix, built and applied 2026-10-08:** `supabase/add-repeating-tasks.sql`, tested in `supabase/tests/repeating-tasks.test.mjs` (39 checks, in `npm run test:sql`).
+  - **Schema:** `tickets.occurrence_date` (the day a series' task is for; a move keeps it), a unique index on `(routine_id, occurrence_date)`, and trigger `tickets_series_defaults`, which fills both on a new repeating task. Backfills older repeating tasks.
+  - **Functions:** `spawn_routine_tasks()` (caller's household, its today; any member may call it), and two internal ones (`spawn_routine_tasks_for`, `routine_helper_free`). `INSERT ... ON CONFLICT DO NOTHING`, so a second tab, a reload or the job can't make two.
+  - **pg_cron** job `spawn-routine-tasks`, hourly at :02 (`spawn_routine_tasks_everywhere()`), so the day's tasks exist on her phone before any manager opens the dashboard.
+  - **Web:** `routine.utils.ts` reads series from tickets. The board calls `spawn_routine_tasks` on load, when the household's day turns over, and at the rollover. Schedule → Routines lists the real series, including Unassigned ones; New routine saves its first task on the first day it repeats whose time is ahead; × asks first, then stops it. Repeating tasks' Edit says how they repeat and offers **Stop repeating** (Pass and Schedule). The planner's greyed copies start after a series' newest task and show a departed helper's as Unassigned.
+  - **Until the SQL is applied** the web makes today's tasks itself, once the roster and time off have loaded. Each gets an id derived from series and day (`occurrenceId`), so the primary key refuses a second copy from another tab. Before the SQL, three things don't work. Nothing is made until a manager opens the dashboard. A remote admin's session can't make them (RLS). A task moved to another day counts as that day's.
+- **To close:** apply `supabase/add-repeating-tasks.sql` in the SQL editor, then check:
+  - `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` shows the job.
+  - A daily test task made yesterday has today's copy within the hour after midnight, or as soon as the Pass loads.
+  - Move this to Closed Gaps. LINARA_MOBILE needs nothing (the job covers her phone, and her reads take a fixed column list). It may call `spawn_routine_tasks()` when Today opens, as a backup to the job. Owned by `LINARA`.
 
 ---
 

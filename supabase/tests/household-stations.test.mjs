@@ -171,6 +171,27 @@ const ana = (await q(`SELECT station FROM helper_profiles WHERE id = $1`, [P_ANA
 const sop = (await q(`SELECT station FROM house_sops WHERE household_id = $1`, [H]))[0].station;
 check("a rename follows onto the staff on it", ana === "Kusina", ana);
 check("and onto the house's SOPs", sop === "Kusina", sop);
+// The live house_sops has no station column; a rename still has to work.
+await db.exec(`ALTER TABLE house_sops DROP COLUMN station`);
+await q(
+  `UPDATE household_stations SET name = 'Driver2' WHERE household_id = $1 AND name = 'Driver'`,
+  [H],
+);
+await q(
+  `UPDATE household_stations SET name = 'Driver' WHERE household_id = $1 AND name = 'Driver2'`,
+  [H],
+);
+check("a rename works when SOPs carry no station", (await names(H)).includes("Driver"));
+await db.exec(readFileSync(`${REPO}/fix-station-rename.sql`, "utf8"));
+await q(
+  `UPDATE household_stations SET name = 'Chauffeur' WHERE household_id = $1 AND name = 'Driver'`,
+  [H],
+);
+await q(
+  `UPDATE household_stations SET name = 'Driver' WHERE household_id = $1 AND name = 'Chauffeur'`,
+  [H],
+);
+check("and after fix-station-rename.sql", (await names(H)).includes("Driver"));
 await db.exec(`SET ROLE authenticated`);
 await as(BEN);
 
