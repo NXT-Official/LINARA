@@ -41,6 +41,7 @@ the bottom.
 
 ### O24. The web "Hold to record a voice utos" button records nothing
 
+- **Shelved with O26 (user, 2026-10-08).**
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
 - **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
 - **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
@@ -51,6 +52,7 @@ the bottom.
 
 ### O26. Every AI feature answers from a mock; no provider is chosen
 
+- **Shelved (user, 2026-10-08):** AI stays on the mocks for now; no provider work until it's picked up again. O24 (voice utos) and O47 (the AI functions' guard, built) wait with it.
 - **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
 - **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
 - **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
@@ -59,6 +61,7 @@ the bottom.
 
 ### O27. The manager app has no English / Filipino toggle
 
+- **Deferred (user, 2026-10-08):** no Filipino toggle for now.
 - **Found:** 2026-09-30 (decided during the design refresh), logged 2026-10-03.
 - **What's missing:** `PRODUCT.md` (Capabilities and Constraints; Accessibility) commits to a full English / Filipino toggle for all three manager types. The web copy is English with some Tagalog (toasts, the staff sign-in screen), and there's no i18n layer.
 - **Blocks:** Lola / relative managers who'd rather read Filipino; nothing technical.
@@ -67,6 +70,7 @@ the bottom.
 
 ### O28. Receipt and task photos were kept forever
 
+- **Storage is moving (user, 2026-10-08):** photos will move to an AWS S3 bucket eventually, and retention gets settled with that move. Supabase Storage stays as it is for the 2026-10-09 demo.
 - **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
 - **Was:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deleted them, and neither the schema nor the docs said how long they should be kept.
 - **Decided (team, 2026-10-03; NOT yet approved by the client):** task completion photos are kept **30 days**, receipt photos **60 days** (a palengke run's photo is its receipt, so 60). The amounts that matter outlive the pictures in rows that are never purged: what was bought and what it cost (`grocery_items`), and the task, who did it, when, and its comments. A manager who wants a photo for longer saves it from the web. **Revisit once the client has approved (or changed) these periods** -- they're two constants: `TASK_PHOTO_DAYS` / `RECEIPT_PHOTO_DAYS` in `src/lib/evidence-photo.ts` (UI copy) and the defaults of `release_expired_evidence()` (the actual purge). Wage records are a separate question (RA 10361, `LEGAL_CONSIDERATIONS.md` "Records"); nothing here touches payslips or payout QR codes.
@@ -87,15 +91,6 @@ the bottom.
   - **Rest owed is unaffected:** the ledger trigger (C76) reads `actual_start` / `actual_end` and the after-hours / emergency flags, which she can't set, never `scheduled_start`. The C71 move notice is for *her* when a manager moves her task, so it isn't written when she moves it herself.
   - **Mobile:** "Ayusin ang oras o note" on the focus card (`components/features/today/edit-task-form.tsx`): day and time pickers and the note, online only. A moved time also posts "Inilipat ko sa 4:30 PM (dati 3:00 PM)." to the task's updates, so the manager sees it on the Pass as a comment badge. The card now shows the task's time. `combineLocalDateTime` (`lib/datetime-fields.ts`, tested under three zones) builds the time from parts, never through UTC (C38).
 - **To close:** build an APK, and on a phone move a task and change a note; check the manager's Pass shows the new time and the comment. Then move this to Closed Gaps. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
-
-### O33. Staff can't change the grocery budget (waiting on the client)
-
-- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
-- **Blocks:** Nothing until the client confirms.
-- **Current workaround:** A manager sets it on the web.
-- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
-- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
 
 ### O34. A remote admin couldn't pay wages
 
@@ -140,21 +135,20 @@ the bottom.
 - **Verified (2026-10-05):** against the live database, the test manager and test staff account both read `household_teams`, `household_labels`, `helper_labels` and `helper_profiles.team_id`, and the staff account is refused creating a team. `npm run qa` (45 browser checks) passes on a local production build against the applied schema.
 - **To close:** On the deployed site, make a team and a label from the invite form, invite into them, check People, Pass (Roll call, grouping), Schedule, Shifts and Money with a seeded large household, and see the team and label on the helper's Record on a device. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the Record row in `LINARA_MOBILE`.
 
-### O37. Stations are a fixed list of five
+### O37. Stations were a fixed list of five
 
+- **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove.
+- **Built 2026-10-08, SQL not applied:**
+  - `supabase/add-household-stations.sql`: `household_stations` per household, seeded with the five plus any name its staff already have; new households get the five. The fixed-five CHECK on `helper_profiles.station` goes; a new or changed station must be one of the household's (stored in its spelling). Renaming follows onto everyone on it, the ones who left included, and onto `house_sops`. Removing is refused while anyone current or invited is on it, and for the last one. Everyone in the household reads the list; primary and co-managers change it. PGlite: `supabase/tests/household-stations.test.mjs` (20 checks).
+  - Web: People > **Stations & teams** (was "Teams & places") has a Stations card: add, rename, remove, with how many people are on each. A helper card's **Station** button moves them. The invite form lists the household's stations. Colours: the five keep theirs; any other station gets one of four more, picked by its name. Before the SQL it shows the five, read-only.
+  - LINARA_MOBILE: station types widened to any name; it only ever shows the name.
+- **Still worth knowing:** appointment templates' prep tasks name a station ("Cook"); a household that renames Cook gets them on its first active helper instead, as when no one matches today.
+- **To close:** apply the SQL, then on the deployed site add a station, put someone on it, rename it, check their card and the Pass, try removing it while they're on it, move them back and remove it.
 - **Found:** 2026-10-05, while building O36.
 - **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
 - **Blocks:** Accurate roles for a large staff, and station-based routing for them.
 - **Current workaround (user's choice, 2026-10-05):** keep the five. Teams and labels (O36) carry departments and anything else.
 - **To close:** Decide between an "Other" station with a free-text title, or household-defined roles. Either way, change the CHECK, both apps' types and the router prompt together. Owned by `LINARA`.
-
-### O38. A manager can't be limited to one team, and nothing goes to a whole team
-
-- **Found:** 2026-10-05, while building O36. Deferred by the user.
-- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
-- **Blocks:** Delegating a large estate to department heads; announcements to a team.
-- **Current workaround:** The team filter, and sending to each person.
-- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
 
 ### O39. A helper could work in only one household, on one team, and tasks had no place
 
@@ -278,7 +272,24 @@ the bottom.
 - **Found:** 2026-10-06, while carrying task length onto repeating tasks.
 - **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
 - **Blocks:** Any household relying on daily chores showing up each day.
-- **To close:** Respawn from the database: for each open or recent ticket with a `recurrence` matching the new day, insert the next instance, carrying the title, note, assignee (or Unassigned if she's off), time, length and trip. Make it idempotent per `routine_id` and date, so two tabs rolling the day don't double it. Owned by `LINARA`.
+- **Decided (2026-10-08):** a repeating task is a series of ordinary tickets, no new table.
+  - `routine_id` names the series: the id of its first task. Older repeating tasks with no `routine_id` are their own first task.
+  - The series' newest task is the pattern for the next day's: title, note, time of day, length, trip ends and repeat. So editing today's task changes the days after it.
+  - The helper is the one on the newest task that has one, so a day made Unassigned while she was away doesn't stick. The next day's goes to no one (Unassigned) when she has approved leave that day, approved rest off covering its time, or no longer works here. This replaces O4's "a routine of someone who left stops respawning": the work still needs doing.
+  - Cancelling one day's task skips that day only. Stopping the repeat (Schedule → Routines → ×, or **Stop repeating** in a repeating task's Edit) clears `recurrence` on the whole series. Tasks already made stay.
+  - A remote admin's suggested repeating task starts repeating once approved.
+  - Only today's task is made; nothing is back-filled for days nobody opened the app. The planner shows the days after as greyed copies.
+  - Only the last five weeks are read (both the database and the web). A series with no task since then, such as old test data, doesn't wake up. One that's still going has a task at least weekly.
+- **Fix, built 2026-10-08, NOT yet applied:** `supabase/add-repeating-tasks.sql`, tested in `supabase/tests/repeating-tasks.test.mjs` (39 checks, in `npm run test:sql`).
+  - **Schema:** `tickets.occurrence_date` (the day a series' task is for; a move keeps it), a unique index on `(routine_id, occurrence_date)`, and trigger `tickets_series_defaults`, which fills both on a new repeating task. Backfills older repeating tasks.
+  - **Functions:** `spawn_routine_tasks()` (caller's household, its today; any member may call it), and two internal ones (`spawn_routine_tasks_for`, `routine_helper_free`). `INSERT ... ON CONFLICT DO NOTHING`, so a second tab, a reload or the job can't make two.
+  - **pg_cron** job `spawn-routine-tasks`, hourly at :02 (`spawn_routine_tasks_everywhere()`), so the day's tasks exist on her phone before any manager opens the dashboard.
+  - **Web:** `routine.utils.ts` reads series from tickets. The board calls `spawn_routine_tasks` on load, when the household's day turns over, and at the rollover. Schedule → Routines lists the real series, including Unassigned ones; New routine saves its first task on the first day it repeats whose time is ahead; × asks first, then stops it. Repeating tasks' Edit says how they repeat and offers **Stop repeating** (Pass and Schedule). The planner's greyed copies start after a series' newest task and show a departed helper's as Unassigned.
+  - **Until the SQL is applied** the web makes today's tasks itself, once the roster and time off have loaded. Each gets an id derived from series and day (`occurrenceId`), so the primary key refuses a second copy from another tab. Before the SQL, three things don't work. Nothing is made until a manager opens the dashboard. A remote admin's session can't make them (RLS). A task moved to another day counts as that day's.
+- **To close:** apply `supabase/add-repeating-tasks.sql` in the SQL editor, then check:
+  - `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` shows the job.
+  - A daily test task made yesterday has today's copy within the hour after midnight, or as soon as the Pass loads.
+  - Move this to Closed Gaps. LINARA_MOBILE needs nothing (the job covers her phone, and her reads take a fixed column list). It may call `spawn_routine_tasks()` when Today opens, as a backup to the job. Owned by `LINARA`.
 
 
 
@@ -303,6 +314,29 @@ the bottom.
   - **Appointment prep tasks** go to the first helper with a matching station, or to `activeHelpers[0]` (`appointments-section.tsx`). With several drivers it's always the same one, even when she's off. They should go to someone available with that station, or stay Unassigned.
 - **Blocks:** Nothing yet. The cost grows with staff and time.
 - **To close:** Build when chosen; owned by `LINARA`.
+
+### O47. The AI edge functions answered anyone with the public anon key (QA LM-A6)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`, LM-A6, Critical): a call to `route-utos` with only the anon key, which ships in the site's JS, returned a live OpenAI answer; fifteen in a row all succeeded.
+- **Was:** `verify_jwt = true` only checks that a token is validly signed, and the anon key is. None of `route-utos`, `generate-sop`, `parse-scheduler`, `simplify-sop`, `promote-voice-task` or `transcribe-notes` asked who the caller was or limited calls, so anyone could run up the OpenAI bill or use them as a free AI proxy. The web dashboard itself called three of them with the anon key, from server functions (`routeUtosFn`, `generateSopFn`, `parseSchedulerFn`) that took no login, so `/_serverFn` was a second open door.
+- **Built 2026-10-07, not deployed:**
+  - `supabase/functions/_shared/ai-guard.ts`, called by all six before any work: 401 unless `auth.getUser()` finds a signed-in user, 429 when that user is out of calls.
+  - `supabase/add-ai-call-limits.sql`: `take_ai_call()` counts per user, 60 calls an hour to any one function and 300 a day across all. The table can't be read or changed except through the function. PGlite: `supabase/tests/ai-call-limits.test.mjs`. Until it's applied, the functions let signed-in calls through.
+  - Web: the three server functions require the manager's session token and send it to the function instead of the anon key. LINARA_MOBILE's `supabase.functions.invoke` already sends the signed-in user's token, so it needs no change.
+- **Not urgent while AI is off (checked 2026-10-07):** the project has no `OPENAI_API_KEY` secret, so every function answers from its built-in mock (`useMockAI || !apiKey`); the tester's "buy milk → Yaya" is the mock's answer. Nothing reaches OpenAI or costs anything today. **Do the steps below before adding `OPENAI_API_KEY`.** The web change is safe to ship on its own: the current functions accept the manager's token too.
+- **To close, in this order:**
+  1. Apply `add-ai-call-limits.sql` by hand.
+  2. Deploy the web (merge to `main`). The new web sends the manager's token, which the current functions accept; the old web sends the anon key, which the new functions refuse, so the web goes first.
+  3. Deploy the six functions (`npm run deploy:functions`).
+  4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
+  5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
+
+### O48. No full Content-Security-Policy yet
+
+- **Found:** 2026-10-07, security QA LM-A8 (see C91), which named "a real CSP" as the higher-value header.
+- **What's missing:** pages send `Content-Security-Policy: frame-ancestors 'none'` and nothing else, so the browser doesn't restrict where scripts, styles, images or connections may come from.
+- **Why not yet:** a working policy has to allow the Supabase project (REST, Auth, Realtime websockets, Storage signed URLs for photos), Google Fonts, `data:`/`blob:` images from the camera and receipt previews, and TanStack Start's inline hydration scripts (a nonce or hash). A wrong one breaks the app quietly, in the LINARA_MOBILE WebView too.
+- **To close:** ship it first as `Content-Security-Policy-Report-Only` from `src/lib/security-headers.ts`, run the e2e suite and the app's manager view with the console open, fix what it reports, then switch it to enforcing. Owned by `LINARA`.
 
 ## Closed Gaps
 
@@ -3545,6 +3579,39 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** a `linara_signed_in=1` cookie (`src/lib/signed-in-cookie.ts`), set by `useSession` whenever a session is confirmed and cleared when there isn't one or on log out. `src/server.ts` answers a GET for `/manager` or `/manager/*` without it with a 307 to `/login`, before anything renders. The cookie holds no token and grants nothing; a stale one falls through to the client check as before. The WebView's first open hops once through `/login` (O18).
 - **Verified (2026-10-07):** unit tests in `signed-in-cookie.test.ts`; e2e `public.spec.ts` checks every manager route answers a signed-out request with a 307 to `/login`, and the signed-in suites still pass (the saved session carries the cookie). Against a local production build: 307 without the cookie, 200 with it.
 - **Also fixed:** `e2e/manager.spec.ts` and `e2e/deep/pantry.spec.ts` still looked for the old "Buy more at" label (C87 renamed it "Keep at least").
+
+### C90. Login, sign-up and reset emails went through this site's server, so nothing slowed guessing or email floods (QA LM-A7, F4)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`): LM-A7 (High), 12 of 12 wrong logins replayed against `/_serverFn` all answered at once, no 429; F4 (Medium), the reset request could be looped to use up the project's email allowance, with a `redirectTo` the browser chose. **Fixed:** 2026-10-07 (web only, no SQL).
+- **Was:** `managerLoginFn`, `managerSignUpFn` and `requestPasswordResetFn` called Supabase Auth from the server, so Auth's per-IP limits only ever saw Vercel's addresses: an attacker wasn't slowed, and could get every manager's login throttled at once. They also signed in on the shared module-level `supabaseClient`.
+- **Fix:** the browser calls Supabase Auth itself (`src/features/people/people.auth.ts`, a throwaway client per call): sign-in, sign-up and the reset email. What comes after stays on the server with the session it got: `resolveManagerLoginFn` (who the account is) and `setUpNewManagerFn` (join with a code, or bootstrap a household). Auth's limits now apply to the visitor's own IP; a throttled try says "Too many tries. Wait a few minutes, then try again." Supabase already only links reset emails to URLs on the project's Redirect URLs allow-list (anything else falls back to the Site URL) and allows one email a minute per address.
+- **Verified (2026-10-07):** against the sandbox from one machine, the 33rd wrong-password sign-in straight to Auth got `429 over_request_rate_limit` (about 30 per 5 minutes per IP). The e2e suite signs in through the new path (53 passed; 4 skipped for want of test data). A Playwright check saw the reset page call `supabase.co/auth/v1/recover` from the browser, with no server function.
+- **Not done, on purpose:** a per-account lockout. It would let anyone lock a manager out by guessing their email; per-IP limits stop one machine, and a stronger minimum password (now 6, set in Supabase Auth > Policies) is the account-side defence.
+
+### C91. Pages could be framed by another site, and sent no nosniff or referrer policy (QA LM-A8)
+
+- **Found:** 2026-10-07, security QA LM-A8 (Medium): only `Strict-Transport-Security` came back, and `/login` loaded inside an iframe on a `file://` page. **Fixed:** 2026-10-07 (web only).
+- **Fix:** `src/server.ts` adds `src/lib/security-headers.ts` to every response it serves, redirects and error pages included: `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. The LINARA_MOBILE WebView loads the dashboard as the whole page, not a frame, so it isn't affected. Static JS and CSS files are served by Vercel directly and don't pass through it; they're never framed and carry the right types. The full CSP is O48.
+- **Verified (2026-10-07):** unit tests in `security-headers.test.ts`; against a local production build, `/login` (200), `/manager/pass` (307) and an unknown page (404) all carry the four headers.
+
+### C92. Staff can't change the grocery budget (decided, former Open Gap O33)
+
+- **Decided (user, 2026-10-08):** staff don't set grocery budgets. Managers set the house's and each team's monthly budget; pantry leads draft runs and a manager approves them with the cash (O40). Nothing to build.
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
+- **Blocks:** Nothing until the client confirms.
+- **Current workaround:** A manager sets it on the web.
+- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
+- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
+
+### C93. A manager can't be limited to one team (decided, former Open Gap O38)
+
+- **Decided (user, 2026-10-08):** managers are per household, not per team. Team-scoped manager rows won't be built. Sending to a whole team isn't planned either.
+- **Found:** 2026-10-05, while building O36. Deferred by the user.
+- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
+- **Blocks:** Delegating a large estate to department heads; announcements to a team.
+- **Current workaround:** The team filter, and sending to each person.
+- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
 
 ---
 

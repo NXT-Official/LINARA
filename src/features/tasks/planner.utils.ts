@@ -128,11 +128,12 @@ export const cellKey = (dayIso: string, helperId: string | null) => `${dayIso}|$
 export type RoutineGhost = { routine: Routine; dayIso: string; helperId: string | null };
 
 /**
- * The routines that will spawn on each day after today, by day. Routines only
- * become real tasks when that day starts (useTaskBoard's startNewDay), so a
- * later week would otherwise look emptier than it will be. A day that already
- * has the routine's task, or a helper who has left, gets no copy. One due
- * while its helper has approved time off is shown as Unassigned, as it will spawn.
+ * The routines that will spawn on each day after today, by day. A routine's
+ * task is only made when its day starts (add-repeating-tasks.sql), so a later
+ * week would otherwise look emptier than it will be. A day that already has
+ * the routine's task, or isn't after its newest task's day, gets no copy. One
+ * due while its helper is away, or after she has left, is shown as
+ * Unassigned, as it will spawn.
  */
 export function routineGhosts(
   routines: Routine[],
@@ -145,7 +146,6 @@ export function routineGhosts(
   const spawned = new Set(
     tasks.filter((t) => t.routineId).map((t) => `${t.routineId}|${taskDayIso(t)}`),
   );
-  const active = new Set(activeHelperIds);
   const byDay = new Map<string, RoutineGhost[]>();
   for (const day of days) {
     const dayIso = toISODate(day);
@@ -153,12 +153,16 @@ export function routineGhosts(
     const ghosts = routines
       .filter(
         (r) =>
-          active.has(r.helperId) &&
           routineMatches(r, weekdayOf(day)) &&
+          (!r.lastDay || r.lastDay < dayIso) &&
           !spawned.has(`${r.id}|${dayIso}`),
       )
       .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
-      .map((routine) => ({ routine, dayIso, helperId: routineAssignee(routine, dayIso, timeOff) }));
+      .map((routine) => ({
+        routine,
+        dayIso,
+        helperId: routineAssignee(routine, dayIso, timeOff, activeHelperIds),
+      }));
     if (ghosts.length > 0) byDay.set(dayIso, ghosts);
   }
   return byDay;

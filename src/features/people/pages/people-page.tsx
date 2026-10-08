@@ -12,17 +12,18 @@ import { AccountSection } from "../components/account-section";
 import { ManagersSection } from "../components/managers-section";
 import { PastStaffSection } from "../components/past-staff-section";
 import { PeopleSection } from "../components/people-section";
+import { StationsSection } from "../components/stations-section";
 
 export const PEOPLE_TABS = [
   { key: "staff", label: "Staff" },
-  { key: "teams", label: "Teams & places" },
+  { key: "teams", label: "Stations & teams" },
   { key: "leave", label: "Leave" },
 ] as const;
 export type PeopleTab = (typeof PEOPLE_TABS)[number]["key"];
 
 /**
  * The household roster, in three tabs: Staff (managers, helpers and pending
- * invites, shared staff, past staff), Teams & places, and Leave (the rules and
+ * invites, shared staff, past staff), Stations & teams (with places), and Leave (the rules and
  * each helper's balance). Your account sits under every tab. One page of six
  * sections ran past 3,800px on a phone (UX review 2026-10-07).
  */
@@ -46,11 +47,10 @@ export function PeoplePage({
     board,
     timeOff,
     clock,
-    sharing,
   } = useAppStores();
-  // Teams & places has nothing to show before add-teams-and-labels.sql and
-  // add-shared-staff-and-places.sql are applied, so the tab waits for them.
-  const tabs = PEOPLE_TABS.filter((t) => t.key !== "teams" || teams.available || sharing.available);
+  // Stations are always there (the five, before add-household-stations.sql),
+  // so the tab is too.
+  const tabs = PEOPLE_TABS;
   const shown: PeopleTab = tabs.some((t) => t.key === tab) ? tab : "staff";
   const { currentAdmin, adminType } = session;
   const canInvite = adminType === "primary" || adminType === "co";
@@ -142,6 +142,9 @@ export function PeoplePage({
 
       {shown === "teams" && (
         <>
+          <div className="mt-6">
+            <StationsSection canEdit={canInvite} />
+          </div>
           {teams.available && (
             <div className="mt-6">
               <TeamsLabelsSection canEdit={canInvite} />

@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
+import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay, summarizeSchedule } from "@/features/shifts/shift.utils";
@@ -137,7 +137,7 @@ export function PlannerPeople({
           const helperId = helper?.id ?? null;
           const schedule = helper ? scheduleFor(helper.id) : undefined;
           const name = helper ? helper.short : "Unassigned";
-          const color = helper ? STATION_HEX[helper.station] : UNASSIGNED_HEX;
+          const color = helper ? stationHex(helper.station) : UNASSIGNED_HEX;
           return (
             <div key={helperId ?? "unassigned"} className="contents">
               <RowLabel

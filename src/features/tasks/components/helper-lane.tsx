@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
+import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 
 import { lanePill, laneSummary } from "../lane.utils";
@@ -36,7 +36,7 @@ export function HelperLane({
   nowTs: number;
 }) {
   const [open, setOpen] = useState(false);
-  const color = unassigned ? UNASSIGNED_HEX : STATION_HEX[helper.station];
+  const color = unassigned ? UNASSIGNED_HEX : stationHex(helper.station);
   const summary = useMemo(() => laneSummary(tasks, nowTs), [tasks, nowTs]);
   const { sorted, inProg, nowTask, nextTask, overdueIds: overdueSet } = summary;
   const doneCount = summary.done;

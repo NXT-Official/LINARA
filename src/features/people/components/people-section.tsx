@@ -55,7 +55,7 @@ export function PeopleSection({
   const [ending, setEnding] = useState<Invite | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const { teams, sharing } = useAppStores();
+  const { teams, sharing, stations } = useAppStores();
   const staff = useStaffScope();
 
   // Search, team and labels narrow the list; pending invites stay on top,
@@ -93,6 +93,10 @@ export function PeopleSection({
       onEditTeam={teams.available ? () => setEditingTeam(inv) : undefined}
       onEnd={() => setEnding(inv)}
       onSetPantryRole={(role) => onSetPantryRole(inv.id, role)}
+      stations={stations.names}
+      onSetStation={
+        stations.available ? (station) => stations.setHelperStation(inv.id, station) : undefined
+      }
     />
   );
 

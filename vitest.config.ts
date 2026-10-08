@@ -20,6 +20,8 @@ export default defineConfig({
       // Playwright's browser tests (npm run test:e2e).
       "e2e/**",
       "**/.{idea,git,cache,output,temp}/**",
+      // Claude Code's worktrees: another copy of the repo, mid-change.
+      ".claude/**",
     ],
   },
 });

@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
+import { useAppStores } from "@/features/dashboard/app-store-context";
 import { TeamLabelFields } from "@/features/teams/components/team-label-fields";
 import { householdNow, toISODate } from "@/lib/time";
 
@@ -25,7 +26,9 @@ export function InviteHelperModal({
   ) => Promise<void>;
 }) {
   const [name, setName] = useState("");
-  const [station, setStation] = useState<Station>("Yaya");
+  // The household's own stations (add-household-stations.sql), first one picked.
+  const { stations } = useAppStores();
+  const [station, setStation] = useState<Station>(() => stations.names[0] ?? "House");
   const [employment, setEmployment] = useState<Employment>("live-in");
   const [shiftStart, setShiftStart] = useState("06:00");
   const [shiftEnd, setShiftEnd] = useState("19:00");
@@ -107,13 +110,14 @@ export function InviteHelperModal({
           <Field label="Station / role">
             <select
               value={station}
-              onChange={(e) => setStation(e.target.value as Station)}
+              onChange={(e) => setStation(e.target.value)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             >
-              <option value="Yaya">Yaya</option>
-              <option value="Cook">Cook</option>
-              <option value="Driver">Driver</option>
-              <option value="House">All-around</option>
+              {stations.names.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Employment">

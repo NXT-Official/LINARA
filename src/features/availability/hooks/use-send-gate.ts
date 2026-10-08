@@ -56,6 +56,7 @@ export type SendGate = {
  * actually targets -- not just one "current" one.
  */
 export function useSendGate({
+  token,
   authorName,
   isRemote,
   schedules,
@@ -68,6 +69,8 @@ export function useSendGate({
   onSendUtos,
   onAddTask,
 }: {
+  /** The manager's session token, for the AI router (LM-A6). */
+  token: string | null;
   authorName: string;
   isRemote: boolean;
   schedules: ScheduleStore;
@@ -115,6 +118,7 @@ export function useSendGate({
     try {
       const result = await routeUtosFn({
         data: {
+          token: token ?? "",
           prompt: content,
           helperId: utosTargetHelperId ?? "",
           helperStatus: targetStatus.status,

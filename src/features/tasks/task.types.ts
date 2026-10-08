@@ -54,13 +54,24 @@ export type Task = {
   to?: PlaceRef;
 };
 
-// A recurring template that spawns a Task on matching weekdays.
+/**
+ * A repeating task, as a series of tickets (KNOWN_GAPS.md O43,
+ * supabase/add-repeating-tasks.sql): `id` is the series' routine_id, the id of
+ * its first task. The rest is read off its newest task, the pattern for the
+ * next day's.
+ */
 export type Routine = {
   id: string;
   title: string;
-  helperId: string;
+  /** Who it goes to: the newest task's helper that had one. null = Unassigned. */
+  helperId: string | null;
   station: Station;
   time: string;
   note?: string;
   recurrence: Exclude<Recurrence, "none">;
+  durationMinutes?: number;
+  from?: PlaceRef;
+  to?: PlaceRef;
+  /** YYYY-MM-DD its newest task is for. The next one is due after it. */
+  lastDay?: string;
 };

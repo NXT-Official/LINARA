@@ -29,12 +29,15 @@ export function AppointmentsSection({
   simDate,
   helpers,
   activeHelpers,
+  token,
 }: {
   appointments: AppointmentStore;
   tasks: Task[];
   simDate: Date;
   helpers: Helper[];
   activeHelpers: Helper[];
+  /** The manager's session token, for the AI scheduler (LM-A6). */
+  token: string | null;
 }) {
   const { appointments: all, add: onAdd, remove: onRemove, update: onUpdate } = appointments;
   const [open, setOpen] = useState(false);
@@ -50,6 +53,7 @@ export function AppointmentsSection({
     try {
       const result = await parseSchedulerFn({
         data: {
+          token: token ?? "",
           prompt: prompt.trim(),
           // The board's day with the household's offset, so the parser reads
           // the right date wherever this server or device runs (O9).
@@ -202,7 +206,7 @@ export function AppointmentsSection({
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-foreground">{p.title}</span>
                               <span
-                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold ${stationTone[p.station]}`}
+                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold ${stationTone(p.station)}`}
                               >
                                 {p.station}
                               </span>

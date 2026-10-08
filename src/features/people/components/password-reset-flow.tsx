@@ -5,7 +5,8 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 
-import { completePasswordResetFn, requestPasswordResetFn } from "../people.actions";
+import { completePasswordResetFn } from "../people.actions";
+import { requestPasswordResetFromSupabase } from "../people.auth";
 
 type Recovery = { accessToken: string; refreshToken: string };
 type Mode = "loading" | "request" | "sent" | "set" | "done" | "expired";
@@ -77,9 +78,12 @@ export function PasswordResetFlow() {
     }
     setLoading(true);
     try {
-      await requestPasswordResetFn({
-        data: { email: email.trim(), redirectTo: `${window.location.origin}/reset-password` },
-      });
+      // Straight to Supabase Auth, so its per-IP and per-address limits
+      // apply to the visitor (QA F4).
+      await requestPasswordResetFromSupabase(
+        email.trim(),
+        `${window.location.origin}/reset-password`,
+      );
       setMode("sent");
     } catch (err) {
       console.error(err);

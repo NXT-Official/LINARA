@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+import { guardAiCall } from "../_shared/ai-guard.ts";
+
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -83,6 +85,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Signed-in users only, within their allowance (LM-A6).
+    const denied = await guardAiCall(req, "promote-voice-task", corsHeaders);
+    if (denied) return denied;
 
     const { transcript, station, nowIso }: PromoteVoiceTaskRequest = await req.json();
 

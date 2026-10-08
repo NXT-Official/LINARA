@@ -76,6 +76,7 @@ export function ManagerPassPage({
     rescheduleTask,
     editTask,
     cancelTask,
+    stopRepeating,
     approveSuggestion,
     dismissSuggestion,
   } = board;
@@ -140,6 +141,7 @@ export function ManagerPassPage({
     pendingLeave.map((l) => ({ key: l.id, ...l })),
   );
   const gate = useSendGate({
+    token: session.token,
     authorName,
     isRemote,
     schedules,
@@ -239,6 +241,14 @@ export function ManagerPassPage({
             void editTask(editing.id, edit);
             setEditing(null);
           }}
+          onStopRepeating={
+            isRemote
+              ? undefined
+              : () => {
+                  void stopRepeating(editing.routineId ?? editing.id);
+                  setEditing(null);
+                }
+          }
         />
       )}
       {gate.intent && (

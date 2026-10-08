@@ -2,7 +2,16 @@
 
 import type { LedgerResolution } from "@/features/ledger/ledger.types";
 
-export type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+/**
+ * A station's name. Each household keeps its own list (household_stations,
+ * supabase/add-household-stations.sql), starting with DEFAULT_STATIONS, which
+ * its managers can add to, rename and remove; helper_profiles.station holds
+ * the name.
+ */
+export type Station = string;
+
+/** What every household starts with, and the list before the SQL is applied. */
+export const DEFAULT_STATIONS: readonly Station[] = ["Yaya", "Cook", "Laundry", "Driver", "House"];
 
 export type PaydayInterval = "semi_monthly" | "monthly";
 

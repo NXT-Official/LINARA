@@ -17,6 +17,7 @@ import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import { useStations } from "@/features/people/hooks/use-stations";
 import { useTeams } from "@/features/teams/hooks/use-teams";
 import { useSharing } from "@/features/sharing/hooks/use-sharing";
 import { sharedToProfileRow } from "@/features/sharing/sharing.utils";
@@ -48,6 +49,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
   const teams = useTeams({
+    token: session.token,
+    ready: session.status === "authed",
+    onRosterChange: invites.refresh,
+  });
+  const stations = useStations({
     token: session.token,
     ready: session.status === "authed",
     onRosterChange: invites.refresh,
@@ -163,6 +169,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ready: session.status === "authed",
     isReachable: (helperId) => reachableRef.current.includes(helperId),
     timeOff: timeOff.list,
+    // Who works here and who's away are known (for repeating tasks, O43).
+    staffReady: invites.loaded && sharing.loaded && timeOff.loaded,
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment
@@ -521,8 +529,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
         rejectedRolloverDayRef.current = null;
         return runDayRollover(serverToday).then(({ routinesRespawned, utosCleared }) => {
+          // The hourly job may already have made the day's routines (O43).
           toast.info(
-            `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
+            "Bumagong araw habang wala ka" +
+              (routinesRespawned > 0
+                ? ` — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
+                : "") +
               (utosCleared ? ", mga Quick Utos na-clear." : "."),
           );
         });
@@ -545,6 +557,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     session,
     invites,
     teams,
+    stations,
     sharing,
     pantry,
     schedules,

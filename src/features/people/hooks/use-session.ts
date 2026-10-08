@@ -14,10 +14,11 @@ import {
 import {
   finishBootstrapFn,
   getManagerProfileFn,
-  managerLoginFn,
-  managerSignUpFn,
   refreshManagerSessionFn,
+  resolveManagerLoginFn,
+  setUpNewManagerFn,
 } from "../people.actions";
+import { signInWithSupabase, signUpWithSupabase } from "../people.auth";
 import type {
   Admin,
   AdminType,
@@ -257,19 +258,28 @@ export function useSession(): Session {
       });
   }, []);
 
+  // The account itself is made in the browser, straight with Supabase Auth
+  // (people.auth.ts, QA LM-A7); the server sets up the household after.
   const signUp: Session["signUp"] = useCallback(async (data) => {
-    const result = await managerSignUpFn({
-      data: {
-        ...data,
-        emailRedirectTo: `${window.location.origin}/email-confirmed?for=manager`,
-      },
-    });
-    if (result.status === "confirmation_pending") {
+    const auth = await signUpWithSupabase(
+      data.email,
+      data.password,
+      `${window.location.origin}/email-confirmed?for=manager`,
+    );
+    if (auth.status === "confirmation_pending") {
       return "confirmation_pending";
     }
-    persist(result.accessToken, result.refreshToken, result.userId, result.householdId);
+    const result = await setUpNewManagerFn({
+      data: {
+        accessToken: auth.accessToken,
+        fullName: data.fullName,
+        householdName: data.householdName,
+        inviteCode: data.inviteCode,
+      },
+    });
+    persist(auth.accessToken, auth.refreshToken, result.userId, result.householdId);
     setHouseholdTimeZone(result.timeZone);
-    setToken(result.accessToken);
+    setToken(auth.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
     setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
@@ -277,24 +287,27 @@ export function useSession(): Session {
     return "authed";
   }, []);
 
+  // Signed in from the browser, straight with Supabase Auth (people.auth.ts,
+  // QA LM-A7); the server only says who the account is.
   const logIn: Session["logIn"] = useCallback(async (data) => {
-    const result = await managerLoginFn({ data });
-    if (result.status === "confirmation_pending") {
+    const auth = await signInWithSupabase(data.email, data.password);
+    if (auth.status === "confirmation_pending") {
       return "confirmation_pending";
     }
+    const result = await resolveManagerLoginFn({ data: { accessToken: auth.accessToken } });
     if (result.status === "helper") {
       return "helper";
     }
     if (result.status === "needs_bootstrap") {
-      persist(result.accessToken, result.refreshToken, result.userId);
-      setToken(result.accessToken);
+      persist(auth.accessToken, auth.refreshToken, result.userId);
+      setToken(auth.accessToken);
       setUserId(result.userId);
       setStatus("needs_bootstrap");
       return "needs_bootstrap";
     }
-    persist(result.accessToken, result.refreshToken, result.userId, result.householdId);
+    persist(auth.accessToken, auth.refreshToken, result.userId, result.householdId);
     setHouseholdTimeZone(result.timeZone);
-    setToken(result.accessToken);
+    setToken(auth.accessToken);
     setUserId(result.userId);
     setHouseholdId(result.householdId);
     setAdmin(buildAdmin(result.userId, result.fullName, result.userType));

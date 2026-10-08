@@ -110,6 +110,8 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   // (Shifts) can derive from this same fetch instead of re-querying
   // helper_profiles themselves.
   const [helperProfiles, setHelperProfiles] = useState<HelperProfileRow[]>([]);
+  // The roster has been read once: from then on, an empty one is real.
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -123,6 +125,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     }
     setHelperProfiles(rows);
     setInvites(rows.map((r) => toInvite(r, flagsByHelper.get(r.id))));
+    setLoaded(true);
   }, [token]);
 
   useEffect(() => {
@@ -242,6 +245,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   return {
     invites,
     helperProfiles,
+    loaded,
     refresh,
     create,
     cancel,

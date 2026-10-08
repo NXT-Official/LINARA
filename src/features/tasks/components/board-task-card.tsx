@@ -2,7 +2,7 @@ import { Camera, HelpCircle, Link2 } from "lucide-react";
 import { useState } from "react";
 
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
+import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
@@ -32,7 +32,7 @@ export function BoardTaskCard({
   const [showNote, setShowNote] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const helper = findHelper(task.helperId, helpers);
-  const color = task.helperId ? STATION_HEX[task.station] : UNASSIGNED_HEX;
+  const color = task.helperId ? stationHex(task.station) : UNASSIGNED_HEX;
   const isDone = task.status === "done";
   // "Thu 7:30 PM" -> "Thu" over "7:30 PM", so the narrow column never splits the time.
   const day = when.endsWith(task.time)
