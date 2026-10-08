@@ -123,10 +123,12 @@ export function EndEmploymentModal({
         current.fullCutoffEnd,
       )
     : 1;
-  const components = payComponentsForCutoff(helper.monthlyRate, helper.paydayInterval, share);
+  // The final cutoff's own wage, which a raise set for later doesn't change.
+  const rate = current?.monthlyRate ?? helper.monthlyRate;
+  const components = payComponentsForCutoff(rate, helper.paydayInterval, share);
   const finalNet = current
     ? netPayForCutoff(
-        helper.monthlyRate,
+        rate,
         helper.paydayInterval,
         current.unsettledValeTotal,
         share,

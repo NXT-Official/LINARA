@@ -223,9 +223,9 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
    * write-once (only inviteHelperFn set it). Write-then-refresh, same
    * pattern as useGroceryList's setBudget, since the new wage feeds several
    * other real reads (Pay Dial, contribution split, minimum-wage banner). */
-  const updateWage = async (id: string, monthlyRate: number) => {
+  const updateWage = async (id: string, monthlyRate: number, effectiveFrom?: string) => {
     if (!token) return;
-    await updateHelperWageFn({ data: { token, helperId: id, monthlyRate } });
+    await updateHelperWageFn({ data: { token, helperId: id, monthlyRate, effectiveFrom } });
     await refresh();
   };
 

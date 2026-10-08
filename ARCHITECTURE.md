@@ -698,7 +698,9 @@ CREATE TABLE public.user_profiles (
 -- bootstrap_manager_household, create_household, switch_household,
 -- claim_manager_invite, set_manager_role (making someone primary hands it
 -- over), remove_manager, leave_household. Reads: my_households(),
--- household_manager_roster(). A helper account can't be a manager anywhere.
+-- household_manager_roster(). A helper account can't be a manager anywhere,
+-- and only a primary manager starts another household
+-- (restrict-create-household.sql, KNOWN_GAPS O49).
 CREATE TABLE public.household_managers (
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
@@ -740,7 +742,7 @@ CREATE TABLE public.helper_profiles (
     household_id UUID NOT NULL,
     name TEXT NOT NULL,
     station TEXT NOT NULL CHECK (station IN ('Yaya', 'Cook', 'Laundry', 'Driver', 'House')),
-    monthly_rate NUMERIC(10,2) NOT NULL,
+    monthly_rate NUMERIC(10,2) NOT NULL, -- her newest agreed wage; pay reads helper_wage_rates (2a2)
     payday_interval TEXT NOT NULL CHECK (payday_interval IN ('semi_monthly', 'monthly')),
     shift_start TIME NOT NULL,
     shift_end TIME NOT NULL,
@@ -764,6 +766,25 @@ CREATE TABLE public.helper_profiles (
     pantry_role TEXT NOT NULL DEFAULT 'runner' CHECK (pantry_role IN ('lead', 'runner')), -- who keeps the pantry (add-pantry-roles.sql)
     team_id UUID REFERENCES public.household_teams(id) ON DELETE SET NULL, -- her department (add-teams-and-labels.sql)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 2a2. Wage history (supabase/add-wage-history.sql, KNOWN_GAPS O50)
+--
+-- Each wage with the day it starts. A pay period is priced at the wage in
+-- effect on its first day (helper_rate_on), so a raise or a cut never
+-- re-prices a period that already closed, paid or not. A change starts at
+-- the cutoff open now or the next one (set_helper_wage), refused for one
+-- already paid; a trigger records any other write to monthly_rate as a change
+-- from the open cutoff. helper_pay_periods returns each period's wage;
+-- unpaid_leave_due and the web's payment path use it. Read by whoever may see
+-- her pay (can_see_helper_pay); written only by those functions.
+CREATE TABLE public.helper_wage_rates (
+    helper_id UUID NOT NULL REFERENCES public.helper_profiles(id) ON DELETE CASCADE,
+    effective_from DATE NOT NULL,
+    monthly_rate NUMERIC(10,2) NOT NULL CHECK (monthly_rate >= 0),
+    set_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    set_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    PRIMARY KEY (helper_id, effective_from)
 );
 
 -- 2b. Teams and labels (supabase/add-teams-and-labels.sql, KNOWN_GAPS O36)

@@ -5,6 +5,7 @@ import { createAuthedClient } from "@/lib/supabase";
 import type { PaydayInterval } from "@/features/people/people.types";
 
 import { payComponentsForCutoff, workedShareOfCutoff } from "./net-pay";
+import { rateForCutoff } from "./wage-rate";
 import { XENDIT_PAYOUTS_ON } from "./payout-mode";
 
 import type {
@@ -294,6 +295,7 @@ async function readPayPeriods(
     payslipStatus: (r.payslip_status as PayoutStatus | null) ?? null,
     payslipProvider: (r.payslip_provider as string | null) ?? null,
     payslipAck: (r.payslip_ack as HelperAck | null) ?? null,
+    monthlyRate: r.monthly_rate == null ? null : Number(r.monthly_rate),
   }));
 }
 
@@ -398,7 +400,12 @@ async function componentsForPayment(
       )
     : 1;
   const { basePay, statutoryEmployeeShare } = payComponentsForCutoff(
-    Number(helperRow.monthly_rate),
+    await rateForCutoff(
+      client,
+      helperId,
+      payCutoff?.fullCutoffStart,
+      Number(helperRow.monthly_rate),
+    ),
     helperRow.payday_interval as PaydayInterval,
     workedShare,
   );
