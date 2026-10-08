@@ -64,19 +64,21 @@ export function PlannerList({
         const isToday = iso === todayIso;
         const isPast = iso < todayIso;
         const items: Item[] = [
-          ...(appointmentsByDay.get(iso) ?? []).map(
-            (appointment): Item => ({
-              kind: "appointment",
-              at: parseTimeToMinutes(appointment.time),
-              appointment,
-            }),
-          ),
-          ...(tasksByDay.get(iso) ?? []).map(
-            (task): Item => ({ kind: "task", at: parseTimeToMinutes(task.time), task }),
-          ),
-          ...(ghosts.get(iso) ?? []).map(
-            (ghost): Item => ({ kind: "ghost", at: parseTimeToMinutes(ghost.routine.time), ghost }),
-          ),
+          ...(appointmentsByDay.get(iso) ?? []).map((appointment): Item => ({
+            kind: "appointment",
+            at: parseTimeToMinutes(appointment.time),
+            appointment,
+          })),
+          ...(tasksByDay.get(iso) ?? []).map((task): Item => ({
+            kind: "task",
+            at: parseTimeToMinutes(task.time),
+            task,
+          })),
+          ...(ghosts.get(iso) ?? []).map((ghost): Item => ({
+            kind: "ghost",
+            at: parseTimeToMinutes(ghost.routine.time),
+            ghost,
+          })),
         ].sort((a, b) => a.at - b.at);
         const notes = [
           ...(offOn(day).length > 0 ? [`Day off: ${offOn(day).join(", ")}`] : []),
