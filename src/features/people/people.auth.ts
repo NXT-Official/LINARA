@@ -29,7 +29,25 @@ function authFailure(error: AuthError): Error {
   if (error.status === 429) {
     return new Error("Too many tries. Wait a few minutes, then try again.");
   }
-  return new Error(error.message);
+  return Object.assign(new Error(error.message), { code: error.code });
+}
+
+/**
+ * Sign-up with an email that already has an account, and a password that
+ * isn't its password. Auth alone says "Invalid login credentials", which
+ * reads like a bad invite code on the join form.
+ */
+export class ExistingAccountError extends Error {
+  constructor() {
+    super("That email already has a Linara account, with a different password.");
+    this.name = "ExistingAccountError";
+  }
+}
+
+function isWrongPassword(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const code = (err as { code?: string }).code;
+  return code === "invalid_credentials" || /invalid login credentials/i.test(err.message);
 }
 
 export async function signInWithSupabase(
@@ -83,7 +101,15 @@ export async function signUpWithSupabase(
       userId: data.user.id,
     };
   }
-  return signInWithSupabase(email, password);
+  // A new account waiting on its confirmation email signs in as
+  // "confirmation_pending", so a wrong password here means the address
+  // already had an account.
+  try {
+    return await signInWithSupabase(email, password);
+  } catch (err) {
+    if (isWrongPassword(err)) throw new ExistingAccountError();
+    throw err;
+  }
 }
 
 /**

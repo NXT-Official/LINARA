@@ -24,22 +24,35 @@ function LandingPage() {
         className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6"
         role="banner"
       >
-        <div className="flex items-center gap-1.5 select-none">
+        <Link to="/" aria-label="Linara home" className="flex items-center gap-1.5 select-none">
           {/* Logo combining text dot into soft check and roofline */}
-          <span className="font-wordmark text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5">
+          <span
+            aria-hidden="true"
+            className="font-wordmark text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5"
+          >
             l
             <span className="relative inline-block">
               i<span className="absolute -top-1 left-0 h-1.5 w-1.5 rounded-full bg-accent"></span>
             </span>
             nara
           </span>
-        </div>
-        <Link
-          to="/manager/pass"
-          className="rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
-        >
-          Open Manager Pass
         </Link>
+        {/* One way in for an account that exists (a signed-in manager is sent
+            straight on to the Pass), one for a new one. */}
+        <nav aria-label="Account" className="flex items-center gap-2 sm:gap-3">
+          <Link
+            to="/login"
+            className="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+          >
+            Log in
+          </Link>
+          <Link
+            to="/signup"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
+          >
+            Get started
+          </Link>
+        </nav>
       </header>
 
       {/* 2. Hero Section */}
@@ -64,15 +77,33 @@ function LandingPage() {
           it manage work, pay, and care together, on fair terms.
         </p>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-center gap-4">
           {/* Opens on Set up your household; a signed-in visitor is sent on to the Pass. */}
           <Link
             to="/signup"
             search={{ step: "household" }}
             className="w-full rounded-lg bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
           >
-            Start Household Pass
+            Set up your household
           </Link>
+          {/* The other two ways in: a co-manager with a code, and a kasambahay,
+              whose Linara is the app. */}
+          <p className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-5">
+            <Link
+              to="/signup"
+              search={{ step: "join" }}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Have a code from a household? Join it
+            </Link>
+            <Link
+              to="/signup"
+              search={{ step: "kasambahay" }}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Work in a household? Get the app
+            </Link>
+          </p>
         </div>
       </section>
 

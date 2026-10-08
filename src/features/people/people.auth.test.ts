@@ -7,8 +7,12 @@ const auth = {
 };
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth }) }));
 
-const { requestPasswordResetFromSupabase, signInWithSupabase, signUpWithSupabase } =
-  await import("./people.auth");
+const {
+  ExistingAccountError,
+  requestPasswordResetFromSupabase,
+  signInWithSupabase,
+  signUpWithSupabase,
+} = await import("./people.auth");
 
 const session = { access_token: "access", refresh_token: "refresh" };
 const user = { id: "user-1" };
@@ -102,6 +106,35 @@ describe("signUpWithSupabase", () => {
     await expect(
       signUpWithSupabase("ben@example.com", "secret1", "https://x"),
     ).resolves.toMatchObject({ status: "ok" });
+  });
+
+  it("an address that already has an account, with another password, says so", async () => {
+    auth.signUp.mockResolvedValue({
+      data: {},
+      error: authError(422, "user_already_exists", "User already registered"),
+    });
+    auth.signInWithPassword.mockResolvedValue({
+      data: {},
+      error: authError(400, "invalid_credentials", "Invalid login credentials"),
+    });
+    const attempt = signUpWithSupabase("ben@example.com", "other1", "https://x");
+    await expect(attempt).rejects.toBeInstanceOf(ExistingAccountError);
+    await expect(attempt).rejects.toThrow("already has a Linara account");
+  });
+
+  it("with confirmation on, an existing address with another password says so too", async () => {
+    // Supabase hides that the address is taken: a user, no session, no error.
+    auth.signUp.mockResolvedValue({
+      data: { session: null, user: { ...user, identities: [] } },
+      error: null,
+    });
+    auth.signInWithPassword.mockResolvedValue({
+      data: {},
+      error: authError(400, "invalid_credentials", "Invalid login credentials"),
+    });
+    await expect(
+      signUpWithSupabase("ben@example.com", "other1", "https://x"),
+    ).rejects.toBeInstanceOf(ExistingAccountError);
   });
 
   it("throttled, says so", async () => {
