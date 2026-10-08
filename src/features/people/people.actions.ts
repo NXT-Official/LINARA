@@ -220,72 +220,8 @@ export async function householdTimeZoneOf(
 }
 
 /**
- * 5. Manager Sign-Up, after Supabase Auth (Server Function)
- * The browser makes the account itself (auth.client.ts), straight with
- * Supabase Auth, so Auth's per-IP limits see the visitor rather than this
- * server (QA LM-A7). With the session it got, this joins the household a
- * manager invite code names, or bootstraps a new one via
- * bootstrap_manager_household() (supabase/add-manager-bootstrap.sql), which
- * sidesteps the same current_household_id() bootstrap deadlock that
- * claim_helper_invite() solves for helpers.
- */
-export const setUpNewManagerFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      accessToken: string;
-      fullName: string;
-      householdName?: string;
-      /** A manager invite code: join that household instead of starting one. */
-      inviteCode?: string;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
-    const { accessToken, fullName, householdName, inviteCode } = data;
-    const authedClient = createAuthedClient(accessToken);
-
-    if (inviteCode) {
-      const { data: user, error: userError } = await authedClient.auth.getUser(accessToken);
-      if (userError || !user.user) throw new Error("Sign in again to finish joining.");
-      const { data: claimed, error: claimError } = await authedClient
-        .rpc("claim_manager_invite", { p_code: inviteCode, p_full_name: fullName })
-        .maybeSingle();
-      const row = claimed as { household_id: string; user_type: string } | null;
-      if (claimError || !row) {
-        throw new Error(claimError?.message || "Couldn't join with that code");
-      }
-      return {
-        userId: user.user.id,
-        householdId: row.household_id,
-        fullName,
-        userType: row.user_type,
-        timeZone: await householdTimeZoneOf(authedClient, row.household_id),
-      };
-    }
-
-    const { data: bootstrapData, error: bootstrapError } = await authedClient
-      .rpc("bootstrap_manager_household", {
-        p_full_name: fullName,
-        p_household_name: householdName ?? null,
-      })
-      .maybeSingle();
-    const bootstrap = bootstrapData as ManagerBootstrapRow | null;
-
-    if (bootstrapError || !bootstrap) {
-      throw new Error(bootstrapError?.message || "Failed to set up household");
-    }
-
-    return {
-      userId: bootstrap.user_id,
-      householdId: bootstrap.household_id,
-      fullName: bootstrap.full_name,
-      userType: bootstrap.user_type,
-      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
-    };
-  });
-
-/**
  * 6. Manager Log-In, after Supabase Auth (Server Function)
- * The browser signs in itself (auth.client.ts), straight with Supabase Auth,
+ * The browser signs in itself (people.auth.ts), straight with Supabase Auth,
  * so Auth's per-IP limits see the visitor rather than this server (QA
  * LM-A7). With the session it got, this says who that is: a manager to let
  * in, one who hasn't set up a household yet (first login after confirming

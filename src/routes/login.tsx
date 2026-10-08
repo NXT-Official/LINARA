@@ -5,7 +5,7 @@ import { ManagerAuthFlow } from "@/features/people/components/manager-auth-flow"
 type LoginSearch = { mode?: "signup"; sent?: boolean };
 
 // Log in only; signing up is /signup. `?mode=signup` is kept because the
-// app's "New manager? Set up your household" WebView still opens it
+// app's "Employer ako" WebView still opens it
 // (LINARA_MOBILE app/manager.tsx). `?sent=true` is where sign-up lands while
 // the confirmation email is on its way.
 export const Route = createFileRoute("/login")({

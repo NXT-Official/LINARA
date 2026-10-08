@@ -54,6 +54,11 @@ export async function signInWithSupabase(
  * Makes the account. Without a session back (email confirmation on, or the
  * address already has an account), it tries signing in with the same
  * password, as the server flow did.
+ *
+ * The account is marked `signed_up_as: "manager"` in its user metadata, so
+ * the LINARA_MOBILE app can tell an employer who hasn't finished household
+ * setup from a kasambahay whose invite-code claim failed: both have no
+ * profile yet, and only the first belongs on "Finish setting up" (QA LMM-A1).
  */
 export async function signUpWithSupabase(
   email: string,
@@ -67,7 +72,7 @@ export async function signUpWithSupabase(
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo },
+    options: { emailRedirectTo, data: { signed_up_as: "manager" } },
   });
   if (error && error.code !== "user_already_exists") throw authFailure(error);
   if (data?.session && data.user) {

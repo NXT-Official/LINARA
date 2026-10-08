@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { useState } from "react";
 
 import { LogoMark } from "@/components/shared/logo";
+import { Modal } from "@/components/shared/modal";
 import { HouseholdSwitcher } from "@/features/people/components/household-switcher";
 
 import { useAppStores } from "../app-store-context";
@@ -21,6 +23,7 @@ export function TopBar() {
   const { session, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
   const { status, logOut } = session;
   const navigate = useNavigate();
+  const [confirmingLogOut, setConfirmingLogOut] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
@@ -101,10 +104,7 @@ export function TopBar() {
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
           {status === "authed" && (
             <button
-              onClick={() => {
-                logOut();
-                navigate({ to: "/login", replace: true });
-              }}
+              onClick={() => setConfirmingLogOut(true)}
               title="Log out"
               aria-label="Log out"
               className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
@@ -115,6 +115,34 @@ export function TopBar() {
           )}
         </div>
       </div>
+      {/* On a phone this is a bare icon beside the household switcher, and in
+          the app logging out also signs the app out, so a stray tap cost a
+          full sign-in (QA LMM-A5). */}
+      {confirmingLogOut && (
+        <Modal onClose={() => setConfirmingLogOut(false)}>
+          <h3 className="font-display text-lg text-foreground">Log out?</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You'll need your email and password to sign back in.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              onClick={() => setConfirmingLogOut(false)}
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                logOut();
+                navigate({ to: "/login", replace: true });
+              }}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+            >
+              Log out
+            </button>
+          </div>
+        </Modal>
+      )}
     </header>
   );
 }

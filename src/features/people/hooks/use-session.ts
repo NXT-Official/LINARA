@@ -16,9 +16,8 @@ import {
   getManagerProfileFn,
   refreshManagerSessionFn,
   resolveManagerLoginFn,
-  setUpNewManagerFn,
 } from "../people.actions";
-import { signInWithSupabase, signUpWithSupabase } from "../people.auth";
+import { signInWithSupabase, signUpWithSupabase, type DirectSession } from "../people.auth";
 import type {
   Admin,
   AdminType,
@@ -26,6 +25,7 @@ import type {
   ManagerMember,
   ManagerRole,
 } from "../people.types";
+import { inMobileApp } from "@/lib/mobile-app";
 import { markSignedIn } from "@/lib/signed-in-cookie";
 import { setHouseholdTimeZone } from "@/lib/time";
 import { managerRoleType } from "../people.constants";
@@ -42,14 +42,6 @@ const RENEW_RETRY_MS = 60_000;
 // the account is in (a switch on another device moves the whole account).
 const HOUSEHOLD_CHECK_MS = 120_000;
 
-/**
- * Inside LINARA_MOBILE's WebView (app/manager.tsx) the app renews the session
- * itself and hands the page each new token, so the page leaves it alone there.
- */
-function inMobileApp(): boolean {
-  return navigator.userAgent.includes("LinaraApp");
-}
-
 type Renewal = { status: "ok"; token: string } | { status: "expired" } | { status: "failed" };
 
 /**
@@ -60,6 +52,8 @@ type Renewal = { status: "ok"; token: string } | { status: "expired" } | { statu
  * again later.
  */
 async function renewStoredSession(held: string): Promise<Renewal> {
+  // Inside LINARA_MOBILE's WebView the app renews the session itself and
+  // hands the page each new token, so the page leaves it alone there.
   if (inMobileApp()) return { status: "failed" };
   const newerElsewhere = () => {
     const stored = window.localStorage.getItem(TOKEN_KEY);
@@ -87,6 +81,9 @@ async function renewStoredSession(held: string): Promise<Renewal> {
 }
 
 export type SessionStatus = "loading" | "anon" | "needs_bootstrap" | "authed";
+
+/** Where signing up or logging in left the visitor. */
+export type AuthOutcome = "authed" | "confirmation_pending" | "needs_bootstrap" | "helper";
 
 function buildAdmin(id: string, fullName: string, userType: string): Admin {
   const trimmed = fullName.trim() || "Manager";
@@ -143,18 +140,9 @@ export type Session = {
   leaveHousehold: () => Promise<void>;
   setManagerRole: (userId: string, role: ManagerRole) => Promise<void>;
   removeManager: (userId: string) => Promise<void>;
-  signUp: (data: {
-    fullName: string;
-    householdName?: string;
-    email: string;
-    password: string;
-    /** Join that household with a manager code instead of starting one. */
-    inviteCode?: string;
-  }) => Promise<"authed" | "confirmation_pending">;
-  logIn: (data: {
-    email: string;
-    password: string;
-  }) => Promise<"authed" | "confirmation_pending" | "needs_bootstrap" | "helper">;
+  /** Makes the account only; name and household come after, on "Finish setting up". */
+  signUp: (data: { email: string; password: string }) => Promise<AuthOutcome>;
+  logIn: (data: { email: string; password: string }) => Promise<AuthOutcome>;
   finishBootstrap: (data: { fullName: string; householdName?: string }) => Promise<void>;
   logOut: () => void;
 };
@@ -258,42 +246,10 @@ export function useSession(): Session {
       });
   }, []);
 
-  // The account itself is made in the browser, straight with Supabase Auth
-  // (people.auth.ts, QA LM-A7); the server sets up the household after.
-  const signUp: Session["signUp"] = useCallback(async (data) => {
-    const auth = await signUpWithSupabase(
-      data.email,
-      data.password,
-      `${window.location.origin}/email-confirmed?for=manager`,
-    );
-    if (auth.status === "confirmation_pending") {
-      return "confirmation_pending";
-    }
-    const result = await setUpNewManagerFn({
-      data: {
-        accessToken: auth.accessToken,
-        fullName: data.fullName,
-        householdName: data.householdName,
-        inviteCode: data.inviteCode,
-      },
-    });
-    persist(auth.accessToken, auth.refreshToken, result.userId, result.householdId);
-    setHouseholdTimeZone(result.timeZone);
-    setToken(auth.accessToken);
-    setUserId(result.userId);
-    setHouseholdId(result.householdId);
-    setAdmin(buildAdmin(result.userId, result.fullName, result.userType));
-    setStatus("authed");
-    return "authed";
-  }, []);
-
-  // Signed in from the browser, straight with Supabase Auth (people.auth.ts,
-  // QA LM-A7); the server only says who the account is.
-  const logIn: Session["logIn"] = useCallback(async (data) => {
-    const auth = await signInWithSupabase(data.email, data.password);
-    if (auth.status === "confirmation_pending") {
-      return "confirmation_pending";
-    }
+  // With a session from Supabase Auth: who the account is (the server says),
+  // then into the app, onto "Finish setting up", or told a kasambahay's
+  // Linara is the app.
+  const adopt = useCallback(async (auth: DirectSession): Promise<AuthOutcome> => {
     const result = await resolveManagerLoginFn({ data: { accessToken: auth.accessToken } });
     if (result.status === "helper") {
       return "helper";
@@ -314,6 +270,39 @@ export function useSession(): Session {
     setStatus("authed");
     return "authed";
   }, []);
+
+  // The account itself is made in the browser, straight with Supabase Auth
+  // (people.auth.ts, QA LM-A7). Name and household are asked once, on
+  // "Finish setting up": with email confirmation on there's no session here
+  // to set them up with, and what sign-up asked was lost by first login
+  // (QA LMM-A2).
+  const signUp: Session["signUp"] = useCallback(
+    async (data) => {
+      const auth = await signUpWithSupabase(
+        data.email,
+        data.password,
+        `${window.location.origin}/email-confirmed?for=manager`,
+      );
+      if (auth.status === "confirmation_pending") {
+        return "confirmation_pending";
+      }
+      return adopt(auth);
+    },
+    [adopt],
+  );
+
+  // Signed in from the browser, straight with Supabase Auth (people.auth.ts,
+  // QA LM-A7); the server only says who the account is.
+  const logIn: Session["logIn"] = useCallback(
+    async (data) => {
+      const auth = await signInWithSupabase(data.email, data.password);
+      if (auth.status === "confirmation_pending") {
+        return "confirmation_pending";
+      }
+      return adopt(auth);
+    },
+    [adopt],
+  );
 
   const finishBootstrap: Session["finishBootstrap"] = useCallback(
     async (data) => {
