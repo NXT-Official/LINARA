@@ -93,9 +93,10 @@ console.log("migration applied twice");
 
 const names = async (household) =>
   (
-    await q(`SELECT name FROM household_stations WHERE household_id = $1 ORDER BY sort_order, name`, [
-      household,
-    ])
+    await q(
+      `SELECT name FROM household_stations WHERE household_id = $1 ORDER BY sort_order, name`,
+      [household],
+    )
   ).map((r) => r.name);
 
 check(
@@ -142,9 +143,9 @@ check(
 );
 check(
   "but not a station the household doesn't have",
-  ((await fails(`UPDATE helper_profiles SET station = 'Pilot' WHERE id = $1`, [P_ROSA])) ?? "").includes(
-    'no station called "Pilot"',
-  ),
+  (
+    (await fails(`UPDATE helper_profiles SET station = 'Pilot' WHERE id = $1`, [P_ROSA])) ?? ""
+  ).includes('no station called "Pilot"'),
 );
 check(
   "nor another household's",
@@ -155,15 +156,17 @@ check(
 );
 
 // Rename: follows onto staff, those who left included, and SOPs.
-await q(`UPDATE household_stations SET name = 'Kitchen' WHERE household_id = $1 AND name = 'Cook'`, [
-  H,
-]);
+await q(
+  `UPDATE household_stations SET name = 'Kitchen' WHERE household_id = $1 AND name = 'Cook'`,
+  [H],
+);
 await q(`UPDATE helper_profiles SET station = 'Cook' WHERE false`); // no-op, still allowed
 await db.exec(`RESET ROLE`);
 await q(`UPDATE helper_profiles SET station = 'Kitchen' WHERE id = $1`, [P_ANA]);
-await q(`UPDATE household_stations SET name = 'Kusina' WHERE household_id = $1 AND name = 'Kitchen'`, [
-  H,
-]);
+await q(
+  `UPDATE household_stations SET name = 'Kusina' WHERE household_id = $1 AND name = 'Kitchen'`,
+  [H],
+);
 const ana = (await q(`SELECT station FROM helper_profiles WHERE id = $1`, [P_ANA]))[0].station;
 const sop = (await q(`SELECT station FROM house_sops WHERE household_id = $1`, [H]))[0].station;
 check("a rename follows onto the staff on it", ana === "Kusina", ana);
@@ -174,19 +177,26 @@ await as(BEN);
 // Remove: refused while anyone current is on it, allowed once nobody is.
 check(
   "can't remove a station someone current is on",
-  ((await fails(`DELETE FROM household_stations WHERE household_id = $1 AND name = 'Guard'`, [H])) ??
-    "").includes("1 person is on"),
+  (
+    (await fails(`DELETE FROM household_stations WHERE household_id = $1 AND name = 'Guard'`, [
+      H,
+    ])) ?? ""
+  ).includes("1 person is on"),
 );
 check(
   "a pending invite counts as on it",
-  ((await fails(`DELETE FROM household_stations WHERE household_id = $1 AND name = 'Kusina'`, [H])) ??
-    "").includes("1 person is on"),
+  (
+    (await fails(`DELETE FROM household_stations WHERE household_id = $1 AND name = 'Kusina'`, [
+      H,
+    ])) ?? ""
+  ).includes("1 person is on"),
 );
 await q(`DELETE FROM household_stations WHERE household_id = $1 AND name = 'Gardener'`, [H]);
 check("someone who left doesn't hold a station up", !(await names(H)).includes("Gardener"));
 check(
   "who left keeps the name they had",
-  (await q(`SELECT station FROM helper_profiles WHERE id = $1`, [P_LEFT]))[0].station === "Gardener ",
+  (await q(`SELECT station FROM helper_profiles WHERE id = $1`, [P_LEFT]))[0].station ===
+    "Gardener ",
 );
 
 // Who may change the list.
