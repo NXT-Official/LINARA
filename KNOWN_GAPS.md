@@ -41,6 +41,7 @@ the bottom.
 
 ### O24. The web "Hold to record a voice utos" button records nothing
 
+- **Shelved with O26 (user, 2026-10-08).**
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
 - **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
 - **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
@@ -51,6 +52,7 @@ the bottom.
 
 ### O26. Every AI feature answers from a mock; no provider is chosen
 
+- **Shelved (user, 2026-10-08):** AI stays on the mocks for now; no provider work until it's picked up again. O24 (voice utos) and O47 (the AI functions' guard, built) wait with it.
 - **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
 - **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
 - **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
@@ -59,6 +61,7 @@ the bottom.
 
 ### O27. The manager app has no English / Filipino toggle
 
+- **Deferred (user, 2026-10-08):** no Filipino toggle for now.
 - **Found:** 2026-09-30 (decided during the design refresh), logged 2026-10-03.
 - **What's missing:** `PRODUCT.md` (Capabilities and Constraints; Accessibility) commits to a full English / Filipino toggle for all three manager types. The web copy is English with some Tagalog (toasts, the staff sign-in screen), and there's no i18n layer.
 - **Blocks:** Lola / relative managers who'd rather read Filipino; nothing technical.
@@ -67,6 +70,7 @@ the bottom.
 
 ### O28. Receipt and task photos were kept forever
 
+- **Storage is moving (user, 2026-10-08):** photos will move to an AWS S3 bucket eventually, and retention gets settled with that move. Supabase Storage stays as it is for the 2026-10-09 demo.
 - **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
 - **Was:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deleted them, and neither the schema nor the docs said how long they should be kept.
 - **Decided (team, 2026-10-03; NOT yet approved by the client):** task completion photos are kept **30 days**, receipt photos **60 days** (a palengke run's photo is its receipt, so 60). The amounts that matter outlive the pictures in rows that are never purged: what was bought and what it cost (`grocery_items`), and the task, who did it, when, and its comments. A manager who wants a photo for longer saves it from the web. **Revisit once the client has approved (or changed) these periods** -- they're two constants: `TASK_PHOTO_DAYS` / `RECEIPT_PHOTO_DAYS` in `src/lib/evidence-photo.ts` (UI copy) and the defaults of `release_expired_evidence()` (the actual purge). Wage records are a separate question (RA 10361, `LEGAL_CONSIDERATIONS.md` "Records"); nothing here touches payslips or payout QR codes.
@@ -87,15 +91,6 @@ the bottom.
   - **Rest owed is unaffected:** the ledger trigger (C76) reads `actual_start` / `actual_end` and the after-hours / emergency flags, which she can't set, never `scheduled_start`. The C71 move notice is for *her* when a manager moves her task, so it isn't written when she moves it herself.
   - **Mobile:** "Ayusin ang oras o note" on the focus card (`components/features/today/edit-task-form.tsx`): day and time pickers and the note, online only. A moved time also posts "Inilipat ko sa 4:30 PM (dati 3:00 PM)." to the task's updates, so the manager sees it on the Pass as a comment badge. The card now shows the task's time. `combineLocalDateTime` (`lib/datetime-fields.ts`, tested under three zones) builds the time from parts, never through UTC (C38).
 - **To close:** build an APK, and on a phone move a task and change a note; check the manager's Pass shows the new time and the comment. Then move this to Closed Gaps. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
-
-### O33. Staff can't change the grocery budget (waiting on the client)
-
-- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
-- **Blocks:** Nothing until the client confirms.
-- **Current workaround:** A manager sets it on the web.
-- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
-- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
 
 ### O34. A remote admin couldn't pay wages
 
@@ -142,19 +137,12 @@ the bottom.
 
 ### O37. Stations are a fixed list of five
 
+- **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove. Being built.
 - **Found:** 2026-10-05, while building O36.
 - **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
 - **Blocks:** Accurate roles for a large staff, and station-based routing for them.
 - **Current workaround (user's choice, 2026-10-05):** keep the five. Teams and labels (O36) carry departments and anything else.
 - **To close:** Decide between an "Other" station with a free-text title, or household-defined roles. Either way, change the CHECK, both apps' types and the router prompt together. Owned by `LINARA`.
-
-### O38. A manager can't be limited to one team, and nothing goes to a whole team
-
-- **Found:** 2026-10-05, while building O36. Deferred by the user.
-- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
-- **Blocks:** Delegating a large estate to department heads; announcements to a team.
-- **Current workaround:** The team filter, and sending to each person.
-- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
 
 ### O39. A helper could work in only one household, on one team, and tasks had no place
 
@@ -3582,6 +3570,25 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found:** 2026-10-07, security QA LM-A8 (Medium): only `Strict-Transport-Security` came back, and `/login` loaded inside an iframe on a `file://` page. **Fixed:** 2026-10-07 (web only).
 - **Fix:** `src/server.ts` adds `src/lib/security-headers.ts` to every response it serves, redirects and error pages included: `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. The LINARA_MOBILE WebView loads the dashboard as the whole page, not a frame, so it isn't affected. Static JS and CSS files are served by Vercel directly and don't pass through it; they're never framed and carry the right types. The full CSP is O48.
 - **Verified (2026-10-07):** unit tests in `security-headers.test.ts`; against a local production build, `/login` (200), `/manager/pass` (307) and an unknown page (404) all carry the four headers.
+
+### C92. Staff can't change the grocery budget (decided, former Open Gap O33)
+
+- **Decided (user, 2026-10-08):** staff don't set grocery budgets. Managers set the house's and each team's monthly budget; pantry leads draft runs and a manager approves them with the cash (O40). Nothing to build.
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
+- **Blocks:** Nothing until the client confirms.
+- **Current workaround:** A manager sets it on the web.
+- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
+- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
+
+### C93. A manager can't be limited to one team (decided, former Open Gap O38)
+
+- **Decided (user, 2026-10-08):** managers are per household, not per team. Team-scoped manager rows won't be built. Sending to a whole team isn't planned either.
+- **Found:** 2026-10-05, while building O36. Deferred by the user.
+- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
+- **Blocks:** Delegating a large estate to department heads; announcements to a team.
+- **Current workaround:** The team filter, and sending to each person.
+- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
 
 ---
 
