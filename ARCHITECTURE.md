@@ -926,6 +926,10 @@ CREATE TABLE public.tickets (
     is_after_hours BOOLEAN NOT NULL DEFAULT FALSE,
     emergency BOOLEAN NOT NULL DEFAULT FALSE,
     suggested BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Held while the day is ended (households.board_closed): set by the
+    -- tickets_hold_for_ended_day trigger for any writer, cleared when the day
+    -- reopens (households_release_held_tasks; reopen_ended_days hourly).
+    -- add-end-of-day-holds.sql, KNOWN_GAPS.md C100.
     queued BOOLEAN NOT NULL DEFAULT FALSE,
     queued_for_shift BOOLEAN NOT NULL DEFAULT FALSE,
     block_reason TEXT,
