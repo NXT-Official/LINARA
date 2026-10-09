@@ -99,4 +99,12 @@ describe("RunModal petty cash", () => {
       }),
     );
   });
+
+  it("won't close with more change than the cash given (O51)", () => {
+    const { setRunStatus } = open([line({ costPHP: 80 })]);
+    fireEvent.change(screen.getByLabelText("Change returned"), { target: { value: "500420" } });
+    fireEvent.click(screen.getByRole("button", { name: "Close run" }));
+    expect(screen.getByText("Change can't be more than the cash given (₱500).")).toBeTruthy();
+    expect(setRunStatus).not.toHaveBeenCalled();
+  });
 });

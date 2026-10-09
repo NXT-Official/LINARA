@@ -324,24 +324,28 @@ the bottom.
 - **What happens:** `RunCard` (`LINARA_MOBILE/components/features/pantry/run-card.tsx`) fills "Sukli na ibinalik" with `cashGiven - spent` in a `useState` initializer, so it is worked out once, when the card first shows. A helper who ticks items and types costs on the card (the normal way) then sees the full cash in the field: ₱500 with ₱80 spent, while the line above it says "₱500 − ₱80 nagastos = ₱420". `finish()` only refuses a negative or non-numeric amount, so ₱500,420 was saved against ₱500 cash (the field kept its "500" and the typed "420" went after it). The database only checks `change_returned >= 0`.
 - **Why it matters:** this is the manager's record of cash handed back. Trusting the pre-filled number records ₱500 back after ₱80 was spent, and that wrong figure is what the manager's Pantry > History shows for the run.
 - **To close:** derive the default from the current spend (set it when "Tapos na" opens the panel, or keep it in step until she edits it), and refuse change above the cash given (in the card, and with a `CHECK`/trigger against `cash_given`). Mobile owns the card; the check is `LINARA`'s schema. The test run's record was corrected to ₱420 by hand.
+- **Fix, built 2026-10-09:** LINARA_MOBILE `run-card.tsx`: the field follows cash − spent until she types in it (reset each time "Tapos na" opens it), typing replaces the amount (`selectTextOnFocus`), and change above the cash is refused ("Hindi puwedeng mas malaki ang sukli sa perang ibinigay"). Web `run-modal.tsx` refuses the same on "Close run" and when fixing a closed run's figures. `supabase/add-run-change-limit.sql` adds `CHECK (change_returned <= cash_given)`; PGlite: `grocery-runs.test.mjs`. SA-054 checks the field and the refusal. **SQL not yet applied; needs the new APK on a device.**
 
 ### O52. Quick utos cards cover the focus card's buttons
 
 - **Found:** 2026-10-09, Maestro UAT run SA-027.
 - **What happens:** on Ngayon the utos cards float over the bottom of the focus card. With one showing, the task's own "Tapos na" (and the photo and "Hindi ko magagawa ngayon" buttons) sit underneath it: Maestro's tap on the task's "Tapos na" landed on nothing, and the screen dump lists both buttons at the same place. A helper has to answer every utos before she can finish the task in front of her.
 - **To close:** lay the utos out in the page flow (above the focus card) instead of over it, or leave room under them. Owned by `LINARA_MOBILE` (`components/features/utos/utos-chip.tsx`, `app/(app)/today.tsx`).
+- **Fix, built 2026-10-09:** the stack is part of Ngayon's page now (`quick-utos-feed.tsx`, was `floating-quick-utos-feed.tsx`), under the header and above the house switcher and focus card, so nothing sits under it. **Needs the new APK on a device.**
 
 ### O53. "Gawin ang draft" can leave an empty run, with an English error
 
 - **Found:** 2026-10-09, Maestro UAT run SA-053.
 - **What happens:** the new-run form keeps the Kailangan lines it pre-selected. If one of them is ticked bought before "Gawin ang draft" (another helper, or a tap on the list below the form), the run is created and then adding its lines fails: the lead is left with an empty draft ("0 item · Wala pang nakalista.") and the raw message "A bought line stays where it was bought".
 - **To close:** create the run and attach its lines in one transaction (an RPC), or drop bought lines from the selection before saving; show the refusal in Taglish. Mobile owns the form; an RPC would be `LINARA`'s.
+- **Fix, built 2026-10-09 (mobile only, no SQL):** the form sends only lines still to buy; `createDraftRun` moves only lines that are unbought and still in Kailangan, and if none move it deletes the empty draft and says "Nabili na o nasa ibang run na ang mga pinili mo. Pumili ulit." Still two writes, not one transaction; a line taken in between is skipped rather than failing. **Needs the new APK on a device.**
 
 ### O54. English and raw messages left in the helper app
 
 - **Found:** 2026-10-09, Maestro UAT run (SA-091, which failed on these; also SA-008, SA-064, SA-066, SA-069, SA-002, SA-029).
 - **What's left:** Ngayon's header says "Monday" (Linggo ko and Record ko say "Lunes"); the joining terms say "Sunday"; Sahod ko has "Rest Owed" (title case), "Leave", "Vale (cash advance)"; vale statuses are "Waiting / Approved / Declined" where day off and leave say Hinihintay / Aprubado / Hindi pumayag; the day summary starts "Great work today"; the run error above (O53); signing in offline shows "fetch failed: java.net.UnknownHostException: Unable to resolve host …" (`services/api/auth.ts` passes Auth's message through). Day-off rows show raw dates ("2026-10-10 · 1h") where leave shows "Okt 10 – Okt 13". The flag choice reads "Sahod / wage" when joining and "Sahod" on Record ko.
 - **To close:** Taglish labels and a Filipino weekday everywhere; one Taglish "Walang internet. Subukan ulit." for network failures in sign-in; `leaveDatesLabel`-style dates on day-off rows. Owned by `LINARA_MOBILE`; no schema.
+- **Fix, built 2026-10-09:** rest day in Filipino on Ngayon and the joining terms (`weekdayName` uses `DAY_NAMES`); Sahod ko's cards are "Rest owed mo", "Mga day off", "Mga leave", "Mga vale" (like "Mga payslip"; rest owed, leave and vale stay as the Taglish loanwords the app uses elsewhere); vale statuses Hinihintay / Aprubado / Hindi pumayag; the day summary "Ang galing mo ngayon — 2 sa 2, tapos!"; day-off rows "Okt 10 · 1h"; the flag choice "Sahod" in both places; a network failure in sign-in or password reset says "Walang internet. Kumonekta muna, tapos subukan ulit." (or "Hindi maabot ang Linara ngayon" for a server error). O53's message is replaced too. The employment record PDF keeps English weekdays (a formal document). **Needs the new APK on a device.**
 
 ### O55. Smaller things from the Maestro UAT run
 
@@ -356,6 +360,7 @@ the bottom.
   - Offline, Record ko is a spinner with no cached record (SA-088).
   - A run's cost field saves only on Enter or blur; closing the keyboard with Back doesn't save it (SA-054). Fine for a person, who taps something else next.
 - **To close:** decide each; all are `LINARA_MOBILE` except account deletion (`LINARA` schema).
+- **Done 2026-10-09:** the current cutoff's card says "Nabayaran na. Nasa Mga payslip sa ibaba ang eksaktong natanggap mo." once a regular payslip for that cutoff has succeeded; payslip history is ordered by cutoff (newest first); SIL is pre-selected only when she has SIL left, otherwise nothing is and she picks (never a silent "Walang bayad"). **Still to decide:** cancelled requests staying listed, account deletion while employed, the second receipt prompt on a closed run's task (close the task with the run, or let the task use the run's receipt), Record ko offline, and the cost field's save on Back.
 
 ## Closed Gaps
 

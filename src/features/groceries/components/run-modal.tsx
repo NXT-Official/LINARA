@@ -217,9 +217,16 @@ export function RunModal({
     setLineUnit("pcs");
   };
 
+  // No more change can come back than the cash that went out (KNOWN_GAPS.md O51).
+  const changeOverCash =
+    cashN !== "bad" && changeN !== "bad" && cashN !== null && changeN !== null && changeN > cashN;
+  const overCashError = () =>
+    setError(`Change can't be more than the cash given (${fmtPeso(Number(cashN))}).`);
+
   const closeRun = () => {
     if (cashN === "bad") return setError("Cash given: an amount in pesos, or empty.");
     if (changeN === "bad") return setError("Change: an amount in pesos, or empty.");
+    if (changeOverCash) return overCashError();
     if (!run) return;
     // With cash handed over, the change is what makes petty cash add up.
     if (cashN !== null && changeN === null) {
@@ -238,6 +245,7 @@ export function RunModal({
   const fixFigures = () => {
     if (!run) return;
     if (cashN === "bad" || changeN === "bad") return setError("Amounts in pesos, or empty.");
+    if (changeOverCash) return overCashError();
     void step(
       "fix",
       () => ctx.setRunStatus(run, run.status, { cashGiven: cashN, changeReturned: changeN }),
