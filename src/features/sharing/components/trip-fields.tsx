@@ -37,27 +37,35 @@ export function TripFields({
       sharing.places[0] ? { kind: "place", id: sharing.places[0].id } : undefined,
     );
 
-  const options = (
-    <>
-      <option value="">Choose…</option>
-      <optgroup label="Houses">
-        {sharing.family.map((h) => (
-          <option key={h.id} value={`h:${h.id}`}>
-            {h.id === here ? `${h.name} (this house)` : h.name}
-          </option>
-        ))}
-      </optgroup>
-      {sharing.places.length > 0 && (
-        <optgroup label="Places">
-          {sharing.places.map((p) => (
-            <option key={p.id} value={`p:${p.id}`}>
-              {p.name}
-            </option>
-          ))}
+  // Each end leaves out what the other picked: a trip goes somewhere (QA
+  // LM-A12; the database refuses it too, fix-trip-places-guard.sql).
+  const options = (other: PlaceRef | undefined) => {
+    const taken = placeKey(other);
+    const places = sharing.places.filter((p) => `p:${p.id}` !== taken);
+    return (
+      <>
+        <option value="">Choose…</option>
+        <optgroup label="Houses">
+          {sharing.family
+            .filter((h) => `h:${h.id}` !== taken)
+            .map((h) => (
+              <option key={h.id} value={`h:${h.id}`}>
+                {h.id === here ? `${h.name} (this house)` : h.name}
+              </option>
+            ))}
         </optgroup>
-      )}
-    </>
-  );
+        {places.length > 0 && (
+          <optgroup label="Places">
+            {places.map((p) => (
+              <option key={p.id} value={`p:${p.id}`}>
+                {p.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="space-y-2">
@@ -85,7 +93,7 @@ export function TripFields({
               onChange={(e) => onChange(placeFromKey(e.target.value), to)}
               className={select}
             >
-              {options}
+              {options(to)}
             </select>
           </label>
           <ArrowRight className="mb-3 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -97,7 +105,7 @@ export function TripFields({
               onChange={(e) => onChange(from, placeFromKey(e.target.value))}
               className={select}
             >
-              {options}
+              {options(from)}
             </select>
           </label>
         </div>
