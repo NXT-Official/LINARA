@@ -119,7 +119,9 @@ await db.exec(readFileSync(`${REPO}/add-grocery-runs.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-grocery-runs.sql`, "utf8"));
 // Applied after runs on the live project; its link must not upset the guards.
 await db.exec(readFileSync(`${REPO}/add-grocery-pantry-link.sql`, "utf8"));
-console.log("migrations applied (grocery runs twice)");
+await db.exec(readFileSync(`${REPO}/add-run-change-limit.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-run-change-limit.sql`, "utf8"));
+console.log("migrations applied (grocery runs and the change limit twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
@@ -373,6 +375,12 @@ await expectError(
   () => q(`UPDATE grocery_runs SET cash_given = 3000 WHERE id = $1`, [RUN]),
   /sukli at tapusin/,
 );
+await expectError(
+  "nor hand back more change than the ₱1,500 he was given (O51)",
+  () =>
+    q(`UPDATE grocery_runs SET status = 'done', change_returned = 1500380 WHERE id = $1`, [RUN]),
+  /grocery_runs_change_within_cash/,
+);
 const closed = await one(
   `UPDATE grocery_runs SET status = 'done', change_returned = 1380 WHERE id = $1
    RETURNING status, closed_by, closed_at`,
@@ -405,6 +413,11 @@ await as(BEN);
 check(
   "a manager can still fix a figure on a closed run",
   (await changes(`UPDATE grocery_items SET actual_cost = 125 WHERE id = $1`, [G_RICE])) === 1,
+);
+await expectError(
+  "but not lower the cash below the change handed back",
+  () => q(`UPDATE grocery_runs SET cash_given = 1000 WHERE id = $1`, [RUN]),
+  /grocery_runs_change_within_cash/,
 );
 check(
   "but a closed run isn't deleted (its history stays)",

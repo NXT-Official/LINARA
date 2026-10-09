@@ -1105,7 +1105,7 @@ CREATE TABLE public.grocery_runs (
     ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
     template_id UUID REFERENCES public.grocery_templates(id) ON DELETE SET NULL,
     cash_given NUMERIC(10,2),
-    change_returned NUMERIC(10,2),
+    change_returned NUMERIC(10,2),  -- never above cash_given (add-run-change-limit.sql, O51)
     note TEXT,
     created_by, approved_by, closed_by UUID REFERENCES public.user_profiles(id),
     approved_at, closed_at, created_at, updated_at TIMESTAMP WITH TIME ZONE
