@@ -109,6 +109,8 @@ export type GroceryHistory = {
   runs: (GroceryRun & { items: GroceryItem[]; receipts: GroceryReceipt[] })[];
   /** Bought straight from the pool that month. */
   outside: GroceryItem[];
+  /** Receipts taken that month that belong to no run. */
+  outsideReceipts: GroceryReceipt[];
 };
 
 /**
@@ -136,8 +138,6 @@ export type GroceryContextValue = {
   spent: number;
   budget: number;
   remaining: number;
-  /** The active Palengke ticket's uploaded photo, if any (from the board's own tasks). */
-  receiptPhoto: string | null;
   /** The latest receipts, any run or none, newest first. */
   receipts: GroceryReceipt[];
   refresh: () => Promise<void>;

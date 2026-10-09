@@ -8,6 +8,7 @@ import { shortNameOf } from "@/features/people/people.utils";
 import type { GroceryHistory } from "../grocery.types";
 import { fmtPeso, fmtQty, monthBounds, reconcile, spentOn, unpricedCount } from "../grocery.utils";
 import { useGroceryHistory } from "../hooks/use-grocery-history";
+import { ReceiptSlot } from "./receipt-slot";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
 
@@ -17,8 +18,9 @@ const day = (iso: string) =>
 /**
  * Past runs, a month at a time: when each closed, who went, what it cost
  * against the cash and whether the change balanced, and what was bought
- * outside any run. Opening a run shows its lines and receipts (receipts
- * are kept two months; the figures stay).
+ * outside any run, with the receipts taken outside one (this month's can be
+ * added to here). Opening a run shows its lines and receipts (receipts are
+ * kept two months; the figures stay).
  */
 export function HistoryView() {
   const { teams, activeHelpers } = useAppStores();
@@ -36,6 +38,10 @@ export function HistoryView() {
   const outside = history.outside.filter((g) => matchesQuery(g.name, query));
   const runsSpent = history.runs.reduce((s, r) => s + spentOn(r.items), 0);
   const outsideSpent = spentOn(history.outside);
+  const looseReceipts = history.outsideReceipts;
+  // This month keeps the section for adding a receipt bought outside a run.
+  const showOutside =
+    outside.length > 0 || (!query.trim() && (looseReceipts.length > 0 || isThisMonth));
   const navBtn =
     "grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-40";
 
@@ -70,7 +76,7 @@ export function HistoryView() {
         </button>
       </div>
 
-      {(history.runs.length > 0 || history.outside.length > 0) && (
+      {(history.runs.length > 0 || history.outside.length > 0 || looseReceipts.length > 0) && (
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -95,7 +101,7 @@ export function HistoryView() {
             Try again
           </button>
         </p>
-      ) : runs.length === 0 && outside.length === 0 ? (
+      ) : runs.length === 0 && !showOutside ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
           {query.trim() ? "Nothing matches." : `No runs closed in ${label}.`}
         </p>
@@ -173,10 +179,11 @@ export function HistoryView() {
               })}
             </ul>
           )}
-          {outside.length > 0 && (
+          {showOutside && (
             <div>
               <div className="px-1 pt-2 text-xs font-semibold text-muted-foreground">
-                Bought outside a run · {fmtPeso(outsideSpent)}
+                Bought outside a run
+                {outside.length > 0 && <> · {fmtPeso(outsideSpent)}</>}
               </div>
               <ul className="divide-y divide-border/70">
                 {outside.map((g) => (
@@ -194,6 +201,14 @@ export function HistoryView() {
                   </li>
                 ))}
               </ul>
+              {!query.trim() && (looseReceipts.length > 0 || isThisMonth) && (
+                <div className="mt-2">
+                  <ReceiptSlot
+                    receipts={looseReceipts}
+                    onAdded={isThisMonth ? () => void refresh() : undefined}
+                  />
+                </div>
+              )}
             </div>
           )}
         </>

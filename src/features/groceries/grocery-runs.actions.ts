@@ -271,7 +271,7 @@ export const listGroceryBoardFn = createServerFn({ method: "POST" })
     };
   });
 
-/** One month of closed runs, with their lines and receipts, and what was bought outside a run. */
+/** One month of closed runs, with their lines and receipts, and what was bought (and receipts taken) outside a run. */
 export const listGroceryHistoryFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; from: string; to: string }) => data)
   .handler(async ({ data }): Promise<GroceryHistory> => {
@@ -283,12 +283,12 @@ export const listGroceryHistoryFn = createServerFn({ method: "POST" })
       .gte("closed_at", data.from)
       .lt("closed_at", data.to)
       .order("closed_at", { ascending: false });
-    if (isMissing(runsRes.error)) return { runs: [], outside: [] };
+    if (isMissing(runsRes.error)) return { runs: [], outside: [], outsideReceipts: [] };
     if (runsRes.error) throw new Error(runsRes.error.message);
     const runRows = (runsRes.data ?? []) as RunRow[];
     const ids = runRows.map((r) => r.id);
 
-    const [runs, items, receipts, outside] = await Promise.all([
+    const [runs, items, receipts, outside, looseReceipts] = await Promise.all([
       hydrateRuns(client, runRows),
       ids.length
         ? client.from("grocery_items").select("*").in("run_id", ids).order("created_at")
@@ -308,14 +308,21 @@ export const listGroceryHistoryFn = createServerFn({ method: "POST" })
         .gte("bought_at", data.from)
         .lt("bought_at", data.to)
         .order("bought_at", { ascending: false }),
+      client
+        .from("grocery_receipts")
+        .select("*, uploaded_by_profile:user_profiles(full_name)")
+        .is("run_id", null)
+        .gte("created_at", data.from)
+        .lt("created_at", data.to)
+        .order("created_at", { ascending: true }),
     ]);
-    for (const res of [items, receipts, outside]) {
+    for (const res of [items, receipts, outside, looseReceipts]) {
       if (res.error) throw new Error(res.error.message);
     }
-    const signed = await signReceipts(
-      client,
-      (receipts.data ?? []) as unknown as Parameters<typeof signReceipts>[1],
-    );
+    const signed = await signReceipts(client, [
+      ...((receipts.data ?? []) as unknown as Parameters<typeof signReceipts>[1]),
+      ...((looseReceipts.data ?? []) as unknown as Parameters<typeof signReceipts>[1]),
+    ]);
     const lines = ((items.data ?? []) as GroceryItemRow[]).map(toGroceryItem);
     return {
       runs: runs.map((r) => ({
@@ -324,6 +331,7 @@ export const listGroceryHistoryFn = createServerFn({ method: "POST" })
         receipts: signed.filter((s) => s.runId === r.id),
       })),
       outside: ((outside.data ?? []) as GroceryItemRow[]).map(toGroceryItem),
+      outsideReceipts: signed.filter((s) => !s.runId),
     };
   });
 
