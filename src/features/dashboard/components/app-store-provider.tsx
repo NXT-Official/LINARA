@@ -23,7 +23,6 @@ import { useSharing } from "@/features/sharing/hooks/use-sharing";
 import { sharedToProfileRow } from "@/features/sharing/sharing.utils";
 import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
-import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
 import { clearAllUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
@@ -587,12 +586,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   return (
     <AppStoreContext.Provider value={value}>
       <CommentActivityContext.Provider value={commentActivity}>
-        <GroceryProvider
-          pantry={pantry}
-          token={session.token}
-          ready={session.status === "authed"}
-          receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
-        >
+        <GroceryProvider pantry={pantry} token={session.token} ready={session.status === "authed"}>
           {children}
         </GroceryProvider>
       </CommentActivityContext.Provider>

@@ -9,7 +9,6 @@ import { groupByPantryCategory, parseAmount } from "@/features/pantry/pantry.uti
 
 import { useGrocery } from "../grocery-context";
 import { GroceryRow } from "./grocery-row";
-import { ReceiptSlot } from "./receipt-slot";
 
 type GroceryFilter = "all" | "to_buy" | "bought";
 
@@ -132,11 +131,6 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
           </div>
         </div>
       )}
-
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">Receipts</div>
-        <ReceiptSlot />
-      </div>
 
       <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-border/60 pt-4">
         <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">

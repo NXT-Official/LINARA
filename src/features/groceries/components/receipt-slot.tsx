@@ -18,28 +18,32 @@ const when = (iso: string) =>
   });
 
 /**
- * The palengke receipts: ones snapped in the app after buying
- * (grocery_receipts), and the active Palengke Run's photo. Staff take them
- * in LINARA_MOBILE; a manager who did the shopping adds one here (KNOWN_GAPS
- * O29). On a phone the file picker offers the camera too.
+ * The palengke receipts snapped after buying (grocery_receipts). Staff take
+ * them in LINARA_MOBILE; a manager who did the shopping adds one here
+ * (KNOWN_GAPS O29). On a phone the file picker offers the camera too.
  *
  * Receipts are deleted after 2 months (KNOWN_GAPS.md O28) -- the costs stay
  * on the list items -- so the full view offers to save one.
  *
- * With `runId`, just that run's receipts, and a new one goes with it.
- * Without, only receipts that belong to no run (the Needed list): a run's
- * receipts live with the run, and listing them here too showed them twice.
- * `receipts` shows a given list instead (a closed run in History), with no
- * add button.
+ * With `runId`, an open run's receipts, and a new one goes with it.
+ * `receipts` shows a given list instead: a closed run's, with no add button,
+ * or the month's receipts outside a run in History, where `onAdded` allows
+ * adding one (to no run) and refreshes the list.
  */
 export function ReceiptSlot({
   compact,
   runId,
   receipts,
-}: { compact?: boolean; runId?: string; receipts?: GroceryReceipt[] } = {}) {
+  onAdded,
+}: {
+  compact?: boolean;
+  runId?: string;
+  receipts?: GroceryReceipt[];
+  onAdded?: () => void;
+} = {}) {
   const ctx = useGrocery();
-  const readOnly = receipts !== undefined;
-  const list = receipts ?? ctx.receipts.filter((r) => (runId ? r.runId === runId : !r.runId));
+  const readOnly = receipts !== undefined && !onAdded;
+  const list = receipts ?? ctx.receipts.filter((r) => r.runId === runId);
   const [preview, setPreview] = useState<{ url: string; takenAt?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -49,7 +53,10 @@ export function ReceiptSlot({
     setUploading(true);
     ctx
       .addReceipt(file, runId)
-      .then(() => toast.success("Receipt added"))
+      .then(() => {
+        toast.success("Receipt added");
+        onAdded?.();
+      })
       .catch((err) => {
         console.error("[ReceiptSlot] Failed to add receipt:", err);
         toast.error(
@@ -91,28 +98,14 @@ export function ReceiptSlot({
     </>
   );
 
-  const shots = [
-    ...(ctx.receiptPhoto && !runId && !readOnly
-      ? [
-          {
-            id: "run",
-            url: ctx.receiptPhoto,
-            thumb: ctx.receiptPhoto,
-            label: "Palengke run",
-            sub: "Today",
-            takenAt: undefined,
-          },
-        ]
-      : []),
-    ...list.map((r) => ({
-      id: r.id,
-      url: r.url,
-      thumb: r.thumbUrl ?? r.url,
-      label: r.byName ? `From ${shortNameOf(r.byName)}` : "Receipt",
-      sub: when(r.createdAt),
-      takenAt: r.createdAt,
-    })),
-  ];
+  const shots = list.map((r) => ({
+    id: r.id,
+    url: r.url,
+    thumb: r.thumbUrl ?? r.url,
+    label: r.byName ? `From ${shortNameOf(r.byName)}` : "Receipt",
+    sub: when(r.createdAt),
+    takenAt: r.createdAt,
+  }));
 
   if (shots.length === 0) {
     return (
@@ -120,7 +113,9 @@ export function ReceiptSlot({
         <p className="text-xs text-muted-foreground">
           {readOnly
             ? "No receipt kept for this run."
-            : "No receipt yet. Staff add one from the Linara app after buying."}
+            : runId
+              ? "No receipt yet. Staff add one from the Linara app after buying."
+              : "No receipts outside a run this month."}
         </p>
         {!readOnly && addButton}
       </div>

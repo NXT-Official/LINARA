@@ -16,7 +16,7 @@ const receipt = (over: Partial<GroceryReceipt>): GroceryReceipt => ({
   ...over,
 });
 
-const show = (props: { runId?: string }) =>
+const show = (props: { runId?: string; receipts?: GroceryReceipt[]; onAdded?: () => void }) =>
   render(
     <GroceryContext.Provider
       value={
@@ -25,7 +25,6 @@ const show = (props: { runId?: string }) =>
             receipt({ byName: "Kuya Marito" }),
             receipt({ byName: "Ate Marites", runId: "r1" }),
           ],
-          receiptPhoto: null,
         } as unknown as GroceryContextValue
       }
     >
@@ -36,10 +35,16 @@ const show = (props: { runId?: string }) =>
 afterEach(cleanup);
 
 describe("ReceiptSlot", () => {
-  it("lists only receipts that belong to no run on the Needed list", () => {
-    show({});
+  it("shows a given list read-only, as a closed run in History", () => {
+    show({ receipts: [receipt({ byName: "Kuya Marito" })] });
     expect(screen.getByText("From Marito")).toBeTruthy();
-    expect(screen.queryByText("From Marites")).toBeNull();
+    expect(screen.queryByText("Add receipt")).toBeNull();
+  });
+
+  it("lets this month's receipts outside a run be added to in History", () => {
+    show({ receipts: [], onAdded: () => {} });
+    expect(screen.getByText("No receipts outside a run this month.")).toBeTruthy();
+    expect(screen.getByText("Add receipt")).toBeTruthy();
   });
 
   it("lists a run's own receipts inside the run", () => {

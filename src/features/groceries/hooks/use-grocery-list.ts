@@ -45,8 +45,7 @@ const EMPTY: GroceryBoard = {
  * The palengke (supabase/add-grocery-runs.sql, KNOWN_GAPS.md O40): the
  * Needed pool, open runs and their lines, repeats, budgets and this month's
  * spend, fetched together and refetched after every write -- the same
- * "write then refresh" pattern as the other stores. `receiptPhoto` comes in
- * from the board's own tasks (a Palengke task's Done photo).
+ * "write then refresh" pattern as the other stores.
  *
  * The pool shown is the real lines plus suggestions from low pantry stock.
  * A suggestion is local to this browser until someone adds it.
@@ -55,12 +54,10 @@ export function useGroceryList({
   pantry,
   token,
   ready,
-  receiptPhoto,
 }: {
   pantry: PantryStore;
   token: string | null;
   ready: boolean;
-  receiptPhoto: string | null;
 }): GroceryContextValue {
   const [board, setBoard] = useState<GroceryBoard>(EMPTY);
   const [receipts, setReceipts] = useState<GroceryReceipt[]>([]);
@@ -176,7 +173,6 @@ export function useGroceryList({
     spent,
     budget,
     remaining: budget - spent,
-    receiptPhoto,
     receipts,
     refresh,
 

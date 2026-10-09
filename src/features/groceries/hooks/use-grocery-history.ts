@@ -6,7 +6,7 @@ import { listGroceryHistoryFn } from "../grocery-runs.actions";
 import type { GroceryHistory } from "../grocery.types";
 import { monthBounds } from "../grocery.utils";
 
-const EMPTY: GroceryHistory = { runs: [], outside: [] };
+const EMPTY: GroceryHistory = { runs: [], outside: [], outsideReceipts: [] };
 
 /**
  * One month of grocery history, fetched when that month is shown: runs
