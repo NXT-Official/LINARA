@@ -369,6 +369,15 @@ the bottom.
   - Record ko is kept on the phone for offline use (LINARA_MOBILE `lib/query-persist.ts`: TanStack Query's AsyncStorage persister, Record ko's queries only, 30 days, cleared on any sign-out); offline it shows the copy with "Walang internet. Ito ang record mo noong …". Maestro: `.maestro/record-offline.yaml`.
 - **Left as is:** a run's cost field saves on Enter or blur, not on Back; fine for a person, who taps something else next.
 
+### O56. SSS / PhilHealth / Pag-IBIG shares are flat amounts from an old schedule
+
+- **Found:** 2026-10-09, user question: the contributions never change when the wage does.
+- **What happens:** `computeStatutorySplit` (`src/features/people/people.utils.ts`, mirrored in LINARA_MOBILE `lib/statutory.ts`) has two fixed rows: under ₱5,000 a month the employer pays SSS ₱400, PhilHealth ₱150, Pag-IBIG ₱100; from ₱5,000 up the helper pays ₱150 / ₱125 / ₱100 and the employer ₱350 / ₱125 / ₱100, whatever the wage. It feeds the payout's deduction (`net-pay.ts`, `pay.actions.ts` → `payslips.statutory_employee_share`), the web estimates and My Pay's split.
+- **The 2026 rules (to confirm against the agencies' circulars before shipping):** SSS 15% of the monthly salary credit (₱500 brackets, ₱5,000 to ₱35,000), 5% employee and 10% employer, plus EC ₱10 (₱30 from MSC ₱15,000) on the employer; PhilHealth 5% of the wage with a ₱10,000 floor and ₱100,000 ceiling, split equally (so ₱250 each up to ₱10,000); Pag-IBIG 2% each of the wage capped at ₱10,000 (₱200 each at most; 1% employee at ₱1,500 or less). RA 10361: below ₱5,000 the employer pays both shares.
+- **Size of it:** at ₱8,000 a month the helper's share should be about ₱810 (SSS ₱400, PhilHealth ₱250, Pag-IBIG ₱160), not ₱375; the employer's about ₱1,220, not ₱575. So each payout deducts about ₱217 a cutoff too little and shows the employer less to remit.
+- **Fix, built 2026-10-09 (user: yes):** both copies now compute the brackets above in one identical body (SSS credit = the wage rounded to ₱500 steps between ₱5,000 and ₱35,000, plus EC; PhilHealth wage/40 each between the floor and ceiling; Pag-IBIG 2% of up to ₱10,000; below ₱5,000 the employer carries her shares). Both value tables (`people.utils.test.ts`, LINARA_MOBILE `lib/statutory.test.ts`) have the new rows, the body comparison passes, and `net-pay.test.ts`'s expected pay moved with them. The web card and My Pay's table say "2026 rates" and that the employer's SSS includes EC. No SQL: Postgres takes the share from the app. Payslips already recorded keep their figures (sandbox only).
+- **Still to do:** check the rates against the agencies' own 2026 circulars (the figures came from secondary sources, one of which gave SSS as 4.5% / 10.5%), and move both copies together when a circular changes them.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

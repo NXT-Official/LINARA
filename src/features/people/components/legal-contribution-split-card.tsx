@@ -88,6 +88,10 @@ export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCa
         </table>
       </div>
 
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Per month, at the 2026 SSS, PhilHealth and Pag-IBIG rates. The employer&apos;s SSS includes
+        EC.
+      </p>
       {isUnder5k && (
         <p className="text-xs italic text-status-done-ink leading-relaxed">
           * Dahil ang buwanang sweldo ay mas mababa sa ₱5,000, ang Employer ay obligadong magbayad
