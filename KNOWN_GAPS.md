@@ -3718,6 +3718,13 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Fix:** Send to shop, on a new run or a draft, and Approve on a lead's request, now need at least one line and someone who'll go: a shopper, a team, or a task with a helper on it. Without one, no helper would see the ready run (`grocery_run_visible`). The message names what's missing ("Pick at least one line and who goes."). Save draft still saves an empty run. The phone's "Gawin ang draft" already refuses an empty run (O53).
 - **Verified:** `run-modal.test.tsx` (empty run, no one going, nothing on it, and a run with a line and a team that does send); web unit suite 337 pass.
 
+### C98. A saved place used at both ends of a trip couldn't be deleted, and a trip could go from a place to itself (QA LM-A11, LM-A12)
+
+- **Found:** 2026-10-09, QA LM-A11 and LM-A12. Steps: a trip from "QA Place School" to "QA Place School", then removing that place under People ➔ Places. The place stayed, and the server answered "That place belongs to another household", even after the task was cancelled. **Fixed:** 2026-10-09 (SQL and web).
+- **Cause:** `tickets.from_place_id` and `to_place_id` are both `ON DELETE SET NULL`, cleared one after the other. Clearing the first re-ran `tickets_places_guard`, which checked the second end, still pointing at the place being deleted, and raised. The trip picker (`trip-fields.tsx`, used by New task and Edit task) offered the same place on both ends, which is what made such a trip possible.
+- **Fix:** `supabase/fix-trip-places-guard.sql` replaces the guard. It checks only the ends an update changes (the same rule `tickets_helper_works_here` follows), so the delete clears both ends and keeps the trip. It also refuses a trip whose two ends are the same place or house ("A trip goes between two different places"). Trips like that saved before the fix aren't re-judged until an end is edited. In the picker, each end now leaves out what the other end picked.
+- **Verified:** PGlite `shared-staff-and-places.test.mjs` (same place and same house refused; an old same-place trip stays editable; its place deletes and the trip keeps with both ends cleared). Without the fix, the same test fails on the refusals and on the delete. `trip-fields.test.tsx`; web unit suite 338 pass. **SQL to apply by hand.**
+
 ## Template for New Entries
 
 ```markdown

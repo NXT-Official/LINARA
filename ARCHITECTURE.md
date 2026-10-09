@@ -828,7 +828,9 @@ CREATE TABLE public.helper_labels (
 -- sent it. Her login reaches every house in my_household_ids(); other houses'
 -- managers read her through shared_helpers() (no pay). Triggers:
 -- tickets_helper_works_here (a task's helper works in its household) and
--- tickets_places_guard (trip ends stay in the family).
+-- tickets_places_guard (trip ends stay in the family and differ; only the
+-- ends an update changes are checked, so deleting a place clears both ends:
+-- fix-trip-places-guard.sql, C98).
 -- add-shared-staff-availability.sql (O41): shared_staff_time_off() gives a
 -- house the approved leave/rest off (dates only) of staff shared into it;
 -- staff_elsewhere() gives when its staff are booked at the family's other

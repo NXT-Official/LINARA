@@ -109,7 +109,8 @@ await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"))
 await db.exec(readFileSync(`${REPO}/add-shared-staff-availability.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-ticket-comments.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-task-length-and-leave-unassign.sql`, "utf8"));
-await db.exec(readFileSync(`${REPO}/add-task-length-and-leave-unassign.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/fix-trip-places-guard.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/fix-trip-places-guard.sql`, "utf8"));
 console.log("migrations applied (shared staff twice, the label fix, availability twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
@@ -503,6 +504,51 @@ await expectError(
   "a task can't be given a twenty-hour length",
   () => asOwner(() => q(`UPDATE tickets SET duration_minutes = 1200 WHERE title = 'Long drive'`)),
   /check constraint/,
+);
+
+// --- Trip ends (QA LM-A11, LM-A12) ------------------------------------------------
+await as(BEN);
+await expectError(
+  "a trip can't start and end at the same place",
+  () =>
+    q(
+      `INSERT INTO tickets (household_id, title, from_place_id, to_place_id) VALUES ($1, 'x', $2, $2)`,
+      [H1, P_SCHOOL],
+    ),
+  /two different places/,
+);
+await expectError(
+  "nor go from a house to itself",
+  () =>
+    q(
+      `INSERT INTO tickets (household_id, title, from_household_id, to_household_id) VALUES ($1, 'x', $2, $2)`,
+      [H1, H2],
+    ),
+  /two different places/,
+);
+// One saved before the check.
+await asOwner(() =>
+  db.exec(`
+    ALTER TABLE tickets DISABLE TRIGGER tickets_places_guard;
+    INSERT INTO tickets (household_id, title, from_place_id, to_place_id)
+      VALUES ('${H1}', 'Old school run', '${P_SCHOOL}', '${P_SCHOOL}');
+    ALTER TABLE tickets ENABLE TRIGGER tickets_places_guard;
+  `),
+);
+await as(BEN);
+check(
+  "an old same-place trip can still be edited otherwise",
+  (await changes(`UPDATE tickets SET title = 'School run' WHERE title = 'Old school run'`)) === 1,
+);
+check(
+  "the place on both its ends can be deleted",
+  (await changes(`DELETE FROM household_places WHERE id = $1`, [P_SCHOOL])) === 1,
+);
+const [kept] = await q(`SELECT from_place_id, to_place_id FROM tickets WHERE title = 'School run'`);
+check(
+  "and the trip stays, its ends cleared",
+  kept?.from_place_id === null && kept?.to_place_id === null,
+  kept,
 );
 
 // --- Ending -----------------------------------------------------------------------
