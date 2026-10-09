@@ -26,12 +26,24 @@ const REPO_ROOT = resolve(__dirname, "../../..");
 
 /** Numbers must match ../LINARA_MOBILE/lib/statutory.test.ts exactly. */
 const CASES = [
-  { wage: 0, employer: 650, employee: 0, under5k: true },
-  { wage: 4999, employer: 650, employee: 0, under5k: true },
+  // Under ₱5,000/mo the employer pays every share (RA 10361): SSS on the
+  // ₱5,000 floor credit (₱750 + ₱10 EC), PhilHealth on its ₱10,000 floor
+  // (₱500), Pag-IBIG 2% + her 2% (1% at ₱1,500 or less).
+  { wage: 0, employer: 1260, employee: 0, under5k: true },
+  { wage: 1500, employer: 1305, employee: 0, under5k: true },
+  { wage: 4999, employer: 1459.96, employee: 0, under5k: true },
   // ₱5,000 exactly is NOT "under" -- the boundary is where an off-by-one hides.
-  { wage: 5000, employer: 575, employee: 375, under5k: false },
-  { wage: 9000, employer: 575, employee: 375, under5k: false },
-  { wage: 12000, employer: 575, employee: 375, under5k: false },
+  { wage: 5000, employer: 860, employee: 600, under5k: false },
+  // SSS 5% / 10% (+₱10 EC) of the credit, PhilHealth ₱250 each to ₱10,000, Pag-IBIG 2% each.
+  { wage: 8000, employer: 1220, employee: 810, under5k: false },
+  { wage: 9000, employer: 1340, employee: 880, under5k: false },
+  // Above ₱10,000 PhilHealth grows with the wage and Pag-IBIG stops at ₱200.
+  { wage: 12000, employer: 1710, employee: 1100, under5k: false },
+  // EC goes from ₱10 to ₱30 at a ₱15,000 credit.
+  { wage: 14500, employer: 2022.5, employee: 1287.5, under5k: false },
+  { wage: 15000, employer: 2105, employee: 1325, under5k: false },
+  // SSS stops at the ₱35,000 credit.
+  { wage: 40000, employer: 4730, employee: 2950, under5k: false },
 ];
 
 /**

@@ -1102,7 +1102,7 @@ CREATE TABLE public.grocery_runs (
         CHECK (status IN ('draft', 'pending', 'ready', 'done', 'cancelled')),
     team_id UUID REFERENCES public.household_teams(id) ON DELETE SET NULL,
     shop_on DATE,
-    ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,
+    ticket_id UUID REFERENCES public.tickets(id) ON DELETE SET NULL,  -- closing the run finishes it (add-run-closes-task.sql)
     template_id UUID REFERENCES public.grocery_templates(id) ON DELETE SET NULL,
     cash_given NUMERIC(10,2),
     change_returned NUMERIC(10,2),  -- never above cash_given (add-run-change-limit.sql, O51)
