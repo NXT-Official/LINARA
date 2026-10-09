@@ -108,3 +108,53 @@ describe("RunModal petty cash", () => {
     expect(setRunStatus).not.toHaveBeenCalled();
   });
 });
+
+describe("RunModal send to shop", () => {
+  const openDraft = (draftRun: GroceryRun | undefined, items: GroceryItem[] = []) => {
+    const saveRun = vi.fn(async () => draftRun?.id ?? "new");
+    const setRunStatus = vi.fn(async () => {});
+    const ctx = {
+      runsAvailable: true,
+      needed: [],
+      itemsByRun: new Map([["r1", items]]),
+      saveRun,
+      setRunStatus,
+    } as unknown as GroceryContextValue;
+    render(
+      <GroceryContext.Provider value={ctx}>
+        <RunModal run={draftRun} onClose={vi.fn()} />
+      </GroceryContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send to shop" }));
+    return { saveRun, setRunStatus };
+  };
+  const draft = (over: Partial<GroceryRun> = {}): GroceryRun => ({
+    ...run,
+    status: "draft",
+    cashGiven: null,
+    ...over,
+  });
+
+  it("won't send an empty run with no one going (LM-A10)", () => {
+    const { saveRun } = openDraft(undefined);
+    expect(screen.getByText("Pick at least one line and who goes.")).toBeTruthy();
+    expect(saveRun).not.toHaveBeenCalled();
+  });
+
+  it("won't send a run no helper would see", () => {
+    const { saveRun } = openDraft(draft(), [line({ bought: false })]);
+    expect(screen.getByText(/^Pick who goes/)).toBeTruthy();
+    expect(saveRun).not.toHaveBeenCalled();
+  });
+
+  it("won't send a run with nothing on it", () => {
+    const { saveRun } = openDraft(draft({ shopperIds: ["h1"] }));
+    expect(screen.getByText("Pick at least one line to buy.")).toBeTruthy();
+    expect(saveRun).not.toHaveBeenCalled();
+  });
+
+  it("sends a run with lines and a team", async () => {
+    const { setRunStatus } = openDraft(draft({ teamId: "t1" }), [line({ bought: false })]);
+    await waitFor(() => expect(setRunStatus).toHaveBeenCalledWith(expect.anything(), "ready"));
+  });
+});
