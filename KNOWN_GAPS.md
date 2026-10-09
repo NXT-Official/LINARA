@@ -3741,7 +3741,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found:** 2026-10-09, QA LMM-A7. The vale amount (`vale-request-form.tsx`) and a bought line's cost on the palengke list (`palengke-checklist.tsx`) were read with `parseFloat`, which stops at the first comma: "1,500" was 1, "3,450.50" was 3. The field kept showing what she typed, with no warning, and the wrong amount was sent or saved, which threw off the household's spend totals. The run card's change already stripped commas, so the app read amounts two ways. **Fixed:** 2026-10-09 (LINARA_MOBILE only, no SQL; needs a new APK).
 - **Fix:** one `parseAmount` (`LINARA_MOBILE/lib/money.ts`) ignores ₱, commas and spaces and refuses anything that isn't an amount. The vale form, a line's cost, the budget, the item form's quantities and the run card's change all use it. The vale form says "Ilagay ang halaga, hal. 1,500." when it can't read the amount. A line's cost that can't be read goes back to the saved one instead of showing a cost that wasn't kept.
 - **Web:** money fields there read with `Number()`, so "1,500" is refused with a message, never saved wrong. Accepting commas on the web too is open.
-- **Verified:** `lib/money.test.ts`; mobile `qa:fast` (typecheck, lint, 132 unit). Not yet on a device.
+- **Verified:** `lib/money.test.ts`; mobile `qa:fast` (typecheck, lint, 132 unit). **Device-tested (2026-10-09):** EAS build aea35878 on the emulator, a "1,500" vale shows ₱1,500 and is saved as 1500 (declined afterwards).
 
 ## Template for New Entries
 
