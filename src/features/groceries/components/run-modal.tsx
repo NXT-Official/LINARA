@@ -167,10 +167,25 @@ export function RunModal({
     return { itemIds: real, newItems };
   };
 
+  // A run sent to shop needs something to buy and someone to see it: a helper
+  // sees a ready run only as its shopper, on its team or on its task
+  // (grocery_run_visible). Drafts can stay empty.
+  const sendBlocker = (d: RunDraft): string | null => {
+    const lines = run ? items.length : picked.size;
+    const taskHelper = d.ticketId ? board.tasks.find((t) => t.id === d.ticketId)?.helperId : null;
+    const goes = d.shopperIds.length > 0 || d.teamId !== null || !!taskHelper;
+    if (!lines && !goes) return "Pick at least one line and who goes.";
+    if (!lines) return "Pick at least one line to buy.";
+    if (!goes) return "Pick who goes (or a team, or a task with someone on it).";
+    return null;
+  };
+
   /** Saves the details (and, for a new run, its chosen lines); with `then`, moves it along after. */
   const save = async (label: string, opts: { send?: boolean; then?: RunStatus } = {}) => {
     const d = validDraft();
     if (!d) return;
+    const blocked = opts.send || opts.then === "ready" ? sendBlocker(d) : null;
+    if (blocked) return setError(blocked);
     const ok = await step(label, async () => {
       const chosen = pickedLines();
       const id = await ctx.saveRun(d, { id: run?.id, ...chosen, send: !run && opts.send });
