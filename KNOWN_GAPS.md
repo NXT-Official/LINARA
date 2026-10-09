@@ -360,8 +360,14 @@ the bottom.
   - After a run linked to a task is closed with a receipt, the task still shows its "Palengke Run" card asking for a receipt photo (SA-055).
   - Offline, Record ko is a spinner with no cached record (SA-088).
   - A run's cost field saves only on Enter or blur; closing the keyboard with Back doesn't save it (SA-054). Fine for a person, who taps something else next.
-- **To close:** decide each; all are `LINARA_MOBILE` except account deletion (`LINARA` schema).
-- **Done 2026-10-09:** the current cutoff's card says "Nabayaran na. Nasa Mga payslip sa ibaba ang eksaktong natanggap mo." once a regular payslip for that cutoff has succeeded; payslip history is ordered by cutoff (newest first); SIL is pre-selected only when she has SIL left, otherwise nothing is and she picks (never a silent "Walang bayad"). **Still to decide:** cancelled requests staying listed, account deletion while employed, the second receipt prompt on a closed run's task (close the task with the run, or let the task use the run's receipt), Record ko offline, and the cost field's save on Back.
+- **To close:** apply the two SQL files, then device-test the new APK.
+- **Done 2026-10-09:** the current cutoff's card says "Nabayaran na. Nasa Mga payslip sa ibaba ang eksaktong natanggap mo." once a regular payslip for that cutoff has succeeded; payslip history is ordered by cutoff (newest first); SIL is pre-selected only when she has SIL left, otherwise nothing is and she picks (never a silent "Walang bayad").
+- **Decided (user, 2026-10-09) and built the same day:**
+  - Cancelled day-off and leave requests are hidden on Sahod ko (`requestsToList` in LINARA_MOBILE `lib/leave.ts`; waiting requests list first). Kept, they had piled up and pushed a waiting request, with its Kanselahin, off the card (Maestro SA-066).
+  - A helper still employed can't ask for her account to be deleted: `supabase/restrict-account-deletion.sql` refuses `request_account_deletion` with "May trabaho ka pa. Magbigay muna ng abiso…", and Record ko's card explains the order instead of offering the request: give notice (the existing `give_notice`, "Aalis ka na ba? Magbigay ng abiso"), the household ends the employment on her last day, then she deletes. PGlite: `privacy.test.mjs`. **SQL not yet applied.**
+  - Closing a run finishes the task that carries it (`supabase/add-run-closes-task.sql`, a trigger on `grocery_runs`; a cancelled run leaves its task alone). No second receipt. PGlite: `grocery-runs.test.mjs`. **SQL not yet applied.**
+  - Record ko is kept on the phone for offline use (LINARA_MOBILE `lib/query-persist.ts`: TanStack Query's AsyncStorage persister, Record ko's queries only, 30 days, cleared on any sign-out); offline it shows the copy with "Walang internet. Ito ang record mo noong …". Maestro: `.maestro/record-offline.yaml`.
+- **Left as is:** a run's cost field saves on Enter or blur, not on Back; fine for a person, who taps something else next.
 
 ## Closed Gaps
 

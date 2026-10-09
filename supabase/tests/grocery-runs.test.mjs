@@ -121,7 +121,9 @@ await db.exec(readFileSync(`${REPO}/add-grocery-runs.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-grocery-pantry-link.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-run-change-limit.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-run-change-limit.sql`, "utf8"));
-console.log("migrations applied (grocery runs and the change limit twice)");
+await db.exec(readFileSync(`${REPO}/add-run-closes-task.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/add-run-closes-task.sql`, "utf8"));
+console.log("migrations applied (grocery runs, the change limit and closing the task twice)");
 
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
@@ -392,6 +394,12 @@ check(
   closed,
 );
 await as(BEN);
+const trip = await one(`SELECT status, actual_end FROM tickets WHERE id = $1`, [TRIP]);
+check(
+  "and Tess's trip, the task carrying it, is finished with it (O55)",
+  trip.status === "done" && trip.actual_end !== null,
+  trip,
+);
 check(
   "what wasn't bought goes back to the pool",
   (await one(`SELECT run_id FROM grocery_items WHERE id = $1`, [G_EGGS])).run_id === null &&
