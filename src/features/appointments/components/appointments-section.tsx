@@ -14,6 +14,7 @@ import {
   toHouseholdClock,
   toISODate,
 } from "@/lib/time";
+import { AI_ENABLED } from "@/lib/ai";
 import { parseSchedulerFn } from "../appointment.actions";
 import type { PrepDraft } from "../appointment.types";
 
@@ -127,34 +128,36 @@ export function AppointmentsSection({
         </button>
       </div>
 
-      <form onSubmit={handleAISchedule} className="mb-4">
-        <div className="flex gap-2 rounded-2xl border border-border/80 bg-background/50 p-1.5 focus-within:border-primary">
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={isScheduling}
-            placeholder="e.g. Flight on Friday at 8am, pack bags 12h before"
-            className="flex-1 bg-transparent px-3 py-2 text-xs outline-none text-foreground placeholder:text-muted-foreground/70"
-          />
-          <button
-            type="submit"
-            disabled={isScheduling || !prompt.trim()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-40"
-          >
-            {isScheduling ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Scheduling...
-              </>
-            ) : (
-              <>
-                <CalendarPlus className="h-3 w-3" />
-                Schedule
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+      {AI_ENABLED && (
+        <form onSubmit={handleAISchedule} className="mb-4">
+          <div className="flex gap-2 rounded-2xl border border-border/80 bg-background/50 p-1.5 focus-within:border-primary">
+            <input
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isScheduling}
+              placeholder="e.g. Flight on Friday at 8am, pack bags 12h before"
+              className="flex-1 bg-transparent px-3 py-2 text-xs outline-none text-foreground placeholder:text-muted-foreground/70"
+            />
+            <button
+              type="submit"
+              disabled={isScheduling || !prompt.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-40"
+            >
+              {isScheduling ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <CalendarPlus className="h-3 w-3" />
+                  Schedule
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
 
       {upcoming.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">

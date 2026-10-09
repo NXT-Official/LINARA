@@ -42,11 +42,12 @@ the bottom.
 ### O24. The web "Hold to record a voice utos" button records nothing
 
 - **Shelved with O26 (user, 2026-10-08).**
+- **Decided (user, 2026-10-09): send the audio, don't transcribe it.** The helper plays the clip; there's no AI in the path, so this no longer waits on O26. Clips need a storage home with a time limit, like photos (O28), and the privacy policy needs a line about them (it currently only says voice *notes* aren't kept).
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
 - **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
 - **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
 - **Current workaround:** The button is removed (2026-10-02), so Quick Utos is presets and typed text only. Nothing pretends to record.
-- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos, and put the button back. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
+- **To close:** Record in the browser (`MediaRecorder`), upload the clip to Storage, and send a utos that carries it, with the picked helper as recipient like a typed one. The helper app gets a play button on that utos. Needs: where the clip lives on the utos row (schema change, both apps), a retention period, the WebView microphone permission, and the privacy-policy line. Owned by `LINARA`, with playback and the WebView permission in `LINARA_MOBILE`.
 
 ---
 
@@ -56,7 +57,7 @@ the bottom.
 - **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
 - **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
 - **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
-- **Current workaround:** The mocks. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
+- **Current workaround:** Hidden (user, 2026-10-09). `AI_ENABLED = false` in `src/lib/ai.ts` and `../LINARA_MOBILE/lib/ai.ts` hides the appointment sentence box, "Generate SOP with AI", the helper's voice notes and "Gawing task", and skips the Quick Utos router (whose mock rewrote what managers typed, e.g. stripping "please"/"paki"), so a utos goes out as typed. SOP cards show the saved steps instead of a "simplified" mock. Flip both switches when a provider is live. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
 - **To close:** Pick a provider, put the calls behind one shared helper in `supabase/functions/_shared/` with the mocks kept as a fallback, set the key as a Supabase Edge Function secret (never Vercel, `VITE_` or `EXPO_PUBLIC_`), and name the provider in the privacy policy (`src/features/legal/privacy-policy.tsx` says nothing is sent to an AI company). Owned by `LINARA`.
 
 ### O27. The manager app has no English / Filipino toggle

@@ -6,6 +6,7 @@ import { Modal } from "@/components/shared/modal";
 import { Field } from "@/components/shared/field";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
 import type { Helper } from "@/features/people/people.types";
+import { AI_ENABLED } from "@/lib/ai";
 import { WEEKDAYS, type Weekday } from "@/lib/time";
 import { generateSopFn, insertHouseSopFn, type HouseStandardSOP } from "../task.actions";
 
@@ -177,24 +178,26 @@ export function NewRoutineModal({
             <label className="text-xs font-semibold text-muted-foreground">
               House-standard note (optional)
             </label>
-            <button
-              type="button"
-              disabled={!title.trim() || isGenerating}
-              onClick={handleAIGenerate}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary transition hover:text-pine-deep disabled:opacity-45"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <BookOpen className="h-3.5 w-3.5" />
-                  Generate SOP with AI
-                </>
-              )}
-            </button>
+            {AI_ENABLED && (
+              <button
+                type="button"
+                disabled={!title.trim() || isGenerating}
+                onClick={handleAIGenerate}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary transition hover:text-pine-deep disabled:opacity-45"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Generate SOP with AI
+                  </>
+                )}
+              </button>
+            )}
           </div>
           <textarea
             value={note}
