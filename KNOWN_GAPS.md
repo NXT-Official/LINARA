@@ -380,6 +380,17 @@ the bottom.
 - **Fix, built 2026-10-09 (user: yes):** both copies now compute the brackets above in one identical body (SSS credit = the wage rounded to ₱500 steps between ₱5,000 and ₱35,000, plus EC; PhilHealth wage/40 each between the floor and ceiling; Pag-IBIG 2% of up to ₱10,000; below ₱5,000 the employer carries her shares). Both value tables (`people.utils.test.ts`, LINARA_MOBILE `lib/statutory.test.ts`) have the new rows, the body comparison passes, and `net-pay.test.ts`'s expected pay moved with them. The web card and My Pay's table say "2026 rates" and that the employer's SSS includes EC. No SQL: Postgres takes the share from the app. Payslips already recorded keep their figures (sandbox only).
 - **Still to do:** check the rates against the agencies' own 2026 circulars (the figures came from secondary sources, one of which gave SSS as 4.5% / 10.5%), and move both copies together when a circular changes them.
 
+### O57. Smaller things from the manager-side Maestro UAT run (pantry, groceries, schedule)
+
+- **Found:** 2026-10-09, Maestro run of the Manager (web) tab's pantry, grocery and schedule cases in the APK's manager WebView (EAS build 89b8d544, flows `LINARA_MOBILE/.maestro/uat/MW-*.yaml` and `E2E-04-*.yaml`, results in `Linara-UAT.xlsx`). Nothing here blocked a case.
+- **Each, for a decision or a quick fix:**
+  - Some deletes are one tap with no confirmation, where the pantry's Remove and a task's Cancel ask first (client feedback 2026-10-02: deletes shouldn't be one tap): a Needed line's × (`grocery-row.tsx`), a draft or waiting run's Delete (`run-modal.tsx`), and an appointment's trash button (`appointments-section.tsx`), which also deletes its prep tasks.
+  - In the APK, Back closes the open sheet (the LMM-A3 contract, C96), so a half-filled New run (picked lines, shopper, cash) is thrown away without a word. Maestro's `hideKeyboard` sends Back when no keyboard is up and hit this; a person pressing Back to drop the keyboard would too.
+  - Appointment prep tasks get no out-of-shift or time-off warning (`new-appointment-modal.tsx`), where New task has one (O19). A prep 12 hours before a 6 PM appointment went to Kuya Marito at 6 AM, outside his 9 AM–10 PM shift, silently.
+  - New routine always starts at 08:00 (`new-routine-modal.tsx`), whoever it's for; New task starts at the helper's shift start. For a helper whose shift starts at 9 the default is off shift.
+  - The helper app's Kailangan and run lines read "1 pcs" where the web (and the app's own pantry list, via `unitFor`) says "1 pc".
+- **To close:** decide which deletes get a second tap; keep a New run draft (or ask) when Back closes it; give the prep rows the same warning as New task; default a routine's time to the chosen helper's shift start; use `unitFor` on the app's grocery lines. Web owns all but the last (LINARA_MOBILE). No schema.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo
