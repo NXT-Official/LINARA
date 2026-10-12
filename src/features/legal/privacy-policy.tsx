@@ -114,6 +114,11 @@ export function PrivacyPolicy() {
           <strong>Expo</strong> delivers notifications to the helper app.
         </li>
         <li>
+          <strong>Sentry</strong> receives error reports and app activity logs (which page was
+          opened, what went wrong, and the account&rsquo;s ID) so we can find and fix problems. It
+          does not receive names, emails, phone numbers or what you type.
+        </li>
+        <li>
           <strong>AI features</strong> (writing house procedures, turning a sentence into an
           appointment, transcribing voice notes) currently run on built-in examples, and nothing is
           sent to an AI company. Before that changes, this page will name the provider and what it
