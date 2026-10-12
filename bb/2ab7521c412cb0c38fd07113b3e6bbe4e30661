@@ -1,0 +1,163 @@
+.env.example
+  s_f8d6ceb53516cd::t_137d24b7ec43ca 35-45
+src/features/legal/privacy-policy.tsx
+  s_f8d6ceb53516cd::t_3ad358cb5f8d2a 117-120
+  s_f8d6ceb53516cd::t_455588f0c96174 116
+src/lib/observability/page-opened.test.ts
+  s_f8d6ceb53516cd::t_74b2d8d0b5d393 1-88
+src/router.tsx
+  s_f8d6ceb53516cd::t_a963f486e02152 4-5,20
+  s_f8d6ceb53516cd::t_2dec1abb2d7055 3,8-11,21-24,27
+  s_f8d6ceb53516cd::t_ee62c8e9525b29 28
+src/lib/observability/wiring.test.ts
+  s_f8d6ceb53516cd::t_24d195d39d7a05 30
+  s_f8d6ceb53516cd::t_bca609cf245a75 1-29,31-43
+src/lib/observability/sentry-config.test.ts
+  s_f8d6ceb53516cd::t_5a4cc487e2154e 229-250
+  s_f8d6ceb53516cd::t_3a273cdb835994 406-411,413,415-428,431-444,446-455,698-699,704-705,707
+  s_f8d6ceb53516cd::t_afb0f5eda0efac 1-2,19-66
+  s_f8d6ceb53516cd::t_4bdeb95056b5d3 74,86,96,103,109,113,119,123,128,140,151,162,173,185,220,251,257-258,260,272,542-663,671,676-677,681,686-688,702,708-709,712-713,716-717,719,785,794-795
+  s_f8d6ceb53516cd::t_26e92cbe24ee6c 84,91,101,108,129,139,149,161,172,178,221,261,273-346,365-367,369-373,375-405,414,429-430,456,467-477,479,481-490,492-541,665,669,678,689,720-774,776,796
+  s_f8d6ceb53516cd::t_ac438bfbfd08d2 259
+  s_f8d6ceb53516cd::t_d9ccc44c1b6e85 4,7-10,15-16
+  s_f8d6ceb53516cd::t_2f8595dcb824e0 187-197,211,213
+  s_f8d6ceb53516cd::t_edaee3b1c874a3 347-364
+  s_f8d6ceb53516cd::t_8875bc65ccb301 70,77,80,133-134,136,153-155,157,167,181,214-215,265,268
+  s_f8d6ceb53516cd::t_ed0742766f11c0 457-466,703
+  s_f8d6ceb53516cd::t_66efe1a5486e1a 3,5-6,11-12,14,17-18
+  s_f8d6ceb53516cd::t_7a6ec426e6565c 13
+  s_f8d6ceb53516cd::t_7bb5bc8e7ca6e0 67-69
+  s_f8d6ceb53516cd::t_b54406f9aca43d 71-73
+  s_f8d6ceb53516cd::t_fa07dc5ca62ab9 75-76
+  s_f8d6ceb53516cd::t_fac867d40c1c8e 78-79
+  s_f8d6ceb53516cd::t_ab7f4b349cbc31 81-83
+  s_f8d6ceb53516cd::t_6cde2eaf1c1f0b 85
+  s_f8d6ceb53516cd::t_842c522367ffe7 87-90
+  s_f8d6ceb53516cd::t_83dcf9d8cb963d 92-95
+  s_f8d6ceb53516cd::t_e63c029fef3121 97-100
+  s_f8d6ceb53516cd::t_53e2355f3a6848 102
+  s_f8d6ceb53516cd::t_0730b69bfb0d3f 104-107
+  s_f8d6ceb53516cd::t_7ccc7f26897af8 110-112
+  s_f8d6ceb53516cd::t_6defd98651ed85 114-118
+  s_f8d6ceb53516cd::t_96c0972e8a132c 120-122
+  s_f8d6ceb53516cd::t_803d9bbfd56d40 124-127
+  s_f8d6ceb53516cd::t_d2a22d6e777a1a 130-132
+  s_f8d6ceb53516cd::t_4ad7518d1f8597 135
+  s_f8d6ceb53516cd::t_58d466793e67f7 137-138
+  s_f8d6ceb53516cd::t_818cee7216cdb9 141-143,146-148
+  s_f8d6ceb53516cd::t_3f43e3fee0e61a 150
+  s_f8d6ceb53516cd::t_01755e41e62647 152
+  s_f8d6ceb53516cd::t_5df9fa12f7d37e 156
+  s_f8d6ceb53516cd::t_e11da18b03fcb1 158-160
+  s_f8d6ceb53516cd::t_693aebc4700234 163-166
+  s_f8d6ceb53516cd::t_5f27fa4f8dab1b 168-171
+  s_f8d6ceb53516cd::t_bd1dd8ca3dffcf 174-177
+  s_f8d6ceb53516cd::t_bb41e5b5dc5b14 179-180
+  s_f8d6ceb53516cd::t_369269493272c0 182-184
+  s_f8d6ceb53516cd::t_58eca62f87feb6 186
+  s_f8d6ceb53516cd::t_dba91447f2ffc0 198-200,208-210
+  s_f8d6ceb53516cd::t_78efca54232beb 212
+  s_f8d6ceb53516cd::t_33ec9d17e21297 216-219
+  s_f8d6ceb53516cd::t_d0bce0e820398e 222-224,226-228
+  s_f8d6ceb53516cd::t_c6ea7b4b30e694 252-256
+  s_f8d6ceb53516cd::t_395c895d5708cc 262-264
+  s_f8d6ceb53516cd::t_e8e7b51a4b9be5 266-267
+  s_f8d6ceb53516cd::t_f5368e4bd7e516 269-271
+  s_f8d6ceb53516cd::t_03bde9f917d5ca 368
+  s_f8d6ceb53516cd::t_894867ddf5d48e 374
+  s_f8d6ceb53516cd::t_3576625c098e19 412
+  s_f8d6ceb53516cd::t_fb5162d2eb481d 445
+  s_f8d6ceb53516cd::t_f3b3f8ad453d8a 478
+  s_f8d6ceb53516cd::t_c739c868cf59fd 480
+  s_f8d6ceb53516cd::t_5f8bcf260fdcee 491
+  s_f8d6ceb53516cd::t_e59b2af5e2de5a 664
+  s_f8d6ceb53516cd::t_c16570ebfd9d47 666-668
+  s_f8d6ceb53516cd::t_96cbbae7b98b5c 670
+  s_f8d6ceb53516cd::t_2951b35bbc7edf 672-675
+  s_f8d6ceb53516cd::t_9f186fc01c6077 679-680
+  s_f8d6ceb53516cd::t_899e77c58c0729 682-685
+  s_f8d6ceb53516cd::t_07f114561705ed 690-692,695-697
+  s_f8d6ceb53516cd::t_6a54114828b7d5 700-701
+  s_f8d6ceb53516cd::t_6a28b817a3523e 706
+  s_f8d6ceb53516cd::t_bc8c484815931e 710-711
+  s_f8d6ceb53516cd::t_e1cdfce51e8822 714-715
+  s_f8d6ceb53516cd::t_2aa862e277c2bf 718
+  s_f8d6ceb53516cd::t_e8a6281bcafd92 775
+  s_f8d6ceb53516cd::t_13eadb363d6214 777-779,782-784
+  s_f8d6ceb53516cd::t_45b53209fb5ace 786-788,791-793
+  s_8c1ea202f553b2::t_9bd5f38d4ef13b 144-145,201-207,225,693-694,780-781,789-790
+src/lib/observability/sentry-config.ts
+  s_f8d6ceb53516cd::t_1a0fb751faaa4d 127,153
+  s_f8d6ceb53516cd::t_8294c2d4e6aecb 193
+  s_f8d6ceb53516cd::t_5b8eb16e8bc055 80,97,115,130,186,296,319,331-332,337,348,353,387,422,431,452
+  s_f8d6ceb53516cd::t_d724ce18cb4593 40-52,55,59,119,124,175,179,191,194,199,205,275,281,309,313,413,417,490,497
+  s_f8d6ceb53516cd::t_b7606195651f34 138
+  s_f8d6ceb53516cd::t_32254f2034cc59 1-30,53,81,99,117,131,164,187,197,258,271,289,297,307,322,338,358,371,388,393,400,411,441,454,467,480,488,547
+  s_f8d6ceb53516cd::t_b004cf2bf04411 139,158
+  s_f8d6ceb53516cd::t_6dcd9c4aee5e60 433-437
+  s_f8d6ceb53516cd::t_01f9ad7a6c10b9 31-39,54,56-58,60-79,82-96,98,100-114,116,118,120-123,125-126,128-129,132-137,140-152,154-157,159-163,165-174,176-178,180-185,188-190,192,195-196,198,200-204,206-257,259-270,272-274,276-280,282-288,290-295,298-306,308,310-312,314-318,320-321,323-330,333-336,339-347,349-352,354-357,359-370,372-386,389-392,394-399,401-410,412,414-416,418-421,423-430,432,438-440,442-451,453,455-466,468-479,481-487,489,491-496,498-546
+src/lib/observability/sentry.server.test.ts
+  s_f8d6ceb53516cd::t_df1bce63881162 1-82
+vite.config.ts
+  s_f8d6ceb53516cd::t_40ca9660dcdb28 1,8-14,24-28,35-37,45-47,56-64
+  s_f8d6ceb53516cd::t_a17f124456d5a5 65-69
+src/lib/observability/sentry.client.test.ts
+  s_f8d6ceb53516cd::t_89e50096defbd8 1-78,93-193
+  s_f8d6ceb53516cd::t_f0b58f3bea02e9 79,91-92
+  s_f8d6ceb53516cd::t_3c41d3ed8ff159 80-90
+src/features/legal/legal.constants.ts
+  s_f8d6ceb53516cd::t_261da718be6e22 3
+src/start.ts
+  s_f8d6ceb53516cd::t_479ff02046dc16 4,14-15
+src/lib/observability/sentry.client.integration.test.ts
+  s_f8d6ceb53516cd::t_d7759c5a2846e9 60
+  s_f8d6ceb53516cd::t_e2250a598cff79 13-15,18
+  s_f8d6ceb53516cd::t_846a0e1568da7a 1-12,20-59,61-74,88,99-113,117-121,125-126,130-131
+  s_f8d6ceb53516cd::t_82d0fde7c10fb6 114-116,122,124,127-129
+  s_f8d6ceb53516cd::t_18070e758fd1b9 79
+  s_f8d6ceb53516cd::t_5bd76ed8b6823e 123
+  s_f8d6ceb53516cd::t_ba900b799936d4 75-78,80-87,89-98
+  s_f8d6ceb53516cd::t_9647c9530fb97e 16-17,19
+src/lib/observability/page-opened.ts
+  s_f8d6ceb53516cd::t_804173a9ae77c4 1-18,20-43
+  s_f8d6ceb53516cd::t_fa5be6ce2f9f11 19
+src/lib/observability/sentry.client.ts
+  s_f8d6ceb53516cd::t_90b6bc61a6b4dd 1-4,6-30,35-36,38-58,61-74
+  s_f8d6ceb53516cd::t_e293e442f72936 31-34,37
+  s_f8d6ceb53516cd::t_1a0fb751faaa4d 5,59-60
+src/lib/observability/sentry.server.ts
+  s_f8d6ceb53516cd::t_1a0fb751faaa4d 3,24-25
+  s_f8d6ceb53516cd::t_d30c6c00691b3f 1-2,4-23,26-45
+bun.lock
+  s_f8d6ceb53516cd::t_c9cb10cb2c161b 34,63,285-325,521-548,897-898,1025-1026,1211-1212,1253-1254,1269-1270,1363-1364,1419,1509-1510,1663-1664,1669-1670,1679-1680,1787-1788,1898-1899
+package-lock.json
+  s_f8d6ceb53516cd::t_09a891121274d6 35,64,1077-1413,2998-3240,6199-6210,7143-7159,7173-7208,8535-8543,8960-9004,9090-9114,9790-9801,11210-11215
+package.json
+  s_f8d6ceb53516cd::t_6eb183e367852f 54,83
+src/server.ts
+  s_f8d6ceb53516cd::t_1dcdd7092da96b 1-2,33-35,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb2ab7521c412cb0c38fd07113b3e6bbe4e30661",
+  "prompts": {},
+  "sessions": {
+    "s_8c1ea202f553b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4805d8cb901b30ca",
+        "model": "unknown"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    },
+    "s_f8d6ceb53516cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c84df994-0d2a-4bdf-b97f-83f23f252335",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
