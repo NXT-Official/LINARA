@@ -1,0 +1,31 @@
+supabase/tests/seat-limits.test.mjs
+  s_015ef908465883::t_1085673ea6ca03 1-110,115-285
+  s_015ef908465883::t_7559e15adc420e 111-114
+supabase/tests/subscriptions.test.mjs
+  s_015ef908465883::t_14d0f742ebf8a3 867-879
+  s_015ef908465883::t_00d79a46ec24dc 1-866,880-958,963
+  s_015ef908465883::t_a2d4b6c276d86a 959-962,964-1008
+supabase/add-subscriptions.sql
+  s_015ef908465883::t_0d17a57d54c5e2 321
+  s_015ef908465883::t_8e3fcdc7ea5bb2 1-320,322-388,390-883
+  s_015ef908465883::t_d2f77ea3069a8e 389
+supabase/add-seat-limits.sql
+  s_015ef908465883::t_d2f77ea3069a8e 74
+  s_015ef908465883::t_d2922930c4024f 1-73,75-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2972e83991352bd13a2028706c3811b4f7b4f5a8",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
