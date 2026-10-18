@@ -1,0 +1,30 @@
+src/features/platform-admin/households.actions.test.ts
+  s_015ef908465883::t_ff0f280246b3da 2-21
+  s_015ef908465883::t_ec9a5741ca2328 1
+src/features/platform-admin/components/mark-paid-modal.tsx
+  s_015ef908465883::t_ff0f280246b3da 10,67-69
+src/features/platform-admin/pages/platform-admin-households-page.test.tsx
+  s_015ef908465883::t_63dfc1198375f9 20-23
+  s_015ef908465883::t_ff0f280246b3da 157,177-243
+  s_015ef908465883::t_2139864cc8a777 19,244
+src/features/platform-admin/households.actions.ts
+  s_015ef908465883::t_ff0f280246b3da 111-115,119-131,146,174,189-192,195-198,201-203
+src/features/platform-admin/components/grant-plan-modal.tsx
+  s_015ef908465883::t_ff0f280246b3da 10,23-27,55-56,64-71,81-82,85,90,100,111,155,159,168,175-176,184-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9fd8afa72fd2ee63ab2aa46fd40334490e69fbb4",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
