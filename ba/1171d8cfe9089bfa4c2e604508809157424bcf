@@ -1,0 +1,29 @@
+src/features/support/components/thread-view.tsx
+  s_015ef908465883::t_0d17a57d54c5e2 48-57,59-60,63,68,132,135-138,222
+src/features/support/hooks/use-support-threads.ts
+  s_015ef908465883::t_0d17a57d54c5e2 28-30,41-42,47,56,67-72,77-78,81
+src/features/support/pages/manager-help-page.tsx
+  s_015ef908465883::t_0d17a57d54c5e2 139
+src/features/support/pages/platform-admin-support-page.tsx
+  s_015ef908465883::t_0d17a57d54c5e2 73
+src/features/support/components/thread-view.test.tsx
+  s_015ef908465883::t_64ab69cec42350 136-175
+src/features/support/hooks/use-support-threads.test.tsx
+  s_015ef908465883::t_d89d0bb845622f 85-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba1171d8cfe9089bfa4c2e604508809157424bcf",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
