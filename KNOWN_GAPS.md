@@ -24,7 +24,7 @@ the bottom.
 - **Current workaround:** None.
 - **Fix, applied 2026-10-03:** `supabase/add-household-managers.sql`, tested in `supabase/tests/household-managers.test.mjs` (in `npm run test:sql`).
   - **Model:** `household_managers` (one row per manager per household, with that household's role, one primary each) and `manager_invites` (8-character single-use codes, 7 days). `user_profiles.household_id` / `user_type` stay the household the account is in right now, so every policy and function that reads them is unchanged; `switch_household()` moves the account between its memberships. One active household per account (user's choice): a switch on one device moves the others, and the web reloads when it notices. A helper account can't be a manager anywhere (separate logins, user's choice).
-  - **Roles:** the primary manager invites co-managers and remote admins, changes roles, hands primary over (one primary, user's choice) and removes managers; anyone else can leave. Any manager can start another household (`create_household`). Account deletion now goes through every household the person manages: one with another manager keeps everything and, if they were primary, its longest-standing co-manager takes over.
+  - **Roles:** the primary manager invites co-managers and remote admins, changes roles, hands primary over (one primary, user's choice) and removes managers; anyone else can leave. Any manager could start another household (`create_household`); since O49 (2026-10-09) only one who is primary of at least one household can. Account deletion now goes through every household the person manages: one with another manager keeps everything and, if they were primary, its longest-standing co-manager takes over.
   - **Enforced in the database** (user's choice), not only in server code: RESTRICTIVE policies keep a remote admin to suggested tasks, or urgent ones while the helper is on shift (never overriding her off-hours), urgent Quick Utos on shift, no appointment / invite-flag / payout-attempt writes; she may approve vales and set the budget (`plan.md`: usually the funding source). Also closes a hole: `payout_attempts_isolation` let a helper's session write payout attempts.
   - **Web** (works before the SQL is applied; the new parts stay hidden until then): household switcher in the top bar (switch, New household, Join with a code), a Managers section on People (roster, invite codes, role, make primary, remove, leave), sign-up and the setup screen can join with a code, the send gate holds a remote admin to the same rules, and the unused `INITIAL_ADMINS` mock and "View as" switcher are gone.
   - **Mobile:** no change needed: `getAccountKind()` only checks that `user_type` is a manager type, and the WebView keeps working through a switch.
@@ -35,83 +35,63 @@ the bottom.
 
 - **Found:** 2026-10-01. The client wants managers in the APK too. For the demo, `LINARA_MOBILE/app/manager.tsx` loads the deployed dashboard (`MANAGER_DASHBOARD_URL` in `lib/env.ts`, defaulting to `https://linara-delta.vercel.app`) for accounts whose `user_type` is a manager type, and hands the page the app's session. A native rebuild comes later.
 - **What's missing:** Native manager screens. `LINARA_MOBILE/AGENTS.md` used to say the mobile client is helper-facing only; that's no longer true.
-- **Known limits of the WebView:** no offline use (a retry screen instead); no manager push notifications (`use-push-notifications.ts` skips managers, which is fine today because every push goes to a helper); the page reloads when the app refreshes the token (the page itself leaves renewal to the app there, C75). A manager who signs up on the in-app dashboard but closes it before creating their household has no `user_profiles` row, so on the next launch they land on the helper tabs. Signing in again and choosing "New manager? Set up your household" gets them back.
+- **Known limits of the WebView:** no offline use (a retry screen instead); no manager push notifications (`use-push-notifications.ts` skips managers, which is fine today because every push goes to a helper); the page reloads when the app refreshes the token (the page itself leaves renewal to the app there, C75). A manager who signs up on the in-app dashboard but closes it before creating their household has no `user_profiles` row, so on the next launch they land on the helper tabs. Signing in again and choosing "New manager? Set up your household" gets them back. Since C89 the server sends a request for `/manager/*` without the `linara_signed_in` cookie to `/login`, and the app's first request can't carry it (its tokens arrive by injected script, after the response). So the first time a phone opens the dashboard it hops through `/login`, which forwards a signed-in page to the Pass and sets the cookie; after that it opens directly. Sending the cookie with the WebView's first request (`source.headers`) would skip even that.
 - **Blocks:** Nothing for the demo. For a native rebuild, the web's `*.actions.ts` are `createServerFn` handlers. Most just wrap `createAuthedClient(token)` and can run on-device under RLS, but the Xendit payout calls use `XENDIT_SECRET_WRITE_KEY` and have to stay server-side.
 - **To close:** Rebuild Pass, Schedule, Money, People and Pantry as React Native screens in `LINARA_MOBILE`, or accept the WebView and add offline and push support to it. Owned by `LINARA_MOBILE`, but every web UI change until then ships to the app automatically.
 
 ### O24. The web "Hold to record a voice utos" button records nothing
 
+- **Shelved with O26 (user, 2026-10-08).**
+- **Decided (user, 2026-10-09): send the audio, don't transcribe it.** The helper plays the clip; there's no AI in the path, so this no longer waits on O26. Clips need a storage home with a time limit, like photos (O28), and the privacy policy needs a line about them (it currently only says voice *notes* aren't kept).
 - **Found:** 2026-10-02, while reviewing client feedback ("The voice utos doesn't work").
 - **What's missing:** `quick-utos-launcher.tsx` changes the button's style while it's held, then on release sends the fixed text `"🎙️ Voice utos · 0:04"` as a typed utos. There is no `MediaRecorder` or microphone access, and nothing is transcribed. The helper gets that literal string. `LINARA_MOBILE` has real recording and transcription (`use-audio-recorder.ts` → `transcribe-notes`), but only for her private scratchpad. Helpers have no way to send a voice utos at all.
 - **Blocks:** Voice utos for managers, on the web and in the APK's WebView (O18). The WebView would also need microphone permission for the page (`react-native-webview` media capture plus Android `RECORD_AUDIO`).
 - **Current workaround:** The button is removed (2026-10-02), so Quick Utos is presets and typed text only. Nothing pretends to record.
-- **To close:** Record in the browser, send the audio to `transcribe-notes`, then route the transcript through `routeUtosFn` like a typed utos, and put the button back. Transcription returns a canned mock while `USE_MOCK_AI` is on or `OPENAI_API_KEY` is unset, so real voice also depends on the AI-provider decision. Owned by `LINARA`, with the WebView permission in `LINARA_MOBILE`.
+- **To close:** Record in the browser (`MediaRecorder`), upload the clip to Storage, and send a utos that carries it, with the picked helper as recipient like a typed one. The helper app gets a play button on that utos. Needs: where the clip lives on the utos row (schema change, both apps), a retention period, the WebView microphone permission, and the privacy-policy line. Owned by `LINARA`, with playback and the WebView permission in `LINARA_MOBILE`.
 
 ---
 
 ### O26. Every AI feature answers from a mock; no provider is chosen
 
+- **Shelved (user, 2026-10-08):** AI stays on the mocks for now; no provider work until it's picked up again. O24 (voice utos) and O47 (the AI functions' guard, built) wait with it.
 - **Found:** 2026-08-14 (first deploy), logged 2026-10-03 when listing what's left after the QA round.
 - **What's missing:** `aiagent.md` describes three live agents. All six AI edge functions (`generate-sop`, `simplify-sop`, `parse-scheduler`, `route-utos`, `promote-voice-task`, `transcribe-notes`) read `USE_MOCK_AI` and return canned output when it's `true`, which is how they're deployed. They're coded against OpenAI's request shape (`OPENAI_API_KEY`, `whisper-1` for transcription), and no key is set in the Supabase secrets.
 - **Blocks:** Real SOP generation, natural-language scheduling, Quick Utos routing, and voice (O24).
-- **Current workaround:** The mocks. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
+- **Current workaround:** Hidden (user, 2026-10-09). `AI_ENABLED = false` in `src/lib/ai.ts` and `../LINARA_MOBILE/lib/ai.ts` hides the appointment sentence box, "Generate SOP with AI", the helper's voice notes and "Gawing task", and skips the Quick Utos router (whose mock rewrote what managers typed, e.g. stripping "please"/"paki"), so a utos goes out as typed. SOP cards show the saved steps instead of a "simplified" mock. Flip both switches when a provider is live. The provider (OpenAI, Claude or Gemini) is still open; README §12.4 has the options. `transcribe-notes` needs speech-to-text whichever text model is picked.
 - **To close:** Pick a provider, put the calls behind one shared helper in `supabase/functions/_shared/` with the mocks kept as a fallback, set the key as a Supabase Edge Function secret (never Vercel, `VITE_` or `EXPO_PUBLIC_`), and name the provider in the privacy policy (`src/features/legal/privacy-policy.tsx` says nothing is sent to an AI company). Owned by `LINARA`.
 
 ### O27. The manager app has no English / Filipino toggle
 
+- **Deferred (user, 2026-10-08):** no Filipino toggle for now.
 - **Found:** 2026-09-30 (decided during the design refresh), logged 2026-10-03.
 - **What's missing:** `PRODUCT.md` (Capabilities and Constraints; Accessibility) commits to a full English / Filipino toggle for all three manager types. The web copy is English with some Tagalog (toasts, the staff sign-in screen), and there's no i18n layer.
 - **Blocks:** Lola / relative managers who'd rather read Filipino; nothing technical.
 - **Current workaround:** None.
 - **To close:** Pull manager-facing strings into a catalogue, add the toggle, and translate. The helper app (`LINARA_MOBILE`) is already Filipino-first and isn't part of this. Owned by `LINARA`.
 
-### O28. Receipt and task photos are kept forever
+### O28. Receipt and task photos were kept forever
 
+- **Storage is moving (user, 2026-10-08):** photos will move to an AWS S3 bucket eventually, and retention gets settled with that move. Supabase Storage stays as it is for the 2026-10-09 demo.
 - **Found:** 2026-10-02, while adding `grocery_receipts` (C80), logged 2026-10-03.
-- **What's missing:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deletes them, and neither the schema nor the docs say how long they should be kept.
-- **Blocks:** Nothing yet. Storage grows with every finished task and receipt.
-- **Current workaround:** None.
-- **To close:** Decide a retention period with the client (receipts aren't payslips, so RA 10361's payslip retention doesn't set it; check `LEGAL_CONSIDERATIONS.md`), then a scheduled job that removes older objects and the rows' URLs. Owned by `LINARA`.
-
-### O29. A manager can't attach a receipt from the web
-
-- **Found:** 2026-10-02 (C80), logged 2026-10-03.
-- **What's missing:** Receipts are added only in `LINARA_MOBILE`'s Pantry tab (the Resibo card). The web's `receipt-slot.tsx` lists the latest receipts and has no upload. A manager who did the shopping can tick items bought on the web (LW-5) but can't add the receipt.
-- **Blocks:** The manager-does-the-shopping case, end to end.
-- **Current workaround:** Add it from a helper's phone, or not at all.
-- **To close:** An upload in `receipt-slot.tsx` writing to `household-evidence` and `grocery_receipts`, shrinking the photo the way the app does. Owned by `LINARA`.
-
-### O30. No list view of tasks
-
-- **Found:** 2026-10-02, client feedback (asked for "list view"; no more detail was recorded), logged 2026-10-03.
-- **What's missing:** The Schedule has Week, By person and Month; the Pass shows today's lanes. There's no plain list of tasks.
-- **Blocks:** Nothing.
-- **Current workaround:** Week view.
-- **To close:** Ask the client what the list is for (all upcoming? search results? one helper's?), then add it as another Schedule view. Owned by `LINARA`.
+- **Was:** Task evidence and receipts go to the `household-evidence` bucket (`ARCHITECTURE.md` §5.1), shrunk on the phone to about 150 to 300 KB each, but nothing ever deleted them, and neither the schema nor the docs said how long they should be kept.
+- **Decided (team, 2026-10-03; NOT yet approved by the client):** task completion photos are kept **30 days**, receipt photos **60 days** (a palengke run's photo is its receipt, so 60). The amounts that matter outlive the pictures in rows that are never purged: what was bought and what it cost (`grocery_items`), and the task, who did it, when, and its comments. A manager who wants a photo for longer saves it from the web. **Revisit once the client has approved (or changed) these periods** -- they're two constants: `TASK_PHOTO_DAYS` / `RECEIPT_PHOTO_DAYS` in `src/lib/evidence-photo.ts` (UI copy) and the defaults of `release_expired_evidence()` (the actual purge). Wage records are a separate question (RA 10361, `LEGAL_CONSIDERATIONS.md` "Records"); nothing here touches payslips or payout QR codes.
+- **Fix, built 2026-10-03, NOT yet applied:**
+  - `supabase/add-evidence-photo-retention.sql`: `release_expired_evidence()` picks `<household>/tickets/` files older than 30 days and `<household>/receipts/` files older than 60 by the file's own upload time, nulls `tickets.photo_evidence_url` and deletes the `grocery_receipts` rows pointing at them, and returns the paths. Going by file age also sweeps thumbnails and files no row ever pointed at. Service role only. PGlite: `supabase/tests/evidence-retention.test.mjs` (15 checks).
+  - `supabase/functions/purge-expired-evidence`: removes those files through the Storage API (Supabase refuses `DELETE` on `storage.objects` from SQL). Called nightly at 02:30 Manila by the `purge-expired-evidence` pg_cron job via pg_net, authenticated by `x-purge-secret` (`verify_jwt = false`, `config.toml`). A failed removal is picked up again the next night.
+  - **Thumbnails** (option B, made on the phone): `LINARA_MOBILE/services/media-upload.ts` also uploads a 480px, 70% JPEG copy at `<name>.thumb.jpg` (about 25 to 45 KB), best effort. The web signs both in one call (`signEvidencePhotos`) and cards, the OFW glance and the receipt list show the thumbnail, falling back to the full photo for older uploads.
+  - **Save locally:** the task dialog's photo and the receipt viewer have "Save photo" / "Save receipt", a download of the same signed URL (`savePhotoUrl`, Storage's `download` parameter), and say how long photos are kept. In the APK's manager WebView the link opens the phone's browser, which saves it (`app/manager.tsx` sends non-dashboard URLs out).
+- **To close:** apply the SQL above the `@schedule` line; set `EVIDENCE_PURGE_SECRET`, deploy `purge-expired-evidence`, add the two Vault secrets and run the `@schedule` part (all spelled out in the SQL file's comments and `supabase/DEPLOYMENTS.md`); invoke the job once (`SELECT net.http_post(...)` from the schedule, or wait a night) and check `net._http_response` says `released`/`removed`. Build a mobile APK so new photos get thumbnails. Test Save on a phone in the WebView. Then move this to Closed Gaps. Owned by `LINARA` (SQL, function, web) and `LINARA_MOBILE` (thumbnail upload).
 
 ### O31. Helpers can't edit a task
 
 - **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web.
-- **Blocks:** A helper fixing a wrong time herself.
-- **Current workaround:** She comments, and a manager edits.
-- **To close:** Decide what she may change (probably time and note, not who it's for), then an app edit screen and a `BEFORE UPDATE` guard on `tickets` like C72's, since today her updates are held to status columns. The time-change notice and ledger rules (C71, C76) must still fire. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
-
-### O32. Search and filters exist only on the Pantry and Grocery list
-
-- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** `ListFilter` is used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule, the Pass, Money's payslips and People have no search.
-- **Blocks:** Finding an old task or payslip in a busy household.
-- **Current workaround:** Scrolling, or Month view.
-- **To close:** Add `ListFilter` where lists get long, starting with the Schedule. Owned by `LINARA`.
-
-### O33. Staff can't change the grocery budget (waiting on the client)
-
-- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
-- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
-- **Blocks:** Nothing until the client confirms.
-- **Current workaround:** A manager sets it on the web.
-- **To close:** Get the client's yes. Then decide whether it's every helper or only pantry leads (C77), and give that role a guarded write. Owned by `LINARA` (the policy), with the screen in `LINARA_MOBILE`.
+- **Was:** In `LINARA_MOBILE` a helper can start, finish, reopen, block and comment on a task (`services/api/tickets.ts`), but not change its title, time or note. Only managers edit, on the web. Separately (C72's residual), `tickets_isolation` was one household-wide `FOR ALL` policy, so her login used straight against the REST API could already change *any* column of *any* task in the house, or delete it.
+- **Decided (user, 2026-10-04):** she may change her own task's **time and note**; the title and who it's for stay the manager's.
+- **Fix, built 2026-10-04, SQL applied 2026-10-05:**
+  - `supabase/add-helper-task-edit.sql`: trigger `tickets_zz_guard_helper_update` lets a helper's session update only her own task, and only `status`, `actual_start` / `actual_end`, `block_reason`, `photo_evidence_url` (what her app already writes) plus `scheduled_start` and `notes`. Never to or from `cancelled`, and not the time or note of a done task (unticking still works). RESTRICTIVE policies: she inserts tasks for herself only ("Promote to Board"), and only managers delete. Managers and `SECURITY DEFINER` functions (employment end, appointment moves, the ledger trigger) are untouched. Checked first: every SQL function that updates `tickets` is a definer, and the app writes no other ticket column. PGlite: `supabase/tests/helper-task-edit.test.mjs` (in `npm run test:sql`).
+  - **Rest owed is unaffected:** the ledger trigger (C76) reads `actual_start` / `actual_end` and the after-hours / emergency flags, which she can't set, never `scheduled_start`. The C71 move notice is for *her* when a manager moves her task, so it isn't written when she moves it herself.
+  - **Mobile:** "Ayusin ang oras o note" on the focus card (`components/features/today/edit-task-form.tsx`): day and time pickers and the note, online only. A moved time also posts "Inilipat ko sa 4:30 PM (dati 3:00 PM)." to the task's updates, so the manager sees it on the Pass as a comment badge. The card now shows the task's time. `combineLocalDateTime` (`lib/datetime-fields.ts`, tested under three zones) builds the time from parts, never through UTC (C38).
+- **To close:** build an APK, and on a phone move a task and change a note; check the manager's Pass shows the new time and the comment. Then move this to Closed Gaps. Owned by both: the guard in `LINARA`, the screen in `LINARA_MOBILE`.
 
 ### O34. A remote admin couldn't pay wages
 
@@ -133,6 +113,283 @@ the bottom.
 - **Verified on the deployed site (2026-10-03):** `e2e/deep/pay.spec.ts` (in `npm run qa:deep`): the test helper saves a GCash number through the API, the test manager's Pay screen shows it, "I've sent it" records a `manual` / `PH_GCASH` payslip with `helper_ack` pending and the reference, at exactly the amount shown; then it's withdrawn and the number deleted.
 - **Still open:** GCash has no public way to open a send with the amount filled in, so the manager copies the number and amount (or scans her QR). A manager can still type a different number into GCash; the name check on GCash's confirm screen and her "did you receive it?" are the safeguards.
 - **To close:** Save a number from the app's "Where to send my pay" on a real phone (the screen hasn't been device-tested), and confirm a payment there, then move this to Closed Gaps. Owned by both: the SQL and web in `LINARA`, the screen in `LINARA_MOBILE`.
+
+### O36. The manager's views fell apart past a handful of staff
+
+- **Found:** 2026-10-05, user request: households with tens or hundreds of staff.
+- **Was:** Every staff view was one block per helper with no search, filter or grouping: a lane each on the Pass, a row each on Schedule's By person, a tall card each on People, one flat payroll list on Money. About 8 helper pickers were plain `<select>`s. The Pass's status chip named one helper (`activeHelpers[0]`, the MULTI_HELPER_HANDLING.md pattern), and Shifts said "No one covers Sunday" whenever any two helpers shared a rest day. Pay periods and rest-owed balances were one browser request per helper.
+- **Decided (user, 2026-10-05):** a large customer is one estate run as departments; separate properties stay separate households. **Team** (one per helper, what views group by) plus **Labels** (any number, for filtering), both chosen at invite. Helpers see their own team and labels on their Record.
+- **Fix, applied 2026-10-05:** `supabase/add-teams-and-labels.sql`, tested in `supabase/tests/teams-and-labels.test.mjs` (in `npm run test:sql`).
+  - **Schema:** `household_teams`, `household_labels`, `helper_labels`, `helper_profiles.team_id` (ARCHITECTURE.md §8, 2b). Primary and co-managers write; every manager reads; a helper reads her own labels only and can't change her team.
+  - **Web** (`src/features/teams/`; works before the SQL is applied, with teams hidden until it is):
+    - **Invite modal:** team and labels, created inline.
+    - **People:** search, team and label filters, grouping by team, one-line rows past 8 helpers, "Choose several" to move people to a team or add/remove a label in bulk, and a Teams and labels section.
+    - **Pass:** a third layout, **Roll call** (a line per person; the default past 8 active helpers). Line and Roll call group by team under collapsible headers with done/total and "needs you". Lanes needing a decision sort first. The Board filters by scope. "X of Y on shift" replaces the one-helper chip.
+    - **Schedule:** the person picker can choose "All of <team>", search narrows by team on the server, and By person groups rows under team headings.
+    - **Shifts:** groups by team, and warns only when everyone in a team rests the same day.
+    - **Money:** payroll filters, "Still to pay", and per-team subtotals.
+    - **Every helper picker** is `HelperPicker`: the plain select for a small household, searchable and grouped by team past 8 helpers or once there are teams.
+    - The team/label/grouping choice follows the manager across tabs on that device (`useStaffScope`).
+  - **Requests:** pay periods and rest-owed balances are one browser request for the whole staff (`listPayPeriodsForFn`, `getRestOwedBalancesFn`), fanned out on the server 8 at a time.
+  - **Mobile:** Record shows "Team" and "Mga label" (`services/api/record.ts`). Before the SQL is applied it shows neither.
+- **Still open:** the claim screen (`review-terms.tsx`) doesn't show team or labels, since `lookup` reads them through an RPC that would need changing. Leave balances (`leave.actions.ts`) still run 3 queries per helper on the server. The batched pay reads still call one RPC per helper behind the single request; a set-returning SQL function for the household would remove that.
+- **Verified (2026-10-05):** against the live database, the test manager and test staff account both read `household_teams`, `household_labels`, `helper_labels` and `helper_profiles.team_id`, and the staff account is refused creating a team. `npm run qa` (45 browser checks) passes on a local production build against the applied schema.
+- **To close:** On the deployed site, make a team and a label from the invite form, invite into them, check People, Pass (Roll call, grouping), Schedule, Shifts and Money with a seeded large household, and see the team and label on the helper's Record on a device. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the Record row in `LINARA_MOBILE`.
+
+### O39. A helper could work in only one household, on one team, and tasks had no place
+
+- **Found:** 2026-10-05, user request after O36: staff work across the family's houses ("drive A from House 1 to House 2, then B back").
+- **Was:** One ACTIVE employment per helper, and her login reached only that household. A task assigned to her elsewhere was invisible to her, and House 2's managers couldn't see her (no lane, no picker entry). A helper had at most one team. Tasks had no location, and nothing checked that a task's helper worked in the task's household.
+- **Decided (user, 2026-10-05):**
+  - One employment and one employer: her home household pays her and keeps her record.
+  - She also works in other households of the family, where the family is defined by the people who run them: a primary or co-manager can share her into any household they also run. Nothing moves.
+  - Home team plus teams she also covers.
+  - Every task is at a house; a trip has a from and a to, each a house or a saved place.
+  - Her app gets a house switcher, Today across all her houses, a Today layout choice, and a read-only "my team's day" showing who, what, when, where and status only.
+- **Fix, built 2026-10-05, SQL applied (confirmed live 2026-10-07):** `supabase/add-shared-staff-and-places.sql`, tested in `supabase/tests/shared-staff-and-places.test.mjs` (in `npm run test:sql`).
+  - **Schema:** `helper_households`, `helper_team_covers`, `household_places`, `tickets.from_*/to_*`, `quick_utos.household_id` (ARCHITECTURE.md §8, 2c).
+  - **Her login** reaches every house she works in (`my_household_ids()`): her own tasks (update, add), each house's pantry, palengke list and receipts, team names and saved places, and the photo folder in the evidence bucket. Her session stays in her home household, so pay is unchanged.
+  - **Other houses' managers** see her through `shared_helpers()`: shift, availability and team there, never pay.
+  - **New guards:** `tickets_helper_works_here` (a task's helper must work in its household; this closes the old hole) and `tickets_places_guard` (trip ends stay inside the family).
+  - **Web:**
+    - **People:** "Teams & houses" on each helper covers team, also-covers, labels and "Also works at". New "Also working here" and Places sections.
+    - **Store:** shared staff join `activeHelpers` (lanes, pickers, schedule, send gate). Pay screens use the new `employedHelpers`.
+    - **Team filter:** includes people who cover the team.
+    - **Tasks:** the task dialogs have "It's a trip" with From/To. Cards show "Main House → School".
+  - **Mobile:**
+    - **Today:** a house switcher (all houses or one), a "Isa-isa / Listahan / Oras" layout choice, and place tags on tasks.
+    - **Photos:** a Done photo goes in its task's house folder.
+    - **Realtime:** listens to her other houses.
+    - **Team's day:** "Ang team ko ngayon".
+    - **Pantry:** pantry, palengke list and receipts are filtered to one house (they would have mixed otherwise).
+    - **Record:** lists her houses, teams and teams she covers.
+    - **Quick Utos:** name the house they came from.
+- **Still open:**
+  - My Week doesn't show place tags yet.
+  - An SOP from another house's library doesn't show on her focus card: `house_sops` is still home-household only.
+  - Board closing is per house, but her app checks only her home house's.
+  - Moving someone's employment to a different employer is still end-and-reinvite, by design.
+- **Bug found 2026-10-06, after the SQL was applied live:** every read of labels failed with "infinite recursion detected in policy for relation household_labels", so Teams & labels on People stopped loading. Every manager page also logged it as a console error, which fails the browser QA's "loads without errors" checks.
+  - **Cause:** this migration's `helper_labels_write` (FOR ALL, so it is also checked on reads) looked up `household_labels`, whose read policy looks up `helper_labels`.
+  - **Fix:** `label_household()` and `i_have_label()`, SECURITY DEFINER, now do those lookups. The fix is in the migration itself, and as `supabase/fix-label-policy-recursion.sql` for the live database, which needs it applied.
+  - **Test:** the shared-staff PGlite test now reads labels as a manager and as helpers. It reproduced the error before the fix.
+- **To close:** Apply the SQL. Share a test helper into a second test household, give her a trip there, and check: the second house's Pass and pickers show her without pay; her phone shows the trip with its place, takes a Done photo the second house's manager can open, switches pantries, and shows the team's day. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
+
+### O40. The palengke was one list that never closed: no runs, no history, no assignment, one budget
+
+- **Found:** 2026-10-06, user request after O36/O39: the grocery list should scale like the staff views did ("I think we could only see the latest? It needs a history, different staff per list that ties into teams/tags, budget").
+- **Was:**
+  - **One list per household.** Bought lines stayed on it forever, so the budget bar compared everything ever bought with one ₱1,500 `households.petty_cash_budget`.
+  - **No history.** Lines weren't grouped by shopping trip, the app showed only the latest receipt (the web the latest six), and receipt photos go after 60 days (O28).
+  - **No assignment.** Every helper saw and bought from the same list; the only control was pantry lead or runner (C77).
+- **Decided (user, 2026-10-06):** Modelled on restaurant purchasing (MarketMan, BlueCart), procurement (Procurify) and petty-cash tools.
+  - **Runs from a Needed pool.** Pantry lows and "Ubos na" go to a pool. A manager or pantry lead makes a run from it. Closing a run files it in history; anything not bought goes back to the pool.
+  - **Money.** Each run records the cash handed over (abono) and the change returned (sukli), so petty cash reconciles. There's also an optional monthly budget for the house and for each team.
+  - **Who sees a run.** Its shoppers, its team (people covering that team too), the helper on its linked task, pantry leads and managers.
+  - **Extras chosen:** repeat runs, lead drafts with manager approval (this supersedes O33), and a run linked to a task or trip. Price history per item was not chosen.
+- **Fix, built 2026-10-06, SQL applied (confirmed live 2026-10-07):** `supabase/add-grocery-runs.sql` (apply after `add-shared-staff-and-places.sql`), tested in `supabase/tests/grocery-runs.test.mjs` (52 checks, in `npm run test:sql`).
+  - **Schema:** `grocery_runs`, `grocery_run_shoppers`, `grocery_templates`, `grocery_template_items`, `grocery_budgets`, `grocery_items.run_id`/`bought_at`, `grocery_receipts.run_id` (ARCHITECTURE.md §8, 9b).
+  - **Guards:**
+    - **Run lifecycle:** draft → pending (a lead asks) → ready (a manager approves and records the cash) → done or cancelled. Leads can't approve or set cash. Anyone who sees a ready run can tick lines, price them, enter the change and close it. Only a manager touches a closed run.
+    - **Lines:** nobody buys from a draft, and a bought line stays on its run.
+    - **Stamps and release:** `bought_at` is stamped by the database, so it can't be back-dated. Closing a run releases its unbought lines back to the pool.
+  - **Visibility:** a RESTRICTIVE policy on `grocery_items` hides lines on runs a helper can't see. The pool stays visible to everyone, as before.
+  - **Repeats:** `start_grocery_run()` makes a draft from a repeat. A matching line already in the pool moves onto the run instead of being listed twice.
+  - **Web (Pantry, "Grocery list"):** this month against the budgets, with a Budgets dialog. Tabs for Needed (with "Plan a run"), Runs (repeats due soon, then waiting for approval, ready, drafts; team filter), Repeats and History (a month at a time, with search, and each run's balance shown as balanced or short).
+    - **Run dialog:** who goes, team, day, linked task, cash, lines, receipts, change back, and the buttons that move the run along.
+    - **Elsewhere:** the Money tab's spend card is now this month against the house budget, and a task card carrying a run shows its progress.
+    - **Before the SQL is applied** it is the single list it was.
+  - **Mobile (Pantry):**
+    - **Mga run:** her ready runs, each with its cash bar, checklist, a receipt for that run, and "Tapos na" with the sukli.
+    - **Leads:** drafts and runs waiting for approval, with "Ipa-approve", "Bawiin" and "Burahin", plus "Gumawa ng run" from Kailangan.
+    - **Kailangan:** the pool. The last five closed runs show under it.
+    - **Today:** a card shows "May listahan" when the task carries a run.
+- **Fixed after push:** the app's Pantry tab now re-reads runs and lines each time it opens (LINARA_MOBILE `f53e746`). Tabs stay mounted and nothing refetched on focus, so a run approved on the web didn't appear until the app restarted.
+- **Still open:**
+  - **Pricing:** no price history per item (not chosen), and the run total isn't estimated before shopping.
+  - **Notifications:** a manager isn't pushed when a run is waiting for approval (the Runs tab shows a dot), and a shopper isn't pushed when one is ready.
+  - **Pickers:** the task picker in the run dialog lists only the board's day.
+  - **Budgets:** a team's monthly spend counts only runs for that team. Buying straight from the pool counts toward the house only.
+- **To close:**
+  1. Apply the SQL. Then, in a test household:
+  2. A lead drafts a run on the phone and asks for approval. A manager approves it on the web with cash.
+  3. Check that the run shows on the shopper's and her team's phones but not on another helper's.
+  4. Tick and price lines, snap a receipt, and close with the change. The web History shows it balanced.
+  5. Start a repeat and check that a pooled line moved onto it.
+  6. Then move this to Closed Gaps. Owned by `LINARA` (schema, web), with the screens in `LINARA_MOBILE`.
+
+### O41. A second house couldn't see a shared helper's leave, or that she was booked at another house
+
+- **Found:** 2026-10-06, feature audit after O39 and O40.
+- **Was:**
+  - **Leave and rest off.** Both belong to her home household, which pays her, and their read policies cover only that household's managers. The Beach House's Pass, planner and send gate showed her available on her leave day, with no warning.
+  - **Her other house's tasks.** Each house saw only its own tasks for her, so two houses could book her for the same hour.
+- **Decided (user, 2026-10-06):** The second house sees that she's away and when she's busy elsewhere, but not the kind of leave, the reason, or the other house's task details.
+- **Fix, built 2026-10-06, SQL applied 2026-10-07:** `supabase/add-shared-staff-availability.sql`. Tested in `supabase/tests/shared-staff-and-places.test.mjs` ("Availability"), and `time-off.test.ts`.
+  - **`shared_staff_time_off()`:** approved leave (whole days) and rest off (windows) of staff shared into the caller's household. Dates only.
+  - **`staff_elsewhere()`:** tasks of anyone who works here, at the family's other houses, in either direction. Time, house and status only.
+  - **Web:**
+    - The shared time off joins the time-off list as kind `away`, so the Pass status, planner and send gate treat her as off. It reads "on leave" or "off 1:00 PM – 5:00 PM".
+    - Lanes and Roll call say "At Main House 2:00 PM, 4:30 PM", or "now" while a task there is in progress.
+    - The task dialogs warn when the time is within an hour of a task at another house.
+    - Before the SQL is applied, nothing shows.
+- **Follow-up, built 2026-10-06, SQL applied 2026-10-07:** `supabase/add-task-length-and-leave-unassign.sql`. Tested in the same PGlite file ("Leave and length"), and in `task.utils.test.ts` and LINARA_MOBILE `lib/format.test.ts`.
+  - **Leave clears every house.** `unassign_tasks_for_leave()` runs when leave is approved or recorded with "move her tasks". It moves her open tasks on those days to Unassigned in every house she works in, using each house's own timezone for the day boundaries.
+    - **Who can run it:** only a manager of her home household, and only for dates her live leave covers.
+    - **The other house:** each moved task gets a comment from the approving manager: "Moved to Unassigned: Rosa is on leave Oct 12 – Oct 14."
+    - **The toast** says how many moved here and how many at each other house. Before the SQL is applied it falls back to this house only.
+  - **Task length.** `tickets.duration_minutes` is optional, from 5 minutes to 12 hours.
+    - **Where it's set:** "How long" in the New and Edit task dialogs.
+    - **Where it shows:** as "2:00 PM – 3:30 PM" on task cards, lanes and the planner, and on her phone's focus card and Today list.
+    - **Busy:** `staff_elsewhere()` returns the length, so "busy elsewhere" is a real overlap of two windows. A task with no length counts as 30 minutes, and a long task that started earlier still counts.
+- **Still open:**
+  - **Busy covers yesterday to 14 days out.** A task further ahead gets no warning.
+  - **No same-house overlap check.** Two tasks for her at the same time in the same house don't warn.
+  - **My Week doesn't show the length** on her phone. It reads a fixed column list, left alone until the SQL was applied; it can be added now.
+- **Applied and checked (2026-10-07):** live as the e2e manager, `tickets.duration_minutes` reads, `shared_staff_time_off()` and `staff_elsewhere()` answer (empty: the sandbox has no shared helper with leave or tasks elsewhere), and `unassign_tasks_for_leave()` refuses a helper whose home household isn't the caller's.
+- **To close:** In two test households sharing a helper:
+  1. Give her tasks at both houses during an upcoming leave, then approve the leave at home with "move her tasks". Check that both houses' tasks are Unassigned and the Beach House task has the comment.
+  2. Check that the Beach House's Pass shows her off and its send gate warns.
+  3. Give her a two-hour task at one house and try to book her inside that window at the other: the dialog warns.
+  4. Then move this to Closed Gaps. Owned by `LINARA`, with the length shown in `LINARA_MOBILE`.
+
+### O44. The APK can sit on its startup spinner forever on an older phone
+
+- **Found:** 2026-10-06. The preview APK from `4d99858` (LINARA_MOBILE) stayed on a spinner on an older test phone that was already signed in from an earlier build. Earlier builds had worked on the same phone.
+- **Ruled out:** Supabase was up and the build had its `EXPO_PUBLIC_*` values. The last three builds installed identical packages, and the live dashboard loaded for the test manager. Nothing on the signed-out route to sign-in changed. The root cause wasn't found: there's no emulator here, and no log from the phone.
+- **What's wrong:** On a signed-in launch the app waits, with no time limit, on three things in order: reading the saved session (`supabase.auth.getSession()`), the account kind (`getAccountKind`), and her employments. If any of these stalls instead of failing, the spinner never ends and there's no way back to sign-in. A `getSession()` that rejected also left the spinner up, because nothing ended the loading state.
+- **Safety net, built 2026-10-06 (LINARA_MOBILE):**
+  - `components/ui/startup-wait.tsx` replaces the startup spinners in `app/index.tsx`, `app/(app)/_layout.tsx` and `app/manager.tsx`. After 12 seconds it offers **Subukan ulit**, which reads the session again and restarts any hanging requests, and **Sign out** (or **Go to sign in**).
+  - Sign-out still refuses while actions wait to sync. If signing out itself stalls for 8 seconds, the phone forgets the session locally (`dropSession`).
+  - `getSession()` failing now ends the loading state.
+- **Still open:** Why it stalled. If `supabase.auth` itself is wedged, signing in again may stall the same way.
+- **To close:** On the affected phone, install a build with the safety net and note which button gets her through. Capture `adb logcat` (`ReactNativeJS` plus errors) from launch. Fix the stall it shows, then move this to Closed Gaps. Owned by `LINARA_MOBILE`.
+
+### O42. Some lists still load everything ever, or don't scale to a large staff
+
+- **Found:** 2026-10-06, feature audit after O40.
+- **Open:**
+  - **Whole-history loads.** Ledger entries, vales, payslips, appointments and leave requests load in full for the whole household on every page open (`ledger.actions.ts`, `pay.actions.ts`, `appointment.actions.ts`, `leave.actions.ts`). At 100 staff that's thousands of rows a year, growing forever, the same problem the grocery list had (O40). The fix is to load the last 12 months and fetch older months on request, as grocery History does.
+  - **People page sections that don't scale:** the Leave section draws one block per helper, and Past staff is one long list. Neither has a team filter or search.
+  - **Appointment prep tasks** go to the first helper with a matching station, or to `activeHelpers[0]` (`appointments-section.tsx`). With several drivers it's always the same one, even when she's off. They should go to someone available with that station, or stay Unassigned.
+- **Blocks:** Nothing yet. The cost grows with staff and time.
+- **To close:** Build when chosen; owned by `LINARA`.
+
+### O47. The AI edge functions answered anyone with the public anon key (QA LM-A6)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`, LM-A6, Critical): a call to `route-utos` with only the anon key, which ships in the site's JS, returned a live OpenAI answer; fifteen in a row all succeeded.
+- **Was:** `verify_jwt = true` only checks that a token is validly signed, and the anon key is. None of `route-utos`, `generate-sop`, `parse-scheduler`, `simplify-sop`, `promote-voice-task` or `transcribe-notes` asked who the caller was or limited calls, so anyone could run up the OpenAI bill or use them as a free AI proxy. The web dashboard itself called three of them with the anon key, from server functions (`routeUtosFn`, `generateSopFn`, `parseSchedulerFn`) that took no login, so `/_serverFn` was a second open door.
+- **Built 2026-10-07, not deployed:**
+  - `supabase/functions/_shared/ai-guard.ts`, called by all six before any work: 401 unless `auth.getUser()` finds a signed-in user, 429 when that user is out of calls.
+  - `supabase/add-ai-call-limits.sql`: `take_ai_call()` counts per user, 60 calls an hour to any one function and 300 a day across all. The table can't be read or changed except through the function. PGlite: `supabase/tests/ai-call-limits.test.mjs`. Until it's applied, the functions let signed-in calls through.
+  - Web: the three server functions require the manager's session token and send it to the function instead of the anon key. LINARA_MOBILE's `supabase.functions.invoke` already sends the signed-in user's token, so it needs no change.
+- **Not urgent while AI is off (checked 2026-10-07):** the project has no `OPENAI_API_KEY` secret, so every function answers from its built-in mock (`useMockAI || !apiKey`); the tester's "buy milk → Yaya" is the mock's answer. Nothing reaches OpenAI or costs anything today. **Do the steps below before adding `OPENAI_API_KEY`.** The web change is safe to ship on its own: the current functions accept the manager's token too.
+- **To close, in this order:**
+  1. Apply `add-ai-call-limits.sql` by hand.
+  2. Deploy the web (merge to `main`). The new web sends the manager's token, which the current functions accept; the old web sends the anon key, which the new functions refuse, so the web goes first.
+  3. Deploy the six functions (`npm run deploy:functions`).
+  4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
+  5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
+
+### O48. No full Content-Security-Policy yet
+
+- **Found:** 2026-10-07, security QA LM-A8 (see C91), which named "a real CSP" as the higher-value header.
+- **What's missing:** pages send `Content-Security-Policy: frame-ancestors 'none'` and nothing else, so the browser doesn't restrict where scripts, styles, images or connections may come from.
+- **Why not yet:** a working policy has to allow the Supabase project (REST, Auth, Realtime websockets, Storage signed URLs for photos), Google Fonts, `data:`/`blob:` images from the camera and receipt previews, and TanStack Start's inline hydration scripts (a nonce or hash). A wrong one breaks the app quietly, in the LINARA_MOBILE WebView too.
+- **To close:** ship it first as `Content-Security-Policy-Report-Only` from `src/lib/security-headers.ts`, run the e2e suite and the app's manager view with the console open, fix what it reports, then switch it to enforcing. Owned by `LINARA`.
+
+### O49. A co-manager can pull a family's staff into a household of another family
+
+- **Found:** 2026-10-09, user question: a co-manager can also create households, so can one person bridge two families?
+- **What happens:** O39 defines "the same family" as "run by the same people". `helper_households_guard` lets anyone who is primary *or co-manager* of both the helper's home household and another household share her into it (`i_run_household`, `supabase/add-shared-staff-and-places.sql`). `create_household` lets any manager, co-managers included, start a household as its primary (`add-household-managers.sql`). So:
+  - A co-manager of the Santos household creates their own household, or is co-manager of the Reyes household too, and shares the Santos driver into it. The Santos primary manager isn't asked; they can only see the share and delete it afterwards (`helper_households_write` allows the home side).
+  - The receiving household's managers then see her name, shift, rest day and availability (`shared_helpers()`, never pay) and can assign her tasks. Her app opens that house's tasks and pantry.
+  - `households_share_manager` counts a co-manager as a link, so the two families' house names show in each other's trip pickers (`family_households()`).
+- **Why it matters:** she is employed by one family (RA 10361 contract, pay, record), but she could be given work by another family without her employer agreeing.
+- **Options:** only the home household's primary manager can share staff out (recommended); sharing needs both primaries; co-managers can't create households; or an explicit family group.
+- **Decided for now (user, 2026-10-09):** co-managers can't create households. Built: `supabase/restrict-create-household.sql` refuses `create_household` for an account that manages households but is primary of none (co-managers and remote admins); a new account's first household (`bootstrap_manager_household`) and one that has left every household are unaffected. The web hides "New household" for those accounts. PGlite: `household-managers.test.mjs`. **SQL not yet applied.**
+- **Still open:** someone who is co-manager of two families' households can still share one family's staff into the other, and the two families' house names still show in each other's trip pickers. Joining with a code is unchanged: any manager account, a primary elsewhere included, can join any number of households, so both a co-manager of two families and a primary who co-manages another family can still bridge them.
+- **Recommended fix (2026-10-09, supersedes "home household's primary decides" above):** "the same family" = households with the **same primary manager**. (1) `households_share_manager` compares the two households' primaries instead of any shared primary/co-manager, which fixes staff sharing, `tickets_places_guard` and `family_households()` at once; (2) `helper_households_guard` requires that plus running both sides, so co-managers keep sharing inside their own family (O39); (3) `set_manager_role` refuses a primary hand-over that would split a family while staff are shared across it ("Stop sharing … first"); (4) delete live shares that break the rule (sandbox). Cost: two spouses each primary of a different house aren't linked; one becomes primary of both. No LINARA_MOBILE change.
+- **Shelved (user, 2026-10-09):** not being built for now. Owned by `LINARA` (schema); the LINARA_MOBILE app reads `my_household_ids()` and `my_workplaces()`, which keep working under any of these.
+
+### O50. Unpaid pay periods were priced at today's wage
+
+- **Found:** 2026-10-09, user: editing a helper's salary changed the amounts on the unpaid pay periods card (₱8,625 became ₱9,125 for the same two September cutoffs).
+- **Was:** there was one wage per helper (`helper_profiles.monthly_rate`). The card's estimate (`period-estimate.ts`), the Pass and Money totals, the payroll row, and the **payment itself** (`componentsForPayment` in `pay.actions.ts`) all read it as it is now, and so did `unpaid_leave_due`. A raise re-priced every closed period nobody had paid yet, and a cut lowered pay already owed. Paid periods were safe (payslips keep their figures).
+- **Decided (user, 2026-10-09):** a wage change starts at the cutoff open now or the next one, the manager's pick; closed periods keep their wage, paid or not. No retroactive correction (a typo on old periods is recorded as paid outside Linara with a note).
+- **Fix, built 2026-10-09:** `supabase/add-wage-history.sql`: `helper_wage_rates` (each wage with its start day, filled from today's wages), `helper_rate_on`, `set_helper_wage` (this or next cutoff; refuses one already paid; an unclaimed invite's wage is just replaced), a trigger that keeps any other write to `monthly_rate` in step, `helper_pay_periods` with a `monthly_rate` per period, and `unpaid_leave_due` at its cutoff's wage. PGlite: `supabase/tests/wage-history.test.mjs` (23 checks). Web: each period priced at its own wage (estimate, payroll row, payment, end-employment preview); the wage editor asks "Starts from: this cutoff / next cutoff". LINARA_MOBILE: My Pay's current payslip uses the current period's wage. Both work before the SQL is applied, as before.
+- **Not fixed by it:** wages already edited on the live (sandbox) data before this SQL can't be recovered; the backfill takes each helper's wage as it is today for all their periods.
+- **To close:** apply `add-wage-history.sql` by hand after `add-pay-periods.sql` and `add-unpaid-leave-pay.sql`, change a wage from "Next cutoff" on the live site, and check the unpaid periods card doesn't move. Owned by `LINARA`.
+
+### O51. A run's change ("sukli") field shows a stale amount and takes any figure
+
+- **Found:** 2026-10-09, Maestro UAT run SA-054 (`LINARA_MOBILE/.maestro/uat/SA-054-shop-and-close-run.yaml`), APK `7d5c6b7f`.
+- **What happens:** `RunCard` (`LINARA_MOBILE/components/features/pantry/run-card.tsx`) fills "Sukli na ibinalik" with `cashGiven - spent` in a `useState` initializer, so it is worked out once, when the card first shows. A helper who ticks items and types costs on the card (the normal way) then sees the full cash in the field: ₱500 with ₱80 spent, while the line above it says "₱500 − ₱80 nagastos = ₱420". `finish()` only refuses a negative or non-numeric amount, so ₱500,420 was saved against ₱500 cash (the field kept its "500" and the typed "420" went after it). The database only checks `change_returned >= 0`.
+- **Why it matters:** this is the manager's record of cash handed back. Trusting the pre-filled number records ₱500 back after ₱80 was spent, and that wrong figure is what the manager's Pantry > History shows for the run.
+- **To close:** derive the default from the current spend (set it when "Tapos na" opens the panel, or keep it in step until she edits it), and refuse change above the cash given (in the card, and with a `CHECK`/trigger against `cash_given`). Mobile owns the card; the check is `LINARA`'s schema. The test run's record was corrected to ₱420 by hand.
+- **Fix, built 2026-10-09:** LINARA_MOBILE `run-card.tsx`: the field follows cash − spent until she types in it (reset each time "Tapos na" opens it), typing replaces the amount (`selectTextOnFocus`), and change above the cash is refused ("Hindi puwedeng mas malaki ang sukli sa perang ibinigay"). Web `run-modal.tsx` refuses the same on "Close run" and when fixing a closed run's figures. `supabase/add-run-change-limit.sql` adds `CHECK (change_returned <= cash_given)`; PGlite: `grocery-runs.test.mjs`. SA-054 checks the field and the refusal. **SQL applied 2026-10-09; SA-054 passes on the emulator (EAS build c3ee5179).**
+
+### O52. Quick utos cards cover the focus card's buttons
+
+- **Found:** 2026-10-09, Maestro UAT run SA-027.
+- **What happens:** on Ngayon the utos cards float over the bottom of the focus card. With one showing, the task's own "Tapos na" (and the photo and "Hindi ko magagawa ngayon" buttons) sit underneath it: Maestro's tap on the task's "Tapos na" landed on nothing, and the screen dump lists both buttons at the same place. A helper has to answer every utos before she can finish the task in front of her.
+- **To close:** lay the utos out in the page flow (above the focus card) instead of over it, or leave room under them. Owned by `LINARA_MOBILE` (`components/features/utos/utos-chip.tsx`, `app/(app)/today.tsx`).
+- **Fix, built 2026-10-09:** the stack is part of Ngayon's page now (`quick-utos-feed.tsx`, was `floating-quick-utos-feed.tsx`), under the header and above the house switcher and focus card, so nothing sits under it. **Needs the new APK on a device.**
+
+### O53. "Gawin ang draft" can leave an empty run, with an English error
+
+- **Found:** 2026-10-09, Maestro UAT run SA-053.
+- **What happens:** the new-run form keeps the Kailangan lines it pre-selected. If one of them is ticked bought before "Gawin ang draft" (another helper, or a tap on the list below the form), the run is created and then adding its lines fails: the lead is left with an empty draft ("0 item · Wala pang nakalista.") and the raw message "A bought line stays where it was bought".
+- **To close:** create the run and attach its lines in one transaction (an RPC), or drop bought lines from the selection before saving; show the refusal in Taglish. Mobile owns the form; an RPC would be `LINARA`'s.
+- **Fix, built 2026-10-09 (mobile only, no SQL):** the form sends only lines still to buy; `createDraftRun` moves only lines that are unbought and still in Kailangan, and if none move it deletes the empty draft and says "Nabili na o nasa ibang run na ang mga pinili mo. Pumili ulit." Still two writes, not one transaction; a line taken in between is skipped rather than failing. **Needs the new APK on a device.**
+
+### O54. English and raw messages left in the helper app
+
+- **Found:** 2026-10-09, Maestro UAT run (SA-091, which failed on these; also SA-008, SA-064, SA-066, SA-069, SA-002, SA-029).
+- **What's left:** Ngayon's header says "Monday" (Linggo ko and Record ko say "Lunes"); the joining terms say "Sunday"; Sahod ko has "Rest Owed" (title case), "Leave", "Vale (cash advance)"; vale statuses are "Waiting / Approved / Declined" where day off and leave say Hinihintay / Aprubado / Hindi pumayag; the day summary starts "Great work today"; the run error above (O53); signing in offline shows "fetch failed: java.net.UnknownHostException: Unable to resolve host …" (`services/api/auth.ts` passes Auth's message through). Day-off rows show raw dates ("2026-10-10 · 1h") where leave shows "Okt 10 – Okt 13". The flag choice reads "Sahod / wage" when joining and "Sahod" on Record ko.
+- **To close:** Taglish labels and a Filipino weekday everywhere; one Taglish "Walang internet. Subukan ulit." for network failures in sign-in; `leaveDatesLabel`-style dates on day-off rows. Owned by `LINARA_MOBILE`; no schema.
+- **Fix, built 2026-10-09:** rest day in Filipino on Ngayon and the joining terms (`weekdayName` uses `DAY_NAMES`); Sahod ko's cards are "Rest owed mo", "Mga day off", "Mga leave", "Mga vale" (like "Mga payslip"; rest owed, leave and vale stay as the Taglish loanwords the app uses elsewhere); vale statuses Hinihintay / Aprubado / Hindi pumayag; the day summary "Ang galing mo ngayon — 2 sa 2, tapos!"; day-off rows "Okt 10 · 1h"; the flag choice "Sahod" in both places; a network failure in sign-in or password reset says "Walang internet. Kumonekta muna, tapos subukan ulit." (or "Hindi maabot ang Linara ngayon" for a server error). O53's message is replaced too. The employment record PDF keeps English weekdays (a formal document). **Needs the new APK on a device.**
+
+### O55. Smaller things from the Maestro UAT run
+
+- **Found:** 2026-10-09, Maestro UAT run of the Staff (app) tab (results in `Linara-UAT.xlsx`).
+- **Each, for a decision or a quick fix:**
+  - The current cutoff's card on Sahod ko says "Tantiyang matatanggap mo" (an estimate) even when the manager shows it Paid (SA-063).
+  - Payslip history is ordered by payment date, so cutoffs paid out of order read jumbled (SA-064). Ordering by cutoff would read better.
+  - Cancelled day-off and leave requests stay listed on their cards for good (SA-066, SA-067).
+  - SIL is the pre-selected kind on the leave form even before the helper has any SIL; the form does block sending it (SA-067).
+  - `request_account_deletion` accepts a request from a helper who is still employed; the card only explains that the employer must end the employment first (SA-087). Probably fine (the processing step can hold it), but the UAT expected a refusal.
+  - After a run linked to a task is closed with a receipt, the task still shows its "Palengke Run" card asking for a receipt photo (SA-055).
+  - Offline, Record ko is a spinner with no cached record (SA-088).
+  - A run's cost field saves only on Enter or blur; closing the keyboard with Back doesn't save it (SA-054). Fine for a person, who taps something else next.
+- **To close:** apply the two SQL files, then device-test the new APK.
+- **Done 2026-10-09:** the current cutoff's card says "Nabayaran na. Nasa Mga payslip sa ibaba ang eksaktong natanggap mo." once a regular payslip for that cutoff has succeeded; payslip history is ordered by cutoff (newest first); SIL is pre-selected only when she has SIL left, otherwise nothing is and she picks (never a silent "Walang bayad").
+- **Decided (user, 2026-10-09) and built the same day:**
+  - Cancelled day-off and leave requests are hidden on Sahod ko (`requestsToList` in LINARA_MOBILE `lib/leave.ts`; waiting requests list first). Kept, they had piled up and pushed a waiting request, with its Kanselahin, off the card (Maestro SA-066).
+  - A helper still employed can't ask for her account to be deleted: `supabase/restrict-account-deletion.sql` refuses `request_account_deletion` with "May trabaho ka pa. Magbigay muna ng abiso…", and Record ko's card explains the order instead of offering the request: give notice (the existing `give_notice`, "Aalis ka na ba? Magbigay ng abiso"), the household ends the employment on her last day, then she deletes. PGlite: `privacy.test.mjs`. **SQL applied 2026-10-09; SA-087 passes on the emulator.**
+  - Closing a run finishes the task that carries it (`supabase/add-run-closes-task.sql`, a trigger on `grocery_runs`; a cancelled run leaves its task alone). No second receipt. PGlite: `grocery-runs.test.mjs`. **SQL applied 2026-10-09.**
+  - Record ko is kept on the phone for offline use (LINARA_MOBILE `lib/query-persist.ts`: TanStack Query's AsyncStorage persister, Record ko's queries only, 30 days, cleared on any sign-out); offline it shows the copy with "Walang internet. Ito ang record mo noong …". Maestro: `.maestro/record-offline.yaml`.
+- **Left as is:** a run's cost field saves on Enter or blur, not on Back; fine for a person, who taps something else next.
+
+### O56. SSS / PhilHealth / Pag-IBIG shares are flat amounts from an old schedule
+
+- **Found:** 2026-10-09, user question: the contributions never change when the wage does.
+- **What happens:** `computeStatutorySplit` (`src/features/people/people.utils.ts`, mirrored in LINARA_MOBILE `lib/statutory.ts`) has two fixed rows: under ₱5,000 a month the employer pays SSS ₱400, PhilHealth ₱150, Pag-IBIG ₱100; from ₱5,000 up the helper pays ₱150 / ₱125 / ₱100 and the employer ₱350 / ₱125 / ₱100, whatever the wage. It feeds the payout's deduction (`net-pay.ts`, `pay.actions.ts` → `payslips.statutory_employee_share`), the web estimates and My Pay's split.
+- **The 2026 rules (to confirm against the agencies' circulars before shipping):** SSS 15% of the monthly salary credit (₱500 brackets, ₱5,000 to ₱35,000), 5% employee and 10% employer, plus EC ₱10 (₱30 from MSC ₱15,000) on the employer; PhilHealth 5% of the wage with a ₱10,000 floor and ₱100,000 ceiling, split equally (so ₱250 each up to ₱10,000); Pag-IBIG 2% each of the wage capped at ₱10,000 (₱200 each at most; 1% employee at ₱1,500 or less). RA 10361: below ₱5,000 the employer pays both shares.
+- **Size of it:** at ₱8,000 a month the helper's share should be about ₱810 (SSS ₱400, PhilHealth ₱250, Pag-IBIG ₱160), not ₱375; the employer's about ₱1,220, not ₱575. So each payout deducts about ₱217 a cutoff too little and shows the employer less to remit.
+- **Fix, built 2026-10-09 (user: yes):** both copies now compute the brackets above in one identical body (SSS credit = the wage rounded to ₱500 steps between ₱5,000 and ₱35,000, plus EC; PhilHealth wage/40 each between the floor and ceiling; Pag-IBIG 2% of up to ₱10,000; below ₱5,000 the employer carries her shares). Both value tables (`people.utils.test.ts`, LINARA_MOBILE `lib/statutory.test.ts`) have the new rows, the body comparison passes, and `net-pay.test.ts`'s expected pay moved with them. The web card and My Pay's table say "2026 rates" and that the employer's SSS includes EC. No SQL: Postgres takes the share from the app. Payslips already recorded keep their figures (sandbox only).
+- **Still to do:** check the rates against the agencies' own 2026 circulars (the figures came from secondary sources, one of which gave SSS as 4.5% / 10.5%), and move both copies together when a circular changes them.
+
+### O57. Smaller things from the manager-side Maestro UAT run (pantry, groceries, schedule)
+
+- **Found:** 2026-10-09, Maestro run of the Manager (web) tab's pantry, grocery and schedule cases in the APK's manager WebView (EAS build 89b8d544, flows `LINARA_MOBILE/.maestro/uat/MW-*.yaml` and `E2E-04-*.yaml`, results in `Linara-UAT.xlsx`). Nothing here blocked a case.
+- **Each, for a decision or a quick fix:**
+  - Some deletes are one tap with no confirmation, where the pantry's Remove and a task's Cancel ask first (client feedback 2026-10-02: deletes shouldn't be one tap): a Needed line's × (`grocery-row.tsx`), a draft or waiting run's Delete (`run-modal.tsx`), and an appointment's trash button (`appointments-section.tsx`), which also deletes its prep tasks.
+  - In the APK, Back closes the open sheet (the LMM-A3 contract, C96), so a half-filled New run (picked lines, shopper, cash) is thrown away without a word. Maestro's `hideKeyboard` sends Back when no keyboard is up and hit this; a person pressing Back to drop the keyboard would too.
+  - Appointment prep tasks get no out-of-shift or time-off warning (`new-appointment-modal.tsx`), where New task has one (O19). A prep 12 hours before a 6 PM appointment went to Kuya Marito at 6 AM, outside his 9 AM–10 PM shift, silently.
+  - New routine always starts at 08:00 (`new-routine-modal.tsx`), whoever it's for; New task starts at the helper's shift start. For a helper whose shift starts at 9 the default is off shift.
+  - The helper app's Kailangan and run lines read "1 pcs" where the web (and the app's own pantry list, via `unitFor`) says "1 pc".
+- **To close:** decide which deletes get a second tap; keep a New run draft (or ask) when Back closes it; give the prep rows the same warning as New task; default a routine's time to the chosen helper's shift start; use `unitFor` on the app's grocery lines. Web owns all but the last (LINARA_MOBILE). No schema.
 
 ## Closed Gaps
 
@@ -3227,7 +3484,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
   - Checked first: every SQL function that writes these tables is `SECURITY DEFINER`, and the only direct writes in either app are the manager's on the web plus the helper's two above. No app code changed.
   - PGlite test acting as each role: `supabase/tests/write-access.test.mjs` (25 checks, in `npm run test:sql`).
 - **Residual:**
-  - **Other tables stay household-wide:** `tickets`, `quick_utos` and `appointments`. Helpers write tickets legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap. `pantry_items` and `grocery_items` now have per-helper rules (C77).
+  - **Other tables stay household-wide:** `tickets`, `quick_utos` and `appointments`. Helpers write tickets legitimately, so those need per-column rules (e.g. she may change a ticket's status and photo but not its time, assignee or after-hours flag). Lower stakes than money, but the same kind of gap. **Tickets:** per-column rules built with O31 (`add-helper-task-edit.sql`, applied 2026-10-05); `quick_utos` and `appointments` remain. `pantry_items` and `grocery_items` now have per-helper rules (C77).
   - **Remote admins** write none of these tables, matching `plan.md`'s matrix. Nothing creates one yet (O2).
 
 ### C73. There was no vacation or leave, only hour-level rest off in lieu (former Open Gap O21)
@@ -3313,7 +3570,7 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Found / fixed:** 2026-10-02, client feedback: "Receipt attachment is not working."
 - **Was:** LINARA_MOBILE showed a receipt button only inside an open task whose title matched "palengke"/"marketing run" (`getActivePalengkeTicket`), saving to `tickets.photo_evidence_url`. With no such task there was no way to add one, and the web's dashed "No receipt yet" looked like a button but only displayed that task's photo.
 - **Fix:** `supabase/add-grocery-receipts.sql`: `grocery_receipts`, one row per receipt, task optional. The app's Pantry tab has a Resibo card whenever no run is open; a run's receipt is recorded there too. The web lists the latest six. PGlite: `grocery-receipts.test.mjs`.
-- **Storage:** photos are shrunk on the phone to 1200px at 80% JPEG (about 150 to 300 KB). Still open: no retention rule deletes old receipt or task photos.
+- **Storage:** photos are shrunk on the phone to 1200px at 80% JPEG (about 150 to 300 KB). Retention (60 days for receipts) is O28.
 
 ### C81. "Start new day" moved the board to tomorrow, and the Pass couldn't look at another day
 
@@ -3327,7 +3584,171 @@ mock-supabase-server.ts`'s stub-Supabase-server approach is reusable for
 - **Was:** `ARCHITECTURE.md` §9.2 says that when a helper completes a Palengke Run, the client sets `bought = true` and raises `pantry_items.qty`. Only the first half existed: nothing in either repo wrote `pantry_items.qty` from a purchase, although `grocery_items.pantry_item_id` links the two. Low-stock items stayed low after they were bought, so they were suggested again.
 - **Fix:** `supabase/add-grocery-restock.sql`, a trigger on `grocery_items`. Ticking a linked item bought adds its `qty` to the pantry item; unticking takes it back off (never below 0). Items with no `pantry_item_id` are skipped, since they have no pantry row and their unit may not match. Ticked from the app, or from the web Pantry's Bought checkbox (QA LW-5). PGlite test: `supabase/tests/grocery-restock.test.mjs`.
 
+### C83. Search and filters existed only on the Pantry and Grocery list (former Open Gap O32)
+
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03. **Fixed:** 2026-10-04 (web only, no SQL).
+- **Was:** `ListFilter` was used by `pantry-section.tsx` and `grocery-section.tsx` only. The Schedule loads just the week or month on screen, so an old task could only be found by paging back through it.
+- **Fix:** the Schedule (`task-planner.tsx`) has a search box and status chips (All / To do / Done / Cancelled). The chips narrow Week, By person and Month, alongside the person picker; routines still to come show under All and To do only, and appointments only when nothing is filtered. Typing two or more letters searches task titles and notes on **every date** (`searchTicketsFn`: newest first, the 50 most recent, with the same person and status), and the results replace the calendar until the box is cleared: grouped by day, a task opens as on the calendar, and "Show in week" jumps there. Checked against the sandbox project (case-insensitive match, person and status filters accepted). Tests in `task-planner.test.tsx`.
+- **Not added, on purpose:** the Pass shows one day, and People a household's few helpers, so neither has a list long enough to search. Money's payslip history is per helper, about 24 a year; give it a year filter once a real helper has more than a year of payslips.
+
+### C84. A manager couldn't attach a receipt from the web (former Open Gap O29)
+
+- **Found:** 2026-10-02 (C80), logged 2026-10-03. **Fixed:** 2026-10-04 (web only, no SQL).
+- **Was:** Receipts were added only in `LINARA_MOBILE`'s Pantry tab. The web's `receipt-slot.tsx` listed them with no upload, so a manager who did the shopping could tick items bought (LW-5) but not add the receipt.
+- **Fix:** "Add receipt" under the grocery list's Receipt (a file picker; a phone offers the camera). `src/lib/shrink-photo.ts` re-encodes it in the browser the way the app does: 1200px at 80% JPEG plus a 480px, 70% thumbnail, through a canvas, so EXIF and GPS are dropped and the phone's rotation applied. `addGroceryReceiptFn` checks it's a JPEG under 3 MB, uploads it to `<household>/receipts/<ms>.jpg` and its `.thumb.jpg` (thumbnail best effort, as on the phone), and inserts the `grocery_receipts` row, removing the files if that fails. The existing storage and table policies already allowed a manager; the nightly purge (O28) deletes it after 60 days like any other.
+- **Verified (2026-10-04):** `e2e/deep/receipts.spec.ts` (in `npm run qa:deep`) against the sandbox project from a local production build: the photo and thumbnail are stored, the row written, the receipt listed, then all three deleted.
+
+### C85. No list view of tasks (former Open Gap O30)
+
+- **Found:** 2026-10-02, client feedback ("list view", no more detail), logged 2026-10-03. **Fixed:** 2026-10-04 (web only).
+- **Was:** the Schedule had Week, By person and Month; on a desktop the Week is seven narrow columns.
+- **Fix (a default, chosen by the user without the client's detail):** a fourth Schedule view, **List** (`planner-list.tsx`): the same week, a full-width row per task, appointment and routine copy, grouped by day in time order. An empty day is one line, with Add on days still to come. The week arrows, person picker, status chips and search work as on the other views; tasks open the same dialog; nothing drags. Tests in `task-planner.test.tsx`.
+- **Revisit** when the client says what the list is for (all upcoming? one helper's? longer than a week?). Each of those is a small change to the range or filter.
+
+### C86. A helper could read every coworker's wage, payslips and vales (former Open Gap O45)
+
+- **Found:** 2026-10-07, UX review of LINARA_MOBILE on Expo web as the e2e staff account (Kuya Marito): My Pay asked him to confirm ₱4,313 in cash that was recorded for Ate Marites. **Fixed:** 2026-10-07 (SQL applied by hand, plus a mobile filter).
+- **Was:** the household read policies on `helper_profiles`, `payslips`, `vales`, `ledger_entries`, `rest_off_requests`, `leave_requests` and `payout_attempts` allowed any row whose helper is in `public.current_household_id()`. That returns `user_profiles.household_id`, which is set for helpers too, so every helper could read coworkers' wages (`monthly_rate`), payslips, vales, ledger, rest-off and leave requests (sick days included) and payout attempts. Before the fix the staff account saw 3 coworkers' profiles, 3 of their payslips, 1 vale and all 6 payout attempts. Writes were never affected: `acknowledge_offapp_payslip` checks `hp.user_id = auth.uid()`.
+- **Fix:** `supabase/fix-helper-coworker-reads.sql`. Each household read branch also requires `current_user_type() IS DISTINCT FROM 'helper'`, so managers and remote admins read what they did before; helpers fall back to their own rows (`*_own_read`, with `vales_own_read` and `ledger_entries_own_read` new). No write policy changed. Coworkers' names and shifts still reach helpers through the SECURITY DEFINER `team_day` / `my_workplaces` / `family_households`, so no wage split was needed. Side effect: `quick_utos_isolation` and `invite_flags` now show a helper only her own rows, which is all the app reads. LINARA_MOBILE `getPaymentsAwaitingMe()` also filters to her own helper profiles (mobile `jamesDev-improved-ui`, c246c06), so the screen stays right if a policy regresses.
+- **Verified (2026-10-07):** `supabase/tests/coworker-reads.test.mjs` (in `npm run test:sql`) in PGlite. Live against the sandbox after applying: the staff account sees 1 helper profile (its own), 4 payslips and 1 ledger entry (all its own), 0 vales and 0 payout attempts; the primary manager still sees 4 profiles, 7 payslips, 1 vale and 6 payout attempts, as before.
+
+### C87. A bought pantry item went straight back on the grocery list, and suggestions added to a run lost their pantry link
+
+- **Found / fixed:** 2026-10-07, checking runs and the pantry against the sandbox project (no SQL).
+- **Was:** an item was low at or under its level (`qty <= par`), and both apps suggest buying `par - qty`. Buying exactly that left it at `par`, still low, so it went back into Needed (web) and showed "Paubos" again (mobile). Separately, "Add from Needed" on an existing run put a picked suggestion on through `addManual`, without its `pantry_item_id`, so buying it restocked nothing; Plan a run kept the link. The tested sandbox restock itself worked: ticking the linked toilet-roll line bought took its pantry count from 0 to 1, and unticking it back to 0.
+- **Fix (user's choice of two):** low is now out, or under the level (`qty < par`), with one `needsBuying()` for the count, filter, sort and suggestions (web `pantry.utils.ts`, mobile `lib/pantry.ts`). The level reads "Keep at least" on the web and "Laging may" in the app, instead of "Buy more at" / "Bilhin kapag ... na lang". Suggestions added to a run go on through `addSuggestion(item, runId)` with their link. Moving lines onto or off a run now counts the rows changed and errors on a shortfall, rather than looking saved when the database skips a row. Unit tests in both repos; the run fix checked in a browser against the sandbox.
+
+### C88. A grocery line typed by hand never restocked the pantry, even for a pantry item of that name (former Open Gap O46)
+
+- **Found:** 2026-10-07, checking runs and the pantry against the sandbox project (see C87). **Fixed:** 2026-10-07, SQL applied by hand the same day.
+- **Was:** only a `grocery_items` row with `pantry_item_id` restocks when bought (C82), and only lines added from a low pantry item had one. Lines typed by hand (Needed's add box, "Add a line" on a run, a lead's own line in LINARA_MOBILE) stayed unlinked, even "Rice Crackers" with a pantry item called Rice Crackers. They also didn't count as covering that item, so its suggestion still showed and it got listed twice.
+- **Fix:** `supabase/add-grocery-pantry-link.sql`. A trigger links a not-yet-bought line with no pantry item to the one pantry item in its household with the same name and unit, ignoring case and spaces; no match, a different unit, or two items of that name leave it unlinked. An existing link is never changed. Applying it linked the unbought lines already listed. A runner still can't add a typed line (the runner guard runs first). Items with no pantry row (kangkong for tonight) don't create one, and a renamed line isn't unlinked.
+- **Verified (2026-10-07):** PGlite `supabase/tests/grocery-pantry-link.test.mjs` (in `npm run test:sql`; `grocery-runs.test.mjs` loads it on top of the run guards). Live as the e2e manager: the typed Rice Crackers line was linked on apply, kangkong, bok choy and Kamatis stayed unlinked, and a new typed " TOILET roll" line linked itself to the pantry's toilet roll (then deleted). The duplicate Rice Crackers line from before (added 2026-10-07 beside the typed one) was deleted, so one linked line is left.
+
+### C89. A signed-out visit to a manager page got the page (200) and waited for the browser to move it to log in (QA LM-4)
+
+- **Found:** 2026-10-07, manual test LM-4 (`feedback_local/manual_feedback_test.txt`): on throttled 3G, `/manager/pass` opened in an incognito window showed the manager shell and a spinner for several seconds before landing on `/login`. **Fixed:** 2026-10-07 (web only, no SQL).
+- **Was:** the session lives in `localStorage` (and the LINARA_MOBILE WebView writes the same `linara_manager_*` keys, O18), which a request never carries, so the server rendered `/manager/*` for everyone with a 200 and only the client's `RequireManagerAuth` moved a signed-out visitor on, once its scripts had loaded. The first fix (2026-10-07, `012c018`) stopped the bottom nav showing in that wait; the wait itself stayed.
+- **Fix:** a `linara_signed_in=1` cookie (`src/lib/signed-in-cookie.ts`), set by `useSession` whenever a session is confirmed and cleared when there isn't one or on log out. `src/server.ts` answers a GET for `/manager` or `/manager/*` without it with a 307 to `/login`, before anything renders. The cookie holds no token and grants nothing; a stale one falls through to the client check as before. The WebView's first open hops once through `/login` (O18).
+- **Verified (2026-10-07):** unit tests in `signed-in-cookie.test.ts`; e2e `public.spec.ts` checks every manager route answers a signed-out request with a 307 to `/login`, and the signed-in suites still pass (the saved session carries the cookie). Against a local production build: 307 without the cookie, 200 with it.
+- **Also fixed:** `e2e/manager.spec.ts` and `e2e/deep/pantry.spec.ts` still looked for the old "Buy more at" label (C87 renamed it "Keep at least").
+
+### C90. Login, sign-up and reset emails went through this site's server, so nothing slowed guessing or email floods (QA LM-A7, F4)
+
+- **Found:** 2026-10-07, security QA (`feedback_local/feedback.txt`): LM-A7 (High), 12 of 12 wrong logins replayed against `/_serverFn` all answered at once, no 429; F4 (Medium), the reset request could be looped to use up the project's email allowance, with a `redirectTo` the browser chose. **Fixed:** 2026-10-07 (web only, no SQL).
+- **Was:** `managerLoginFn`, `managerSignUpFn` and `requestPasswordResetFn` called Supabase Auth from the server, so Auth's per-IP limits only ever saw Vercel's addresses: an attacker wasn't slowed, and could get every manager's login throttled at once. They also signed in on the shared module-level `supabaseClient`.
+- **Fix:** the browser calls Supabase Auth itself (`src/features/people/people.auth.ts`, a throwaway client per call): sign-in, sign-up and the reset email. What comes after stays on the server with the session it got: `resolveManagerLoginFn` (who the account is) and `setUpNewManagerFn` (join with a code, or bootstrap a household). Auth's limits now apply to the visitor's own IP; a throttled try says "Too many tries. Wait a few minutes, then try again." Supabase already only links reset emails to URLs on the project's Redirect URLs allow-list (anything else falls back to the Site URL) and allows one email a minute per address.
+- **Verified (2026-10-07):** against the sandbox from one machine, the 33rd wrong-password sign-in straight to Auth got `429 over_request_rate_limit` (about 30 per 5 minutes per IP). The e2e suite signs in through the new path (53 passed; 4 skipped for want of test data). A Playwright check saw the reset page call `supabase.co/auth/v1/recover` from the browser, with no server function.
+- **Not done, on purpose:** a per-account lockout. It would let anyone lock a manager out by guessing their email; per-IP limits stop one machine, and a stronger minimum password (now 6, set in Supabase Auth > Policies) is the account-side defence.
+
+### C91. Pages could be framed by another site, and sent no nosniff or referrer policy (QA LM-A8)
+
+- **Found:** 2026-10-07, security QA LM-A8 (Medium): only `Strict-Transport-Security` came back, and `/login` loaded inside an iframe on a `file://` page. **Fixed:** 2026-10-07 (web only).
+- **Fix:** `src/server.ts` adds `src/lib/security-headers.ts` to every response it serves, redirects and error pages included: `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. The LINARA_MOBILE WebView loads the dashboard as the whole page, not a frame, so it isn't affected. Static JS and CSS files are served by Vercel directly and don't pass through it; they're never framed and carry the right types. The full CSP is O48.
+- **Verified (2026-10-07):** unit tests in `security-headers.test.ts`; against a local production build, `/login` (200), `/manager/pass` (307) and an unknown page (404) all carry the four headers.
+
+### C92. Staff can't change the grocery budget (decided, former Open Gap O33)
+
+- **Decided (user, 2026-10-08):** staff don't set grocery budgets. Managers set the house's and each team's monthly budget; pantry leads draft runs and a manager approves them with the cash (O40). Nothing to build.
+- **Found:** 2026-10-02, client feedback, logged 2026-10-03.
+- **What's missing:** The client asked for staff to edit the budget. The budget is `households.petty_cash_budget` (C13, `add-household-petty-cash-budget.sql`), and C13 left setting it to managers on the web while the app does the shopping, so this reverses that split.
+- **Blocks:** Nothing until the client confirms.
+- **Current workaround:** A manager sets it on the web.
+- **Superseded by O40 (user, 2026-10-06):** budgets are now per run and per month. Staff (pantry leads) draft a run and a manager approves it with the cash, rather than staff editing the budget. Monthly budgets stay manager-set.
+- **To close:** Close together with O40 once the client sees the approval flow, unless they still want staff to set budgets.
+
+### C93. A manager can't be limited to one team (decided, former Open Gap O38)
+
+- **Decided (user, 2026-10-08):** managers are per household, not per team. Team-scoped manager rows won't be built. Sending to a whole team isn't planned either.
+- **Found:** 2026-10-05, while building O36. Deferred by the user.
+- **What's missing:** Every manager sees and runs the whole household. A department head can narrow their views to their team (the choice is remembered per device), but nothing enforces it. A task or Quick Utos goes to one helper, never to "the Kitchen".
+- **Blocks:** Delegating a large estate to department heads; announcements to a team.
+- **Current workaround:** The team filter, and sending to each person.
+- **To close:** Team-scoped manager rows (a `team_id` on `household_managers`, with RLS on tickets, quick_utos and the rest) and a fan-out for team sends. Owned by `LINARA`.
+
+### C94. "Repeat daily" tasks never came back the next day (former Open Gap O43)
+
+- **Closed 2026-10-08:** the user applied `add-repeating-tasks.sql`. Checked on live as the test manager: a daily task dated yesterday got today's copy from `spawn_routine_tasks()` (1 made), a second call made none, and both test tasks were deleted. The cron job can't be read with a manager's key; `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` in the SQL editor confirms it.
+
+- **Found:** 2026-10-06, while carrying task length onto repeating tasks.
+- **What's wrong:** New task's "Repeat" saves `tickets.recurrence`, but nothing respawns the task. `startNewDay()` (`use-task-board.ts`) spawns from the in-memory `routines` list. Only `addRoutine()` fills that list, and nothing calls it, so it's always empty and no repeating task is ever made again. Older entries (C52 and the rollover work) describe routines respawning, which matched a mock that has since been removed.
+- **Blocks:** Any household relying on daily chores showing up each day.
+- **Decided (2026-10-08):** a repeating task is a series of ordinary tickets, no new table.
+  - `routine_id` names the series: the id of its first task. Older repeating tasks with no `routine_id` are their own first task.
+  - The series' newest task is the pattern for the next day's: title, note, time of day, length, trip ends and repeat. So editing today's task changes the days after it.
+  - The helper is the one on the newest task that has one, so a day made Unassigned while she was away doesn't stick. The next day's goes to no one (Unassigned) when she has approved leave that day, approved rest off covering its time, or no longer works here. This replaces O4's "a routine of someone who left stops respawning": the work still needs doing.
+  - Cancelling one day's task skips that day only. Stopping the repeat (Schedule → Routines → ×, or **Stop repeating** in a repeating task's Edit) clears `recurrence` on the whole series. Tasks already made stay.
+  - A remote admin's suggested repeating task starts repeating once approved.
+  - Only today's task is made; nothing is back-filled for days nobody opened the app. The planner shows the days after as greyed copies.
+  - Only the last five weeks are read (both the database and the web). A series with no task since then, such as old test data, doesn't wake up. One that's still going has a task at least weekly.
+- **Fix, built and applied 2026-10-08:** `supabase/add-repeating-tasks.sql`, tested in `supabase/tests/repeating-tasks.test.mjs` (39 checks, in `npm run test:sql`).
+  - **Schema:** `tickets.occurrence_date` (the day a series' task is for; a move keeps it), a unique index on `(routine_id, occurrence_date)`, and trigger `tickets_series_defaults`, which fills both on a new repeating task. Backfills older repeating tasks.
+  - **Functions:** `spawn_routine_tasks()` (caller's household, its today; any member may call it), and two internal ones (`spawn_routine_tasks_for`, `routine_helper_free`). `INSERT ... ON CONFLICT DO NOTHING`, so a second tab, a reload or the job can't make two.
+  - **pg_cron** job `spawn-routine-tasks`, hourly at :02 (`spawn_routine_tasks_everywhere()`), so the day's tasks exist on her phone before any manager opens the dashboard.
+  - **Web:** `routine.utils.ts` reads series from tickets. The board calls `spawn_routine_tasks` on load, when the household's day turns over, and at the rollover. Schedule → Routines lists the real series, including Unassigned ones; New routine saves its first task on the first day it repeats whose time is ahead; × asks first, then stops it. Repeating tasks' Edit says how they repeat and offers **Stop repeating** (Pass and Schedule). The planner's greyed copies start after a series' newest task and show a departed helper's as Unassigned.
+  - **Until the SQL is applied** the web makes today's tasks itself, once the roster and time off have loaded. Each gets an id derived from series and day (`occurrenceId`), so the primary key refuses a second copy from another tab. Before the SQL, three things don't work. Nothing is made until a manager opens the dashboard. A remote admin's session can't make them (RLS). A task moved to another day counts as that day's.
+- **To close:** apply `supabase/add-repeating-tasks.sql` in the SQL editor, then check:
+  - `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'spawn-routine-tasks';` shows the job.
+  - A daily test task made yesterday has today's copy within the hour after midnight, or as soon as the Pass loads.
+  - Move this to Closed Gaps. LINARA_MOBILE needs nothing (the job covers her phone, and her reads take a fixed column list). It may call `spawn_routine_tasks()` when Today opens, as a backup to the job. Owned by `LINARA`.
+
+### C95. Stations were a fixed list of five (former Open Gap O37)
+
+- **Closed 2026-10-08:** the user applied `fix-station-rename.sql`. Rechecked on live as the test manager: added "ZZ Garden", renamed it to "ZZ Gardens", removed it; the list is back to the five. The test household has no current staff, so a rename following onto staff and the refusal to remove a station someone is on are covered by the PGlite test only; check them on a household with staff when convenient.
+
+- **Decided (user, 2026-10-08):** each household keeps its own list of stations, starting with the five, which its managers can add to, rename and remove.
+- **Applied 2026-10-08, with a fix.** Checked on live as the test manager: the household has the five, adding works, a second "zz verify" is refused, an unused station can be removed, one with staff on it can't, and staff read the list but can't add to it. **Renaming failed** (`column "station" does not exist`): the rename trigger also renamed the station on `house_sops`, which has no station column on live (only in the test fixture). `supabase/fix-station-rename.sql` makes that step run only when the column exists; `add-household-stations.sql` carries the same fix, and the PGlite test now drops the column and renames.
+- **Built 2026-10-08:**
+  - `supabase/add-household-stations.sql`: `household_stations` per household, seeded with the five plus any name its staff already have; new households get the five. The fixed-five CHECK on `helper_profiles.station` goes; a new or changed station must be one of the household's (stored in its spelling). Renaming follows onto everyone on it, the ones who left included, and onto `house_sops`. Removing is refused while anyone current or invited is on it, and for the last one. Everyone in the household reads the list; primary and co-managers change it. PGlite: `supabase/tests/household-stations.test.mjs` (22 checks).
+  - Web: People > **Stations & teams** (was "Teams & places") has a Stations card: add, rename, remove, with how many people are on each. A helper card's **Station** button moves them. The invite form lists the household's stations. Colours: the five keep theirs; any other station gets one of four more, picked by its name. Before the SQL it shows the five, read-only.
+  - LINARA_MOBILE: station types widened to any name; it only ever shows the name.
+- **Still worth knowing:** appointment templates' prep tasks name a station ("Cook"); a household that renames Cook gets them on its first active helper instead, as when no one matches today.
+- **Was to close:** on the deployed site add a station, put someone on it, rename it, check their card and the Pass, try removing it while they're on it, move them back and remove it.
+- **Found:** 2026-10-05, while building O36.
+- **What's missing:** `helper_profiles.station` is CHECK-limited to Yaya, Cook, Laundry, Driver, House. That list is repeated in `people.types.ts`, LINARA_MOBILE's `handshake.ts` / `helper-profile.ts` / `voice-pipeline.ts`, and the Quick Utos Router prompt (`aiagent.md` Agent 3). A large estate's gardeners, guards and maintenance staff have no station.
+- **Blocks:** Accurate roles for a large staff, and station-based routing for them.
+- **Current workaround (user's choice, 2026-10-05):** keep the five. Teams and labels (O36) carry departments and anything else.
+- **To close:** Decide between an "Other" station with a free-text title, or household-defined roles. Either way, change the CHECK, both apps' types and the router prompt together. Owned by `LINARA`.
+
 ---
+
+### C96. Employer sign-up and the app's manager WebView: dead ends, a second sign-in, Back closing the app (QA LMM-A1..A6)
+
+- **Found:** 2026-10-08, QA round LMM-A1..A6 (`feedback_local/feedback.txt`), on the APK and from code. **Fixed:** 2026-10-08 (web and mobile, no SQL). Mobile needs a new APK to reach anyone; the web half works with the old one (below).
+- **A1 (app):** an employer who signed up on the web and confirmed their email, but hadn't finished household setup, was signed straight back out by the app's sign-in, with copy naming a "New manager? Set up your household" link that no longer exists. A failed profile check (offline) showed the same "no account" message. **Fix:** web sign-up marks the account `signed_up_as: "manager"` in its user metadata (`src/features/people/people.auth.ts`). The app's `getAccountKind()` (`LINARA_MOBILE/services/api/auth.ts`) treats a profile-less account with that mark as a manager, so it opens the dashboard WebView, where "Finish setting up" shows. Without the mark (a kasambahay whose claim failed, or an employer from before the mark), the message now says where each finishes. A failed check now says to check the connection. Finish setting up also has "Not you? Log out", the only way off that screen.
+- **A2 (web):** sign-up asked for name and household name, but with email confirmation on there's no session to use them, so they were dropped and asked again at first login. **Fix (QA's suggestion):** sign-up asks only email and password (plus the code, for "join with a code"). Name and household are asked once, on Finish setting up. A sign-up that does get a session goes through the same path as log-in (`adopt` in `use-session.ts`). `setUpNewManagerFn` is gone.
+- **A3 (app):** Sahod ko's deduction (per cutoff, pro-rated) and the contribution table (per month) showed different amounts for her share, with no period on either. **Fix:** "(ngayong cutoff)" on the line and "kada buwan" on the table.
+- **A4 (app):** hardware Back on an open dashboard modal closed the app, or went to the page behind it. **Fix:** Back first asks the page (`BACK_SCRIPT`, `LINARA_MOBILE/app/manager.tsx`). If an overlay (`role="dialog"/"alertdialog"/"menu"/"listbox"`) is open, it sends Escape, which closes the shared `Modal` and Radix overlays. Otherwise it goes to the previous page, then the previous screen, then exits. No answer within 600 ms falls back to the ordinary Back. A web test checks that Escape sent to the page closes New task, because the app relies on it.
+- **A5 (web):** Log out (a bare icon on phones, next to the household switcher) logged out on one tap, which in the app also signs the app out. **Fix:** a "Log out?" confirmation (`top-bar.tsx`).
+- **A6 (both):** the app's "Employer ako" WebView let people wander into the web's own log-in, "Which one are you?" and "open the Linara app" pages. **Fix:** inside the app (user agent "LinaraApp"), those links post `{type: "open-screen", screen}` (`src/lib/mobile-app.ts`), and the app goes to its own sign-in, create-account, kasambahay start (`welcome`) or forgot-password screen with `router.dismissTo`. After sign-up, it returns to the app's sign-in with a "check your email" alert. On an old APK the message is unrecognised, falls into the session-lost branch and, with no session, lands on the app's sign-in. That's acceptable until the new APK ships.
+- **Verified (2026-10-08):** web `npm run qa` (319 unit, 599 DB, 63 browser incl. 10 new: sign-up fields, in-app Log in / I work in a household messages, Escape closes New task, log-out confirm and Cancel); mobile `qa:fast` (typecheck, lint, 122 unit). **Device-tested (2026-10-09):** APK build `7d5c6b7f` on an Android 16 emulator, using Maestro flows kept in `LINARA_MOBILE/.maestro/` (run with `npm run test:device` there): A6 (Employer ako, then Log in, returns to the app's sign-in; the in-app form has no name field, which also covers A2), A4 (Back with New task open closes it and stays on The Pass), A3 (Sahod ko reads "(ngayong cutoff)" and "kada buwan"). **Still manual:** A1 needs a freshly confirmed employer email; a real sign-up through email confirmation wasn't run, to avoid sending mail from the sandbox project.
+
+### C97. "Send to shop" sent an empty run that no helper could see (QA LM-A10)
+
+- **Found:** 2026-10-09, QA LM-A10: Plan a run with every field left empty, then Send to shop, made "Palengke · Ready to shop · 0 of 0 bought · ₱0", approved by the manager. `validDraft()` in `src/features/groceries/components/run-modal.tsx` only checked that the cash parsed. **Fixed:** 2026-10-09 (web only, no SQL).
+- **Fix:** Send to shop, on a new run or a draft, and Approve on a lead's request, now need at least one line and someone who'll go: a shopper, a team, or a task with a helper on it. Without one, no helper would see the ready run (`grocery_run_visible`). The message names what's missing ("Pick at least one line and who goes."). Save draft still saves an empty run. The phone's "Gawin ang draft" already refuses an empty run (O53).
+- **Verified:** `run-modal.test.tsx` (empty run, no one going, nothing on it, and a run with a line and a team that does send); web unit suite 337 pass.
+
+### C98. A saved place used at both ends of a trip couldn't be deleted, and a trip could go from a place to itself (QA LM-A11, LM-A12)
+
+- **Found:** 2026-10-09, QA LM-A11 and LM-A12. Steps: a trip from "QA Place School" to "QA Place School", then removing that place under People ➔ Places. The place stayed, and the server answered "That place belongs to another household", even after the task was cancelled. **Fixed:** 2026-10-09 (SQL and web).
+- **Cause:** `tickets.from_place_id` and `to_place_id` are both `ON DELETE SET NULL`, cleared one after the other. Clearing the first re-ran `tickets_places_guard`, which checked the second end, still pointing at the place being deleted, and raised. The trip picker (`trip-fields.tsx`, used by New task and Edit task) offered the same place on both ends, which is what made such a trip possible.
+- **Fix:** `supabase/fix-trip-places-guard.sql` replaces the guard. It checks only the ends an update changes (the same rule `tickets_helper_works_here` follows), so the delete clears both ends and keeps the trip. It also refuses a trip whose two ends are the same place or house ("A trip goes between two different places"). Trips like that saved before the fix aren't re-judged until an end is edited. In the picker, each end now leaves out what the other end picked.
+- **Verified:** PGlite `shared-staff-and-places.test.mjs` (same place and same house refused; an old same-place trip stays editable; its place deletes and the trip keeps with both ends cleared). Without the fix, the same test fails on the refusals and on the delete. `trip-fields.test.tsx`; web unit suite 338 pass. **SQL applied 2026-10-09.**
+
+### C99. The app cut peso amounts at the comma: a "1,500" vale went to the manager as ₱1 (QA LMM-A7)
+
+- **Found:** 2026-10-09, QA LMM-A7. The vale amount (`vale-request-form.tsx`) and a bought line's cost on the palengke list (`palengke-checklist.tsx`) were read with `parseFloat`, which stops at the first comma: "1,500" was 1, "3,450.50" was 3. The field kept showing what she typed, with no warning, and the wrong amount was sent or saved, which threw off the household's spend totals. The run card's change already stripped commas, so the app read amounts two ways. **Fixed:** 2026-10-09 (LINARA_MOBILE only, no SQL; needs a new APK).
+- **Fix:** one `parseAmount` (`LINARA_MOBILE/lib/money.ts`) ignores ₱, commas and spaces and refuses anything that isn't an amount. The vale form, a line's cost, the budget, the item form's quantities and the run card's change all use it. The vale form says "Ilagay ang halaga, hal. 1,500." when it can't read the amount. A line's cost that can't be read goes back to the saved one instead of showing a cost that wasn't kept.
+- **Web:** money fields there read with `Number()`, so "1,500" is refused with a message, never saved wrong. Accepting commas on the web too is open.
+- **Verified:** `lib/money.test.ts`; mobile `qa:fast` (typecheck, lint, 132 unit). **Device-tested (2026-10-09):** EAS build aea35878 on the emulator, a "1,500" vale shows ₱1,500 and is saved as 1500 (declined afterwards).
+
+### C100. "End the day" let some tasks through, and the held ones never came back after a new day
+
+- **Found:** 2026-10-09, the user asked whether "End the day" works when tasks can still be added in several places. Ending the day (`households.board_closed`) promises that anything added for today waits until the day reopens, and that the next day starts open. Only the web's New task and New routine held a task (`tickets.queued`, set by the page in `use-task-board.ts`). **Fixed:** 2026-10-09 (SQL only).
+- **What got through:** appointment prep tasks (the SECURITY DEFINER appointment functions never looked at the day); an existing task edited or dragged onto today; a suggestion approved for today. **What never came back:** the web's new-day rollover (`startNewDay`) reopened the day without releasing the held tasks, so they stayed off the Pass and off her phone. Only "Reopen today" (`openQueuedTicketsFn`) released them. A day ended at night and never reopened (no manager on the dashboard) also kept her phone showing the day as finished, since the app reads `board_closed` alone.
+- **Fix:** `supabase/add-end-of-day-holds.sql`. (1) A trigger, `tickets_hold_for_ended_day`, holds a to-do task for the ended day or earlier from any writer, whether new, moved there or approved there. A held task moved to a later day is released. Her own moves from her phone aren't held, so a task never vanishes from her hands. (2) Whenever `board_closed` goes from true to false (Reopen today, the web's rollover, or step 3), `households_release_held_tasks` releases the household's held tasks. (3) `reopen_ended_days()`, hourly at :01 via pg_cron (before the routine spawn at :02), reopens a day still ended after the household's midnight. No app change: the web's own holding and `openQueuedTicketsFn` now agree with the database, and her phone's `board_closed` read is right within the hour after midnight.
+- **Verified:** PGlite `end-of-day.test.mjs` (15 checks: each path held, a task for tomorrow not, a move back released, a suggestion held only once approved, other edits leave a task alone, her own move not held, reopening by hand and by the hourly job releases everything, a day ended today stays ended, only the scheduler can run the reopen). **SQL applied 2026-10-09**, including its pg_cron job.
 
 ## Template for New Entries
 

@@ -3,42 +3,35 @@ import { describe, expect, it } from "vitest";
 import { PANTRY_CATEGORIES } from "./pantry.types";
 import {
   groupByPantryCategory,
+  needsBuying,
   pantryItemErrors,
-  STARTER_ITEMS,
-  STARTER_ORDER,
   stockState,
   unitFor,
 } from "./pantry.utils";
 
 describe("stockState", () => {
-  it("is out at zero, low at or under the buy-more point, else ok", () => {
+  it("is out at zero, low under the keep-at-least amount, else ok", () => {
     expect(stockState({ qty: 0, par: 2 })).toBe("out");
-    expect(stockState({ qty: 2, par: 2 })).toBe("low");
     expect(stockState({ qty: 1.5, par: 2 })).toBe("low");
+    expect(stockState({ qty: 2, par: 2 })).toBe("ok");
     expect(stockState({ qty: 3, par: 2 })).toBe("ok");
   });
 
-  it("counts zero as out even with no buy-more point", () => {
+  it("counts zero as out even with no keep-at-least amount", () => {
     expect(stockState({ qty: 0, par: 0 })).toBe("out");
+  });
+
+  it("is enough once the suggested amount is bought", () => {
+    // Out of toilet roll, keep at least 1: the suggestion is 1, and after it, it's fine.
+    expect(stockState({ qty: 0 + 1, par: 1 })).toBe("ok");
   });
 });
 
-describe("STARTER_ITEMS", () => {
-  it("only uses categories the database accepts", () => {
-    for (const item of STARTER_ITEMS) {
-      expect(PANTRY_CATEGORIES).toContain(item.category);
-    }
-  });
-
-  it("starts every item stocked, above its buy-more point", () => {
-    for (const item of STARTER_ITEMS) {
-      expect(stockState(item)).toBe("ok");
-    }
-  });
-
-  it("has no duplicate names", () => {
-    const names = STARTER_ITEMS.map((i) => i.name.toLowerCase());
-    expect(new Set(names).size).toBe(names.length);
+describe("needsBuying", () => {
+  it("is true for out and low, false at or over the amount", () => {
+    expect(needsBuying({ qty: 0, par: 0 })).toBe(true);
+    expect(needsBuying({ qty: 1, par: 2 })).toBe(true);
+    expect(needsBuying({ qty: 2, par: 2 })).toBe(false);
   });
 });
 
@@ -90,16 +83,15 @@ describe("unitFor", () => {
     expect(unitFor(2, "packs")).toBe("packs");
   });
 
+  it("says 1 pc, as the grocery list does", () => {
+    expect(unitFor(1, "pcs")).toBe("pc");
+    expect(unitFor(0, "pcs")).toBe("pcs");
+    expect(unitFor(3, "pcs")).toBe("pcs");
+  });
+
   it("leaves other units as typed", () => {
     expect(unitFor(1, "kg")).toBe("kg");
-    expect(unitFor(1, "pcs")).toBe("pcs");
     expect(unitFor(1, "L")).toBe("L");
-  });
-});
-
-describe("STARTER_ORDER", () => {
-  it("covers every category the starter list uses", () => {
-    for (const item of STARTER_ITEMS) expect(STARTER_ORDER).toContain(item.category);
   });
 });
 

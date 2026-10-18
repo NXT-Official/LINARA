@@ -38,6 +38,7 @@ function gate(isRemote: boolean, utosTarget = ON) {
   const onSendUtos = vi.fn();
   const { result } = renderHook(() =>
     useSendGate({
+      token: "manager-token",
       authorName: "Lola Fe",
       isRemote,
       schedules,

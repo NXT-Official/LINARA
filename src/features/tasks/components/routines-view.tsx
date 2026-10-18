@@ -27,6 +27,10 @@ export function RoutinesView({
     helper: h,
     items: routines.filter((r) => r.helperId === h.id),
   }));
+  // Nobody's yet, or someone who has left: they spawn Unassigned.
+  const unassigned = routines.filter(
+    (r) => !r.helperId || !activeHelpers.some((h) => h.id === r.helperId),
+  );
 
   return (
     <div className="space-y-6">
@@ -35,8 +39,8 @@ export function RoutinesView({
           <div>
             <h2 className="font-display text-2xl leading-tight text-foreground">Routines</h2>
             <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-              Recurring tasks live here. On matching days they'll appear on the Pass automatically —
-              no need to re-add them each morning.
+              Recurring tasks live here, including any task set to repeat. On matching days they'll
+              appear on the Pass automatically — no need to re-add them each morning.
             </p>
           </div>
           <button
@@ -77,7 +81,7 @@ export function RoutinesView({
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone[helper.station]}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stationTone(helper.station)}`}
                   >
                     {items.length} routine{items.length === 1 ? "" : "s"}
                   </span>
@@ -90,6 +94,21 @@ export function RoutinesView({
               </section>
             );
           })}
+          {unassigned.length > 0 && (
+            <section className="rounded-3xl ring-1 ring-border/20 bg-card/60 p-4 sm:p-5">
+              <div className="mb-3 px-1">
+                <div className="text-sm font-semibold text-foreground">Unassigned</div>
+                <div className="text-xs text-muted-foreground">
+                  Lands on your board for you to hand to someone.
+                </div>
+              </div>
+              <div className="divide-y divide-border/70">
+                {unassigned.map((r) => (
+                  <RoutineRow key={r.id} routine={r} onRemove={() => onRemove(r.id)} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 

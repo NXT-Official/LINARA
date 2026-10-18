@@ -47,3 +47,12 @@ export const isMinuteInShift = (
   }
   return true;
 };
+
+/**
+ * The rest day nobody in a group covers: when everyone in it (two or more)
+ * rests the same day, that day the team has no one. One person's rest day
+ * isn't a gap, and two people off the same day in a larger group aren't
+ * either, however it reads.
+ */
+export const uncoveredRestDay = (restDays: number[]): number | null =>
+  restDays.length >= 2 && restDays.every((d) => d === restDays[0]) ? restDays[0] : null;

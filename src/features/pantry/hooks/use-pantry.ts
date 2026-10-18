@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import {
   deletePantryItemFn,
   insertPantryItemFn,
-  insertPantryItemsFn,
   listPantryItemsFn,
   updatePantryItemFn,
   updatePantryItemQtyFn,
@@ -18,7 +17,6 @@ export type PantryStore = {
   setQty: (id: string, qty: number) => void;
   add: (item: Omit<PantryItem, "id">) => void;
   /** Adds a batch (the starter list); false if nothing was saved. */
-  addMany: (items: Omit<PantryItem, "id">[]) => Promise<boolean>;
   /** Name, unit, par and shelf. Stock goes through setQty. */
   edit: (id: string, patch: Omit<PantryItem, "id" | "qty">) => void;
   remove: (id: string) => void;
@@ -98,19 +96,6 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
   };
 
   /** Adds a batch (the starter list). Resolves false if nothing was saved. */
-  const addMany = async (batch: Omit<PantryItem, "id">[]): Promise<boolean> => {
-    if (!token || batch.length === 0) return false;
-    try {
-      await insertPantryItemsFn({ data: { token, items: batch } });
-      await refresh();
-      return true;
-    } catch (err) {
-      console.error("[usePantry] Failed to add pantry items:", err);
-      toast.error("Hindi na-add ang mga pantry item. Subukan ulit.");
-      return false;
-    }
-  };
-
   const edit = (id: string, patch: Omit<PantryItem, "id" | "qty">) => {
     if (!token || !patch.name.trim()) return;
     updatePantryItemFn({
@@ -142,5 +127,5 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       });
   };
 
-  return { items, adjust, setQty, add, addMany, edit, remove, refresh };
+  return { items, adjust, setQty, add, edit, remove, refresh };
 }

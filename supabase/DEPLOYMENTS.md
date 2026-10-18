@@ -29,7 +29,9 @@ rather than downloading a floating one.
 
 `verify_jwt` per function comes from [`config.toml`](config.toml) — **do not pass
 `--no-verify-jwt` by hand**. The webhook needs it (Xendit sends no Supabase JWT,
-authenticating with `X-CALLBACK-TOKEN` instead); the other six must NOT have it.
+authenticating with `X-CALLBACK-TOKEN` instead), and so does `purge-expired-evidence`
+(called by our own pg_cron job, authenticating with `x-purge-secret`); the six AI
+functions must NOT have it.
 Getting that backwards fails in a particularly nasty way: the gateway rejects the
 caller *before* the function runs, so there is no function log at all and it
 looks exactly like "nobody called us".
@@ -56,6 +58,7 @@ Set separately from deploys and **not** cleared by one
 | Secret | Used by |
 | --- | --- |
 | `XENDIT_WEBHOOK_VERIFICATION_TOKEN` | `xendit-payout-webhook` |
+| `EVIDENCE_PURGE_SECRET` | `purge-expired-evidence`; the same value is in Vault as `evidence_purge_secret` for its pg_cron job (with `project_url`) |
 | `USE_MOCK_AI` | the six AI functions — set, so they return canned output |
 | `OPENAI_API_KEY` / provider keys | the AI functions, per `README.md` — **not set yet**; needed only once `USE_MOCK_AI` comes off |
 
@@ -67,6 +70,7 @@ migration that defines it, and lives in the database.
 | Job | Schedule | Migration |
 | --- | --- | --- |
 | `purge-stale-quick-utos` | `5 * * * *` (hourly) | `add-nightly-utos-purge.sql` |
+| `purge-expired-evidence` | `30 18 * * *` (02:30 Manila) | `add-evidence-photo-retention.sql`; calls the Edge Function of the same name through pg_net. Its reply is in `net._http_response`. |
 
 ```sql
 SELECT jobname, schedule, active FROM cron.job;

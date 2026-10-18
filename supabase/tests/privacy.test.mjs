@@ -38,6 +38,8 @@ await db.exec(read("add-pay-periods.sql"));
 // PGlite has no pg_cron: apply the function, not the schedule.
 await db.exec(read("add-nightly-utos-purge.sql").split("-- @schedule")[0]);
 await db.exec(read("add-account-deletion.sql"));
+await db.exec(read("restrict-account-deletion.sql"));
+await db.exec(read("restrict-account-deletion.sql"));
 await db.exec(read("add-unassigned-tasks.sql"));
 console.log("migrations applied");
 
@@ -124,6 +126,19 @@ await expectError(
 await db.exec(`RESET ROLE`);
 
 // --- Requesting deletion ------------------------------------------------------------
+await as(U);
+await db.exec(`SET ROLE authenticated`);
+await expectError(
+  "a helper still employed is told to give notice first (O55)",
+  () => q(`SELECT * FROM request_account_deletion(NULL)`),
+  /Magbigay muna ng abiso/,
+);
+check(
+  "and nothing is recorded",
+  (await q(`SELECT id FROM account_deletion_requests`)).length === 0,
+);
+await db.exec(`RESET ROLE`);
+
 await as(U2);
 await db.exec(`SET ROLE authenticated`);
 const req = await one(`SELECT * FROM request_account_deletion('moving abroad')`);

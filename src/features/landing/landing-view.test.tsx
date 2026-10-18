@@ -71,7 +71,15 @@ describe("LandingView", () => {
       }),
     );
     const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(["/manager/pass", "/manager/pass", "/privacy", "/terms"]);
+    expect(hrefs).toEqual([
+      "/login",
+      "/signup",
+      "/signup?step=household",
+      "/signup?step=join",
+      "/signup?step=kasambahay",
+      "/privacy",
+      "/terms",
+    ]);
   });
 
   it("hides sections the Studio switched off", async () => {

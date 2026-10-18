@@ -8,6 +8,7 @@ import type { TimeOff } from "@/features/shifts/time-off";
 import type { AddTaskFlags } from "@/features/tasks/hooks/use-task-board";
 import type { Task } from "@/features/tasks/task.types";
 import { routeUtosFn } from "@/features/utos/utos.actions";
+import { AI_ENABLED } from "@/lib/ai";
 import type { SendFlags } from "@/features/utos/hooks/use-utos";
 import { toHouseholdClock, toISODate } from "@/lib/time";
 
@@ -56,6 +57,7 @@ export type SendGate = {
  * actually targets -- not just one "current" one.
  */
 export function useSendGate({
+  token,
   authorName,
   isRemote,
   schedules,
@@ -68,6 +70,8 @@ export function useSendGate({
   onSendUtos,
   onAddTask,
 }: {
+  /** The manager's session token, for the AI router (LM-A6). */
+  token: string | null;
   authorName: string;
   isRemote: boolean;
   schedules: ScheduleStore;
@@ -112,9 +116,29 @@ export function useSendGate({
     }
     // A remote admin's Quick Utos goes out as urgent.
     const remoteFlags = isRemote ? { emergency: true } : {};
+    // As typed, with the wall for someone who's off: how it goes without the
+    // AI router (src/lib/ai.ts), or when the router fails.
+    const sendAsTyped = () => {
+      if (targetStatus.status === "off") {
+        setIntent({
+          kind: "utos",
+          content,
+          helperId: utosTargetHelperId,
+          status: targetStatus,
+          helperName: resolveHelperName(utosTargetHelperId),
+        });
+      } else {
+        onSendUtos(content, { ...remoteFlags, from: authorName });
+      }
+    };
+    if (!AI_ENABLED) {
+      sendAsTyped();
+      return;
+    }
     try {
       const result = await routeUtosFn({
         data: {
+          token: token ?? "",
           prompt: content,
           helperId: utosTargetHelperId ?? "",
           helperStatus: targetStatus.status,
@@ -164,17 +188,7 @@ export function useSendGate({
       }
     } catch (err) {
       console.error(err);
-      if (targetStatus.status === "off") {
-        setIntent({
-          kind: "utos",
-          content,
-          helperId: utosTargetHelperId,
-          status: targetStatus,
-          helperName: resolveHelperName(utosTargetHelperId),
-        });
-      } else {
-        onSendUtos(content, { ...remoteFlags, from: authorName });
-      }
+      sendAsTyped();
     }
   };
 

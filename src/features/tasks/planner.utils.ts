@@ -12,11 +12,29 @@ import {
   weekdayOf,
 } from "@/lib/time";
 
-import type { Routine, Task } from "./task.types";
+import type { Routine, Status, Task } from "./task.types";
 import { byStart, isPastDue, routineAssignee, routineMatches } from "./task.utils";
 
 /** Week: a column per day. People: the same week, a row per person. Month: a calendar. */
-export type PlanView = "week" | "people" | "month";
+/** "list" is the week again, as rows (KNOWN_GAPS.md O30). */
+export type PlanView = "week" | "people" | "list" | "month";
+
+/** The Schedule's status chips (KNOWN_GAPS.md O32). */
+export type PlanStatus = "all" | "open" | "done" | "cancelled";
+
+/** What each chip keeps; empty keeps everything. Open is anything not yet settled. */
+export const PLAN_STATUSES: Record<PlanStatus, Status[]> = {
+  all: [],
+  open: ["todo", "in_progress", "blocked"],
+  done: ["done"],
+  cancelled: ["cancelled"],
+};
+
+/** Most results the Schedule's search shows; it asks for a narrower word past this. */
+export const TASK_SEARCH_LIMIT = 50;
+
+export const matchesPlanStatus = (t: Pick<Task, "status">, filter: PlanStatus): boolean =>
+  filter === "all" || PLAN_STATUSES[filter].includes(t.status);
 
 export const addDays = (d: Date, n: number): Date =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -110,11 +128,12 @@ export const cellKey = (dayIso: string, helperId: string | null) => `${dayIso}|$
 export type RoutineGhost = { routine: Routine; dayIso: string; helperId: string | null };
 
 /**
- * The routines that will spawn on each day after today, by day. Routines only
- * become real tasks when that day starts (useTaskBoard's startNewDay), so a
- * later week would otherwise look emptier than it will be. A day that already
- * has the routine's task, or a helper who has left, gets no copy. One due
- * while its helper has approved time off is shown as Unassigned, as it will spawn.
+ * The routines that will spawn on each day after today, by day. A routine's
+ * task is only made when its day starts (add-repeating-tasks.sql), so a later
+ * week would otherwise look emptier than it will be. A day that already has
+ * the routine's task, or isn't after its newest task's day, gets no copy. One
+ * due while its helper is away, or after she has left, is shown as
+ * Unassigned, as it will spawn.
  */
 export function routineGhosts(
   routines: Routine[],
@@ -127,7 +146,6 @@ export function routineGhosts(
   const spawned = new Set(
     tasks.filter((t) => t.routineId).map((t) => `${t.routineId}|${taskDayIso(t)}`),
   );
-  const active = new Set(activeHelperIds);
   const byDay = new Map<string, RoutineGhost[]>();
   for (const day of days) {
     const dayIso = toISODate(day);
@@ -135,12 +153,16 @@ export function routineGhosts(
     const ghosts = routines
       .filter(
         (r) =>
-          active.has(r.helperId) &&
           routineMatches(r, weekdayOf(day)) &&
+          (!r.lastDay || r.lastDay < dayIso) &&
           !spawned.has(`${r.id}|${dayIso}`),
       )
       .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
-      .map((routine) => ({ routine, dayIso, helperId: routineAssignee(routine, dayIso, timeOff) }));
+      .map((routine) => ({
+        routine,
+        dayIso,
+        helperId: routineAssignee(routine, dayIso, timeOff, activeHelperIds),
+      }));
     if (ghosts.length > 0) byDay.set(dayIso, ghosts);
   }
   return byDay;

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import type { HelperSchedule } from "@/features/shifts/shift.types";
+
 import type { Task } from "./task.types";
 import {
   byStart,
+  defaultTaskTime,
+  durationLabel,
+  timeSpan,
   isLaterThanToday,
   isPastDue,
   movedFromLabel,
@@ -62,9 +67,14 @@ describe("taskWhen", () => {
     expect(taskWhen(task(at(30, 19, 30)), now)).toBe("7:30 PM");
   });
 
-  it("adds the weekday for nearby days, before or after", () => {
-    expect(taskWhen(task(at(31 + 0, 19, 30)), now)).toBe("Thu 7:30 PM"); // Oct 1
-    expect(taskWhen(task(at(25, 19, 30)), now)).toBe("Fri 7:30 PM");
+  it("names tomorrow and yesterday", () => {
+    expect(taskWhen(task(at(31 + 0, 19, 30)), now)).toBe("Tomorrow 7:30 PM"); // Oct 1
+    expect(taskWhen(task(at(29, 8, 0)), now)).toBe("Yesterday 8:00 AM");
+  });
+
+  it("gives nearby days their date as well as the weekday, before or after", () => {
+    expect(taskWhen(task(at(25, 19, 30)), now)).toBe("Fri Sep 25, 7:30 PM");
+    expect(taskWhen(task(at(36, 8, 0)), now)).toBe("Tue Oct 6, 8:00 AM");
   });
 
   it("uses the date further out", () => {
@@ -142,5 +152,51 @@ describe("taskFormErrors", () => {
       date: "Pick a day.",
       time: "Pick a time.",
     });
+  });
+});
+
+describe("task length", () => {
+  it("names a length the way people say it", () => {
+    expect(durationLabel(45)).toBe("45 min");
+    expect(durationLabel(60)).toBe("1 hr");
+    expect(durationLabel(90)).toBe("1 hr 30 min");
+  });
+
+  it("shows a span only when there's a length", () => {
+    expect(timeSpan({ time: "2:00 PM" })).toBe("2:00 PM");
+    expect(timeSpan({ time: "2:00 PM", durationMinutes: 90 })).toBe("2:00 PM – 3:30 PM");
+    expect(timeSpan({ time: "11:30 PM", durationMinutes: 60 })).toBe("11:30 PM – 12:30 AM");
+  });
+});
+
+describe("defaultTaskTime", () => {
+  const shift: HelperSchedule = {
+    shiftStart: "09:00",
+    shiftEnd: "22:00",
+    weeklyRestDay: 1,
+    breakStart: "12:00",
+    breakEnd: "13:00",
+  };
+  const today = "2026-10-07";
+
+  it("opens on the shift's start on another day, not a fixed 8:00", () => {
+    expect(defaultTaskTime("2026-10-08", today, 6 * 60, shift)).toBe("09:00");
+  });
+
+  it("opens on the next whole hour today, once the shift has started", () => {
+    expect(defaultTaskTime(today, today, 7 * 60 + 20, shift)).toBe("09:00");
+    expect(defaultTaskTime(today, today, 15 * 60 + 5, shift)).toBe("16:00");
+  });
+
+  it("steps out of the break", () => {
+    expect(defaultTaskTime(today, today, 11 * 60 + 30, shift)).toBe("13:00");
+  });
+
+  it("keeps the next hour when the shift is over, so the warning is true", () => {
+    expect(defaultTaskTime(today, today, 22 * 60 + 10, shift)).toBe("23:00");
+  });
+
+  it("falls back to 8:00 without a schedule", () => {
+    expect(defaultTaskTime("2026-10-08", today, 0)).toBe("08:00");
   });
 });

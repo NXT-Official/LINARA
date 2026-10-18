@@ -43,6 +43,7 @@ export function ManagerSchedulePage({
     appointments,
     helpers,
     activeHelpers,
+    staffProfiles,
     utos,
     utosRecipientId,
     timeOff,
@@ -57,6 +58,7 @@ export function ManagerSchedulePage({
     addTask,
     addRoutine,
     removeRoutine,
+    stopRepeating,
     editTask,
     cancelTask,
     restoreTask,
@@ -70,11 +72,12 @@ export function ManagerSchedulePage({
   const authorName = currentAdmin?.name ?? "Manager";
 
   const gate = useSendGate({
+    token: session.token,
     authorName,
     isRemote,
     schedules,
     nowTs: clock.nowTs,
-    helperProfiles: invites.helperProfiles,
+    helperProfiles: staffProfiles,
     resolveHelperName: (id) => helpers.find((h) => h.id === id)?.name ?? "your helper",
     utosTargetHelperId: utosRecipientId,
     activeHelpers,
@@ -153,6 +156,7 @@ export function ManagerSchedulePage({
           simDate={simDate}
           helpers={helpers}
           activeHelpers={activeHelpers}
+          token={session.token}
         />
       )}
       {tab === "shifts" && (
@@ -204,6 +208,14 @@ export function ManagerSchedulePage({
             restoreTask(editing.id);
             setEditing(null);
           }}
+          onStopRepeating={
+            isRemote
+              ? undefined
+              : () => {
+                  void stopRepeating(editing.routineId ?? editing.id);
+                  setEditing(null);
+                }
+          }
         />
       )}
       {gate.intent && (

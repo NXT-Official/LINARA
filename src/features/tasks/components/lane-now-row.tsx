@@ -1,8 +1,8 @@
 import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 
 import type { Task } from "../task.types";
+import { TripChip } from "@/features/sharing/components/trip-chip";
 import { CommentBadge } from "./comment-badge";
-import { isPalengke } from "../task.utils";
 
 export function LaneNowRow({
   label,
@@ -36,7 +36,7 @@ export function LaneNowRow({
         <span className="text-xs font-bold text-muted-foreground">{label}</span>
         <span className="text-xs font-semibold tabular-nums text-foreground">· {when}</span>
         {late && (
-          <span className="rounded-full bg-[oklch(0.93_0.06_35)] px-1.5 py-0.5 text-xs font-bold text-[oklch(0.42_0.15_35)]">
+          <span className="rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
             Late
           </span>
         )}
@@ -45,11 +45,8 @@ export function LaneNowRow({
         </span>
       </div>
       <div className="mt-0.5 truncate text-sm font-medium text-foreground">{task.title}</div>
-      {isPalengke(task) && (
-        <div className="mt-1">
-          <PalengkeChip compact />
-        </div>
-      )}
+      <TripChip from={task.from} to={task.to} />
+      <PalengkeChip task={task} compact className="mt-1" />
     </Wrapper>
   );
 }

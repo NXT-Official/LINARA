@@ -59,12 +59,22 @@ export function LandingView({ content }: { content: LandingContent }) {
             nara
           </span>
         </div>
-        <Link
-          to="/manager/pass"
-          className="rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
-        >
-          {header.ctaLabel}
-        </Link>
+        {/* One way in for an account that exists (a signed-in manager is sent
+            straight on to the Pass), one for a new one. */}
+        <nav aria-label="Account" className="flex items-center gap-2 sm:gap-3">
+          <Link
+            to="/login"
+            className="rounded-lg px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+          >
+            Log in
+          </Link>
+          <Link
+            to="/signup"
+            className="rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
+          >
+            {header.ctaLabel}
+          </Link>
+        </nav>
       </header>
 
       {/* 2. Hero Section */}
@@ -88,13 +98,33 @@ export function LandingView({ content }: { content: LandingContent }) {
           {hero.description}
         </p>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-center gap-4">
+          {/* Opens on Set up your household; a signed-in visitor is sent on to the Pass. */}
           <Link
-            to="/manager/pass"
+            to="/signup"
+            search={{ step: "household" }}
             className="w-full rounded-lg bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
           >
             {hero.ctaLabel}
           </Link>
+          {/* The other two ways in: a co-manager with a code, and a kasambahay,
+              whose Linara is the app. */}
+          <p className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-5">
+            <Link
+              to="/signup"
+              search={{ step: "join" }}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Have a code from a household? Join it
+            </Link>
+            <Link
+              to="/signup"
+              search={{ step: "kasambahay" }}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Work in a household? Get the app
+            </Link>
+          </p>
         </div>
       </section>
 

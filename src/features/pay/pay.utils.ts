@@ -36,6 +36,11 @@ const CUTOFF_DISPLAY = new Intl.DateTimeFormat("en-PH", {
  * is formatted in UTC, so the day survives the round trip. (It is only mixing
  * the two zones that breaks the day, as `currentCutoffRange` did.)
  */
+/** "Oct 16" from an ISO date, the same way formatCutoffRange shows each end. */
+export function formatCutoffDay(ymd: string): string {
+  return CUTOFF_DISPLAY.format(new Date(`${ymd}T00:00:00Z`));
+}
+
 export function formatCutoffRange(cutoffStart: string, cutoffEnd: string): string {
   const start = CUTOFF_DISPLAY.format(new Date(`${cutoffStart}T00:00:00Z`));
   const end = CUTOFF_DISPLAY.format(new Date(`${cutoffEnd}T00:00:00Z`));

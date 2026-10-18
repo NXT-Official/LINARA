@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useAppointments } from "@/features/appointments/hooks/use-appointments";
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
@@ -17,9 +17,12 @@ import { toHelper } from "@/features/people/people.utils";
 import { useSchedules } from "@/features/shifts/hooks/use-schedules";
 import { useTimeOff } from "@/features/shifts/hooks/use-time-off";
 import { useTaskBoard } from "@/features/tasks/hooks/use-task-board";
+import { useStations } from "@/features/people/hooks/use-stations";
+import { useTeams } from "@/features/teams/hooks/use-teams";
+import { useSharing } from "@/features/sharing/hooks/use-sharing";
+import { sharedToProfileRow } from "@/features/sharing/sharing.utils";
 import { getServerNowFn } from "@/features/tasks/task.actions";
 import type { Task } from "@/features/tasks/task.types";
-import { isPalengke } from "@/features/tasks/task.utils";
 import { useUtos } from "@/features/utos/hooks/use-utos";
 import { clearAllUtosForHelpersFn } from "@/features/utos/utos.actions";
 import { supabaseClient } from "@/lib/supabase";
@@ -44,23 +47,65 @@ const MAX_PLAUSIBLE_ROLLOVER_DAYS = 14;
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
+  const teams = useTeams({
+    token: session.token,
+    ready: session.status === "authed",
+    onRosterChange: invites.refresh,
+  });
+  const stations = useStations({
+    token: session.token,
+    ready: session.status === "authed",
+    onRosterChange: invites.refresh,
+  });
 
-  // All real helper_profiles rows, any status, for id -> Helper lookups; and the
-  // ACTIVE subset for assignment dropdowns / lane rendering. "helper" stands in for
-  // "the one with a first-class device" -- the first ACTIVE helper -- since there is
-  // no real per-helper auth session yet (see KNOWN_GAPS.md); null until someone has
-  // claimed their account.
-  const helpers = useMemo(() => invites.helperProfiles.map(toHelper), [invites.helperProfiles]);
-  const activeHelpers = useMemo(
-    () => invites.helperProfiles.filter((p) => p.status === "ACTIVE").map(toHelper),
-    [invites.helperProfiles],
+  const sharing = useSharing({
+    token: session.token,
+    ready: session.status === "authed",
+    householdId: session.householdId,
+  });
+
+  // Everyone who works here: this household's own helper_profiles rows, and
+  // staff employed elsewhere in the family who also work here
+  // (add-shared-staff-and-places.sql), as rows without pay. Schedules,
+  // availability and the send gate read these.
+  const staffProfiles = useMemo(
+    () => [...invites.helperProfiles, ...sharing.sharedHelpers.map(sharedToProfileRow)],
+    [invites.helperProfiles, sharing.sharedHelpers],
   );
-  const helper = activeHelpers[0] ?? null;
+  const sharedFrom = useMemo(
+    () => new Map(sharing.sharedHelpers.map((r) => [r.id, r.home_household_name] as const)),
+    [sharing.sharedHelpers],
+  );
+  const asHelper = useCallback(
+    (row: (typeof staffProfiles)[number]) => {
+      const h = toHelper(row);
+      const from = sharedFrom.get(row.id);
+      return from ? { ...h, sharedFrom: from } : h;
+    },
+    [sharedFrom],
+  );
+
+  // Every row, any status, for id -> Helper lookups; ACTIVE ones (shared staff
+  // included) for lanes, pickers and the schedule; and only those this
+  // household employs, for pay. "helper" stands in for "the one with a
+  // first-class device" -- the first employed ACTIVE helper -- since there is
+  // no real per-helper auth session yet (see KNOWN_GAPS.md); null until
+  // someone has claimed their account.
+  const helpers = useMemo(() => staffProfiles.map(asHelper), [staffProfiles, asHelper]);
+  const activeHelpers = useMemo(
+    () => staffProfiles.filter((p) => p.status === "ACTIVE").map(asHelper),
+    [staffProfiles, asHelper],
+  );
+  const employedHelpers = useMemo(
+    () => activeHelpers.filter((h) => !h.sharedFrom),
+    [activeHelpers],
+  );
+  const helper = employedHelpers[0] ?? null;
   const currentHelperId = helper?.id ?? null;
 
   const pantry = usePantry({ token: session.token, ready: session.status === "authed" });
   const schedules = useSchedules({
-    helperProfiles: invites.helperProfiles,
+    helperProfiles: staffProfiles,
     token: session.token,
     refresh: invites.refresh,
   });
@@ -84,7 +129,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     nowTs: clock.nowTs,
     schedules,
     currentHelperId,
-    helperProfiles: invites.helperProfiles,
+    helperProfiles: staffProfiles,
     timeOff: timeOff.list,
   });
   const ledger = useLedger({
@@ -123,6 +168,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ready: session.status === "authed",
     isReachable: (helperId) => reachableRef.current.includes(helperId),
     timeOff: timeOff.list,
+    // Who works here and who's away are known (for repeating tasks, O43).
+    staffReady: invites.loaded && sharing.loaded && timeOff.loaded,
   });
 
   // Helpers who may be pinged right now (statusFor() != "off"). An appointment
@@ -132,14 +179,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     () =>
       activeHelpers
         .filter((h) => {
-          const row = invites.helperProfiles.find((p) => p.id === h.id);
+          const row = staffProfiles.find((p) => p.id === h.id);
           return (
             statusFor(h.id, schedules, clock.nowTs, manualFromRow(row), timeOff.list).status !==
             "off"
           );
         })
         .map((h) => h.id),
-    [activeHelpers, invites.helperProfiles, schedules, clock.nowTs, timeOff.list],
+    [activeHelpers, staffProfiles, schedules, clock.nowTs, timeOff.list],
   );
   reachableRef.current = reachableHelperIds;
 
@@ -481,8 +528,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
         rejectedRolloverDayRef.current = null;
         return runDayRollover(serverToday).then(({ routinesRespawned, utosCleared }) => {
+          // The hourly job may already have made the day's routines (O43).
           toast.info(
-            `Bumagong araw habang wala ka — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned` +
+            "Bumagong araw habang wala ka" +
+              (routinesRespawned > 0
+                ? ` — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
+                : "") +
               (utosCleared ? ", mga Quick Utos na-clear." : "."),
           );
         });
@@ -500,8 +551,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     helper,
     helpers,
     activeHelpers,
+    employedHelpers,
+    staffProfiles,
     session,
     invites,
+    teams,
+    stations,
+    sharing,
     pantry,
     schedules,
     timeOff,
@@ -530,12 +586,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   return (
     <AppStoreContext.Provider value={value}>
       <CommentActivityContext.Provider value={commentActivity}>
-        <GroceryProvider
-          pantry={pantry}
-          token={session.token}
-          ready={session.status === "authed"}
-          receiptPhoto={board.tasks.find(isPalengke)?.photo ?? null}
-        >
+        <GroceryProvider pantry={pantry} token={session.token} ready={session.status === "authed"}>
           {children}
         </GroceryProvider>
       </CommentActivityContext.Provider>

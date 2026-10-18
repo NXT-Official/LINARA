@@ -76,6 +76,9 @@ export type PayPeriod = {
   payslipStatus: PayoutStatus | null;
   payslipProvider: string | null;
   payslipAck: HelperAck | null;
+  /** Her wage for this period: the one in effect on its first day
+   * (add-wage-history.sql). Null before that migration; use her current one. */
+  monthlyRate: number | null;
 };
 
 /** 13th-month pay for one employment and year -- thirteenth_month_due. */

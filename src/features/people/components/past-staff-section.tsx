@@ -114,7 +114,7 @@ export function PastStaffSection({
                       {inv.station}
                     </span>
                     {owed > 0 ? (
-                      <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-[oklch(0.38_0.09_60)]">
+                      <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                         {owed === 1 ? "1 payment due" : `${owed} payments due`}
                       </span>
                     ) : periods.length > 0 ? (

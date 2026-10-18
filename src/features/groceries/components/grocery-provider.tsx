@@ -15,15 +15,13 @@ export function GroceryProvider({
   pantry,
   token,
   ready,
-  receiptPhoto,
   children,
 }: {
   pantry: PantryStore;
   token: string | null;
   ready: boolean;
-  receiptPhoto: string | null;
   children: ReactNode;
 }) {
-  const value = useGroceryList({ pantry, token, ready, receiptPhoto });
+  const value = useGroceryList({ pantry, token, ready });
   return <GroceryContext.Provider value={value}>{children}</GroceryContext.Provider>;
 }

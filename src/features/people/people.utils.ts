@@ -5,20 +5,53 @@ import { WEEKLY_REST_DAY_NAMES } from "./people.constants";
 import type { Helper, PaydayInterval, Station } from "./people.types";
 import { fmtHM12 } from "@/lib/time";
 
-// "Ate Marites" -> "AM". Used for invited helpers, who have no seeded initials yet.
+// Titles a household puts before a name ("Ate Marites", "Kuya Marito",
+// "Manang Rosa"). Dropped before shortening, so the short name and initials
+// are the person's own, not the title's.
+const HONORIFICS = new Set([
+  "ate",
+  "kuya",
+  "manang",
+  "manong",
+  "nanay",
+  "tatay",
+  "lola",
+  "lolo",
+  "tita",
+  "tito",
+  "ninang",
+  "ninong",
+  "yaya",
+  "aling",
+  "mang",
+  "ms",
+  "mr",
+  "mrs",
+  "miss",
+  "sir",
+  "maam",
+  "ma'am",
+]);
+
+/** The words of a name without a leading title; a title alone is kept. */
+const givenNames = (name: string): string[] => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.toLowerCase().replace(/\.$/, "");
+  return parts.length > 1 && first && HONORIFICS.has(first) ? parts.slice(1) : parts;
+};
+
+// "Ate Marites" -> "M", "Nicole Azachee" -> "NA".
 export const initialsOf = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
+  givenNames(name)
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("") || "??";
 
-// "Ate Rosa" -> "Rosa", "Kuya Manuel" -> "Manuel" -- drops a leading honorific by
-// taking the last token; a bare one-word name passes through unchanged.
-const shortNameOf = (name: string): string => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts[parts.length - 1] ?? name;
+// "Ate Rosa" -> "Rosa", "Kuya Manuel" -> "Manuel", "Nicole Azachee" -> "Nicole".
+// "Ma." is Maria, and a "Ma. Theresa" goes by Theresa.
+export const shortNameOf = (name: string): string => {
+  const given = givenNames(name);
+  return (/^ma\.$/i.test(given[0] ?? "") ? given[1] : given[0]) ?? name.trim();
 };
 
 /** Maps a real helper_profiles row (see use-invites.ts) onto the display-shaped Helper type. */
@@ -40,6 +73,7 @@ export function toHelper(row: HelperProfileRow): Helper {
     // yet -- it must never become a place the rule is re-implemented.
     defaultResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.default_resolution ?? ""] ?? null,
     effectiveResolution: RESOLUTION_TYPE_TO_RESOLUTION[row.effective_resolution ?? ""] ?? "rest",
+    teamId: row.team_id ?? null,
   };
 }
 
@@ -58,6 +92,7 @@ export const UNKNOWN_HELPER: Helper = {
   phone: "",
   defaultResolution: null,
   effectiveResolution: "rest",
+  teamId: null,
 };
 
 /** A task nobody is assigned to yet (tickets.helper_id NULL). */
@@ -92,16 +127,33 @@ export interface StatutorySplit {
  * proved this out for the mobile Pay tab.
  */
 export function computeStatutorySplit(wagePHP: number): StatutorySplit {
-  const isUnder5k = wagePHP < 5000;
+  const wage = Math.max(0, wagePHP);
+  const isUnder5k = wage < 5000;
+  const centavos = (n: number) => Math.round(n * 100) / 100;
 
-  const sssEmployer = isUnder5k ? 400 : 350;
-  const sssEmployee = isUnder5k ? 0 : 150;
+  // SSS: 15% of the monthly salary credit (the wage in PHP 500 brackets,
+  // 5,000 to 35,000): 5% hers, 10% the employer's, who also pays EC
+  // (PHP 10, or 30 from an MSC of 15,000).
+  const msc = Math.min(35000, Math.max(5000, 500 * Math.floor((wage + 250) / 500)));
+  const sssShare = (msc * 5) / 100;
+  const ec = msc < 15000 ? 10 : 30;
 
-  const philhealthEmployer = isUnder5k ? 150 : 125;
-  const philhealthEmployee = isUnder5k ? 0 : 125;
+  // PhilHealth: 5% of the wage, floored at 10,000 and capped at 100,000,
+  // split equally.
+  const philhealthShare = centavos(Math.min(100000, Math.max(10000, wage)) / 40);
 
-  const pagibigEmployer = 100;
-  const pagibigEmployee = isUnder5k ? 0 : 100;
+  // Pag-IBIG: 2% each of the wage up to 10,000 (1% hers at 1,500 or less).
+  const pagibigBase = Math.min(10000, wage);
+  const pagibigOwn = centavos((pagibigBase * (wage <= 1500 ? 1 : 2)) / 100);
+  const pagibigMatch = centavos((pagibigBase * 2) / 100);
+
+  // RA 10361: below PHP 5,000 a month the employer pays her shares as well.
+  const sssEmployee = isUnder5k ? 0 : sssShare;
+  const sssEmployer = sssShare * 2 + ec + (isUnder5k ? sssShare : 0);
+  const philhealthEmployee = isUnder5k ? 0 : philhealthShare;
+  const philhealthEmployer = philhealthShare + (isUnder5k ? philhealthShare : 0);
+  const pagibigEmployee = isUnder5k ? 0 : pagibigOwn;
+  const pagibigEmployer = pagibigMatch + (isUnder5k ? pagibigOwn : 0);
 
   return {
     isUnder5k,
@@ -111,8 +163,8 @@ export function computeStatutorySplit(wagePHP: number): StatutorySplit {
     philhealthEmployee,
     pagibigEmployer,
     pagibigEmployee,
-    totalEmployer: sssEmployer + philhealthEmployer + pagibigEmployer,
-    totalEmployee: sssEmployee + philhealthEmployee + pagibigEmployee,
+    totalEmployer: centavos(sssEmployer + philhealthEmployer + pagibigEmployer),
+    totalEmployee: centavos(sssEmployee + philhealthEmployee + pagibigEmployee),
   };
 }
 

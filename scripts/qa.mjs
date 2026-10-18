@@ -5,7 +5,7 @@
  *   npm run qa:fast    typecheck, lint, unit tests (also the pre-push hook)
  *   npm run qa:live    browser tests against the deployed site (QA_LIVE_URL,
  *                      default https://linara-delta.vercel.app)
- *   npm run qa:deep    build, then e2e/deep: a task and a pantry item made,
+ *   npm run qa:deep    build, then e2e/deep: a task, a pantry item, a receipt made,
  *                      changed and removed for real in the test household
  *
  * Local browser tests run against the production build on port 8091 (a dev

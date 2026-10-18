@@ -23,21 +23,22 @@ import {
 } from "../pay.types";
 import { formatAge, payoutStaleness } from "../payout-staleness";
 import { formatCutoffRange } from "../pay.utils";
+import { manualAckState } from "../payslip-ack";
 import { payslipCovering } from "../payslip-match";
 import { XENDIT_PAYOUTS_ON } from "../payout-mode";
 import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 
-/** Where an outside-Linara payment stands with her. */
+/** Where an outside-Linara payment stands with the helper. */
 export function AckChip({ payslip }: { payslip: Payslip }) {
   if (payslip.payoutProvider !== "manual" || !payslip.helperAck) return null;
   const { label, tone } =
     payslip.helperAck === "confirmed"
-      ? { label: "She confirmed", tone: "bg-primary/10 text-primary" }
+      ? { label: "Confirmed", tone: "bg-primary/10 text-primary" }
       : payslip.helperAck === "disputed"
-        ? { label: "She says not received", tone: "bg-destructive/10 text-destructive" }
-        : { label: "Awaiting her confirmation", tone: "bg-accent/15 text-terracotta-ink" };
+        ? { label: "Says not received", tone: "bg-destructive/10 text-destructive" }
+        : { label: "Awaiting confirmation", tone: "bg-accent/15 text-terracotta-ink" };
   return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
 }
 
@@ -60,17 +61,40 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
           : Clock;
   const tone =
     status === "succeeded"
-      ? "text-emerald bg-emerald/10"
+      ? "text-status-done-ink bg-status-done-soft"
       : status === "failed"
         ? "text-destructive bg-destructive/10"
         : status === "needs_review"
-          ? "text-amber-600 bg-amber-500/10"
+          ? "text-status-late-ink bg-status-late-soft"
           : "text-terracotta-ink bg-accent/10";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}
     >
       <Icon className="h-3 w-3" /> {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/** The current cutoff's state: "Recorded" rather than "Paid" until an outside-Linara payment is confirmed. */
+function CutoffBadge({ payslip }: { payslip: Payslip }) {
+  const ack = manualAckState(payslip);
+  if (!ack) return <StatusBadge status={payslip.payoutStatus} />;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+        ack === "disputed" ? "bg-destructive/10 text-destructive" : "bg-secondary text-pine-deep"
+      }`}
+    >
+      {ack === "disputed" ? (
+        <>
+          <XCircle className="h-3 w-3" /> Not received
+        </>
+      ) : (
+        <>
+          <Clock className="h-3 w-3" /> Recorded
+        </>
+      )}
     </span>
   );
 }
@@ -196,9 +220,9 @@ export function PayslipHistory({
           <span className="text-xs text-muted-foreground">Loading cutoff…</span>
         ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
-            <StatusBadge status={currentCutoffPayslip.payoutStatus} />
+            <CutoffBadge payslip={currentCutoffPayslip} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
-              <span className="text-xs text-amber-600 text-right max-w-[11rem]">
+              <span className="text-xs text-terracotta-ink text-right max-w-[11rem]">
                 Reconcile against Xendit before retrying.
               </span>
             )}
@@ -209,13 +233,13 @@ export function PayslipHistory({
                 assuming otherwise is how a cutoff gets paid twice. */}
             {staleness.isStale && (
               <div className="flex flex-col items-end gap-1">
-                <span className="text-xs text-amber-600 text-right max-w-[13rem]">
+                <span className="text-xs text-terracotta-ink text-right max-w-[13rem]">
                   Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
                 </span>
                 <button
                   onClick={reconcile}
                   disabled={reconciling}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-60 dark:text-amber-300"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/50 bg-terracotta-soft/50 px-3 py-1 text-xs font-semibold text-accent-foreground transition hover:bg-terracotta-soft disabled:opacity-60"
                 >
                   <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
                   {reconciling ? "Checking…" : "Check with Xendit"}
@@ -343,7 +367,7 @@ export function PayslipHistory({
                   <p className="mt-1 text-muted-foreground">
                     {p.manualNote ? `Your note: ${p.manualNote}` : ""}
                     {p.manualNote && p.helperAckNote ? " · " : ""}
-                    {p.helperAckNote ? `She says: "${p.helperAckNote}"` : ""}
+                    {p.helperAckNote ? `Their note: "${p.helperAckNote}"` : ""}
                   </p>
                 )}
               </div>

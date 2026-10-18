@@ -2,6 +2,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { Field } from "@/components/shared/field";
 import type { Helper } from "@/features/people/people.types";
 
@@ -234,20 +235,15 @@ export function NewAppointmentModal({
                     <span className="mb-1 block text-xs font-semibold text-muted-foreground">
                       Assign to
                     </span>
-                    <select
+                    <HelperPicker
+                      helpers={activeHelpers}
                       value={p.helperId}
-                      onChange={(e) => updateRow(i, { helperId: e.target.value })}
+                      onChange={(v) => updateRow(i, { helperId: v })}
+                      ariaLabel="Assign to"
+                      emptyLabel="No active helpers yet"
+                      describe={(h) => `${h.short} · ${h.station}`}
                       className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-                    >
-                      {activeHelpers.length === 0 && (
-                        <option value="">No active helpers yet</option>
-                      )}
-                      {activeHelpers.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.short} · {h.station}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
                 </div>
                 <textarea

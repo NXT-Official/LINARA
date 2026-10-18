@@ -12,14 +12,14 @@ export function silHint(policy: { silWaitsFirstYear: boolean; silDaysPerYear: nu
   if (!policy) return LEAVE_KIND_HINT.sil;
   const days = `${policy.silDaysPerYear} days a service year`;
   return policy.silWaitsFirstYear
-    ? `Paid. ${days} after her first year (RA 10361).`
-    : `Paid. ${days} from her first day (your household's rule; the law starts after a year).`;
+    ? `Paid. ${days} after the first year (RA 10361).`
+    : `Paid. ${days} from day one (your household's rule; the law starts after a year).`;
 }
 
 /** What each kind costs, for the forms. */
 export const LEAVE_KIND_HINT: Record<LeaveKind, string> = {
-  sil: "Paid. 5 days a service year after her first year (RA 10361).",
-  in_kind: "Paid in rest: each day comes out of her rest owed.",
+  sil: "Paid. 5 days a service year after the first year (RA 10361).",
+  in_kind: "Paid in rest: each day comes out of their rest owed.",
   unpaid: "Not paid. Deducted from that period's pay.",
   extra_paid: "Paid. The household's own extra, with no balance.",
 };
@@ -52,9 +52,13 @@ export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
   cancelled: "Cancelled",
 };
 
-/** helper_profiles.pay_days_per_year: the unpaid-leave divisor (LEGAL_CONSIDERATIONS.md). */
+/**
+ * helper_profiles.pay_days_per_year: the unpaid-leave divisor (LEGAL_CONSIDERATIONS.md).
+ * 365 is every helper's default, live-in or not, and the smallest deduction;
+ * the label used to say "(live-in)" and read as if it followed the arrangement.
+ */
 export const PAY_DAYS_OPTIONS = [
-  { value: 365, label: "Every day (live-in)" },
+  { value: 365, label: "Every calendar day (smallest deduction)" },
   { value: 313, label: "Six days a week" },
   { value: 261, label: "Five days a week" },
 ] as const;

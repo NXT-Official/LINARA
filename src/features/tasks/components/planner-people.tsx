@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
-import { STATION_HEX, UNASSIGNED_HEX } from "@/features/people/people.constants";
+import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
 import type { Helper } from "@/features/people/people.types";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isRestDay, summarizeSchedule } from "@/features/shifts/shift.utils";
@@ -17,8 +17,8 @@ import {
   type PlannerDrag,
 } from "./planner-day-column";
 
-/** One row: a helper, or (null) the Unassigned tray. */
-export type PeopleRow = { helper: Helper | null };
+/** One row: a helper, (null) the Unassigned tray, or a team's heading. */
+export type PeopleRow = { helper: Helper | null } | { heading: string; count: number };
 
 /**
  * The week by person: a row per helper, a column per day. Her shift sits in
@@ -118,11 +118,26 @@ export function PlannerPeople({
           </>
         )}
 
-        {rows.map(({ helper }) => {
+        {rows.map((row) => {
+          if ("heading" in row) {
+            return (
+              <div
+                key={`team:${row.heading}`}
+                className="border-b border-border/60 bg-secondary/40"
+                style={{ gridColumn: "1 / -1" }}
+              >
+                <h3 className="sticky left-0 inline-flex items-baseline gap-2 px-3 py-1.5 text-sm font-semibold text-foreground">
+                  {row.heading}
+                  <span className="text-xs text-muted-foreground tabular-nums">{row.count}</span>
+                </h3>
+              </div>
+            );
+          }
+          const { helper } = row;
           const helperId = helper?.id ?? null;
           const schedule = helper ? scheduleFor(helper.id) : undefined;
           const name = helper ? helper.short : "Unassigned";
-          const color = helper ? STATION_HEX[helper.station] : UNASSIGNED_HEX;
+          const color = helper ? stationHex(helper.station) : UNASSIGNED_HEX;
           return (
             <div key={helperId ?? "unassigned"} className="contents">
               <RowLabel

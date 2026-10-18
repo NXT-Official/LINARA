@@ -143,8 +143,28 @@ describe("routineGhosts", () => {
     expect([...ghosts.keys()]).toEqual(["2026-09-30"]);
   });
 
-  it("leaves out a helper who has left", () => {
-    expect(routineGhosts([routine()], week, "2026-09-27", [], ["h2"]).size).toBe(0);
+  it("goes to Unassigned once its helper has left, as it will spawn", () => {
+    const ghosts = routineGhosts([routine()], week, "2026-09-27", [], ["h2"]);
+    expect(ghosts.get("2026-09-30")?.[0].helperId).toBeNull();
+  });
+
+  it("starts after the day of its newest task", () => {
+    const ghosts = routineGhosts(
+      [routine({ lastDay: "2026-09-30" })],
+      week,
+      "2026-09-27",
+      [],
+      ["h1"],
+    );
+    expect([...ghosts.keys()]).toEqual([]);
+    const daily = routineGhosts(
+      [routine({ recurrence: "daily", lastDay: "2026-10-02" })],
+      week,
+      "2026-09-27",
+      [],
+      ["h1"],
+    );
+    expect([...daily.keys()]).toEqual(["2026-10-03", "2026-10-04"]);
   });
 
   it("goes to Unassigned while its helper has approved time off then", () => {

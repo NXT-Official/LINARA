@@ -2,6 +2,7 @@ import { Send, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { Helper } from "@/features/people/people.types";
+import { HelperPicker } from "@/features/teams/components/helper-picker";
 
 import { QUICK_UTOS_PRESETS } from "../utos.constants";
 
@@ -52,17 +53,13 @@ export function QuickUtosLauncher({
         {activeHelpers.length > 1 ? (
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span className="font-display text-lg text-foreground">Send a small ask to</span>
-            <select
+            <HelperPicker
+              helpers={sortedHelpers}
               value={selectedHelperId ?? ""}
-              onChange={(e) => onSelectHelper(e.target.value)}
+              onChange={onSelectHelper}
+              ariaLabel="Send to"
               className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
-            >
-              {sortedHelpers.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} · {h.station}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         ) : (
           <div className="mt-1 font-display text-lg text-foreground">

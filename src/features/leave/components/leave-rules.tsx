@@ -54,11 +54,11 @@ export function LeaveRules({
           className="mt-0.5 h-4 w-4 accent-primary"
         />
         <span>
-          Service incentive leave starts after her first year
+          Service incentive leave starts after the first year
           <span className="block text-muted-foreground">
             {policy.silWaitsFirstYear
-              ? "As RA 10361 has it. Untick to give it from her first day."
-              : "Your household gives it from her first day, sooner than the law asks."}
+              ? "As RA 10361 has it. Untick to give it from day one."
+              : "Your household gives it from day one, sooner than the law asks."}
           </span>
         </span>
       </label>

@@ -2,7 +2,16 @@
 
 import type { LedgerResolution } from "@/features/ledger/ledger.types";
 
-export type Station = "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+/**
+ * A station's name. Each household keeps its own list (household_stations,
+ * supabase/add-household-stations.sql), starting with DEFAULT_STATIONS, which
+ * its managers can add to, rename and remove; helper_profiles.station holds
+ * the name.
+ */
+export type Station = string;
+
+/** What every household starts with, and the list before the SQL is applied. */
+export const DEFAULT_STATIONS: readonly Station[] = ["Yaya", "Cook", "Laundry", "Driver", "House"];
 
 export type PaydayInterval = "semi_monthly" | "monthly";
 
@@ -30,6 +39,12 @@ export type Helper = {
    */
   defaultResolution: LedgerResolution | null;
   effectiveResolution: LedgerResolution;
+  /** Her team (household_teams), or null. Labels live in the team store. For
+   * shared staff, her team in this household. */
+  teamId: string | null;
+  /** Employed by another household of the family (named here) and shared in:
+   * she works here, but her pay and record are that household's. */
+  sharedFrom?: string;
 };
 
 export type AdminType = "primary" | "co" | "remote";
@@ -97,5 +112,7 @@ export type Invite = {
   claimedAt?: number;
   /** Unset until add-pantry-roles.sql is applied; People hides the choice then. */
   pantryRole?: PantryRole;
+  /** Her team (add-teams-and-labels.sql); null for none. */
+  teamId?: string | null;
   flags: InviteFlag[];
 };

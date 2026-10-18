@@ -58,17 +58,18 @@ function sqlCodeOnly(source: string): string {
 }
 
 /** Numbers chosen to exercise the statutory branch (<5k vs >=5k) and both
- *  intervals. Real sandbox figures: Ate Marites 9000, Kuya Marito 12000. */
+ *  intervals. Real sandbox figures: Ate Marites 9000 (her share ₱880 a month),
+ *  Kuya Marito 12000 (₱1,100); see computeStatutorySplit. */
 const CASES = [
-  { monthlyRate: 9000, interval: "semi_monthly" as const, vales: 0, expected: 4500 - 187.5 },
+  { monthlyRate: 9000, interval: "semi_monthly" as const, vales: 0, expected: 4500 - 440 },
   {
     monthlyRate: 9000,
     interval: "semi_monthly" as const,
     vales: 500,
-    expected: 4500 - 187.5 - 500,
+    expected: 4500 - 440 - 500,
   },
-  { monthlyRate: 12000, interval: "semi_monthly" as const, vales: 0, expected: 6000 - 187.5 },
-  { monthlyRate: 12000, interval: "monthly" as const, vales: 0, expected: 12000 - 375 },
+  { monthlyRate: 12000, interval: "semi_monthly" as const, vales: 0, expected: 6000 - 550 },
+  { monthlyRate: 12000, interval: "monthly" as const, vales: 0, expected: 12000 - 1100 },
   // Under ₱5,000/mo the employee share is zero (computeStatutorySplit).
   { monthlyRate: 4000, interval: "monthly" as const, vales: 0, expected: 4000 },
 ];
@@ -84,9 +85,9 @@ describe("netPayForCutoff -- the shared rule", () => {
   it("takes unpaid leave as Postgres prices it, pro-rated cutoffs included", () => {
     // 2 days at 8000 x 12 / 365 = 526.03, the figure unpaid-leave-pay.test.mjs
     // gets from unpaid_leave_due for the same helper.
-    expect(netPayForCutoff(8000, "semi_monthly", 500, 1, 526.03)).toBeCloseTo(2786.47, 2);
+    expect(netPayForCutoff(8000, "semi_monthly", 500, 1, 526.03)).toBeCloseTo(2568.97, 2);
     expect(netPayForCutoff(8000, "semi_monthly", 0, 3 / 15, 263.01)).toBeCloseTo(
-      800 - 37.5 - 263.01,
+      800 - 81 - 263.01,
       2,
     );
     expect(netPayForCutoff(8000, "semi_monthly", 0, 1, 99_999)).toBe(0);
@@ -240,10 +241,10 @@ describe("final, shortened cutoffs", () => {
 
   it("scales base and statutory with it, rounded to centavos", () => {
     const full = payComponentsForCutoff(8000, "semi_monthly");
-    expect(full).toEqual({ basePay: 4000, statutoryEmployeeShare: 187.5 });
+    expect(full).toEqual({ basePay: 4000, statutoryEmployeeShare: 405 });
     expect(payComponentsForCutoff(8000, "semi_monthly", 3 / 15)).toEqual({
       basePay: 800,
-      statutoryEmployeeShare: 37.5,
+      statutoryEmployeeShare: 81,
     });
     expect(payComponentsForCutoff(8000, "semi_monthly", 1 / 3).basePay).toBe(1333.33);
   });

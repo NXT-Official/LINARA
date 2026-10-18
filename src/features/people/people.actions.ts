@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
-import { supabaseClient, createAuthedClient } from "@/lib/supabase";
+import { createAuthedClient } from "@/lib/supabase";
+import { rateForCutoff } from "@/features/pay/wage-rate";
 
 // The Supabase client here isn't generated against a Database type, so
 // .rpc() calls resolve to `{}` instead of the function's actual return
@@ -28,7 +29,7 @@ interface HelperProfileRow {
   user_id: string | null;
   household_id: string;
   name: string;
-  station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+  station: string;
   monthly_rate: number;
   payday_interval: "semi_monthly" | "monthly";
   shift_start: string;
@@ -72,7 +73,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
       name: string;
-      station: "Yaya" | "Cook" | "Laundry" | "Driver" | "House";
+      station: string;
       monthlyRate: number;
       paydayInterval: "semi_monthly" | "monthly";
       shiftStart: string;
@@ -83,6 +84,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       phone?: string;
       /** Her first working day, "YYYY-MM-DD"; defaults to today in Postgres. */
       startedOn?: string;
+      /** add-teams-and-labels.sql: her team, and any labels. */
+      teamId?: string | null;
+      labelIds?: string[];
       token: string;
     }) => data,
   )
@@ -147,6 +151,9 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
         employment: employment ?? null,
         phone: phone ?? null,
         ...(data.startedOn ? { started_on: data.startedOn } : {}),
+        // Only sent when chosen, so an invite still works before
+        // add-teams-and-labels.sql is applied.
+        ...(data.teamId ? { team_id: data.teamId } : {}),
         created_by: profile.id,
       })
       .select()
@@ -154,6 +161,18 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
 
     if (insertError || !helperProfile) {
       throw new Error(insertError?.message || "Failed to create helper profile");
+    }
+
+    if (data.labelIds && data.labelIds.length > 0) {
+      const { error: labelError } = await authedClient
+        .from("helper_labels")
+        .insert(
+          data.labelIds.map((labelId) => ({ helper_id: helperProfile.id, label_id: labelId })),
+        );
+      // The invite stands without them; People can add them again.
+      if (labelError) {
+        console.error("[inviteHelperFn] Failed to add labels:", labelError.message);
+      }
     }
 
     // D. Batas Kasambahay compliance minimum wage check
@@ -202,142 +221,25 @@ export async function householdTimeZoneOf(
 }
 
 /**
- * 5. Manager Sign-Up Endpoint (Server Function)
- * Registers a brand-new manager and bootstraps their own household via
- * bootstrap_manager_household() (supabase/add-manager-bootstrap.sql), which
- * sidesteps the same current_household_id() bootstrap deadlock that
- * claim_helper_invite() solves for helpers.
+ * 6. Manager Log-In, after Supabase Auth (Server Function)
+ * The browser signs in itself (people.auth.ts), straight with Supabase Auth,
+ * so Auth's per-IP limits see the visitor rather than this server (QA
+ * LM-A7). With the session it got, this says who that is: a manager to let
+ * in, one who hasn't set up a household yet (first login after confirming
+ * their email, or left their last one), or a kasambahay, whose Linara is the
+ * app.
  */
-export const managerSignUpFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      fullName: string;
-      householdName?: string;
-      email: string;
-      password: string;
-      /** Where the confirmation email's link lands (/email-confirmed on this site). */
-      emailRedirectTo?: string;
-      /** A manager invite code: join that household instead of starting one. */
-      inviteCode?: string;
-    }) => data,
-  )
+export const resolveManagerLoginFn = createServerFn({ method: "POST" })
+  .validator((data: { accessToken: string }) => data)
   .handler(async ({ data }) => {
-    const { fullName, householdName, email, password, emailRedirectTo, inviteCode } = data;
+    const authedClient = createAuthedClient(data.accessToken);
+    const { data: user, error: userError } = await authedClient.auth.getUser(data.accessToken);
+    if (userError || !user.user) throw new Error("Login failed");
 
-    // Without emailRedirectTo the link goes to Supabase's Site URL setting,
-    // which pointed at a retired deployment (404). It must also be listed in
-    // Supabase Auth > URL Configuration > Redirect URLs, or Supabase ignores it.
-    const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: emailRedirectTo ? { emailRedirectTo } : undefined,
-    });
-
-    if (signUpError && signUpError.code !== "user_already_exists") {
-      throw new Error(signUpError.message);
-    }
-
-    let session = signUpData?.session ?? null;
-
-    if (!session) {
-      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword(
-        {
-          email,
-          password,
-        },
-      );
-
-      if (signInError) {
-        if (signInError.code === "email_not_confirmed") {
-          return { status: "confirmation_pending" as const };
-        }
-        throw new Error(signInError.message);
-      }
-      session = signInData.session;
-    }
-
-    if (!session) {
-      return { status: "confirmation_pending" as const };
-    }
-
-    const authedClient = createAuthedClient(session.access_token);
-    if (inviteCode) {
-      const { data: claimed, error: claimError } = await authedClient
-        .rpc("claim_manager_invite", { p_code: inviteCode, p_full_name: fullName })
-        .maybeSingle();
-      const row = claimed as { household_id: string; user_type: string } | null;
-      if (claimError || !row) {
-        throw new Error(claimError?.message || "Couldn't join with that code");
-      }
-      return {
-        status: "authed" as const,
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-        userId: signUpData?.user?.id ?? session.user.id,
-        householdId: row.household_id,
-        fullName,
-        userType: row.user_type,
-        timeZone: await householdTimeZoneOf(authedClient, row.household_id),
-      };
-    }
-
-    const { data: bootstrapData, error: bootstrapError } = await authedClient
-      .rpc("bootstrap_manager_household", {
-        p_full_name: fullName,
-        p_household_name: householdName ?? null,
-      })
-      .maybeSingle();
-    const bootstrap = bootstrapData as ManagerBootstrapRow | null;
-
-    if (bootstrapError || !bootstrap) {
-      throw new Error(bootstrapError?.message || "Failed to set up household");
-    }
-
-    return {
-      status: "authed" as const,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
-      userId: bootstrap.user_id,
-      householdId: bootstrap.household_id,
-      fullName: bootstrap.full_name,
-      userType: bootstrap.user_type,
-      timeZone: await householdTimeZoneOf(authedClient, bootstrap.household_id),
-    };
-  });
-
-/**
- * 6. Manager Log-In Endpoint (Server Function)
- * Signs an existing manager in. If this is their first successful login
- * after confirming their email (signup never got to bootstrap because
- * there was no session yet), reports needs_bootstrap instead of failing.
- */
-export const managerLoginFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; password: string }) => data)
-  .handler(async ({ data }) => {
-    const { email, password } = data;
-
-    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      if (signInError.code === "email_not_confirmed") {
-        return { status: "confirmation_pending" as const };
-      }
-      throw new Error(signInError.message);
-    }
-
-    const session = signInData.session;
-    if (!session || !signInData.user) {
-      throw new Error("Login failed");
-    }
-
-    const authedClient = createAuthedClient(session.access_token);
     const { data: profileData, error: profileError } = await authedClient
       .from("user_profiles")
       .select("*")
-      .eq("id", signInData.user.id)
+      .eq("id", user.user.id)
       .maybeSingle();
     const profile = profileData as UserProfileRow | null;
 
@@ -347,24 +249,17 @@ export const managerLoginFn = createServerFn({ method: "POST" })
 
     // No profile, or a manager in no household now: set one up or join one.
     if (!profile || (profile.user_type !== "helper" && !profile.household_id)) {
-      return {
-        status: "needs_bootstrap" as const,
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-        userId: signInData.user.id,
-      };
+      return { status: "needs_bootstrap" as const, userId: user.user.id };
     }
 
     // One sign-in for everyone: a kasambahay is told her Linara is in the
-    // app, rather than refused. No tokens go back, so no web session starts.
+    // app, rather than refused. The browser keeps no web session for her.
     if (profile.user_type === "helper") {
       return { status: "helper" as const };
     }
 
     return {
       status: "authed" as const,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
       userId: profile.id,
       householdId: profile.household_id,
       fullName: profile.full_name,
@@ -411,7 +306,7 @@ export const refreshManagerSessionFn = createServerFn({ method: "POST" })
 
 /**
  * 7. Finish Bootstrap Endpoint (Server Function)
- * Called at first-login when managerLoginFn/getManagerProfileFn reports
+ * Called at first-login when resolveManagerLoginFn/getManagerProfileFn reports
  * needs_bootstrap -- reuses the same RPC signup would have called, just
  * triggered at login time instead.
  */
@@ -611,6 +506,8 @@ export interface EmploymentEndPreview {
   futureRestOff: number;
   restOwedMinutes: number;
   basePaidThisYear: number;
+  /** Her wage for the final cutoff: the one it has, not a raise set for later. */
+  monthlyRate: number | null;
 }
 
 export const employmentEndPreviewFn = createServerFn({ method: "POST" })
@@ -625,6 +522,8 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       throw new Error(error?.message || "Failed to preview the end of employment");
     }
     const r = raw as Record<string, unknown>;
+    const fullCutoffStart =
+      (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string);
     return {
       problem: (r.problem as EmploymentEndPreview["problem"]) ?? null,
       today: r.today as string,
@@ -634,8 +533,7 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       finalCutoffEnd: r.final_cutoff_end as string,
       // Before add-pay-periods.sql the preview had no full start; the final
       // cutoff's start was the full one then.
-      fullCutoffStart:
-        (r.full_cutoff_start as string | undefined) ?? (r.final_cutoff_start as string),
+      fullCutoffStart,
       fullCutoffEnd: r.full_cutoff_end as string,
       finalCutoffPaid: Boolean(r.final_cutoff_paid),
       // Before add-pay-periods.sql only the cutoff right before was checked.
@@ -649,6 +547,11 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       futureRestOff: Number(r.future_rest_off ?? 0),
       restOwedMinutes: Number(r.rest_owed_minutes ?? 0),
       basePaidThisYear: Number(r.base_paid_this_year ?? 0),
+      monthlyRate: fullCutoffStart
+        ? await rateForCutoff(authedClient, data.helperId, fullCutoffStart, NaN).then((n) =>
+            Number.isNaN(n) ? null : n,
+          )
+        : null,
     };
   });
 
@@ -728,9 +631,12 @@ export const updateHelperScheduleFn = createServerFn({ method: "POST" })
  * household-scoped RLS alone the way the schedule editor does.
  */
 export const updateHelperWageFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; helperId: string; monthlyRate: number }) => data)
+  .validator(
+    (data: { token: string; helperId: string; monthlyRate: number; effectiveFrom?: string }) =>
+      data,
+  )
   .handler(async ({ data }) => {
-    const { token, helperId, monthlyRate } = data;
+    const { token, helperId, monthlyRate, effectiveFrom } = data;
 
     const authedClient = createAuthedClient(token);
     const {
@@ -756,6 +662,22 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       throw new Error("Forbidden: Only managers can change a helper's wage");
     }
 
+    // From this cutoff or the next; closed periods keep their wage
+    // (add-wage-history.sql, KNOWN_GAPS O50).
+    const { data: rows, error: setError } = await authedClient.rpc("set_helper_wage", {
+      p_helper_id: helperId,
+      p_monthly_rate: monthlyRate,
+      p_effective_from: effectiveFrom ?? null,
+    });
+    if (!setError) {
+      const row = (rows as { effective_from: string }[] | null)?.[0];
+      return { helperId, monthlyRate, effectiveFrom: row?.effective_from ?? null };
+    }
+    if (setError.code !== "PGRST202" && setError.code !== "42883") {
+      throw new Error(setError.message);
+    }
+
+    // Before that migration: the one wage there is.
     const { error } = await authedClient
       .from("helper_profiles")
       .update({ monthly_rate: monthlyRate })
@@ -765,7 +687,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    return { helperId, monthlyRate };
+    return { helperId, monthlyRate, effectiveFrom: null };
   });
 
 /**
@@ -819,25 +741,6 @@ export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
     }
 
     return { helperId, pantryRole };
-  });
-
-/**
- * 13. Request Password Reset Endpoint (Server Function)
- * Shared by managers (web /login) and helpers (LINARA_MOBILE sign-in, which
- * calls Supabase directly with the same redirect). Supabase only sends mail
- * to redirect URLs on the project's Auth allow-list, and never reveals
- * whether the address has an account -- neither does this.
- */
-export const requestPasswordResetFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; redirectTo: string }) => data)
-  .handler(async ({ data }) => {
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(data.email.trim(), {
-      redirectTo: data.redirectTo,
-    });
-    if (error) {
-      throw new Error(error.message);
-    }
-    return { sent: true };
   });
 
 /**

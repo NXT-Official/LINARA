@@ -27,8 +27,8 @@ export function TermsOfService() {
       <ul>
         <li>A manager must be at least 18 and able to employ someone in the Philippines.</li>
         <li>
-          A helper joins with an invite code from a household and keeps her own account. When she
-          leaves, her account and her record stay hers, and she can join another household.
+          A helper joins with an invite code from a household and keeps their own account. When they
+          leave, their account and their record stay theirs, and they can join another household.
         </li>
         <li>
           Keep your password to yourself. You&rsquo;re responsible for what is done with your
@@ -50,7 +50,7 @@ export function TermsOfService() {
         </li>
         <li>
           A payment made outside Linara (cash, bank transfer) can be recorded afterwards. It counts
-          on the helper&rsquo;s record once she confirms she received it. Record only payments that
+          on the helper&rsquo;s record once they confirm they received it. Record only payments that
           really happened.
         </li>
         <li>

@@ -26,6 +26,7 @@ export function RecordLeaveModal({
   onClose,
   onRecord,
   silHintText,
+  silUnavailable = null,
 }: {
   helperName: string;
   helperId: string;
@@ -38,8 +39,12 @@ export function RecordLeaveModal({
   onRecord: (input: RecordLeaveInput) => Promise<boolean>;
   /** The SIL line for the household's rule, when known. */
   silHintText?: string;
+  /** Why SIL can't be used now, as a verb phrase ("starts August 15, 2027"); null when it can. */
+  silUnavailable?: string | null;
 }) {
-  const [kind, setKind] = useState<LeaveKind>("sil");
+  // SIL first when there is some. Otherwise nothing is picked for the manager:
+  // the other kinds dock pay or use rest owed, which shouldn't happen by default.
+  const [kind, setKind] = useState<LeaveKind | "">(silUnavailable ? "" : "sil");
   const [reason, setReason] = useState<LeaveReason>("sick");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
@@ -47,13 +52,13 @@ export function RecordLeaveModal({
   const [saving, setSaving] = useState(false);
   const [keepTasks, setKeepTasks] = useState(false);
 
-  const valid = !!startDate && !!endDate && endDate >= startDate;
+  const valid = !!kind && !!startDate && !!endDate && endDate >= startDate;
   const taskCount =
     useOpenTaskCounts(token, valid ? [{ key: "range", helperId, startDate, endDate }] : []).range ??
     0;
 
   const submit = async () => {
-    if (!valid || saving) return;
+    if (!valid || !kind || saving) return;
     setSaving(true);
     const saved = await onRecord({
       helperId,
@@ -90,14 +95,24 @@ export function RecordLeaveModal({
             onChange={(e) => setKind(e.target.value as LeaveKind)}
             className={inputCls}
           >
+            {kind === "" && (
+              <option value="" disabled>
+                Choose a kind
+              </option>
+            )}
             {(Object.keys(LEAVE_KIND_LABEL) as LeaveKind[]).map((k) => (
-              <option key={k} value={k}>
+              <option key={k} value={k} disabled={k === "sil" && !!silUnavailable}>
                 {LEAVE_KIND_LABEL[k]}
+                {k === "sil" && silUnavailable ? ` (${silUnavailable})` : ""}
               </option>
             ))}
           </select>
           <p className="mt-1 text-xs text-muted-foreground">
-            {kind === "sil" && silHintText ? silHintText : LEAVE_KIND_HINT[kind]}
+            {kind === ""
+              ? `Pick which kind this is. Service incentive leave ${silUnavailable}.`
+              : kind === "sil" && silHintText
+                ? silHintText
+                : LEAVE_KIND_HINT[kind]}
           </p>
         </Field>
         <Field label="Reason">

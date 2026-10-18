@@ -15,75 +15,37 @@ export const CATEGORY_LABEL: Record<PantryCategory, string> = {
 
 export type StockState = "out" | "low" | "ok";
 
-/** Out at zero, low at or under the buy-more point, otherwise fine. */
+/**
+ * Out at zero, low under the keep-at-least amount (`par`), otherwise fine.
+ * Under, not at: the suggested buy is `par - qty`, so a line bought as
+ * suggested lands on `par` and has to count as enough, or it would go
+ * straight back on the list (decided 2026-10-07; LINARA_MOBILE lib/pantry.ts
+ * matches).
+ */
 export function stockState(item: Pick<PantryItem, "qty" | "par">): StockState {
   if (item.qty <= 0) return "out";
-  return item.qty <= item.par ? "low" : "ok";
+  return item.qty < item.par ? "low" : "ok";
 }
 
+/** Out or low: counted as running low, and suggested for the grocery list. */
+export const needsBuying = (item: Pick<PantryItem, "qty" | "par">) => stockState(item) !== "ok";
+
+// English on the manager web until its Filipino toggle exists; the helper app
+// keeps "Ubos" / "Paubos" (decision 2026-10-07).
 export const STOCK_LABEL: Record<Exclude<StockState, "ok">, string> = {
-  out: "Ubos",
-  low: "Paubos",
+  out: "Out",
+  low: "Running low",
 };
 
 // Plural units the starter list uses, and anyone typing "packs" by hand.
 const PLURAL_UNITS = new Set(["packs", "bottles", "cans", "bars", "rolls", "heads", "boxes"]);
 
-/** "1 pack", "2 packs": drops a plural unit's "s" at exactly one. Other units as typed. */
+/** "1 pack", "2 packs", "1 pc": drops a plural unit's "s" at exactly one. Other units as typed. */
 export function unitFor(n: number, unit: string): string {
+  if (n === 1 && unit.toLowerCase() === "pcs") return unit.slice(0, -1);
   if (n !== 1 || !PLURAL_UNITS.has(unit.toLowerCase())) return unit;
   return unit.toLowerCase() === "boxes" ? unit.slice(0, -2) : unit.slice(0, -1);
 }
-
-/** The starter list's shelves: baby things last, since most homes untick them. */
-export const STARTER_ORDER: PantryCategory[] = [
-  "Rice & grains",
-  "Fresh",
-  "Pantry",
-  "Cleaning",
-  "Baby",
-];
-
-export type StarterItem = Omit<PantryItem, "id"> & {
-  /** Ticked when the list first opens; baby things only if the home needs them. */
-  picked: boolean;
-};
-
-/**
- * What a Filipino home usually keeps, for a household whose pantry is still
- * empty (client feedback, 2026-10-02: an empty Pantry gave them nothing to
- * do). They start stocked at twice the buy-more point, and anything already
- * running out is one tap away. ../LINARA_MOBILE/lib/pantry.ts carries the
- * same list for the app.
- */
-export const STARTER_ITEMS: StarterItem[] = [
-  { name: "Bigas", qty: 10, unit: "kg", par: 5, category: "Rice & grains", picked: true },
-  { name: "Itlog", qty: 12, unit: "pcs", par: 6, category: "Fresh", picked: true },
-  { name: "Bawang", qty: 4, unit: "heads", par: 2, category: "Fresh", picked: true },
-  { name: "Sibuyas", qty: 6, unit: "pcs", par: 3, category: "Fresh", picked: true },
-  { name: "Mantika", qty: 2, unit: "L", par: 1, category: "Pantry", picked: true },
-  { name: "Toyo", qty: 2, unit: "bottles", par: 1, category: "Pantry", picked: true },
-  { name: "Suka", qty: 2, unit: "bottles", par: 1, category: "Pantry", picked: true },
-  { name: "Patis", qty: 2, unit: "bottles", par: 1, category: "Pantry", picked: true },
-  { name: "Asin", qty: 2, unit: "packs", par: 1, category: "Pantry", picked: true },
-  { name: "Asukal", qty: 2, unit: "kg", par: 1, category: "Pantry", picked: true },
-  { name: "Kape", qty: 2, unit: "packs", par: 1, category: "Pantry", picked: true },
-  { name: "Sabon panlaba", qty: 2, unit: "packs", par: 1, category: "Cleaning", picked: true },
-  {
-    name: "Dishwashing liquid",
-    qty: 2,
-    unit: "bottles",
-    par: 1,
-    category: "Cleaning",
-    picked: true,
-  },
-  { name: "Toilet paper", qty: 8, unit: "rolls", par: 4, category: "Cleaning", picked: true },
-  { name: "Sabong pampaligo", qty: 4, unit: "bars", par: 2, category: "Cleaning", picked: true },
-  { name: "Bleach", qty: 2, unit: "bottles", par: 1, category: "Cleaning", picked: false },
-  { name: "Diaper", qty: 20, unit: "pcs", par: 10, category: "Baby", picked: false },
-  { name: "Gatas ng baby", qty: 2, unit: "cans", par: 1, category: "Baby", picked: false },
-  { name: "Baby wipes", qty: 2, unit: "packs", par: 1, category: "Baby", picked: false },
-];
 
 /** The heading a grocery item sits under: its pantry item's category, else "Other". */
 export type GrocerySection = { key: PantryCategory | "other"; label: string };

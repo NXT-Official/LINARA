@@ -16,6 +16,7 @@ import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import { lookupManagerInviteFn } from "../household.actions";
 import { adminTypeLabel, managerRoleType } from "../people.constants";
+import { clearPendingCode, readPendingCode } from "../pending-invite";
 
 const inputClass =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
@@ -34,9 +35,28 @@ export function HouseholdSwitcher() {
   const { session } = useAppStores();
   const [dialog, setDialog] = useState<"new" | "join" | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
+  // A code from sign-up, on an account the email already had: join with it
+  // here. Joining or cancelling forgets it.
+  const [pending, setPending] = useState("");
+  useEffect(() => {
+    const code = readPendingCode();
+    if (!code) return;
+    setPending(code);
+    setDialog("join");
+  }, []);
+  const closeJoin = () => {
+    clearPendingCode();
+    setPending("");
+    setDialog(null);
+  };
+  const join = async (code: string) => {
+    await session.joinHousehold(code);
+    clearPendingCode();
+  };
 
   if (!session.multiManager || session.households.length === 0) return null;
   const current = session.households.find((h) => h.isCurrent);
+  const canStartHousehold = session.households.some((h) => h.role === "primary_manager");
 
   const pick = (id: string) => {
     if (id === current?.id) return;
@@ -84,9 +104,12 @@ export function HouseholdSwitcher() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setDialog("new")} className="gap-2">
-            <Plus className="h-4 w-4" /> New household
-          </DropdownMenuItem>
+          {/* Only a primary manager starts one (restrict-create-household.sql, O49). */}
+          {canStartHousehold && (
+            <DropdownMenuItem onSelect={() => setDialog("new")} className="gap-2">
+              <Plus className="h-4 w-4" /> New household
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setDialog("join")} className="gap-2">
             <KeyRound className="h-4 w-4" /> Join with a code
           </DropdownMenuItem>
@@ -95,15 +118,16 @@ export function HouseholdSwitcher() {
 
       {dialog === "new" && <NewHouseholdModal onClose={() => setDialog(null)} />}
       {dialog === "join" && (
-        <Modal onClose={() => setDialog(null)}>
-          <DialogHeader title="Join a household" onClose={() => setDialog(null)} />
+        <Modal onClose={closeJoin}>
+          <DialogHeader title="Join a household" onClose={closeJoin} />
           <p className="mt-1 text-sm text-muted-foreground">
             Enter the code its primary manager gave you. You&apos;ll keep your other households.
           </p>
           <JoinHouseholdForm
             token={session.token}
-            onJoin={session.joinHousehold}
-            onCancel={() => setDialog(null)}
+            onJoin={join}
+            initialCode={pending}
+            onCancel={closeJoin}
           />
         </Modal>
       )}

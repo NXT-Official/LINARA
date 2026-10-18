@@ -31,6 +31,15 @@ project_id = "tueckhlrrupmnzhblewy"
 verify_jwt = false
 
 # ---------------------------------------------------------------------------
+# The nightly photo purge (add-evidence-photo-retention.sql). verify_jwt MUST
+# stay false for the same reason: its caller is our own pg_cron job via
+# pg_net, which has no user session. It authenticates the caller with the
+# x-purge-secret header against EVIDENCE_PURGE_SECRET instead.
+# ---------------------------------------------------------------------------
+[functions.purge-expired-evidence]
+verify_jwt = false
+
+# ---------------------------------------------------------------------------
 # The other six are called by our own apps with a signed-in user's JWT -- each
 # reads an `Authorization` header and serves CORS, which the webhook does not
 # (verified by inspection 2026-08-17). true is the CLI default, but they are

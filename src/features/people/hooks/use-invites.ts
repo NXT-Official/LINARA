@@ -55,6 +55,8 @@ export interface HelperProfileRow {
   notice_note?: string | null;
   /** add-pantry-roles.sql: in charge of the pantry, or buys from the list. */
   pantry_role?: PantryRole;
+  /** add-teams-and-labels.sql: her team, if any. */
+  team_id?: string | null;
   created_at: string;
 }
 
@@ -88,6 +90,7 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
     noticeLastDay: row.notice_last_day ?? undefined,
     noticeNote: row.notice_note ?? undefined,
     pantryRole: row.pantry_role,
+    teamId: row.team_id ?? null,
     flags,
   };
 }
@@ -107,6 +110,8 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   // (Shifts) can derive from this same fetch instead of re-querying
   // helper_profiles themselves.
   const [helperProfiles, setHelperProfiles] = useState<HelperProfileRow[]>([]);
+  // The roster has been read once: from then on, an empty one is real.
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -120,6 +125,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     }
     setHelperProfiles(rows);
     setInvites(rows.map((r) => toInvite(r, flagsByHelper.get(r.id))));
+    setLoaded(true);
   }, [token]);
 
   useEffect(() => {
@@ -135,6 +141,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     // back into data.
     data: Omit<Invite, "id" | "code" | "createdAt" | "createdBy" | "status" | "flags" | "shift"> & {
       paydayInterval: "semi_monthly" | "monthly";
+      labelIds?: string[];
     },
     byName: string,
   ): Promise<Invite> => {
@@ -157,6 +164,8 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
         employment: data.employment,
         phone: data.phone,
         startedOn: data.startedOn,
+        teamId: data.teamId ?? null,
+        labelIds: data.labelIds,
         token,
       },
     });
@@ -176,9 +185,12 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
       createdAt: Date.now(),
       createdBy: byName,
       status: "pending",
+      teamId: data.teamId ?? null,
       flags: [],
     };
     setInvites((prev) => [invite, ...prev]);
+    // The roster rows (helpers, schedules, team) come from the database.
+    refresh().catch(() => {});
     return invite;
   };
 
@@ -211,9 +223,9 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
    * write-once (only inviteHelperFn set it). Write-then-refresh, same
    * pattern as useGroceryList's setBudget, since the new wage feeds several
    * other real reads (Pay Dial, contribution split, minimum-wage banner). */
-  const updateWage = async (id: string, monthlyRate: number) => {
+  const updateWage = async (id: string, monthlyRate: number, effectiveFrom?: string) => {
     if (!token) return;
-    await updateHelperWageFn({ data: { token, helperId: id, monthlyRate } });
+    await updateHelperWageFn({ data: { token, helperId: id, monthlyRate, effectiveFrom } });
     await refresh();
   };
 
@@ -233,6 +245,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
   return {
     invites,
     helperProfiles,
+    loaded,
     refresh,
     create,
     cancel,

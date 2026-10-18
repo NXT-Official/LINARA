@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { mapLimit } from "@/lib/map-limit";
 import { createAuthedClient } from "@/lib/supabase";
 
 /**
@@ -61,6 +62,28 @@ export const getRestOwedBalanceFn = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
     return { minutes: Number(minutes ?? 0) };
+  });
+
+/**
+ * getRestOwedBalanceFn for many helpers in one request from the browser, for
+ * the household payroll. One that can't be read comes back as 0 and is
+ * logged, so nobody drops out of a household total.
+ */
+export const getRestOwedBalancesFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; helperIds: string[] }) => data)
+  .handler(async ({ data }): Promise<Record<string, number>> => {
+    const authedClient = createAuthedClient(data.token);
+    const entries = await mapLimit(data.helperIds, 8, async (helperId) => {
+      const { data: minutes, error } = await authedClient.rpc("rest_owed_balance_minutes", {
+        p_helper_id: helperId,
+      });
+      if (error) {
+        console.error(`[getRestOwedBalancesFn] Balance failed for ${helperId}:`, error.message);
+        return [helperId, 0] as const;
+      }
+      return [helperId, Number(minutes ?? 0)] as const;
+    });
+    return Object.fromEntries(entries);
   });
 
 /** Approve or decline. Manager-gated inside the RPC. */

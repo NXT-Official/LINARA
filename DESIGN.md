@@ -178,12 +178,22 @@ Warm daylight neutrals with one cool anchor and one warm accent, all in OKLCH.
 - **Destructive** (`destructive`): errors and irreversible actions (Cancel
   task, payout needs review). 5.2:1 both as text on cream and under cream text.
 
-### Status (not yet tokens)
-Done green (`oklch(0.68 0.14 150)`), late and overdue red-orange tints
-(`oklch(0.93 0.06 35)` / `oklch(0.42 0.15 35)`) and the payout statuses are
-still hard-coded in components, and `emerald` succeeded/approved pills render
-uncoloured because that colour doesn't exist in the theme. Promoting these to
-semantic status tokens is open work (UI refresh step 5).
+### Status
+Semantic status tokens in `src/styles.css`. The `-ink` value is for text, on
+cream and on its own `-soft` tint; the bare value is for fills, bars and dots
+only.
+- **Done** (`status-done`, `status-done-soft`, `status-done-ink`): done,
+  paid, approved, on shift, on track.
+- **Late** (`status-late`, `status-late-soft`, `status-late-ink`): overdue,
+  late, needs you, over budget, petty cash that doesn't add up, a payout
+  needing review, pay below the legal minimum, emergencies.
+- Gentler warnings (off-shift, "send anyway", check before paying) use the
+  Soft Terracotta wash with Hearth Ink text, and "doing" uses terracotta, as
+  above. Errors and failures stay Destructive.
+
+Team and role colours (`teams.constants.ts`, `people.constants.ts`) are
+categories, not status, and keep their own hues. Nothing else hard-codes a
+colour or uses Tailwind's stock palette (emerald, amber, red).
 
 ### Named Rules
 **The One Hearth Rule.** Terracotta is the only warm accent, and it marks
@@ -230,23 +240,24 @@ and 28px wide. Inside a card, related rows sit 14px apart, split by hairline
 dividers rather than their own boxes. The Pass's spend and payday cards pair up
 two-across from `sm`.
 
-Phone-first: every flow works one-handed at 390px. The page pads 96px at the
-bottom so content always clears the tab bar. The header is a single row on a
-phone. The tagline appears from `md`, and the View-as switcher only when a
-household has more than one admin.
+Phone-first: every flow works one-handed at 390px. Below `lg` the page pads
+96px at the bottom so content always clears the tab bar. The header is a
+single row on a phone and on a desktop. The tagline appears from `md`, steps
+aside between `lg` and `xl` while the header carries the pages, and the
+View-as switcher only when a household has more than one admin.
 
 ## Elevation & Depth
 
 Soft and quiet. Surfaces rest on the sand ground with a faint ambient shadow
 that reads more as a paper edge than a lift. Real elevation is reserved for
-things that float above the page: modals and sheets, and the nav dock on wide
-screens. Layering, top to bottom: toasts, modals (z-50), the bottom nav (z-40),
+things that float above the page: modals and sheets, and the nav dock on
+tablet widths. Layering, top to bottom: toasts, modals (z-50), the bottom nav (z-40),
 the sticky header (z-30).
 
 ### Shadow Vocabulary
 - **Soft** (`shadow-soft`): every card at rest. A 2px blur tinted pine-ink at
   5%, plus a cream inner top highlight.
-- **Lift** (`shadow-lift`): modals, sheets, the wide-screen nav dock. A 32px
+- **Lift** (`shadow-lift`): modals, sheets, the tablet nav dock. A 32px
   blur at 8%.
 
 ### Named Rules
@@ -304,9 +315,13 @@ Warm and steady: clearly labelled, unhurried, no bounce.
 - **Phone:** a standard tab bar, full width and flush to the bottom edge, with
   the home-indicator inset inside it. Cream at 95% with blur, and a hairline
   top border.
-- **Wide:** a centred dock with 16px corners and Lift.
+- **Tablet (`sm` to `lg`):** a centred dock with 16px corners and Lift.
+- **Desktop (`lg` and up):** the five pages sit in the header beside the logo,
+  icon beside a 14px label, and there is no bottom bar. A floating phone tab
+  bar on a monitor was the odd one out (UX review 2026-10-07).
 - **Tabs:** icon over a 13px label. Active is a Deep Sand tile, Pine icon and
-  heavier label, so the active tab is never shown by colour alone.
+  heavier label (in the header, the tile and Pine text), so the active page is
+  never shown by colour alone.
 
 ### Modals and Sheets
 The shared Modal: a bottom sheet on phones (top corners 24px, flush to the
@@ -340,5 +355,5 @@ mark. It is drawn from tokens, so it always matches the palette.
 - **Don't** add a coloured stripe down one side of a card.
 - **Don't** make a tappable thing a pill, or a status a button.
 - **Don't** go below 13px, or use arbitrary text sizes.
-- **Don't** show progress rings or big numbers standing in for content. The
-  money cards' 0% rings are a known holdover to fix.
+- **Don't** show progress rings or big numbers standing in for content. A
+  spend bar is fine when there is a budget to fill.

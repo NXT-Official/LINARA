@@ -1,7 +1,7 @@
-import { Check, Package, Pencil, Plus, X } from "lucide-react";
+import { Check, Package, Pencil, Plus, Undo2, X } from "lucide-react";
 import { useState } from "react";
 
-import { fmtPeso } from "../grocery.utils";
+import { fmtPeso, fmtQty } from "../grocery.utils";
 import type { GroceryItem } from "../grocery.types";
 
 type Patch = { name: string; qty: number; unit: string };
@@ -13,7 +13,9 @@ type Patch = { name: string; qty: number; unit: string };
  * not-yet-bought items: curating the plan, not touching a completed
  * purchase. A
  * suggestion (from a low pantry item) lives only in this browser until it's
- * added, so it says so and offers "Add to list".
+ * added, so it says so and offers "Add to list". On a run, `unlist` makes
+ * the X put the line back in the Needed pool instead of deleting it, and
+ * `onCost` lets whoever enters the figures type what a bought line cost.
  */
 export function GroceryRow({
   item,
@@ -21,6 +23,8 @@ export function GroceryRow({
   onEdit,
   onAddSuggestion,
   onToggleBought,
+  onCost,
+  unlist = false,
   tone,
 }: {
   item: GroceryItem;
@@ -28,6 +32,9 @@ export function GroceryRow({
   onEdit?: (patch: Patch) => void;
   onAddSuggestion?: () => void;
   onToggleBought?: () => void;
+  onCost?: (cost: number | null) => void;
+  /** The X moves it back to Needed rather than deleting it. */
+  unlist?: boolean;
   tone?: "light";
 }) {
   const suggested = item.id.startsWith("sug-");
@@ -48,7 +55,8 @@ export function GroceryRow({
 
   const canEdit = !!onEdit && !suggested && !item.bought;
   return (
-    <div className={`flex items-center gap-2 py-2.5 ${tone === "light" ? "px-2" : ""}`}>
+    <div className={`flex items-center gap-1.5 py-1.5 ${tone === "light" ? "px-2" : ""}`}>
+      {/* The tap target is 40px; the circle drawn inside it stays 28px. */}
       {onToggleBought && !suggested ? (
         <button
           type="button"
@@ -56,26 +64,31 @@ export function GroceryRow({
           aria-checked={item.bought}
           aria-label={`Bought ${item.name}`}
           onClick={onToggleBought}
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${
-            item.bought
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-card text-transparent hover:border-primary hover:text-primary/40"
-          }`}
+          className="group -ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-full"
         >
-          <Check className="h-3.5 w-3.5" />
+          <span
+            className={`grid h-7 w-7 place-items-center rounded-full border transition ${
+              item.bought
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-transparent group-hover:border-primary group-hover:text-primary/40"
+            }`}
+          >
+            <Check className="h-3.5 w-3.5" />
+          </span>
         </button>
       ) : (
-        <div
-          aria-hidden
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-            item.bought
-              ? "border-primary bg-primary text-primary-foreground"
-              : suggested
-                ? "border-dashed border-border bg-card text-transparent"
-                : "border-border bg-card text-transparent"
-          }`}
-        >
-          <Check className="h-3.5 w-3.5" />
+        <div aria-hidden className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center">
+          <span
+            className={`grid h-7 w-7 place-items-center rounded-full border ${
+              item.bought
+                ? "border-primary bg-primary text-primary-foreground"
+                : suggested
+                  ? "border-dashed border-border bg-card text-transparent"
+                  : "border-border bg-card text-transparent"
+            }`}
+          >
+            <Check className="h-3.5 w-3.5" />
+          </span>
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -97,27 +110,31 @@ export function GroceryRow({
               {item.name}
             </span>
           )}
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            · {item.qty} {item.unit}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          {suggested && !item.bought && (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 font-semibold text-pine-deep">
-              Suggested · not on the list yet
-            </span>
-          )}
           {item.pantryItemId && (
-            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-              <Package className="h-2.5 w-2.5" /> restocks pantry
+            <span className="shrink-0 text-muted-foreground" title="Restocks the pantry">
+              <Package className="h-3.5 w-3.5" aria-hidden />
+              <span className="sr-only">, restocks the pantry</span>
             </span>
           )}
         </div>
+        {suggested && !item.bought && (
+          <span className="mt-0.5 inline-block rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold text-pine-deep">
+            Suggested, not on the list yet
+          </span>
+        )}
       </div>
-      {item.bought && item.costPHP != null && (
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {fmtPeso(item.costPHP)}
-        </span>
+      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+        {fmtQty(item.qty, item.unit)}
+      </span>
+      {item.bought && onCost ? (
+        <CostInput key={item.costPHP ?? "none"} item={item} onCost={onCost} />
+      ) : (
+        item.bought &&
+        item.costPHP != null && (
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {fmtPeso(item.costPHP)}
+          </span>
+        )
       )}
       {suggested && onAddSuggestion && (
         <button
@@ -130,13 +147,50 @@ export function GroceryRow({
       {onRemove && !item.bought && (
         <button
           onClick={onRemove}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-          aria-label={suggested ? `Dismiss ${item.name}` : `Remove ${item.name}`}
+          className="-mr-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
+          aria-label={
+            suggested
+              ? `Dismiss ${item.name}`
+              : unlist
+                ? `Move ${item.name} back to Needed`
+                : `Remove ${item.name}`
+          }
+          title={unlist ? "Back to Needed" : undefined}
         >
-          <X className="h-3.5 w-3.5" />
+          {unlist ? <Undo2 className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
         </button>
       )}
     </div>
+  );
+}
+
+/** What a bought line cost; saved when the field is left. Keyed by the saved cost upstream. */
+function CostInput({ item, onCost }: { item: GroceryItem; onCost: (cost: number | null) => void }) {
+  const [draft, setDraft] = useState(item.costPHP != null ? String(item.costPHP) : "");
+  const commit = () => {
+    const t = draft.trim();
+    if (t === "") return item.costPHP != null && onCost(null);
+    const n = Number(t.replace(/[,₱\s]/g, ""));
+    if (Number.isFinite(n) && n >= 0 && n !== item.costPHP) onCost(n);
+    else if (!Number.isFinite(n) || n < 0)
+      setDraft(item.costPHP != null ? String(item.costPHP) : "");
+  };
+  return (
+    <label className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+      ₱
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        inputMode="decimal"
+        placeholder="—"
+        aria-label={`What ${item.name} cost`}
+        className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
+      />
+    </label>
   );
 }
 

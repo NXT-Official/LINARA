@@ -185,6 +185,17 @@ Fixed by:
   and already filtered/targeted correctly by whichever one it was given;
   the gap was entirely in what `ManagerMoneyPage` chose to hand it.
 
+**Links into Money (fixed 2026-10-06).** The Pass's Needs You box links to
+Money for one helper's unpaid pay periods ("Unpaid pay period") and for an
+outside-Linara payment she disputed. Both linked to a bare `/manager/money`,
+which opens on the default helper, so on a two-helper household "Pay from
+Money" under Ate Marites could open Kuya Marito's pay. The Money route now
+takes `?helper=<id>` (`src/routes/_app/manager/money.tsx`), `ManagerMoneyPage`
+opens on that helper until the manager switches, and when it came from that
+link it scrolls to her unpaid periods (`MissedPeriodsCard`, `#owed-pay`). The
+unpaid-pay button also now says "Pay by GCash or Maya", which is what Money
+offers since direct pay (KNOWN_GAPS O35).
+
 ---
 
 ## 3. What already worked correctly (untouched, not victims of this pattern)
@@ -208,3 +219,25 @@ now" — use it instead of reaching for `currentHelperId` or `availability.statu
 whenever the helper in question might not be the ambient "current" one.
 `manualFromRow()` (same file) builds its `manual` argument from a fetched
 `helper_profiles` row; pass `undefined`/`null` when you don't have one.
+
+**Linking to a page about one helper:** say which helper in the link. Money
+takes `search: { helper: id }`. A bare link opens on the default helper, which
+is the wrong person whenever the household has more than one.
+
+**Picking or listing helpers in a large household** (KNOWN_GAPS.md O36):
+use `HelperPicker` (`src/features/teams/components/helper-picker.tsx`), never
+a plain `<select>` of `activeHelpers`. It stays the plain select for a small
+household and becomes searchable and grouped by team past `LARGE_STAFF`
+(8) or once the household has teams. A view that lists helpers should run
+them through `useStaffScope()` (`apply` to filter by name/team/labels,
+`group` to group by team) and show `StaffScopeBar`. The Pass's single
+`RosaStatusChip` (which reads `currentHelperId`) is now only shown for a
+one-helper household; with more, the Pass shows "X of Y on shift" from
+`statusFor()` per helper.
+
+**Staff shared from another household** (KNOWN_GAPS.md O39): `activeHelpers`
+now includes people employed by another household of the family who also
+work here (`Helper.sharedFrom` names it). Anything about pay, leave or
+payroll must use `employedHelpers` instead: this household doesn't pay them,
+and their pay fields are zero placeholders. `staffProfiles` is the matching
+row list for schedules, availability and the send gate.

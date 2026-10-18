@@ -36,6 +36,7 @@ type Paying = Recording & { channel: PayoutChannelCode };
  * in PayslipHistory above; this is everything else still owed.
  */
 export function MissedPeriodsCard({
+  id,
   helper,
   missed,
   token,
@@ -45,6 +46,8 @@ export function MissedPeriodsCard({
   onPayNow,
   onRecordOffApp,
 }: {
+  /** For a link that scrolls here (Money opened from Needs You). */
+  id?: string;
   helper: Helper;
   missed: PayPeriod[];
   token: string | null;
@@ -128,7 +131,7 @@ export function MissedPeriodsCard({
     ) : null;
 
   return (
-    <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
+    <div id={id} className="scroll-mt-20 rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       {missed.length > 0 && (
         <>
           <div className="flex items-start gap-2">

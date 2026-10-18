@@ -2,21 +2,15 @@ import { AlertCircle, Check, Package, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ListFilter } from "@/components/shared/list-filter";
-import { matchesQuery } from "@/components/shared/list-filter.utils";
+import { FILTER_FROM, matchesQuery } from "@/components/shared/list-filter.utils";
 
 import type { PantryStore } from "../hooks/use-pantry";
 import { PANTRY_CATEGORIES, type PantryCategory, type PantryItem } from "../pantry.types";
-import { CATEGORY_LABEL } from "../pantry.utils";
+import { CATEGORY_LABEL, needsBuying } from "../pantry.utils";
 import { PantryItemModal } from "./pantry-item-modal";
 import { PantryRow } from "./pantry-row";
-import { PantryStarter } from "./pantry-starter";
 
 type PantryFilter = "all" | "low" | PantryCategory;
-const FILTER_CHIPS: { key: PantryFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "low", label: "Running low" },
-  ...PANTRY_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c] })),
-];
 
 /**
  * Stock levels grouped by category, lows first, with search and a filter.
@@ -29,7 +23,6 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
     adjust: onAdjust,
     setQty: onSetQty,
     add: onAdd,
-    addMany,
     edit: onEdit,
     remove: onRemove,
   } = pantry;
@@ -37,17 +30,32 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
   const [editing, setEditing] = useState<PantryItem | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PantryFilter>("all");
-  const lowCount = items.filter((i) => i.qty <= i.par).length;
+  const lowCount = items.filter(needsBuying).length;
+  // Below FILTER_FROM the controls are hidden, so a leftover search can't hide items.
+  const showFilter = items.length >= FILTER_FROM;
+  const activeQuery = showFilter ? query : "";
+  // Only shelves that hold something: a chip that shows nothing is a dead end.
+  const chips: { key: PantryFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    ...(lowCount > 0 ? [{ key: "low" as const, label: "Running low" }] : []),
+    ...PANTRY_CATEGORIES.filter((c) => items.some((i) => i.category === c)).map((c) => ({
+      key: c,
+      label: CATEGORY_LABEL[c],
+    })),
+  ];
+  // A chip that went away (the last low item restocked) stops filtering.
+  const activeFilter = showFilter && chips.some((c) => c.key === filter) ? filter : "all";
   const shown = items.filter(
     (i) =>
-      matchesQuery(i.name, query) &&
-      (filter === "all" || (filter === "low" ? i.qty <= i.par : i.category === filter)),
+      matchesQuery(i.name, activeQuery) &&
+      (activeFilter === "all" ||
+        (activeFilter === "low" ? needsBuying(i) : i.category === activeFilter)),
   );
   const grouped = PANTRY_CATEGORIES.map((cat) => ({
     cat,
     items: shown
       .filter((i) => i.category === cat)
-      .sort((a, b) => (a.qty <= a.par ? -1 : 1) - (b.qty <= b.par ? -1 : 1)),
+      .sort((a, b) => (needsBuying(a) ? -1 : 1) - (needsBuying(b) ? -1 : 1)),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -61,12 +69,12 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
             <h2 className="font-display text-xl text-foreground">Pantry</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Shared with your helper. What runs low goes on the grocery list.
+            Shared with your staff. What runs low goes on the grocery list.
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           {items.length === 0 ? null : lowCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-[oklch(0.42_0.12_50)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-accent-foreground">
               <AlertCircle className="h-3 w-3" /> {lowCount} running low
             </span>
           ) : (
@@ -74,22 +82,25 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
               <Check className="h-3 w-3" /> All stocked
             </span>
           )}
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add item
-          </button>
+          {/* Empty, the card's own Add item says it. */}
+          {items.length > 0 && (
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add item
+            </button>
+          )}
         </div>
       </div>
 
-      {items.length > 0 && (
+      {showFilter && (
         <div className="mt-4">
           <ListFilter
             query={query}
             onQuery={setQuery}
-            chips={FILTER_CHIPS}
-            active={filter}
+            chips={chips}
+            active={activeFilter}
             onChip={setFilter}
             label="Search pantry"
           />
@@ -97,7 +108,22 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {items.length === 0 && <PantryStarter onAdd={addMany} onAddOwn={() => setAdding(true)} />}
+        {/* Empty until the house adds its own; no pre-ticked starter list
+            (user, 2026-10-07: it couldn't be dismissed, and empty is fine). */}
+        {items.length === 0 && (
+          <div className="rounded-2xl bg-background/60 px-4 py-6 text-center">
+            <p className="text-sm text-foreground">Nothing in the pantry yet.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add what your home keeps. What runs low goes on the grocery list.
+            </p>
+            <button
+              onClick={() => setAdding(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add item
+            </button>
+          </div>
+        )}
         {items.length > 0 && grouped.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">Nothing matches.</p>
         )}

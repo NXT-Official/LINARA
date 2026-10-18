@@ -11,6 +11,7 @@ import {
   describeTimeOff,
   timeOffFromLeave,
   timeOffFromRestOff,
+  timeOffFromShared,
   timeOffWindow,
   type TimeOff,
 } from "./time-off";
@@ -132,5 +133,43 @@ describe("leave as time off", () => {
     expect(describeTimeOff(asked, "Rosa")).toBe("Rosa asked for unpaid leave");
     expect(describeTimeOff(rest, "Rosa")).toBe("Rosa off 1:00 PM – 5:00 PM");
     expect(describeTimeOff(asked)).toBe("Asked for unpaid leave");
+  });
+});
+
+describe("a shared helper's time off, as another house sees it (O41)", () => {
+  const away = timeOffFromShared([
+    {
+      helper_id: "h1",
+      day_from: "2026-10-12",
+      day_to: "2026-10-13",
+      start_time: null,
+      end_time: null,
+    },
+    {
+      helper_id: "h1",
+      day_from: "2026-10-15",
+      day_to: "2026-10-15",
+      start_time: "13:00:00",
+      end_time: "17:00:00",
+    },
+  ]);
+
+  it("is a whole day per day of leave, and the window of rest off", () => {
+    expect(away.map((o) => [o.date, o.startMin, o.endMin])).toEqual([
+      ["2026-10-12", 0, 1440],
+      ["2026-10-13", 0, 1440],
+      ["2026-10-15", 780, 1020],
+    ]);
+    expect(away.every((o) => o.status === "approved" && o.kind === "away")).toBe(true);
+  });
+
+  it("counts as off, so the gate and the Pass treat her as away", () => {
+    expect(approvedTimeOffAt(away, "h1", "2026-10-13", 600)?.kind).toBe("away");
+    expect(approvedTimeOffAt(away, "h1", "2026-10-15", 600)).toBeUndefined();
+  });
+
+  it("says she's away without saying what kind of leave", () => {
+    expect(describeTimeOff(away[0], "Rosa")).toBe("Rosa on leave");
+    expect(describeTimeOff(away[2], "Rosa")).toBe("Rosa off 1:00 PM – 5:00 PM");
   });
 });

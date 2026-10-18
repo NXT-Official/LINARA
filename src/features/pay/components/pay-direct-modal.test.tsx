@@ -74,13 +74,13 @@ describe("PayDirectModal", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it("warns when the number is only from her invite, and lets you pick the wallet", async () => {
+  it("warns when the number is only from the invite, and lets you pick the wallet", async () => {
     const { onSubmit } = open({
       source: "invite",
       accountName: "Marites",
       accountNumber: "09181234567",
     });
-    expect(await screen.findByText(/hasn't confirmed it in her app/)).toBeTruthy();
+    expect(await screen.findByText(/isn't confirmed in their app yet/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Maya"));
     fireEvent.click(screen.getByRole("button", { name: "I've sent it" }));
     await waitFor(() =>

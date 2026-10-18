@@ -48,7 +48,7 @@ export function RemoteGlance({
             {donePhotos.map((t) => (
               <div key={t.id} className="overflow-hidden rounded-xl border border-border/70">
                 <img
-                  src={t.photo}
+                  src={t.photoThumb ?? t.photo}
                   alt={t.title}
                   className="h-16 w-full object-cover"
                   loading="lazy"

@@ -5,13 +5,17 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 
-import { completePasswordResetFn, requestPasswordResetFn } from "../people.actions";
+import { completePasswordResetFn } from "../people.actions";
+import { requestPasswordResetFromSupabase } from "../people.auth";
 
 type Recovery = { accessToken: string; refreshToken: string };
 type Mode = "loading" | "request" | "sent" | "set" | "done" | "expired";
 
 const inputClass =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60";
+
+/** Something@something.tld -- enough to catch typos; Supabase does the real check. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Reads the recovery session Supabase appends to the emailed link as a URL
@@ -67,11 +71,19 @@ export function PasswordResetFlow() {
       toast.error("Ilagay ang email mo.");
       return;
     }
+    // Caught here so a typo never reaches Supabase (rate limit, raw error text).
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      toast.error("Mukhang mali ang email. Tingnan ulit, hal. ben@gmail.com.");
+      return;
+    }
     setLoading(true);
     try {
-      await requestPasswordResetFn({
-        data: { email: email.trim(), redirectTo: `${window.location.origin}/reset-password` },
-      });
+      // Straight to Supabase Auth, so its per-IP and per-address limits
+      // apply to the visitor (QA F4).
+      await requestPasswordResetFromSupabase(
+        email.trim(),
+        `${window.location.origin}/reset-password`,
+      );
       setMode("sent");
     } catch (err) {
       console.error(err);
@@ -185,7 +197,7 @@ export function PasswordResetFlow() {
                     setPassword(e.target.value);
                     setFormError(null);
                   }}
-                  placeholder="••••••"
+                  placeholder="At least 6 characters"
                   className={inputClass}
                 />
               </Field>
@@ -198,7 +210,6 @@ export function PasswordResetFlow() {
                     setConfirmPassword(e.target.value);
                     setFormError(null);
                   }}
-                  placeholder="••••••"
                   className={inputClass}
                 />
               </Field>

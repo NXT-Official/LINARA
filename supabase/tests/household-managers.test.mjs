@@ -114,6 +114,8 @@ await db.exec(`
 // The backfill ran before these rows existed; run the migration again, as
 // applying it to a live database with managers in it would.
 await db.exec(readFileSync(`${REPO}/add-household-managers.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/restrict-create-household.sql`, "utf8"));
+await db.exec(readFileSync(`${REPO}/restrict-create-household.sql`, "utf8"));
 await db.exec(`SET ROLE authenticated`);
 
 // --- Everyone who managed a household before is a member of it --------------
@@ -195,6 +197,12 @@ await expectError(
 check(
   "or see the household's manager codes",
   (await q(`SELECT code FROM manager_invites`)).length === 0,
+);
+// KNOWN_GAPS O49: as its primary, they could share this family's staff into it.
+await expectError(
+  "or start a household of their own",
+  () => q(`SELECT * FROM create_household('Nora''s House')`),
+  /Only a primary manager/,
 );
 
 // --- An existing manager joins a second household as remote admin -------------
