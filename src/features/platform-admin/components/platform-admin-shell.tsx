@@ -29,11 +29,11 @@ export function PlatformAdminShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav aria-label="Admin" className="ml-4 hidden items-center gap-1 lg:flex">
-            {PLATFORM_ADMIN_NAV.map(({ to, label, Icon }) => (
+            {PLATFORM_ADMIN_NAV.map(({ to, label, Icon, exact }) => (
               <Link
                 key={to}
                 to={to}
-                activeOptions={{ exact: to === "/admin" }}
+                activeOptions={{ exact }}
                 className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-secondary/60 hover:text-foreground"
                 activeProps={{ className: "bg-secondary text-primary", "aria-current": "page" }}
               >

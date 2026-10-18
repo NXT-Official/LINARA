@@ -8,17 +8,19 @@ import {
   renewStoredSession,
 } from "@/features/people/hooks/use-session";
 import { isDueForRenewal } from "@/features/people/people.utils";
-import { markSignedIn } from "@/lib/signed-in-cookie";
 
 import { amIPlatformAdminFn } from "../platform-admin.actions";
 
-export type PlatformAdminStatus = "loading" | "anon" | "not_admin" | "admin" | "unavailable";
+export type PlatformAdminStatus =
+  "loading" | "anon" | "not_admin" | "admin" | "unavailable" | "error";
 
 export type PlatformAdminSession = {
   status: PlatformAdminStatus;
   token: string | null;
   userId: string | null;
   logOut: () => void;
+  /** Asks again after an `error`. */
+  retry: () => void;
 };
 
 type Answer = { available: boolean; isPlatformAdmin: boolean };
@@ -59,7 +61,8 @@ async function usableToken(): Promise<string | null> {
  */
 export function usePlatformAdminSession(): PlatformAdminSession {
   const navigate = useNavigate();
-  const [state, setState] = useState<Omit<PlatformAdminSession, "logOut">>({
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<Omit<PlatformAdminSession, "logOut" | "retry">>({
     status: "loading",
     token: null,
     userId: null,
@@ -86,22 +89,26 @@ export function usePlatformAdminSession(): PlatformAdminSession {
         setState({ status, token, userId });
       } catch (err) {
         console.error("[usePlatformAdminSession] Couldn't check admin access:", err);
-        if (!cancelled) setState({ status: "unavailable", token, userId });
+        if (!cancelled) setState({ status: "error", token, userId });
       }
     };
     void resolve();
     return () => {
       cancelled = true;
     };
+  }, [attempt]);
+
+  const retry = useCallback(() => {
+    setState({ status: "loading", token: null, userId: null });
+    setAttempt((n) => n + 1);
   }, []);
 
   const logOut = useCallback(() => {
     clearStoredManagerSession();
-    markSignedIn(false);
     void navigate({ to: "/login", replace: true });
   }, [navigate]);
 
-  return { ...state, logOut };
+  return { ...state, logOut, retry };
 }
 
 /** Whether to show the "Admin" link in the TopBar. False until the answer is in. */
@@ -110,11 +117,10 @@ export function usePlatformAdminFlag(): boolean {
 
   useEffect(() => {
     let cancelled = false;
-    const token = readStoredManagerToken();
-    if (!token) return;
-    askOnce(token)
+    usableToken()
+      .then((token) => (token ? askOnce(token) : null))
       .then((answer) => {
-        if (!cancelled) setIsAdmin(answer.available && answer.isPlatformAdmin);
+        if (!cancelled) setIsAdmin(answer !== null && answer.available && answer.isPlatformAdmin);
       })
       .catch(() => {
         if (!cancelled) setIsAdmin(false);

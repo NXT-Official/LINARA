@@ -3,7 +3,7 @@ import { BarChart3, CircleHelp, Home, MessagesSquare, Receipt, Tags } from "luci
 import type { BottomNavItem } from "@/components/shared/bottom-nav";
 
 export const PLATFORM_ADMIN_NAV: BottomNavItem[] = [
-  { to: "/admin", label: "Overview", Icon: BarChart3 },
+  { to: "/admin", label: "Overview", Icon: BarChart3, exact: true },
   { to: "/admin/households", label: "Households", Icon: Home },
   { to: "/admin/plans", label: "Plans", Icon: Tags },
   { to: "/admin/costs", label: "Costs", Icon: Receipt },

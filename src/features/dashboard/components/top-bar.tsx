@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { LogOut, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 import { useState } from "react";
 
 import { LogoMark } from "@/components/shared/logo";
@@ -107,9 +107,12 @@ export function TopBar() {
           {status === "authed" && isPlatformAdmin && (
             <Link
               to="/admin"
-              className="hidden h-9 shrink-0 items-center rounded-lg px-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground sm:inline-flex"
+              title="Admin"
+              aria-label="Admin"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
             >
-              Admin
+              <ShieldCheck className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Admin</span>
             </Link>
           )}
           {status === "authed" && (

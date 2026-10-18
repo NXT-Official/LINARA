@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RequirePlatformAdmin } from "./require-platform-admin";
 
 const navigate = vi.fn();
+const retry = vi.fn();
 const sessionState = vi.hoisted(() => ({
-  status: "loading" as "loading" | "anon" | "not_admin" | "admin" | "unavailable",
+  status: "loading" as "loading" | "anon" | "not_admin" | "admin" | "unavailable" | "error",
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -21,6 +22,7 @@ vi.mock("../hooks/use-platform-admin-session", () => ({
     token: null,
     userId: null,
     logOut: vi.fn(),
+    retry,
   }),
 }));
 
@@ -62,6 +64,15 @@ describe("RequirePlatformAdmin", () => {
     sessionState.status = "unavailable";
     renderGate();
     expect(screen.getByText("Admin tools aren't switched on yet")).toBeTruthy();
+    expect(screen.queryByText("Admin content")).toBeNull();
+  });
+
+  it("offers Try again when the check itself failed", () => {
+    sessionState.status = "error";
+    renderGate();
+    expect(screen.getByText("Couldn't check admin access.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Admin content")).toBeNull();
   });
 
