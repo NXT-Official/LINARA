@@ -1,0 +1,58 @@
+src/components/shared/field.tsx
+  s_015ef908465883::t_bf284bfa888334 19,22
+src/features/billing/public-plans-loader.test.ts
+  s_015ef908465883::t_4ddf3710790966 1-25
+src/features/billing/plan.actions.ts
+  s_015ef908465883::t_bf284bfa888334 74,78
+  s_015ef908465883::t_4ddf3710790966 75-76
+src/features/billing/components/plan-form-modal.tsx
+  s_015ef908465883::t_bf284bfa888334 97,107-108,130-132,145
+  s_015ef908465883::t_7993613daad847 7
+src/features/billing/money.ts
+  s_015ef908465883::t_c74c2face770cf 16-17
+  s_015ef908465883::t_0bc3d22bf7f902 13-15
+  s_015ef908465883::t_8a01fb0aa4fdec 18-19
+  s_bdb0718d2a6369::t_87aa6b0e609e00 12
+src/features/billing/pages/platform-admin-plans-page.test.tsx
+  s_015ef908465883::t_39ac4ab90d6dc2 126-149
+src/features/billing/plan.pricing.test.ts
+  s_015ef908465883::t_bf284bfa888334 27
+src/routes/pricing.tsx
+  s_015ef908465883::t_4ddf3710790966 6,9
+src/features/billing/plan.pricing.ts
+  s_015ef908465883::t_bf284bfa888334 22,53
+src/features/billing/plan.types.test.ts
+  s_015ef908465883::t_4ddf3710790966 1-80
+src/features/billing/pages/pricing-page.tsx
+  s_015ef908465883::t_4ddf3710790966 32-35,41
+  s_015ef908465883::t_bf284bfa888334 31,36-40
+src/features/billing/public-plans-loader.ts
+  s_015ef908465883::t_4ddf3710790966 1-9,13-19
+  s_015ef908465883::t_39ac4ab90d6dc2 10-12
+src/features/billing/money.test.ts
+  s_015ef908465883::t_3e04e8a17c6147 3,19-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ca4aaeaf8b4fd61f39bf9e91cf64cf3d5957613",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    },
+    "s_bdb0718d2a6369": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a9a108cd91797fd0f",
+        "model": "unknown"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
