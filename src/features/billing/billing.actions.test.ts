@@ -19,6 +19,7 @@ function chainOf(result: Reply) {
     eq: () => c,
     in: () => c,
     neq: () => c,
+    gt: () => c,
     order: () => c,
     maybeSingle: async () => result,
     then: (resolve: (v: Reply) => void) => resolve(result),
@@ -72,25 +73,28 @@ beforeEach(() => {
 });
 
 describe("startCheckout", () => {
-  it("returns available:false and touches no RPC when billing is off", async () => {
+  it("returns available:false and makes no write when billing is off", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     const fetchImpl = vi.fn();
     expect(await startCheckout(client, input, off, fetchImpl)).toEqual({ available: false });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("trial_eligible", { p_plan_id: "plan-1", p_home_ids: ["h1"] });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("returns available:false and touches no RPC without the Xendit key", async () => {
+  it("returns available:false and makes no write without the Xendit key", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     const out = await startCheckout(client, input, { ...on, secretKey: undefined }, vi.fn());
     expect(out).toEqual({ available: false });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("start_subscription", expect.anything());
   });
 
   it("starts a trial for an eligible home even with billing off, and never touches Xendit", async () => {
-    tables.plans = { data: { trial_days: 14 }, error: null };
+    rpc.mockResolvedValueOnce({ data: true, error: null });
     rpc.mockResolvedValueOnce({ data: { ...paidRow, invoice_id: null }, error: null });
     const fetchImpl = vi.fn();
     const out = await startCheckout(client, input, off, fetchImpl);
-    expect(out).toEqual({ ok: true, invoiceUrl: null, trialing: true });
+    expect(out).toEqual({ ok: true, invoiceUrl: null, trialing: true, invoiceId: null });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledWith("start_subscription", {
       p_plan_id: "plan-1",
@@ -100,14 +104,16 @@ describe("startCheckout", () => {
     });
   });
 
-  it("does not treat a home with history as trial-eligible", async () => {
-    tables.plans = { data: { trial_days: 14 }, error: null };
-    tables.subscription_homes = { data: [{ household_id: "h1" }], error: null };
+  it("treats a trial_eligible answer of false, an error or a missing RPC as no trial", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     expect(await startCheckout(client, input, off, vi.fn())).toEqual({ available: false });
-    expect(rpc).not.toHaveBeenCalled();
+    rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202", message: "x" } });
+    expect(await startCheckout(client, input, off, vi.fn())).toEqual({ available: false });
+    expect(rpc).not.toHaveBeenCalledWith("start_subscription", expect.anything());
   });
 
   it("creates a session, attaches it and returns the payment link", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: paidRow, error: null });
     rpc.mockResolvedValueOnce({ data: null, error: null });
     const fetchImpl = vi.fn().mockResolvedValue(session);
@@ -116,6 +122,7 @@ describe("startCheckout", () => {
       ok: true,
       invoiceUrl: "https://checkout.xendit.test/ps-1",
       trialing: false,
+      invoiceId: "inv-1",
     });
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
     expect(body.reference_id).toBe("LIN-INV-0001");
@@ -127,11 +134,13 @@ describe("startCheckout", () => {
       p_xendit_id: "ps-1",
       p_url: "https://checkout.xendit.test/ps-1",
       p_expires_at: "2026-10-20T00:00:00.000Z",
+      p_payer_email: "maria@example.com",
     });
     expect(captureServerError).not.toHaveBeenCalled();
   });
 
   it("reports a failed attach but still sends the household to pay", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: paidRow, error: null });
     rpc.mockResolvedValueOnce({ data: null, error: { message: "NOT_FOUND:invoice" } });
     const out = await startCheckout(
@@ -145,12 +154,14 @@ describe("startCheckout", () => {
       ok: true,
       invoiceUrl: "https://checkout.xendit.test/ps-1",
       trialing: false,
+      invoiceId: "inv-1",
     });
     expect(captureServerError).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the login email and the email's local part when there is no name", async () => {
     tables.user_profiles = { data: { full_name: "  " }, error: null };
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: paidRow, error: null });
     rpc.mockResolvedValueOnce({ data: null, error: null });
     const fetchImpl = vi.fn().mockResolvedValue(session);
@@ -161,17 +172,20 @@ describe("startCheckout", () => {
   });
 
   it("maps a coded RPC error to ok:false", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: null, error: { message: "NOT_PRIMARY:only the primary" } });
     const out = await startCheckout(client, input, on, vi.fn());
     expect(out).toEqual({ ok: false, code: "NOT_PRIMARY:only the primary" });
   });
 
   it("says the missing function is unavailable", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202", message: "x" } });
     expect(await startCheckout(client, input, on, vi.fn())).toEqual({ available: false });
   });
 
   it("reports a Xendit failure as ok:false instead of throwing", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
     rpc.mockResolvedValueOnce({ data: paidRow, error: null });
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: false,
@@ -208,6 +222,7 @@ describe("renewCheckout", () => {
       ok: true,
       invoiceUrl: "https://checkout.xendit.test/old",
       trialing: false,
+      invoiceId: "inv-1",
     });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledWith("renew_subscription", { p_subscription_id: "sub-1" });
@@ -231,28 +246,24 @@ describe("getBilling", () => {
     expect(out.entitlements).toBeNull();
   });
 
-  it("scopes subscriptions to this home and lists homes with history", async () => {
+  it("scopes subscriptions to this home and asks trial_eligible per trial plan", async () => {
     rpc.mockImplementation(async (name: string) =>
       name === "household_entitlements"
         ? { data: { source: "free", helper_seats: 1, manager_seats: 1 }, error: null }
-        : {
-            data: [
-              { household_id: "h1", name: "A", role: "primary_manager" },
-              { household_id: "h2", name: "B", role: "primary_manager" },
-            ],
-            error: null,
-          },
+        : name === "trial_eligible"
+          ? { data: true, error: null }
+          : {
+              data: [
+                { household_id: "h1", name: "A", role: "primary_manager" },
+                { household_id: "h2", name: "B", role: "primary_manager" },
+              ],
+              error: null,
+            },
     );
     tables.helper_profiles = { data: null, error: null, count: 2 };
     tables.household_managers = { data: null, error: null, count: 1 };
-    tables.subscription_homes = {
-      data: [
-        { subscription_id: "s1", household_id: "h1", subscriptions: { status: "active" } },
-        { subscription_id: "s2", household_id: "h2", subscriptions: { status: "pending" } },
-        { subscription_id: "s3", household_id: "h2", subscriptions: [{ status: "canceled" }] },
-      ],
-      error: null,
-    };
+    tables.subscription_homes = { data: [{ subscription_id: "s1" }], error: null };
+    tables.plans = { data: [{ id: "plan-1" }], error: null };
     tables.subscriptions = {
       data: [
         {
@@ -271,7 +282,7 @@ describe("getBilling", () => {
     };
     tables.platform_invoices = { data: [], error: null };
     const out = await getBilling(client, "h1");
-    expect(out.homesWithHistory.sort()).toEqual(["h1", "h2"]);
+    expect(out.trialEligibleByPlan).toEqual({ "plan-1": true });
     expect(out.usage).toEqual({ helpers: 2, managers: 1 });
     expect(out.subscriptions[0]).toMatchObject({
       id: "s1",

@@ -8,8 +8,8 @@ import { LogoMark } from "@/components/shared/logo";
  * exists. Says nothing the redirect can't know: the plan itself moves when
  * Xendit's webhook arrives.
  */
-export function BillingReturnPage({ paid }: { paid: "1" | "0" | undefined }) {
-  const ok = paid === "1";
+export function BillingReturnPage({ paid }: { paid: 1 | 0 | undefined }) {
+  const ok = paid === 1;
   return (
     <div className="min-h-screen bg-background font-sans text-foreground antialiased">
       <header className="mx-auto flex max-w-3xl items-center px-4 py-5 sm:px-6">
@@ -30,7 +30,7 @@ export function BillingReturnPage({ paid }: { paid: "1" | "0" | undefined }) {
           )}
           <Link
             to="/manager/plan"
-            search={paid ? { paid } : {}}
+            search={paid === undefined ? {} : { paid }}
             className="mt-5 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-pine-deep"
           >
             Back to your plan

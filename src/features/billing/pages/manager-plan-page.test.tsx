@@ -104,7 +104,7 @@ const ready = (over: Partial<BillingSnapshot>) => {
       invoices: [],
       usage: { helpers: 2, managers: 1 },
       homes: [{ id: "h1", name: "Home", primary: true }],
-      homesWithHistory: [],
+      trialEligibleByPlan: {},
       ...over,
     },
   };
@@ -203,7 +203,6 @@ describe("ManagerPlanPage", () => {
       currentPeriodStart: "2026-09-01T00:00:00.000Z",
       currentPeriodEnd: "2026-10-01T00:00:00.000Z",
       canceledAt: null,
-      note: null,
       createdAt: "2026-09-01T00:00:00.000Z",
     };
     ready({
@@ -221,7 +220,7 @@ describe("ManagerPlanPage", () => {
     render(<ManagerPlanPage />);
     expect(screen.getByText("Home")).toBeTruthy();
     expect(screen.getByText("Expired")).toBeTruthy();
-    expect(screen.getByText("Period ended")).toBeTruthy();
+    expect(screen.getByText("Ended October 1, 2026")).toBeTruthy();
     expect(screen.queryByText(/days? left/)).toBeNull();
     expect(screen.getByRole("button", { name: "Renew" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
@@ -233,16 +232,16 @@ describe("ManagerPlanPage trial offer", () => {
 
   it("offers the trial to a home that never had a subscription", async () => {
     plansFn.mockResolvedValue({ available: true, plans: [trialPlan] });
-    ready({});
+    ready({ trialEligibleByPlan: { p1: true } });
     render(<ManagerPlanPage />);
     expect(
       await screen.findByRole("button", { name: "Start your 14-day free trial" }),
     ).toBeTruthy();
   });
 
-  it("shows the price instead when the home already had one", async () => {
+  it("shows the price instead when the database says no trial", async () => {
     plansFn.mockResolvedValue({ available: true, plans: [trialPlan] });
-    ready({ homesWithHistory: ["h1"] });
+    ready({ trialEligibleByPlan: {} });
     render(<ManagerPlanPage />);
     expect(await screen.findByRole("button", { name: /^Pay ₱/ })).toBeTruthy();
     expect(screen.queryByText(/free trial/)).toBeNull();
@@ -252,14 +251,14 @@ describe("ManagerPlanPage trial offer", () => {
 describe("ManagerPlanPage after Xendit", () => {
   it("checks first and toasts nothing until the newest invoice is paid", () => {
     ready({ invoices: [invoice({ status: "pending", paidAt: null })] });
-    render(<ManagerPlanPage paid="1" />);
+    render(<ManagerPlanPage paid={1} />);
     expect(screen.getByText("Checking your payment with Xendit…")).toBeTruthy();
     expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("toasts the paid copy once the newest invoice is paid", () => {
     ready({ invoices: [invoice({ status: "paid" })] });
-    render(<ManagerPlanPage paid="1" />);
+    render(<ManagerPlanPage paid={1} />);
     expect(toast.success).toHaveBeenCalledWith("Paid, thank you.");
     expect(screen.queryByText("Checking your payment with Xendit…")).toBeNull();
   });
@@ -268,7 +267,7 @@ describe("ManagerPlanPage after Xendit", () => {
     vi.useFakeTimers();
     try {
       ready({ invoices: [invoice({ status: "pending", paidAt: null })] });
-      render(<ManagerPlanPage paid="1" />);
+      render(<ManagerPlanPage paid={1} />);
       act(() => {
         vi.advanceTimersByTime(65_000);
       });
@@ -282,9 +281,23 @@ describe("ManagerPlanPage after Xendit", () => {
     }
   });
 
+  it("waits for the invoice the household left with, not just the newest", () => {
+    window.sessionStorage.setItem("linara_billing_pending_invoice", "i-old");
+    ready({
+      invoices: [
+        invoice({ id: "i-new", status: "paid" }),
+        invoice({ id: "i-old", status: "pending", paidAt: null }),
+      ],
+    });
+    render(<ManagerPlanPage paid={1} />);
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(screen.getByText("Checking your payment with Xendit…")).toBeTruthy();
+    window.sessionStorage.clear();
+  });
+
   it("toasts the failure straight away on paid=0", () => {
     ready({});
-    render(<ManagerPlanPage paid="0" />);
+    render(<ManagerPlanPage paid={0} />);
     expect(toast.error).toHaveBeenCalledWith(
       "Payment didn't go through. Try again when you're ready.",
     );

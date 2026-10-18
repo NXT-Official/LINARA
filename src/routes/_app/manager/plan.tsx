@@ -6,7 +6,7 @@ import { ManagerPlanPage } from "@/features/billing/pages/manager-plan-page";
 
 type PlanSearch = {
   /** Set by Xendit's return page: "1" paid, "0" not. */
-  paid?: "1" | "0";
+  paid?: 1 | 0;
 };
 
 export const Route = createFileRoute("/_app/manager/plan")({

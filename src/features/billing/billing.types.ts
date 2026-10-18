@@ -25,7 +25,6 @@ export type Subscription = {
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   canceledAt: string | null;
-  note: string | null;
   createdAt: string;
 };
 
@@ -56,13 +55,13 @@ export type BillingSnapshot = {
   invoices: PlatformInvoice[];
   usage: SeatUsage;
   homes: BillingHome[];
-  /** Homes (among the caller's) that already had a subscription that got past `pending`: no trial for them. */
-  homesWithHistory: string[];
+  /** Per public plan: does the database (trial_eligible) offer this home a trial on it? */
+  trialEligibleByPlan: Record<string, boolean>;
 };
 
 export type CheckoutResult =
   | { available: false }
-  | { ok: true; invoiceUrl: string | null; trialing: boolean }
+  | { ok: true; invoiceUrl: string | null; trialing: boolean; invoiceId: string | null }
   | { ok: false; code: string };
 
 export type SeatKind = "helper" | "manager";
@@ -92,6 +91,12 @@ export function billingErrorCopy(code: string): string {
       return "A one-time plan has nothing to renew.";
     case "NOT_FOUND":
       return "We couldn't find that plan or subscription.";
+    case "BAD_SEATS":
+      return "Those seat numbers don't work. Check them and try again.";
+    case "BAD_PERIOD":
+      return "That billing period isn't valid. Try again, or message us from Help.";
+    case "BAD_URL":
+      return "We couldn't open the payment page. Nothing was charged. Try again in a minute.";
     case "PAYMENT_PROVIDER":
       return "We couldn't open the payment page. Nothing was charged. Try again in a minute.";
     default:
@@ -111,17 +116,10 @@ export const fmtLongDate = (iso: string): string =>
 /** A payment page is only ever opened from an https address. */
 export const isHttpsUrl = (url: string): boolean => url.startsWith("https://");
 
-/** A trial is for homes that never had a subscription (the SQL's rule, mirrored for the picker). */
-export const trialEligible = (
-  plan: { trialDays: number },
-  homeIds: string[],
-  homesWithHistory: string[],
-): boolean => plan.trialDays > 0 && !homeIds.some((id) => homesWithHistory.includes(id));
-
-/** `?paid=1` reaches validateSearch as the number 1 (the router parses JSON), so take both forms. */
-export const paidFlag = (value: unknown): "1" | "0" | undefined => {
-  if (value === 1 || value === "1") return "1";
-  if (value === 0 || value === "0") return "0";
+/** Kept numeric: the router parses ?paid=1 to 1 and writes it back as paid=1; a string "1" would be re-quoted and redirect. */
+export const paidFlag = (value: unknown): 1 | 0 | undefined => {
+  if (value === 1 || value === "1") return 1;
+  if (value === 0 || value === "0") return 0;
   return undefined;
 };
 

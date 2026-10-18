@@ -10,7 +10,6 @@ import type {
   PlatformInvoice,
   Subscription,
 } from "./billing.types";
-import { trialEligible } from "./billing.types";
 import { createPaymentSession } from "./xendit-sessions";
 
 /**
@@ -103,7 +102,6 @@ function toSubscription(row: Record<string, unknown>): Subscription {
     currentPeriodStart: str(row.current_period_start),
     currentPeriodEnd: str(row.current_period_end),
     canceledAt: str(row.canceled_at),
-    note: str(row.note),
     createdAt: String(row.created_at),
   };
 }
@@ -128,9 +126,22 @@ function toInvoice(row: Record<string, unknown>): PlatformInvoice {
 
 // Explicit columns: raw_callback and the payer's details stay out of the browser's reach.
 const SUBSCRIPTION_COLUMNS =
-  "id, plan_id, owner_user_id, status, helper_seats, manager_seats, home_seats, amount_centavos, current_period_start, current_period_end, canceled_at, note, created_at";
+  "id, plan_id, owner_user_id, status, helper_seats, manager_seats, home_seats, amount_centavos, current_period_start, current_period_end, canceled_at, created_at";
 const INVOICE_COLUMNS =
   "id, invoice_number, subscription_id, external_id, payment_url, expires_at, status, amount_centavos, currency, period_start, period_end, paid_at, created_at";
+
+/** trial_eligible is the one rule. A missing function or any error means no trial. */
+async function trialEligibleFor(
+  client: Client,
+  planId: string,
+  homeIds: string[],
+): Promise<boolean> {
+  const { data, error } = await client.rpc("trial_eligible", {
+    p_plan_id: planId,
+    p_home_ids: homeIds,
+  });
+  return !error && data === true;
+}
 
 const EMPTY: BillingSnapshot = {
   available: false,
@@ -139,7 +150,7 @@ const EMPTY: BillingSnapshot = {
   invoices: [],
   usage: { helpers: 0, managers: 0 },
   homes: [],
-  homesWithHistory: [],
+  trialEligibleByPlan: {},
 };
 
 export async function getBilling(client: Client, householdId: string): Promise<BillingSnapshot> {
@@ -174,28 +185,16 @@ export async function getBilling(client: Client, householdId: string): Promise<B
     name: h.name,
     primary: h.role === "primary_manager",
   }));
-  const homeIds = Array.from(new Set([householdId, ...homeList.map((h) => h.id)]));
 
-  // Which subscriptions cover THIS home (invoices follow), and which of the
-  // caller's homes have already had one that got past `pending`.
+  // Which subscriptions cover THIS home; invoices follow them.
   const links = await client
     .from("subscription_homes")
-    .select("subscription_id, household_id, subscriptions!inner(status)")
-    .in("household_id", homeIds);
+    .select("subscription_id")
+    .eq("household_id", householdId);
   if (missing(links.error)) return EMPTY;
   if (links.error) fail(links.error, "Couldn't load your subscriptions");
-  const linkRows = (links.data ?? []) as unknown as {
-    subscription_id: string;
-    household_id: string;
-    subscriptions: { status: string } | { status: string }[] | null;
-  }[];
-  const statusOf = (l: (typeof linkRows)[number]) =>
-    Array.isArray(l.subscriptions) ? l.subscriptions[0]?.status : l.subscriptions?.status;
-  const subIds = linkRows
-    .filter((l) => l.household_id === householdId)
-    .map((l) => l.subscription_id);
-  const homesWithHistory = Array.from(
-    new Set(linkRows.filter((l) => statusOf(l) !== "pending").map((l) => l.household_id)),
+  const subIds = ((links.data ?? []) as { subscription_id: string }[]).map(
+    (l) => l.subscription_id,
   );
 
   const [subs, invoices] =
@@ -219,6 +218,18 @@ export async function getBilling(client: Client, householdId: string): Promise<B
   if (subs.error) fail(subs.error, "Couldn't load your subscriptions");
   if (invoices.error) fail(invoices.error, "Couldn't load your invoices");
 
+  // The database decides who gets a trial; ask it once per plan that has one.
+  const trialPlans = await client
+    .from("plans")
+    .select("id")
+    .eq("status", "active")
+    .eq("is_public", true)
+    .gt("trial_days", 0);
+  const trialEligibleByPlan: Record<string, boolean> = {};
+  for (const row of (trialPlans.data ?? []) as { id: string }[]) {
+    trialEligibleByPlan[row.id] = await trialEligibleFor(client, row.id, [householdId]);
+  }
+
   const entRow = oneRow(ent);
   return {
     available: true,
@@ -227,7 +238,7 @@ export async function getBilling(client: Client, householdId: string): Promise<B
     invoices: ((invoices.data ?? []) as Record<string, unknown>[]).map(toInvoice),
     usage: { helpers: helpers.count ?? 0, managers: managers.count ?? 0 },
     homes: homeList,
-    homesWithHistory,
+    trialEligibleByPlan,
   };
 }
 
@@ -291,7 +302,7 @@ async function payInvoice(
     const url = str(row?.payment_url);
     const expires = str(row?.expires_at);
     if (url && row?.status === "pending" && expires && new Date(expires).getTime() > Date.now()) {
-      return { ok: true, invoiceUrl: url, trialing: false };
+      return { ok: true, invoiceUrl: url, trialing: false, invoiceId: start.invoiceId };
     }
   }
 
@@ -339,11 +350,12 @@ async function payInvoice(
     p_xendit_id: session.sessionId,
     p_url: session.paymentUrl,
     p_expires_at: session.expiresAt,
+    p_payer_email: customerEmail,
   });
   if (attachError) {
     await report(new Error(`attach_xendit_invoice: ${attachError.message}`));
   }
-  return { ok: true, invoiceUrl: session.paymentUrl, trialing: false };
+  return { ok: true, invoiceUrl: session.paymentUrl, trialing: false, invoiceId: start.invoiceId };
 }
 
 /** Fail closed: a session is made only with the flag on AND the key set. */
@@ -360,7 +372,8 @@ async function finish(
 ): Promise<CheckoutResult> {
   const start = toStart(data);
   if (!start) return { ok: false, code: "NOT_FOUND" };
-  if (start.invoiceId === null) return { ok: true, invoiceUrl: null, trialing: true };
+  if (start.invoiceId === null)
+    return { ok: true, invoiceUrl: null, trialing: true, invoiceId: null };
   // Backstop: the callers close the gate before any RPC, so this is only
   // reachable if the SQL decided on a payment we did not expect.
   if (!checkoutOpen(env)) return { available: false };
@@ -373,25 +386,6 @@ async function finish(
     fetchImpl,
     report,
   );
-}
-
-/** Mirrors the SQL: the plan has a trial and none of these homes ever had a subscription past `pending`. */
-async function wouldTrial(client: Client, planId: string, homeIds: string[]): Promise<boolean> {
-  const { data: plan } = await client
-    .from("plans")
-    .select("trial_days")
-    .eq("id", planId)
-    .maybeSingle();
-  const trialDays = Number(record(plan)?.trial_days ?? 0);
-  if (trialDays <= 0) return false;
-  const { data: links, error } = await client
-    .from("subscription_homes")
-    .select("household_id, subscriptions!inner(status)")
-    .in("household_id", homeIds)
-    .neq("subscriptions.status", "pending");
-  if (error) return false;
-  const history = ((links ?? []) as { household_id: string }[]).map((l) => l.household_id);
-  return trialEligible({ trialDays }, homeIds, history);
 }
 
 export async function startCheckout(
@@ -410,7 +404,7 @@ export async function startCheckout(
   // A trial takes no payment, so it may start with billing off. Anything
   // else must not touch the database until checkout is open: a refused Pay
   // click would leave a pending subscription and burn an invoice number.
-  const trial = await wouldTrial(client, input.planId, input.homeIds);
+  const trial = await trialEligibleFor(client, input.planId, input.homeIds);
   if (!trial && !checkoutOpen(env)) return { available: false };
 
   const { data, error } = await client.rpc("start_subscription", {

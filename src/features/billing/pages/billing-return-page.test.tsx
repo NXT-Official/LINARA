@@ -14,7 +14,7 @@ afterEach(cleanup);
 
 describe("BillingReturnPage", () => {
   it("thanks the household after a payment", () => {
-    render(<BillingReturnPage paid="1" />);
+    render(<BillingReturnPage paid={1} />);
     expect(screen.getByText("Paid, thank you.")).toBeTruthy();
     expect(
       screen.getByText("Xendit tells Linara within a minute; your plan updates on its own."),
@@ -28,7 +28,7 @@ describe("BillingReturnPage", () => {
   });
 
   it("says the payment did not go through", () => {
-    render(<BillingReturnPage paid="0" />);
+    render(<BillingReturnPage paid={0} />);
     expect(
       screen.getByText("Payment didn't go through. Try again when you're ready."),
     ).toBeTruthy();

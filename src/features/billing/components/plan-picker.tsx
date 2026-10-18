@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 
 import { Field } from "@/components/shared/field";
 
-import { trialEligible, type BillingHome, type SeatUsage } from "../billing.types";
+import { type BillingHome, type SeatUsage } from "../billing.types";
 import { fmtCentavos } from "../money";
 import { describePlanPricing, intervalLabel, quoteAmount } from "../plan.pricing";
 import type { Plan } from "../plan.types";
@@ -71,7 +71,7 @@ export function PlanPicker({
   plans,
   usage,
   homes,
-  homesWithHistory,
+  trialEligibleByPlan,
   currentHouseholdId,
   busy,
   onSubmit,
@@ -79,7 +79,7 @@ export function PlanPicker({
   plans: Plan[];
   usage: SeatUsage;
   homes: BillingHome[];
-  homesWithHistory: string[];
+  trialEligibleByPlan: Record<string, boolean>;
   currentHouseholdId: string;
   busy: boolean;
   onSubmit: (choice: CheckoutChoice) => void;
@@ -108,7 +108,11 @@ export function PlanPicker({
   const toggleHome = (id: string) =>
     setPickedHomes((prev) => (prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]));
 
-  const trial = trialEligible(plan, homeIds, homesWithHistory);
+  // The database answered for this home alone; with other homes ticked only it can say, at checkout.
+  const trial =
+    trialEligibleByPlan[plan.id] === true &&
+    homeIds.length === 1 &&
+    homeIds[0] === currentHouseholdId;
   const buttonLabel = !quote.ok
     ? "Pick a smaller number"
     : trial

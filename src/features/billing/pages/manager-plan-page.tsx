@@ -25,6 +25,31 @@ const PAID_COPY = "Paid, thank you.";
 const NOT_PAID_COPY = "Payment didn't go through. Try again when you're ready.";
 const UNAVAILABLE_COPY = "Payments aren't switched on yet — message us from Help.";
 
+const PENDING_KEY = "linara_billing_pending_invoice";
+
+/** The invoice the household left for Xendit with, so coming back can tell WHICH payment to wait for. */
+function rememberPendingInvoice(id: string) {
+  try {
+    window.sessionStorage.setItem(PENDING_KEY, id);
+  } catch {
+    // No storage: the page falls back to the newest invoice.
+  }
+}
+function readPendingInvoice(): string | null {
+  try {
+    return window.sessionStorage.getItem(PENDING_KEY);
+  } catch {
+    return null;
+  }
+}
+function clearPendingInvoice() {
+  try {
+    window.sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Nothing stored, nothing to clear.
+  }
+}
+
 const SECTION = "rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6";
 const PRIMARY_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-50";
@@ -94,7 +119,7 @@ function PlanSection({
   const [confirming, setConfirming] = useState(false);
 
   const name = hasSub ? (ent?.planName ?? "Your plan") : hasPlan ? "Free" : "No plan";
-  const endLabel = status === "trialing" ? "Trial ends" : ended ? "Period ended" : "Period ends";
+  const endLabel = status === "trialing" ? "Trial ends" : ended ? "Plan period" : "Period ends";
 
   return (
     <section className={SECTION} aria-labelledby="your-plan">
@@ -123,7 +148,7 @@ function PlanSection({
           <li className="flex justify-between gap-3 py-2.5 text-sm">
             <span className="text-foreground">{endLabel}</span>
             <span className="text-foreground">
-              {fmtLongDate(ent.periodEnd)}
+              {ended ? `Ended ${fmtLongDate(ent.periodEnd)}` : fmtLongDate(ent.periodEnd)}
               {!ended && ent.daysLeft !== null && ent.daysLeft >= 0
                 ? ` · ${ent.daysLeft} ${ent.daysLeft === 1 ? "day" : "days"} left`
                 : ""}
@@ -141,7 +166,11 @@ function PlanSection({
       {(pending || canRenew) && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {pending?.paymentUrl && isPrimary && (
-            <a href={pending.paymentUrl} className={PRIMARY_BUTTON}>
+            <a
+              href={pending.paymentUrl}
+              onClick={() => rememberPendingInvoice(pending.id)}
+              className={PRIMARY_BUTTON}
+            >
               Pay now
             </a>
           )}
@@ -232,6 +261,7 @@ function InvoicesSection({ invoices }: { invoices: PlatformInvoice[] }) {
                 {stillPayable(inv) && inv.paymentUrl && (
                   <a
                     href={inv.paymentUrl}
+                    onClick={() => rememberPendingInvoice(inv.id)}
                     className="text-sm font-semibold text-primary hover:underline"
                   >
                     Pay
@@ -247,7 +277,7 @@ function InvoicesSection({ invoices }: { invoices: PlatformInvoice[] }) {
 }
 
 /** /manager/plan: what the household has, what it can buy, and what it has been billed. */
-export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
+export function ManagerPlanPage({ paid }: { paid?: 1 | 0 }) {
   const { session } = useAppStores();
   const householdId = session.householdId;
   const { status, data, refresh } = useBilling({
@@ -274,15 +304,19 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
   // Coming back from Xendit's page. The redirect proves nothing: "paid" is
   // only said once this household's newest invoice really is paid.
   const toasted = useRef(false);
-  const latestPaid = data?.invoices[0]?.status === "paid";
+  const [pendingId] = useState(() => (paid !== undefined ? readPendingInvoice() : null));
+  const watched = pendingId ? data?.invoices.find((i) => i.id === pendingId) : data?.invoices[0];
+  const latestPaid = watched?.status === "paid";
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
     if (toasted.current) return;
-    if (paid === "0") {
+    if (paid === 0) {
       toasted.current = true;
+      clearPendingInvoice();
       toast.error(NOT_PAID_COPY);
-    } else if (paid === "1" && latestPaid) {
+    } else if (paid === 1 && latestPaid) {
       toasted.current = true;
+      clearPendingInvoice();
       toast.success(PAID_COPY);
     }
   }, [paid, latestPaid]);
@@ -303,7 +337,7 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
   }, [refresh]);
 
   useEffect(() => {
-    if (paid !== "1" || latestPaid) return;
+    if (paid !== 1 || latestPaid) return;
     const startedAt = Date.now();
     const id = setInterval(() => {
       if (Date.now() - startedAt >= 60_000) {
@@ -329,6 +363,7 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
           toast.success("Your trial has started.");
           await refresh();
         } else if (result.invoiceUrl && isHttpsUrl(result.invoiceUrl)) {
+          if (result.invoiceId) rememberPendingInvoice(result.invoiceId);
           window.location.assign(result.invoiceUrl);
         } else {
           toast.error(billingErrorCopy("PAYMENT_PROVIDER"));
@@ -408,7 +443,7 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
   } else {
     body = (
       <>
-        {paid === "1" && !latestPaid && (
+        {paid === 1 && !latestPaid && (
           <p
             role="status"
             className="rounded-2xl bg-secondary/60 px-4 py-3 text-sm text-foreground"
@@ -453,7 +488,7 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
                 plans={plans.list}
                 usage={data.usage}
                 homes={data.homes}
-                homesWithHistory={data.homesWithHistory}
+                trialEligibleByPlan={data.trialEligibleByPlan}
                 currentHouseholdId={householdId}
                 busy={busy}
                 onSubmit={checkout}
