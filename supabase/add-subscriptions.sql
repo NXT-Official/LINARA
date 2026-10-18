@@ -12,19 +12,22 @@
 -- BMBE).
 --
 -- Reading: a subscription's owner, the managers of any household it covers and
--- platform admins read it, its homes and its invoices, except two columns the
--- browser never gets: subscriptions.note (admin notes about a payment) and
--- platform_invoices.raw_callback (Xendit's payload). Column grants apply to
--- admins too, so admins read those through platform_invoice_detail() and the
--- notes in platform_households_overview(). Nobody writes directly. Every write
+-- platform admins read it, its homes and its invoices, but only the columns
+-- the web shows: not subscriptions.note (admin notes about a payment), nor
+-- platform_invoices.raw_callback (Xendit's payload), payer_email,
+-- xendit_session_id, paid_centavos, paid_channel or quote. Column grants apply
+-- to admins too, so admins read those through platform_invoice_detail() and
+-- the notes in platform_households_overview(). Nobody writes directly. Every write
 -- goes through a SECURITY DEFINER function below that checks its caller first:
 --   quote_subscription, trial_eligible,
 --   start_subscription ...................... a primary manager of every home
 --   attach_xendit_invoice, renew_subscription,
---   cancel_subscription ..................... a current primary manager of a
---                                             home it covers (so not an owner
---                                             who has since handed over or
---                                             left); cancel also platform admins
+--   cancel_subscription ..................... the current primary manager of
+--                                             every home it covers (so not an
+--                                             owner who has since handed over
+--                                             or left, nor a primary of only
+--                                             one of its homes); cancel also
+--                                             platform admins
 --   record_platform_invoice_result .......... the Xendit webhook (service_role
 --                                             only: nobody else can execute it)
 --   mark_platform_invoice_paid_manually,
@@ -33,8 +36,8 @@
 --   household_entitlements .................. the household's managers and
 --                                             platform admins
 -- Errors are 'CODE:detail' with NOT_ADMIN, NOT_PRIMARY, PLAN_NOT_ACTIVE,
--- SEATS_OVER_PLAN, ONE_TIME_PLAN, NOT_FOUND, BAD_URL, BAD_PERIOD or BAD_SEATS;
--- the web matches the prefix.
+-- SEATS_OVER_PLAN, ONE_TIME_PLAN, NOT_FOUND, BAD_URL, BAD_SESSION, BAD_PERIOD
+-- or BAD_SEATS; the web matches the prefix.
 --
 -- Seats: NULL means unlimited, on a plan (included_*) and on a subscription
 -- (helper_seats, manager_seats). Seats are PER HOME, on purpose: a
@@ -42,9 +45,16 @@
 -- never gives fewer seats than the plan includes.
 --
 -- Payments: the webhook is idempotent and only PAID, EXPIRED and FAILED change
--- anything (see billing_settle_invoice). Paying a subscription in full makes it
--- its homes' plan: any other running subscription covering one of them ends
--- then (changing plan starts a new period on payment).
+-- anything (see billing_settle_invoice). A Xendit payment that can't be applied
+-- (the invoice was already paid, by hand or by another session, or its plan was
+-- replaced) is never silent: it is noted on the subscription for the admin to
+-- refund, with its callback kept. Paying a subscription in full makes it its
+-- homes' plan: any other running subscription whose homes are all among its
+-- homes ends then, and that subscription's pending invoices expire (changing
+-- plan starts a new period on payment). A subscription that also covers a home
+-- the payer's doesn't is left alone. Each invoice start and renew make carries
+-- the quote it was priced from (platform_invoices.quote); paying it in full
+-- sets the subscription's seats to that quote's.
 --
 -- Trials: a plan's trial is given only when none of the homes has had a
 -- subscription that started, and the buyer has never owned one that started.
@@ -127,8 +137,13 @@ CREATE TABLE IF NOT EXISTS public.platform_invoices (
     paid_channel TEXT NULL,
     payer_email TEXT NULL,
     raw_callback JSONB NULL,
+    quote JSONB NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- {helper_seats, manager_seats, home_seats, amount_centavos} the invoice was
+-- priced from. Repeated here for a database with an earlier version of this
+-- file.
+ALTER TABLE public.platform_invoices ADD COLUMN IF NOT EXISTS quote JSONB NULL;
 CREATE INDEX IF NOT EXISTS platform_invoices_subscription_idx
     ON public.platform_invoices (subscription_id);
 CREATE INDEX IF NOT EXISTS platform_invoices_status_idx ON public.platform_invoices (status);
@@ -168,10 +183,10 @@ GRANT SELECT (id, plan_id, owner_user_id, status, helper_seats, manager_seats, h
               amount_centavos, current_period_start, current_period_end, canceled_at,
               created_at, updated_at)
     ON public.subscriptions TO authenticated;
--- Every column but raw_callback.
-GRANT SELECT (id, invoice_number, subscription_id, external_id, xendit_session_id, payment_url,
-              expires_at, status, amount_centavos, currency, period_start, period_end, paid_at,
-              paid_centavos, paid_channel, payer_email, created_at)
+-- Exactly the columns the web shows; not raw_callback, payer_email,
+-- xendit_session_id, paid_centavos, paid_channel or quote.
+GRANT SELECT (id, invoice_number, subscription_id, external_id, payment_url, expires_at, status,
+              amount_centavos, currency, period_start, period_end, paid_at, created_at)
     ON public.platform_invoices TO authenticated;
 -- Supabase's service_role has these already (and bypasses RLS); granted here
 -- too so a database without Supabase's defaults (the PGlite tests) matches.
@@ -233,11 +248,15 @@ CREATE POLICY platform_invoices_read ON public.platform_invoices
 
 -- Signatures earlier versions of this file had.
 DROP FUNCTION IF EXISTS public.billing_new_invoice(UUID, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.billing_new_invoice(UUID, TIMESTAMPTZ, BIGINT);
 DROP FUNCTION IF EXISTS public.attach_xendit_invoice(UUID, TEXT, TEXT, TIMESTAMPTZ);
 
 -- Whether the caller may act for a subscription (pay for it, cancel it, attach
--- its payment link): a current primary manager of a home it covers. The owner
--- qualifies only while still that; one who handed over or left does not.
+-- its payment link): the current primary manager of EVERY home it covers, as
+-- start_subscription requires of a buyer, so a primary of one home can't act
+-- for another household's coverage. The owner qualifies only while still that;
+-- one who handed over or left does not. A subscription with no homes left
+-- (its households deleted) has no one to act for it.
 CREATE OR REPLACE FUNCTION public.billing_can_manage_subscription(p_subscription_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -246,10 +265,14 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
     SELECT EXISTS (SELECT 1 FROM public.subscription_homes sh
-                     JOIN public.household_managers hm ON hm.household_id = sh.household_id
-                    WHERE sh.subscription_id = p_subscription_id
-                      AND hm.user_id = auth.uid()
-                      AND hm.role = 'primary_manager');
+                    WHERE sh.subscription_id = p_subscription_id)
+       AND NOT EXISTS (
+           SELECT 1 FROM public.subscription_homes sh
+            WHERE sh.subscription_id = p_subscription_id
+              AND NOT EXISTS (SELECT 1 FROM public.household_managers hm
+                               WHERE hm.household_id = sh.household_id
+                                 AND hm.user_id = auth.uid()
+                                 AND hm.role = 'primary_manager'));
 $$;
 
 -- The end of a period starting at p_start: a month or a year on, or none for a
@@ -364,13 +387,14 @@ BEGIN
 END;
 $$;
 
--- A pending invoice of p_amount_centavos, for the period starting at
--- p_period_start. Counts the subscription's invoices for external_id's n under
--- a lock on the subscription, so two callers can't both take the same n.
+-- A pending invoice for the period starting at p_period_start, priced from
+-- p_quote ({helper_seats, manager_seats, home_seats, amount_centavos}, kept on
+-- the invoice). Counts the subscription's invoices for external_id's n under a
+-- lock on the subscription, so two callers can't both take the same n.
 CREATE OR REPLACE FUNCTION public.billing_new_invoice(
     p_subscription_id UUID,
     p_period_start TIMESTAMPTZ,
-    p_amount_centavos BIGINT
+    p_quote JSONB
 )
 RETURNS public.platform_invoices
 LANGUAGE plpgsql
@@ -387,10 +411,11 @@ BEGIN
     SELECT p.interval INTO v_interval FROM public.plans p WHERE p.id = v_sub.plan_id;
     SELECT count(*) + 1 INTO v_n FROM public.platform_invoices WHERE subscription_id = v_sub.id;
     INSERT INTO public.platform_invoices
-        (invoice_number, subscription_id, external_id, amount_centavos, period_start, period_end)
+        (invoice_number, subscription_id, external_id, amount_centavos, period_start, period_end,
+         quote)
     VALUES (public.next_platform_invoice_number(), v_sub.id, 'sub_' || v_sub.id || '_' || v_n,
-            p_amount_centavos, p_period_start,
-            public.billing_period_end(p_period_start, v_interval))
+            (p_quote ->> 'amount_centavos')::BIGINT, p_period_start,
+            public.billing_period_end(p_period_start, v_interval), p_quote)
     RETURNING * INTO v_invoice;
     RETURN v_invoice;
 END;
@@ -408,13 +433,19 @@ $$;
 --   PAID on a pending, expired or failed invoice, as invoiced (p_paid_centavos
 --     NULL or equal): the invoice is paid, its period rewritten to the one
 --     granted, and the subscription active for that period: from the current
---     period's end if that's still ahead, else from now. Every other running
---     subscription covering one of its homes ends now, replaced.
+--     period's end if that's still ahead, else from now, with the seats of the
+--     invoice's quote when it has one. Every other running subscription whose
+--     homes are all among this one's ends now, replaced, and its pending
+--     invoices expire, marked replaced.
 --   PAID, another amount: the payment is recorded and the subscription marked
 --     past_due with a note for the admin; its period doesn't move.
---   PAID on an invoice already paid: not applied. From a different session
---     than the one that paid it, it is a second payment: noted once on the
---     subscription for the admin to refund.
+--   PAID on an invoice already paid, or expired by a replacement: not applied.
+--     From a Xendit session (p_xendit_id set) it is money taken for nothing
+--     when the invoice was marked paid by hand, was paid by another session, or
+--     was replaced: noted once on the subscription for the admin to refund, and
+--     its callback kept on the invoice (raw_callback when that's empty, else
+--     under 'callback_<session>'). The paying session again, or an admin's
+--     mark again, is just a repeat.
 CREATE OR REPLACE FUNCTION public.billing_settle_invoice(
     p_invoice_id UUID,
     p_status TEXT,
@@ -437,6 +468,8 @@ DECLARE
     v_paid BIGINT;
     v_start TIMESTAMPTZ;
     v_end TIMESTAMPTZ;
+    v_replaced BOOLEAN;
+    v_paid_on TEXT;
     v_duplicate TEXT;
 BEGIN
     SELECT * INTO v_invoice FROM public.platform_invoices WHERE id = p_invoice_id FOR UPDATE;
@@ -462,18 +495,31 @@ BEGIN
                                   'subscription_status', v_sub.status);
     END IF;
 
-    IF v_invoice.status = 'paid' THEN
-        IF v_session IS NOT NULL AND v_session IS DISTINCT FROM v_invoice.xendit_session_id THEN
-            v_duplicate := format('Duplicate payment: session %s paid invoice %s again on %s; refund in Xendit',
-                                  v_session, v_invoice.invoice_number,
-                                  to_char(COALESCE(p_paid_at, now()) AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD'));
-            IF position(format('session %s paid invoice %s ', v_session, v_invoice.invoice_number)
+    v_replaced := v_invoice.status = 'expired' AND COALESCE(v_invoice.raw_callback ? 'replaced_by', false);
+    IF v_invoice.status = 'paid' OR v_replaced THEN
+        IF v_session IS NOT NULL
+           AND (v_replaced
+                OR v_invoice.paid_channel LIKE 'manual:%'
+                OR v_session IS DISTINCT FROM v_invoice.xendit_session_id)
+           AND position(format('session %s paid invoice %s ', v_session, v_invoice.invoice_number)
                         IN COALESCE(v_sub.note, '')) = 0 THEN
-                UPDATE public.subscriptions
-                   SET note = public.billing_add_note(note, v_duplicate)
-                 WHERE id = v_sub.id
-                RETURNING * INTO v_sub;
-            END IF;
+            v_paid_on := to_char(COALESCE(p_paid_at, now()) AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD');
+            v_duplicate := CASE WHEN v_replaced
+                THEN format('Late payment: session %s paid invoice %s on %s after its plan was replaced; refund in Xendit',
+                            v_session, v_invoice.invoice_number, v_paid_on)
+                ELSE format('Duplicate payment: session %s paid invoice %s again on %s; refund in Xendit',
+                            v_session, v_invoice.invoice_number, v_paid_on)
+            END;
+            UPDATE public.subscriptions
+               SET note = public.billing_add_note(note, v_duplicate)
+             WHERE id = v_sub.id
+            RETURNING * INTO v_sub;
+            UPDATE public.platform_invoices
+               SET raw_callback = CASE WHEN raw_callback IS NULL THEN p_raw
+                                       ELSE raw_callback || jsonb_build_object('callback_' || v_session, p_raw)
+                                  END
+             WHERE id = v_invoice.id
+            RETURNING * INTO v_invoice;
         END IF;
         RETURN jsonb_build_object('applied', false, 'invoice_status', v_invoice.status,
                                   'subscription_status', v_sub.status);
@@ -504,22 +550,47 @@ BEGIN
                current_period_start = v_start,
                current_period_end = v_end,
                amount_centavos = v_invoice.amount_centavos,
-               canceled_at = NULL
+               canceled_at = NULL,
+               helper_seats = CASE WHEN v_invoice.quote IS NULL THEN helper_seats
+                                   ELSE (v_invoice.quote ->> 'helper_seats')::INT END,
+               manager_seats = CASE WHEN v_invoice.quote IS NULL THEN manager_seats
+                                    ELSE (v_invoice.quote ->> 'manager_seats')::INT END,
+               home_seats = CASE WHEN v_invoice.quote ? 'home_seats'
+                                 THEN (v_invoice.quote ->> 'home_seats')::INT
+                                 ELSE home_seats END
          WHERE id = v_sub.id
         RETURNING * INTO v_sub;
 
-        UPDATE public.subscriptions o
-           SET status = 'canceled',
-               canceled_at = now(),
-               current_period_end = now(),
-               note = public.billing_add_note(o.note, 'Replaced by ' || v_sub.id)
-         WHERE o.id <> v_sub.id
-           AND o.status IN ('trialing', 'active', 'past_due', 'canceled')
-           AND o.current_period_start IS NOT NULL
-           AND (o.current_period_end IS NULL OR o.current_period_end > now())
-           AND EXISTS (SELECT 1 FROM public.subscription_homes mine
-                         JOIN public.subscription_homes theirs ON theirs.household_id = mine.household_id
-                        WHERE mine.subscription_id = v_sub.id AND theirs.subscription_id = o.id);
+        -- Replaced: running subscriptions sharing a home with this one whose
+        -- homes are all among its homes (the payer is primary of every one of
+        -- them). Their pending invoices expire with them, so paying one can't
+        -- bring the old plan back.
+        WITH replaced AS (
+            UPDATE public.subscriptions o
+               SET status = 'canceled',
+                   canceled_at = now(),
+                   current_period_end = now(),
+                   note = public.billing_add_note(o.note, 'Replaced by ' || v_sub.id)
+             WHERE o.id <> v_sub.id
+               AND o.status IN ('trialing', 'active', 'past_due', 'canceled')
+               AND o.current_period_start IS NOT NULL
+               AND (o.current_period_end IS NULL OR o.current_period_end > now())
+               AND EXISTS (SELECT 1 FROM public.subscription_homes mine
+                             JOIN public.subscription_homes theirs ON theirs.household_id = mine.household_id
+                            WHERE mine.subscription_id = v_sub.id AND theirs.subscription_id = o.id)
+               AND NOT EXISTS (SELECT 1 FROM public.subscription_homes theirs
+                                WHERE theirs.subscription_id = o.id
+                                  AND NOT EXISTS (SELECT 1 FROM public.subscription_homes mine
+                                                   WHERE mine.subscription_id = v_sub.id
+                                                     AND mine.household_id = theirs.household_id))
+            RETURNING o.id
+        )
+        UPDATE public.platform_invoices i
+           SET status = 'expired',
+               raw_callback = jsonb_build_object('replaced_by', v_sub.id,
+                                                 'note', 'Replaced by ' || v_sub.id)
+         WHERE i.status = 'pending'
+           AND i.subscription_id IN (SELECT id FROM replaced);
     ELSE
         UPDATE public.platform_invoices
            SET status = 'paid',
@@ -727,10 +798,12 @@ BEGIN
         RAISE EXCEPTION 'NOT_PRIMARY:home';
     END IF;
 
-    v_quote := public.quote_subscription(p_plan_id, p_helper_seats, p_manager_seats, v_homes);
-
-    -- One start at a time per home, so two at once can't both take the trial.
+    -- One start at a time per buyer and per home, so two at once can't both
+    -- take a trial (trial_eligible is keyed on both).
+    PERFORM pg_advisory_xact_lock(hashtext('trial:' || v_uid::TEXT));
     PERFORM 1 FROM public.households WHERE id = ANY (v_homes) ORDER BY id FOR NO KEY UPDATE;
+
+    v_quote := public.quote_subscription(p_plan_id, p_helper_seats, p_manager_seats, v_homes);
     v_trial := public.trial_eligible(p_plan_id, v_homes);
     SELECT p.trial_days INTO v_trial_days FROM public.plans p WHERE p.id = p_plan_id;
 
@@ -751,7 +824,12 @@ BEGIN
     SELECT v_sub.id, h FROM unnest(v_homes) AS h;
 
     IF NOT v_trial THEN
-        SELECT * INTO v_invoice FROM public.billing_new_invoice(v_sub.id, now(), v_sub.amount_centavos);
+        SELECT * INTO v_invoice
+          FROM public.billing_new_invoice(v_sub.id, now(), jsonb_build_object(
+                   'helper_seats', v_quote -> 'helper_seats',
+                   'manager_seats', v_quote -> 'manager_seats',
+                   'home_seats', v_quote -> 'home_seats',
+                   'amount_centavos', v_quote -> 'amount_centavos'));
     END IF;
 
     RETURN jsonb_build_object(
@@ -778,13 +856,19 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    -- Trimmed as billing_settle_invoice trims the webhook's, so they compare.
+    v_session TEXT := NULLIF(btrim(p_xendit_id), '');
 BEGIN
     IF p_url IS NULL
        OR NOT (p_url ~* '^https://xen\.to/' OR p_url ~* '^https://([a-z0-9-]+\.)+xendit\.co/') THEN
         RAISE EXCEPTION 'BAD_URL:payment_url';
     END IF;
+    IF v_session IS NULL THEN
+        RAISE EXCEPTION 'BAD_SESSION:xendit_id';
+    END IF;
     UPDATE public.platform_invoices i
-       SET xendit_session_id = p_xendit_id,
+       SET xendit_session_id = v_session,
            payment_url = p_url,
            expires_at = p_expires_at,
            payer_email = COALESCE(NULLIF(btrim(p_payer_email), ''), i.payer_email)
@@ -828,8 +912,10 @@ $$;
 
 -- An invoice for the next period, or the pending one if there is one already
 -- (reused). The next period starts when the current one ends, or now if it
--- has ended. A comp (amount 0) is priced from its plan for its seats, so its
--- renewal isn't free.
+-- has ended. The invoice carries its quote: the subscription's seats and
+-- amount. A comp (amount 0) is priced from its plan for its seats, so its
+-- renewal isn't free; a comp seat that's NULL (unlimited) is priced, and after
+-- payment granted, as the plan's included seats, or 1 where the plan has none.
 CREATE OR REPLACE FUNCTION public.renew_subscription(p_subscription_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -840,7 +926,8 @@ DECLARE
     v_sub public.subscriptions%ROWTYPE;
     v_plan public.plans%ROWTYPE;
     v_invoice public.platform_invoices%ROWTYPE;
-    v_amount BIGINT;
+    v_price JSONB;
+    v_quote JSONB;
     v_reused BOOLEAN := true;
 BEGIN
     IF NOT public.billing_can_manage_subscription(p_subscription_id) THEN
@@ -858,14 +945,27 @@ BEGIN
      LIMIT 1;
     IF v_invoice.id IS NULL THEN
         v_reused := false;
-        v_amount := v_sub.amount_centavos;
-        IF v_amount = 0 THEN
-            v_amount := (public.billing_price(v_plan, v_sub.helper_seats, v_sub.manager_seats,
-                                              v_sub.home_seats) ->> 'amount_centavos')::BIGINT;
+        IF v_sub.amount_centavos = 0 THEN
+            v_price := public.billing_price(
+                v_plan,
+                COALESCE(v_sub.helper_seats, v_plan.included_helpers, 1),
+                COALESCE(v_sub.manager_seats, v_plan.included_managers, 1),
+                v_sub.home_seats);
+            v_quote := jsonb_build_object(
+                'helper_seats', v_price -> 'helper_seats',
+                'manager_seats', v_price -> 'manager_seats',
+                'home_seats', v_price -> 'home_seats',
+                'amount_centavos', v_price -> 'amount_centavos');
+        ELSE
+            v_quote := jsonb_build_object(
+                'helper_seats', v_sub.helper_seats,
+                'manager_seats', v_sub.manager_seats,
+                'home_seats', v_sub.home_seats,
+                'amount_centavos', v_sub.amount_centavos);
         END IF;
         SELECT * INTO v_invoice
           FROM public.billing_new_invoice(v_sub.id, GREATEST(now(), COALESCE(v_sub.current_period_end, now())),
-                                          v_amount);
+                                          v_quote);
     END IF;
 
     RETURN jsonb_build_object(
@@ -1100,7 +1200,7 @@ REVOKE ALL ON FUNCTION
     public.billing_add_note(TEXT, TEXT),
     public.next_platform_invoice_number(),
     public.billing_price(public.plans, INT, INT, INT),
-    public.billing_new_invoice(UUID, TIMESTAMPTZ, BIGINT),
+    public.billing_new_invoice(UUID, TIMESTAMPTZ, JSONB),
     public.billing_settle_invoice(UUID, TEXT, BIGINT, TIMESTAMPTZ, TEXT, JSONB, TEXT),
     public.billing_entitlements(UUID)
     FROM PUBLIC, anon, authenticated;

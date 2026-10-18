@@ -2,13 +2,15 @@
 // roles: a primary manager quotes and starts a subscription, the Xendit
 // webhook (service_role) pays it once however often it calls and ignores what
 // it shouldn't act on, a renewal extends the period from the previous end, an
-// underpaid invoice marks it past due, paying a new plan replaces the old one,
-// a co-manager, an ex-primary and a second household can't act on what isn't
-// theirs, the browser never reads notes or raw callbacks, platform admins mark
-// an invoice paid by hand, comp and revoke a household and list every
-// household, trials can't be farmed, a deleted owner leaves the revenue record,
-// and household_entitlements falls back to the free tier. Sell-Linara plan,
-// Task 3.
+// underpaid invoice marks it past due, paying a new plan replaces an old one
+// whose homes it all covers (and expires its pending invoices), a payment that
+// can't apply (after a manual mark, a second session, a replaced plan) is noted
+// for a refund, a co-manager, an ex-primary and a second household can't act on
+// what isn't theirs, the browser never reads notes or raw callbacks, platform
+// admins mark an invoice paid by hand, comp and revoke a household and list
+// every household, trials can't be farmed, a renewed comp gets concrete seats,
+// a deleted owner leaves the revenue record, and household_entitlements falls
+// back to the free tier. Sell-Linara plan, Task 3.
 //
 //   npm run test:sql
 import { readFileSync } from "node:fs";
@@ -94,7 +96,8 @@ await db.exec(readFileSync(`${REPO}/add-household-managers.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-platform-admins.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-plans.sql`, "utf8"));
 // The first version of add-subscriptions.sql (2972e83): owner_user_id NOT NULL
-// with a plain foreign key, and two function signatures since changed. The
+// with a plain foreign key, platform_invoices without quote, and function
+// signatures since changed (one of them from the second version, d4cb816). The
 // file is applied over it, as it would be over a database that ran it.
 await db.exec(`
   CREATE TABLE public.subscriptions (
@@ -114,6 +117,29 @@ await db.exec(`
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+  CREATE TABLE public.platform_invoices (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      invoice_number TEXT NOT NULL UNIQUE,
+      subscription_id UUID NOT NULL REFERENCES public.subscriptions(id),
+      external_id TEXT NOT NULL UNIQUE,
+      xendit_session_id TEXT NULL,
+      payment_url TEXT NULL,
+      expires_at TIMESTAMPTZ NULL,
+      status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'paid', 'expired', 'failed')),
+      amount_centavos BIGINT NOT NULL CHECK (amount_centavos >= 0),
+      currency TEXT NOT NULL DEFAULT 'PHP',
+      period_start TIMESTAMPTZ NOT NULL,
+      period_end TIMESTAMPTZ NULL,
+      paid_at TIMESTAMPTZ NULL,
+      paid_centavos BIGINT NULL,
+      paid_channel TEXT NULL,
+      payer_email TEXT NULL,
+      raw_callback JSONB NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE FUNCTION public.billing_new_invoice(UUID, TIMESTAMPTZ, BIGINT)
+  RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN NULL; END $$;
   CREATE FUNCTION public.attach_xendit_invoice(UUID, TEXT, TEXT, TIMESTAMPTZ)
   RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN NULL; END $$;
   CREATE FUNCTION public.billing_new_invoice(UUID, TIMESTAMPTZ)
@@ -129,7 +155,9 @@ const C = "00000000-0000-0000-0000-00000000000c"; // co-manager of H1
 const M2 = "00000000-0000-0000-0000-0000000000b2"; // primary of H2
 const Q = "00000000-0000-0000-0000-0000000000b3"; // primary of H3, later hands over
 const R = "00000000-0000-0000-0000-0000000000b4"; // co-manager of H3, later its primary
-const T = "00000000-0000-0000-0000-0000000000b5"; // primary of H5
+const T = "00000000-0000-0000-0000-0000000000b5"; // primary of H5 and H10
+const S = "00000000-0000-0000-0000-0000000000b6"; // primary of H8 and H9
+const V = "00000000-0000-0000-0000-0000000000b7"; // co-manager of H9, later its primary
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
 const H3 = "10000000-0000-0000-0000-000000000003";
@@ -137,26 +165,34 @@ const H4 = "10000000-0000-0000-0000-000000000004";
 const H5 = "10000000-0000-0000-0000-000000000005";
 const H6 = "10000000-0000-0000-0000-000000000006";
 const H7 = "10000000-0000-0000-0000-000000000007"; // nobody manages it
+const H8 = "10000000-0000-0000-0000-000000000008";
+const H9 = "10000000-0000-0000-0000-000000000009";
+const H10 = "10000000-0000-0000-0000-000000000010";
 
 await db.exec(`
-  INSERT INTO auth.users VALUES ('${ADMIN}'), ('${P}'), ('${C}'), ('${M2}'), ('${Q}'), ('${R}'), ('${T}');
+  INSERT INTO auth.users VALUES ('${ADMIN}'), ('${P}'), ('${C}'), ('${M2}'), ('${Q}'), ('${R}'), ('${T}'), ('${S}'), ('${V}');
   INSERT INTO households (id, name) VALUES
     ('${H1}', 'Reyes Household'), ('${H2}', 'Cruz Household'), ('${H3}', 'Lim Household'),
     ('${H4}', 'Reyes Beach House'), ('${H5}', 'Tan Household'), ('${H6}', 'Reyes Farm'),
-    ('${H7}', 'Empty House');
+    ('${H7}', 'Empty House'), ('${H8}', 'Santos Household'), ('${H9}', 'Santos Annex'),
+    ('${H10}', 'Tan Beach House');
   INSERT INTO user_profiles (id, household_id, full_name, user_type) VALUES
     ('${P}', '${H1}', 'Ben Reyes', 'primary_manager'),
     ('${C}', '${H1}', 'Carla Reyes', 'co_manager'),
     ('${M2}', '${H2}', 'Ana Cruz', 'primary_manager'),
     ('${Q}', '${H3}', 'Quin Lim', 'primary_manager'),
     ('${R}', '${H3}', 'Rico Lim', 'co_manager'),
-    ('${T}', '${H5}', 'Tess Tan', 'primary_manager');
+    ('${T}', '${H5}', 'Tess Tan', 'primary_manager'),
+    ('${S}', '${H8}', 'Sol Santos', 'primary_manager'),
+    ('${V}', '${H9}', 'Vic Santos', 'co_manager');
   INSERT INTO household_managers (household_id, user_id, role) VALUES
     ('${H1}', '${P}', 'primary_manager'), ('${H1}', '${C}', 'co_manager'),
     ('${H4}', '${P}', 'primary_manager'), ('${H6}', '${P}', 'primary_manager'),
     ('${H2}', '${M2}', 'primary_manager'),
     ('${H3}', '${Q}', 'primary_manager'), ('${H3}', '${R}', 'co_manager'),
-    ('${H5}', '${T}', 'primary_manager');
+    ('${H5}', '${T}', 'primary_manager'), ('${H10}', '${T}', 'primary_manager'),
+    ('${H8}', '${S}', 'primary_manager'), ('${H9}', '${S}', 'primary_manager'),
+    ('${H9}', '${V}', 'co_manager');
   INSERT INTO helper_profiles (household_id, name, station, monthly_rate, payday_interval, status) VALUES
     ('${H1}', 'Rosa', 'Cook', 7000, 'monthly', 'ACTIVE'),
     ('${H1}', 'Marites', 'Yaya', 8000, 'monthly', 'ACTIVE'),
@@ -411,6 +447,15 @@ const s1Homes = await asOwner(() =>
   ]),
 );
 check("start: the home is recorded", s1Homes.length === 1 && s1Homes[0].household_id === H1);
+const s1Quote = (await invoiceRow(s1.invoice_id)).quote;
+check(
+  "start: the invoice keeps the quote it was priced from",
+  s1Quote.helper_seats === 3 &&
+    s1Quote.manager_seats === 2 &&
+    s1Quote.home_seats === 1 &&
+    s1Quote.amount_centavos === 69700,
+  s1Quote,
+);
 
 await as(Q);
 const s3 = await start(MONTHLY, 3, 2, [H3]);
@@ -440,25 +485,33 @@ check(
 );
 check("a platform admin sees every subscription", (await countAs(ADMIN, "subscriptions")) === 2);
 
-// Two columns the browser never reads, admins included.
+// The browser reads only the columns the web shows, admins included.
 const SUB_COLUMNS = `id, plan_id, owner_user_id, status, helper_seats, manager_seats, home_seats,
   amount_centavos, current_period_start, current_period_end, canceled_at, created_at, updated_at`;
-const INVOICE_COLUMNS = `id, invoice_number, subscription_id, external_id, xendit_session_id,
-  payment_url, expires_at, status, amount_centavos, currency, period_start, period_end, paid_at,
-  paid_centavos, paid_channel, payer_email, created_at`;
+const INVOICE_COLUMNS = `id, invoice_number, subscription_id, external_id, payment_url, expires_at,
+  status, amount_centavos, currency, period_start, period_end, paid_at, created_at`;
 await as(P);
-await expectError(
-  "a manager can't read an invoice's raw_callback",
-  () => q(`SELECT raw_callback FROM public.platform_invoices`),
-  /permission denied/,
-);
+for (const column of [
+  "raw_callback",
+  "payer_email",
+  "xendit_session_id",
+  "paid_centavos",
+  "paid_channel",
+  "quote",
+]) {
+  await expectError(
+    `a manager can't read an invoice's ${column}`,
+    () => q(`SELECT ${column} FROM public.platform_invoices`),
+    /permission denied/,
+  );
+}
 await expectError(
   "a manager can't read a subscription's note",
   () => q(`SELECT note FROM public.subscriptions`),
   /permission denied/,
 );
 check(
-  "a manager reads every other invoice column",
+  "a manager reads the invoice columns the web shows",
   (await q(`SELECT ${INVOICE_COLUMNS} FROM public.platform_invoices`)).length === 1,
 );
 check(
@@ -526,7 +579,7 @@ const FNS = {
   "public.next_platform_invoice_number()": false,
   "public.billing_can_manage_subscription(uuid)": false,
   "public.billing_price(public.plans, int, int, int)": false,
-  "public.billing_new_invoice(uuid, timestamptz, bigint)": false,
+  "public.billing_new_invoice(uuid, timestamptz, jsonb)": false,
   "public.billing_settle_invoice(uuid, text, bigint, timestamptz, text, jsonb, text)": false,
   "public.billing_entitlements(uuid)": false,
 };
@@ -559,7 +612,8 @@ check(
 const oldSignatures = await asOwner(() =>
   one(
     `SELECT to_regprocedure('public.attach_xendit_invoice(uuid, text, text, timestamptz)') IS NULL
-        AND to_regprocedure('public.billing_new_invoice(uuid, timestamptz)') IS NULL AS gone`,
+        AND to_regprocedure('public.billing_new_invoice(uuid, timestamptz)') IS NULL
+        AND to_regprocedure('public.billing_new_invoice(uuid, timestamptz, bigint)') IS NULL AS gone`,
   ),
 );
 check("the earlier function signatures are dropped", oldSignatures.gone === true);
@@ -600,10 +654,17 @@ check(
   "attach: a xen.to link is accepted, in any case",
   (await invoiceRow(s1.invoice_id)).payment_url === "HTTPS://XEN.TO/abc",
 );
-await attach(s1.invoice_id, "ps_1", XENDIT("ps_1"), "ben@example.com");
+for (const session of ["   ", null]) {
+  await expectError(
+    `attach: session id ${JSON.stringify(session)} raises BAD_SESSION`,
+    () => attach(s1.invoice_id, session, XENDIT("ps_1")),
+    /^BAD_SESSION/,
+  );
+}
+await attach(s1.invoice_id, "  ps_1  ", XENDIT("ps_1"), "ben@example.com");
 const attached = await invoiceRow(s1.invoice_id);
 check(
-  "attach: the primary stores the session id, xendit.co URL, expiry and payer email",
+  "attach: the primary stores the session id (trimmed), xendit.co URL, expiry and payer email",
   attached.xendit_session_id === "ps_1" &&
     attached.payment_url === XENDIT("ps_1") &&
     attached.expires_at instanceof Date &&
@@ -1049,6 +1110,17 @@ check(
   sFarm.status === "pending" && typeof sFarm.invoice_id === "string",
   sFarm,
 );
+await as(T);
+check(
+  "trial_eligible: an owner who has had a trial gets none on another home",
+  (await trialEligible(STARTER, [H10])) === false,
+);
+const sTanBeach = await start(STARTER, 2, 2, [H10]);
+check(
+  "trial: a second start by the same owner, on a new home, is not a trial",
+  sTanBeach.status === "pending" && typeof sTanBeach.invoice_id === "string",
+  sTanBeach,
+);
 
 // The grace week after a period ends, then the free tier.
 await as(T);
@@ -1085,6 +1157,9 @@ check(
 );
 
 // --- Marking an invoice paid by hand ---------------------------------------------------
+// A checkout left open on the invoice the admin is about to mark paid.
+await as(T);
+await attach(s6.invoice_id, "xs_s6", XENDIT("xs_s6"));
 await as(P);
 await expectError(
   "mark paid: a non-admin raises NOT_ADMIN",
@@ -1119,6 +1194,20 @@ await expectError(
   "mark paid: an unknown invoice raises NOT_FOUND",
   () => q(`SELECT public.mark_platform_invoice_paid_manually(gen_random_uuid(), 'gcash', 'x')`),
   /^NOT_FOUND/,
+);
+// The customer then completes that open checkout too.
+const afterManual = await pay(s6.external_id, "PAID", null, "xs_s6");
+const afterManualInvoice = await invoiceRow(s6.invoice_id);
+const afterManualNote = (await subRow(s6.subscription_id)).note ?? "";
+check(
+  "a Xendit payment after a manual mark is not applied, but noted for a refund and its callback kept",
+  afterManual.applied === false &&
+    afterManualNote.includes(
+      `Duplicate payment: session xs_s6 paid invoice ${s6.invoice_number} again on `,
+    ) &&
+    afterManualInvoice.raw_callback.manual === true &&
+    afterManualInvoice.raw_callback.callback_xs_s6?.event === "payment_session.completed",
+  { afterManual, afterManualNote, raw: afterManualInvoice.raw_callback },
 );
 
 // H5 now has s5 (canceled, ended an hour ago: expired) and s6 (active). With
@@ -1224,6 +1313,7 @@ check(
   "trial_eligible: not once a subscription on the home has started",
   (await trialEligible(STARTER, [H3])) === false,
 );
+const r3c = await renew(s3c.subscription_id);
 const s3d = await start(MONTHLY, 3, 2, [H3]);
 await pay(s3d.external_id, "PAID", 69700, "xs_s3d");
 const replaced = await asOwner(() =>
@@ -1250,6 +1340,89 @@ check(
   "entitlements: the new plan is the home's",
   e3d.source === "subscription" && e3d.subscription_id === s3d.subscription_id,
   e3d,
+);
+const r3cRow = await invoiceRow(r3c.invoice_id);
+check(
+  "the replaced subscription's pending invoice expires, marked replaced",
+  r3c.reused === false &&
+    r3cRow.status === "expired" &&
+    r3cRow.raw_callback.replaced_by === s3d.subscription_id &&
+    r3cRow.raw_callback.note === `Replaced by ${s3d.subscription_id}`,
+  r3cRow,
+);
+const lateOnReplaced = await pay(r3c.external_id, "PAID", 49900, "xs_r3c");
+const s3cAfter = await subRow(s3c.subscription_id);
+check(
+  "paying a replaced plan's invoice is not applied: it stays ended, the new plan stays, a refund is noted",
+  lateOnReplaced.applied === false &&
+    s3cAfter.status === "canceled" &&
+    (await subRow(s3d.subscription_id)).status === "active" &&
+    s3cAfter.note.includes(`Late payment: session xs_r3c paid invoice ${r3c.invoice_number} on `) &&
+    s3cAfter.note.endsWith("; refund in Xendit") &&
+    (await invoiceRow(r3c.invoice_id)).raw_callback.callback_xs_r3c?.event ===
+      "payment_session.completed",
+  { lateOnReplaced, note: s3cAfter.note },
+);
+
+// A subscription that also covers a home the new one doesn't is left alone.
+await as(S);
+const multi = await start(MONTHLY, 1, 2, [H8, H9]);
+await pay(multi.external_id, "PAID", 49900, "xs_multi");
+const multiBefore = await subRow(multi.subscription_id);
+const single = await start(MONTHLY, 1, 2, [H8]);
+await pay(single.external_id, "PAID", 49900, "xs_single");
+const multiAfter = await subRow(multi.subscription_id);
+check(
+  "paying a one-home plan doesn't end a subscription that also covers another home",
+  multiAfter.status === "active" &&
+    multiAfter.current_period_end.getTime() === multiBefore.current_period_end.getTime() &&
+    multiAfter.note === null &&
+    (await subRow(single.subscription_id)).status === "active",
+  multiAfter,
+);
+
+// Acting for a 2-home subscription takes being primary of both homes.
+const setPrimary = (household, primary, demoted) =>
+  asOwner(async () => {
+    await q(
+      `UPDATE public.household_managers SET role = 'co_manager' WHERE household_id = $1 AND user_id = $2`,
+      [household, demoted],
+    );
+    await q(
+      `UPDATE public.household_managers SET role = 'primary_manager' WHERE household_id = $1 AND user_id = $2`,
+      [household, primary],
+    );
+  });
+await as(S);
+const rMulti = await renew(multi.subscription_id);
+check(
+  "the primary of both homes renews it",
+  rMulti.reused === false && typeof rMulti.invoice_id === "string",
+  rMulti,
+);
+await setPrimary(H9, V, S);
+for (const [who, uid] of [
+  ["the primary of only the second home", V],
+  ["the primary of only the first home", S],
+]) {
+  await as(uid);
+  await expectError(`${who} can't renew it`, () => renew(multi.subscription_id), /^NOT_FOUND/);
+  await expectError(`${who} can't cancel it`, () => cancel(multi.subscription_id), /^NOT_FOUND/);
+}
+await as(V);
+await expectError(
+  "the primary of only one home can't attach a payment link to it",
+  () => attach(rMulti.invoice_id, "xs_v", XENDIT("xs_v")),
+  /^NOT_FOUND/,
+);
+await setPrimary(H9, S, V);
+await as(S);
+await attach(rMulti.invoice_id, "xs_s", XENDIT("xs_s"));
+await cancel(multi.subscription_id);
+check(
+  "the primary of both homes attaches its payment link and cancels it",
+  (await invoiceRow(rMulti.invoice_id)).xendit_session_id === "xs_s" &&
+    (await subRow(multi.subscription_id)).status === "canceled",
 );
 
 // --- Acting for a subscription after the primary hands over -------------------------
@@ -1322,7 +1495,7 @@ const names = overview.map((h) => h.name);
 const byId = Object.fromEntries(overview.map((h) => [h.household_id, h]));
 check(
   "overview: every household, ordered by name",
-  overview.length === 7 &&
+  overview.length === 10 &&
     JSON.stringify(names) === JSON.stringify([...names].sort((a, b) => a.localeCompare(b))),
   names,
 );
@@ -1383,6 +1556,37 @@ check(
   "an admin cancels a paid subscription: its period is kept",
   adminCanceled.status === "canceled" && adminCanceled.current_period_end === null,
   adminCanceled,
+);
+
+// --- A comp with unlimited seats renews with concrete ones ---------------------------
+await as(ADMIN);
+const openComp = (
+  await one(`SELECT public.grant_subscription($1, $2, NULL, NULL, NULL, 'open pilot') AS r`, [
+    H2,
+    MONTHLY,
+  ])
+).r;
+await as(M2);
+const rOpen = await renew(openComp.subscription_id);
+const rOpenQuote = (await invoiceRow(rOpen.invoice_id)).quote;
+check(
+  "renewing a comp with NULL seats quotes concrete seats (the plan's included)",
+  rOpen.amount_centavos === 49900 &&
+    rOpenQuote.helper_seats === 1 &&
+    rOpenQuote.manager_seats === 2 &&
+    rOpenQuote.home_seats === 1 &&
+    rOpenQuote.amount_centavos === 49900,
+  rOpenQuote,
+);
+await pay(rOpen.external_id, "PAID", null, "xs_open");
+const openPaid = await subRow(openComp.subscription_id);
+check(
+  "paying it sets the subscription's seats to the quote's",
+  openPaid.status === "active" &&
+    openPaid.helper_seats === 1 &&
+    openPaid.manager_seats === 2 &&
+    Number(openPaid.amount_centavos) === 49900,
+  openPaid,
 );
 
 // --- Deleting the owner's account keeps the revenue record -----------------------------
