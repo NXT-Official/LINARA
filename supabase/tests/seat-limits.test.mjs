@@ -1,8 +1,9 @@
 // Runs add-seat-limits.sql against a real Postgres (PGlite) as the API's
 // `authenticated` role: a household on the free tier can't add a helper or a
-// manager past the free seats, an inactive helper takes no seat, a
-// subscription's seats replace the free tier's while it lasts, NULL seats mean
-// no limit, and a new household always gets its primary manager.
+// manager past the free seats (by adding, reactivating or moving one), an
+// inactive helper takes no seat, a subscription's seats replace the free
+// tier's while it lasts, NULL seats mean no limit, and a new household always
+// gets its primary manager.
 // Sell-Linara plan, Task 3.
 //
 //   npm run test:sql
@@ -148,6 +149,14 @@ await q(`UPDATE public.helper_profiles SET status = 'INACTIVE' WHERE name = 'Ros
 check("an inactive helper doesn't count", (await used(H1, "helper")) === 0);
 await succeeds("so with Rosa inactive, another helper is added", () => addHelper(H1, "Marites"));
 check("seats_used counts the one active helper", (await used(H1, "helper")) === 1);
+await expectError(
+  "reactivating an INACTIVE helper at the limit raises SEAT_LIMIT:helper",
+  () => q(`UPDATE public.helper_profiles SET status = 'ACTIVE' WHERE name = 'Rosa'`),
+  /^SEAT_LIMIT:helper/,
+);
+await succeeds("an update that takes no new seat isn't refused at the limit", () =>
+  q(`UPDATE public.helper_profiles SET status = 'ACTIVE', name = 'Marites' WHERE name = 'Marites'`),
+);
 
 // --- Managers on the free tier ------------------------------------------------------
 await settings(`free_manager_seats = 1`);
@@ -173,6 +182,17 @@ await expectError(
 check(
   "and the refused claim left no profile behind",
   (await asOwner(() => q(`SELECT 1 FROM public.user_profiles WHERE id = $1`, [N]))).length === 0,
+);
+await expectError(
+  "moving a manager row into a household at its limit raises SEAT_LIMIT:manager",
+  () =>
+    asOwner(() =>
+      q(
+        `UPDATE public.household_managers SET household_id = $1 WHERE household_id = $2 AND user_id = $3`,
+        [H2, H1, C],
+      ),
+    ),
+  /^SEAT_LIMIT:manager/,
 );
 // H1 already has 2 managers on a 1-seat free tier. Re-applying
 // add-household-managers.sql proposes its existing rows again; they take no
@@ -205,6 +225,24 @@ await expectError(
   () => addHelper(H1, "Iday"),
   /^SEAT_LIMIT:helper/,
 );
+await q(`UPDATE public.helper_profiles SET status = 'INACTIVE' WHERE name = 'Tess'`);
+await succeeds("below the limit, reactivating an INACTIVE helper passes", () =>
+  q(`UPDATE public.helper_profiles SET status = 'ACTIVE' WHERE name = 'Rosa'`),
+);
+// H1 is full again (3 of 3). Helpers come in from H2, which has room.
+await asOwner(() => addHelper(H2, "Gina", "INACTIVE"));
+await asOwner(() => addHelper(H2, "Ana"));
+await expectError(
+  "moving a helper into a full household raises SEAT_LIMIT:helper",
+  () =>
+    asOwner(() =>
+      q(`UPDATE public.helper_profiles SET household_id = $1 WHERE name = 'Ana'`, [H1]),
+    ),
+  /^SEAT_LIMIT:helper/,
+);
+await succeeds("moving an INACTIVE helper into a full household passes", () =>
+  asOwner(() => q(`UPDATE public.helper_profiles SET household_id = $1 WHERE name = 'Gina'`, [H1])),
+);
 await succeeds("the subscription's NULL manager seats mean no manager limit", () =>
   asOwner(() =>
     q(
@@ -234,9 +272,24 @@ await expectError(
 // --- No limit -------------------------------------------------------------------------
 await settings(`free_helper_seats = NULL`);
 await as(M2);
-await succeeds("free_helper_seats NULL: no limit (1)", () => addHelper(H2, "Ana"));
-await succeeds("free_helper_seats NULL: no limit (2)", () => addHelper(H2, "Bea"));
-await succeeds("free_helper_seats NULL: no limit (3)", () => addHelper(H2, "Cora"));
+await succeeds("free_helper_seats NULL: no limit (1)", () => addHelper(H2, "Bea"));
+await succeeds("free_helper_seats NULL: no limit (2)", () => addHelper(H2, "Cora"));
+await succeeds("free_helper_seats NULL: no limit (3)", () => addHelper(H2, "Dina"));
+
+// H2 has 4 helpers; with 5 free seats one more may move in, not two.
+await settings(`free_helper_seats = 5`);
+await succeeds("moving a helper into a household below its limit passes", () =>
+  asOwner(() => q(`UPDATE public.helper_profiles SET household_id = $1 WHERE name = 'Nena'`, [H2])),
+);
+await expectError(
+  "and the next move into it, now full, raises SEAT_LIMIT:helper",
+  () =>
+    asOwner(() =>
+      q(`UPDATE public.helper_profiles SET household_id = $1 WHERE name = 'Marites'`, [H2]),
+    ),
+  /^SEAT_LIMIT:helper/,
+);
+await settings(`free_helper_seats = NULL`);
 
 // --- Internal functions ------------------------------------------------------------------
 const privileges = await asOwner(() =>

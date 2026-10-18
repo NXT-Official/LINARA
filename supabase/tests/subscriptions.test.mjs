@@ -1,11 +1,14 @@
 // Runs add-subscriptions.sql against a real Postgres (PGlite) as the API's
 // roles: a primary manager quotes and starts a subscription, the Xendit
-// webhook (service_role) pays it once however often it calls, a renewal
-// extends the period from the previous end, an underpaid invoice marks it past
-// due, a co-manager and a second household can't see or change what isn't
-// theirs, platform admins mark an invoice paid by hand, comp a household and
-// list every household, and household_entitlements falls back to the free
-// tier. Sell-Linara plan, Task 3.
+// webhook (service_role) pays it once however often it calls and ignores what
+// it shouldn't act on, a renewal extends the period from the previous end, an
+// underpaid invoice marks it past due, paying a new plan replaces the old one,
+// a co-manager, an ex-primary and a second household can't act on what isn't
+// theirs, the browser never reads notes or raw callbacks, platform admins mark
+// an invoice paid by hand, comp and revoke a household and list every
+// household, trials can't be farmed, a deleted owner leaves the revenue record,
+// and household_entitlements falls back to the free tier. Sell-Linara plan,
+// Task 3.
 //
 //   npm run test:sql
 import { readFileSync } from "node:fs";
@@ -90,38 +93,70 @@ await db.exec(readFileSync(`${REPO}/add-account-deletion.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-household-managers.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-platform-admins.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-plans.sql`, "utf8"));
+// The first version of add-subscriptions.sql (2972e83): owner_user_id NOT NULL
+// with a plain foreign key, and two function signatures since changed. The
+// file is applied over it, as it would be over a database that ran it.
+await db.exec(`
+  CREATE TABLE public.subscriptions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      plan_id UUID NOT NULL REFERENCES public.plans(id),
+      owner_user_id UUID NOT NULL REFERENCES auth.users(id),
+      status TEXT NOT NULL
+          CHECK (status IN ('pending', 'trialing', 'active', 'past_due', 'expired', 'canceled')),
+      helper_seats INT NULL CHECK (helper_seats >= 0),
+      manager_seats INT NULL CHECK (manager_seats >= 0),
+      home_seats INT NOT NULL DEFAULT 1 CHECK (home_seats >= 1),
+      amount_centavos BIGINT NOT NULL CHECK (amount_centavos >= 0),
+      current_period_start TIMESTAMPTZ NULL,
+      current_period_end TIMESTAMPTZ NULL,
+      canceled_at TIMESTAMPTZ NULL,
+      note TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE FUNCTION public.attach_xendit_invoice(UUID, TEXT, TEXT, TIMESTAMPTZ)
+  RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN NULL; END $$;
+  CREATE FUNCTION public.billing_new_invoice(UUID, TIMESTAMPTZ)
+  RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN NULL; END $$;
+`);
 await db.exec(readFileSync(`${REPO}/add-subscriptions.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-subscriptions.sql`, "utf8"));
-console.log("migration applied twice");
+console.log("migration applied twice, over its first version");
 
 const ADMIN = "00000000-0000-0000-0000-0000000000a1";
-const P = "00000000-0000-0000-0000-00000000000a"; // primary of H1 and H4
+const P = "00000000-0000-0000-0000-00000000000a"; // primary of H1, H4 and H6
 const C = "00000000-0000-0000-0000-00000000000c"; // co-manager of H1
 const M2 = "00000000-0000-0000-0000-0000000000b2"; // primary of H2
-const Q = "00000000-0000-0000-0000-0000000000b3"; // primary of H3
+const Q = "00000000-0000-0000-0000-0000000000b3"; // primary of H3, later hands over
+const R = "00000000-0000-0000-0000-0000000000b4"; // co-manager of H3, later its primary
 const T = "00000000-0000-0000-0000-0000000000b5"; // primary of H5
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
 const H3 = "10000000-0000-0000-0000-000000000003";
 const H4 = "10000000-0000-0000-0000-000000000004";
 const H5 = "10000000-0000-0000-0000-000000000005";
+const H6 = "10000000-0000-0000-0000-000000000006";
 const H7 = "10000000-0000-0000-0000-000000000007"; // nobody manages it
 
 await db.exec(`
-  INSERT INTO auth.users VALUES ('${ADMIN}'), ('${P}'), ('${C}'), ('${M2}'), ('${Q}'), ('${T}');
+  INSERT INTO auth.users VALUES ('${ADMIN}'), ('${P}'), ('${C}'), ('${M2}'), ('${Q}'), ('${R}'), ('${T}');
   INSERT INTO households (id, name) VALUES
     ('${H1}', 'Reyes Household'), ('${H2}', 'Cruz Household'), ('${H3}', 'Lim Household'),
-    ('${H4}', 'Reyes Beach House'), ('${H5}', 'Tan Household'), ('${H7}', 'Empty House');
+    ('${H4}', 'Reyes Beach House'), ('${H5}', 'Tan Household'), ('${H6}', 'Reyes Farm'),
+    ('${H7}', 'Empty House');
   INSERT INTO user_profiles (id, household_id, full_name, user_type) VALUES
     ('${P}', '${H1}', 'Ben Reyes', 'primary_manager'),
     ('${C}', '${H1}', 'Carla Reyes', 'co_manager'),
     ('${M2}', '${H2}', 'Ana Cruz', 'primary_manager'),
     ('${Q}', '${H3}', 'Quin Lim', 'primary_manager'),
+    ('${R}', '${H3}', 'Rico Lim', 'co_manager'),
     ('${T}', '${H5}', 'Tess Tan', 'primary_manager');
   INSERT INTO household_managers (household_id, user_id, role) VALUES
     ('${H1}', '${P}', 'primary_manager'), ('${H1}', '${C}', 'co_manager'),
-    ('${H4}', '${P}', 'primary_manager'), ('${H2}', '${M2}', 'primary_manager'),
-    ('${H3}', '${Q}', 'primary_manager'), ('${H5}', '${T}', 'primary_manager');
+    ('${H4}', '${P}', 'primary_manager'), ('${H6}', '${P}', 'primary_manager'),
+    ('${H2}', '${M2}', 'primary_manager'),
+    ('${H3}', '${Q}', 'primary_manager'), ('${H3}', '${R}', 'co_manager'),
+    ('${H5}', '${T}', 'primary_manager');
   INSERT INTO helper_profiles (household_id, name, station, monthly_rate, payday_interval, status) VALUES
     ('${H1}', 'Rosa', 'Cook', 7000, 'monthly', 'ACTIVE'),
     ('${H1}', 'Marites', 'Yaya', 8000, 'monthly', 'ACTIVE'),
@@ -132,6 +167,7 @@ await db.exec(`
 const YEAR = (await one(`SELECT EXTRACT(YEAR FROM now() AT TIME ZONE 'Asia/Manila')::int AS y`)).y;
 await db.exec(`SET ROLE authenticated`);
 
+const XENDIT = (session) => `https://checkout-staging.xendit.co/web/${session}`;
 const rpc = async (sql, params) => (await one(`SELECT ${sql} AS r`, params)).r;
 const quote = (plan, helpers, managers, homes) =>
   rpc(`public.quote_subscription($1, $2, $3, $4::uuid[])`, [plan, helpers, managers, homes]);
@@ -140,11 +176,19 @@ const start = (plan, helpers, managers, homes) =>
 const renew = (id) => rpc(`public.renew_subscription($1)`, [id]);
 const cancel = (id) => rpc(`public.cancel_subscription($1)`, [id]);
 const entitlements = (household) => rpc(`public.household_entitlements($1)`, [household]);
-const pay = (externalId, status, paidCentavos) =>
+const trialEligible = (plan, homes) => rpc(`public.trial_eligible($1, $2::uuid[])`, [plan, homes]);
+const attach = (invoiceId, session, url, email = null) =>
+  q(`SELECT public.attach_xendit_invoice($1, $2, $3, now() + interval '1 day', $4)`, [
+    invoiceId,
+    session,
+    url,
+    email,
+  ]);
+const pay = (externalId, status, paidCentavos, session = "ps_webhook") =>
   asService(() =>
     rpc(
-      `public.record_platform_invoice_result($1, 'ps_webhook', $2, $3, now(), 'GCASH', '{"event":"payment_session.completed"}'::jsonb)`,
-      [externalId, status, paidCentavos],
+      `public.record_platform_invoice_result($1, $4, $2, $3, now(), 'GCASH', '{"event":"payment_session.completed"}'::jsonb)`,
+      [externalId, status, paidCentavos, session],
     ),
   );
 const subRow = (id) => asOwner(() => one(`SELECT * FROM public.subscriptions WHERE id = $1`, [id]));
@@ -169,6 +213,10 @@ const countAs = async (uid, table) => {
   await as(uid);
   return (await one(`SELECT count(*)::int AS n FROM public.${table}`)).n;
 };
+const setEnd = (id, sql) =>
+  asOwner(() =>
+    q(`UPDATE public.subscriptions SET current_period_end = ${sql} WHERE id = $1`, [id]),
+  );
 
 // --- Plans the admin prices -------------------------------------------------
 await as(ADMIN);
@@ -392,6 +440,38 @@ check(
 );
 check("a platform admin sees every subscription", (await countAs(ADMIN, "subscriptions")) === 2);
 
+// Two columns the browser never reads, admins included.
+const SUB_COLUMNS = `id, plan_id, owner_user_id, status, helper_seats, manager_seats, home_seats,
+  amount_centavos, current_period_start, current_period_end, canceled_at, created_at, updated_at`;
+const INVOICE_COLUMNS = `id, invoice_number, subscription_id, external_id, xendit_session_id,
+  payment_url, expires_at, status, amount_centavos, currency, period_start, period_end, paid_at,
+  paid_centavos, paid_channel, payer_email, created_at`;
+await as(P);
+await expectError(
+  "a manager can't read an invoice's raw_callback",
+  () => q(`SELECT raw_callback FROM public.platform_invoices`),
+  /permission denied/,
+);
+await expectError(
+  "a manager can't read a subscription's note",
+  () => q(`SELECT note FROM public.subscriptions`),
+  /permission denied/,
+);
+check(
+  "a manager reads every other invoice column",
+  (await q(`SELECT ${INVOICE_COLUMNS} FROM public.platform_invoices`)).length === 1,
+);
+check(
+  "a manager reads every other subscription column",
+  (await q(`SELECT ${SUB_COLUMNS} FROM public.subscriptions`)).length === 1,
+);
+await as(ADMIN);
+await expectError(
+  "the column grants hold for a platform admin too (admins use platform_invoice_detail)",
+  () => q(`SELECT raw_callback FROM public.platform_invoices`),
+  /permission denied/,
+);
+
 await as(P);
 await expectError(
   "nobody inserts a subscription directly",
@@ -432,16 +512,23 @@ await expectError(
 // --- Function privileges ----------------------------------------------------------
 const FNS = {
   "public.quote_subscription(uuid, int, int, uuid[])": true,
+  "public.trial_eligible(uuid, uuid[])": true,
   "public.start_subscription(uuid, int, int, uuid[])": true,
-  "public.attach_xendit_invoice(uuid, text, text, timestamptz)": true,
+  "public.attach_xendit_invoice(uuid, text, text, timestamptz, text)": true,
   "public.renew_subscription(uuid)": true,
   "public.cancel_subscription(uuid)": true,
   "public.mark_platform_invoice_paid_manually(uuid, text, text)": true,
   "public.grant_subscription(uuid, uuid, int, int, timestamptz, text)": true,
   "public.platform_households_overview()": true,
+  "public.platform_invoice_detail(uuid)": true,
   "public.household_entitlements(uuid)": true,
   "public.record_platform_invoice_result(text, text, text, bigint, timestamptz, text, jsonb)": false,
   "public.next_platform_invoice_number()": false,
+  "public.billing_can_manage_subscription(uuid)": false,
+  "public.billing_price(public.plans, int, int, int)": false,
+  "public.billing_new_invoice(uuid, timestamptz, bigint)": false,
+  "public.billing_settle_invoice(uuid, text, bigint, timestamptz, text, jsonb, text)": false,
+  "public.billing_entitlements(uuid)": false,
 };
 const privileges = await asOwner(() =>
   Promise.all(
@@ -469,6 +556,13 @@ check(
   "service_role executes record_platform_invoice_result",
   privileges.find((p) => p.fn.startsWith("public.record_platform_invoice_result")).service === true,
 );
+const oldSignatures = await asOwner(() =>
+  one(
+    `SELECT to_regprocedure('public.attach_xendit_invoice(uuid, text, text, timestamptz)') IS NULL
+        AND to_regprocedure('public.billing_new_invoice(uuid, timestamptz)') IS NULL AS gone`,
+  ),
+);
+check("the earlier function signatures are dropped", oldSignatures.gone === true);
 await as(P);
 await expectError(
   "authenticated can't execute record_platform_invoice_result",
@@ -483,25 +577,37 @@ await expectError(
 // --- Attaching the Xendit session ---------------------------------------------------
 await as(C);
 await expectError(
-  "attach: someone who doesn't own the subscription raises NOT_FOUND",
-  () =>
-    q(
-      `SELECT public.attach_xendit_invoice($1, 'ps_1', 'https://pay.example/ps_1', now() + interval '1 day')`,
-      [s1.invoice_id],
-    ),
+  "attach: a co-manager raises NOT_FOUND",
+  () => attach(s1.invoice_id, "ps_1", XENDIT("ps_1")),
   /^NOT_FOUND/,
 );
 await as(P);
-await q(
-  `SELECT public.attach_xendit_invoice($1, 'ps_1', 'https://pay.example/ps_1', now() + interval '1 day')`,
-  [s1.invoice_id],
+for (const url of [
+  "https://pay.example/ps_1",
+  "http://xen.to/abc",
+  "https://xendit.co.evil.com/abc",
+  "https://evil.com/?u=checkout.xendit.co/",
+  null,
+]) {
+  await expectError(
+    `attach: ${url} raises BAD_URL`,
+    () => attach(s1.invoice_id, "ps_1", url),
+    /^BAD_URL/,
+  );
+}
+await attach(s1.invoice_id, "ps_0", "HTTPS://XEN.TO/abc");
+check(
+  "attach: a xen.to link is accepted, in any case",
+  (await invoiceRow(s1.invoice_id)).payment_url === "HTTPS://XEN.TO/abc",
 );
+await attach(s1.invoice_id, "ps_1", XENDIT("ps_1"), "ben@example.com");
 const attached = await invoiceRow(s1.invoice_id);
 check(
-  "attach: the owner stores the session id, URL and expiry",
+  "attach: the primary stores the session id, xendit.co URL, expiry and payer email",
   attached.xendit_session_id === "ps_1" &&
-    attached.payment_url === "https://pay.example/ps_1" &&
-    attached.expires_at instanceof Date,
+    attached.payment_url === XENDIT("ps_1") &&
+    attached.expires_at instanceof Date &&
+    attached.payer_email === "ben@example.com",
   attached,
 );
 
@@ -536,11 +642,12 @@ check(
 );
 const paidInvoice = await invoiceRow(s1.invoice_id);
 check(
-  "webhook: the invoice records amount, channel, time and the callback",
+  "webhook: the invoice records amount, channel, time, the paying session and the callback",
   paidInvoice.status === "paid" &&
     Number(paidInvoice.paid_centavos) === 69700 &&
     paidInvoice.paid_channel === "GCASH" &&
     paidInvoice.paid_at instanceof Date &&
+    paidInvoice.xendit_session_id === "ps_webhook" &&
     paidInvoice.raw_callback.event === "payment_session.completed",
   paidInvoice,
 );
@@ -564,10 +671,32 @@ check(
   expireAfterPaid,
 );
 
+// The admin's full view of an invoice (raw_callback and note included).
+await as(ADMIN);
+const detail = await rpc(`public.platform_invoice_detail($1)`, [s1.invoice_id]);
+check(
+  "invoice detail: a platform admin reads the raw callback and the subscription",
+  detail.invoice.raw_callback.event === "payment_session.completed" &&
+    detail.subscription.id === s1.subscription_id &&
+    "note" in detail.subscription,
+  detail.invoice.raw_callback,
+);
+await expectError(
+  "invoice detail: an unknown invoice raises NOT_FOUND",
+  () => q(`SELECT public.platform_invoice_detail(gen_random_uuid())`),
+  /^NOT_FOUND/,
+);
+await as(P);
+await expectError(
+  "invoice detail: a manager raises NOT_ADMIN",
+  () => q(`SELECT public.platform_invoice_detail($1)`, [s1.invoice_id]),
+  /^NOT_ADMIN/,
+);
+
 // --- Renewing ----------------------------------------------------------------
 await as(C);
 await expectError(
-  "renew: someone who doesn't own it raises NOT_FOUND",
+  "renew: a co-manager raises NOT_FOUND",
   () => renew(s1.subscription_id),
   /^NOT_FOUND/,
 );
@@ -617,13 +746,30 @@ check(
   { paid2, extended },
 );
 
-// EXPIRED leaves the subscription as it was; any other status fails the invoice.
+// --- What the webhook acts on ------------------------------------------------------
+await as(P);
 const r3 = await renew(s1.subscription_id);
+await attach(r3.invoice_id, "xs_r3", XENDIT("xs_r3"));
+const ignored = await pay(r3.external_id, "OTHER", null, "xs_r3");
+const ignoredNull = await pay(r3.external_id, null, null, "xs_r3");
+check(
+  "webhook: a status other than PAID, EXPIRED or FAILED (or none) is not applied",
+  ignored.applied === false &&
+    ignoredNull.applied === false &&
+    (await invoiceRow(r3.invoice_id)).status === "pending",
+  { ignored, ignoredNull },
+);
+const stale = await pay(r3.external_id, "EXPIRED", null, "xs_stale");
+check(
+  "webhook: EXPIRED from another session than the stored one is not applied",
+  stale.applied === false && (await invoiceRow(r3.invoice_id)).status === "pending",
+  stale,
+);
 const beforeExpire = await subRow(s1.subscription_id);
-const expired = await pay(r3.external_id, "EXPIRED", null);
+const expired = await pay(r3.external_id, "EXPIRED", null, "xs_r3");
 const afterExpire = await subRow(s1.subscription_id);
 check(
-  "webhook: EXPIRED expires the invoice and leaves the subscription alone",
+  "webhook: EXPIRED from the stored session expires the invoice and leaves the subscription alone",
   r3.reused === false &&
     expired.applied === true &&
     expired.invoice_status === "expired" &&
@@ -631,18 +777,53 @@ check(
     afterExpire.current_period_end.getTime() === beforeExpire.current_period_end.getTime(),
   { r3, expired },
 );
-const r4 = await renew(s1.subscription_id);
-const failed = await pay(r4.external_id, "OTHER", null);
+const failAfterExpire = await pay(r3.external_id, "FAILED", null, "xs_r3");
 check(
-  "webhook: any other status fails the invoice",
+  "webhook: FAILED on an expired invoice is not applied",
+  failAfterExpire.applied === false && failAfterExpire.invoice_status === "expired",
+  failAfterExpire,
+);
+const r4 = await renew(s1.subscription_id);
+const failed = await pay(r4.external_id, "FAILED", null, "xs_any");
+check(
+  "webhook: FAILED fails an invoice with no stored session",
   r4.reused === false && failed.applied === true && failed.invoice_status === "failed",
   { r4, failed },
 );
-const paidAfterFail = await pay(r4.external_id, "PAID", 69700);
+const beforeLatePay = await subRow(s1.subscription_id);
+const latePay = await pay(r4.external_id, "PAID", 69700, "xs_r4");
+const lateExtended = await asOwner(() =>
+  one(
+    `SELECT current_period_end = $2::timestamptz + interval '1 month' AS month_long
+       FROM public.subscriptions WHERE id = $1`,
+    [s1.subscription_id, beforeLatePay.current_period_end],
+  ),
+);
 check(
-  "webhook: PAID after a terminal status is not applied",
-  paidAfterFail.applied === false && paidAfterFail.invoice_status === "failed",
-  paidAfterFail,
+  "webhook: PAID on a failed invoice still settles it and extends the period",
+  latePay.applied === true && latePay.invoice_status === "paid" && lateExtended.month_long,
+  latePay,
+);
+const duplicate = await pay(r4.external_id, "PAID", 69700, "xs_r4b");
+const dupNote = (await subRow(s1.subscription_id)).note ?? "";
+check(
+  "webhook: PAID from a second session on a paid invoice is not applied, and noted for a refund",
+  duplicate.applied === false &&
+    dupNote.includes(
+      `Duplicate payment: session xs_r4b paid invoice ${r4.invoice_number} again on `,
+    ) &&
+    dupNote.endsWith("; refund in Xendit"),
+  { duplicate, dupNote },
+);
+await pay(r4.external_id, "PAID", 69700, "xs_r4b");
+const samePaid = await pay(r4.external_id, "PAID", 69700, "xs_r4");
+const dupNoteAgain = (await subRow(s1.subscription_id)).note ?? "";
+check(
+  "webhook: the same duplicate again is noted once, and the paying session again not at all",
+  samePaid.applied === false &&
+    dupNoteAgain === dupNote &&
+    dupNoteAgain.split("Duplicate payment").length === 2,
+  dupNoteAgain,
 );
 
 // --- One-time plans ----------------------------------------------------------------
@@ -693,7 +874,7 @@ check(
 await as(P);
 const e1 = await entitlements(H1);
 check(
-  "entitlements: H1 has its subscription's seats",
+  "entitlements: H1 has its subscription's seats (three paid months)",
   e1.source === "subscription" &&
     e1.subscription_id === s1.subscription_id &&
     e1.plan_name === "Household" &&
@@ -701,8 +882,8 @@ check(
     e1.effective_status === "active" &&
     e1.helper_seats === 3 &&
     e1.manager_seats === 2 &&
-    e1.days_left >= 55 &&
-    e1.days_left <= 63,
+    e1.days_left >= 85 &&
+    e1.days_left <= 95,
   e1,
 );
 const e4 = await entitlements(H4);
@@ -783,7 +964,7 @@ await as(P);
 await cancel(s1.subscription_id);
 const canceled = await subRow(s1.subscription_id);
 check(
-  "cancel: the owner cancels, the period end is kept",
+  "cancel: the primary cancels, the period end is kept",
   canceled.status === "canceled" &&
     canceled.canceled_at instanceof Date &&
     canceled.current_period_end.getTime() === beforeCancel.current_period_end.getTime(),
@@ -800,7 +981,20 @@ check(
 );
 
 // --- Trials -----------------------------------------------------------------------
+await as(C);
+check(
+  "trial_eligible: not for a home the caller isn't primary of",
+  (await trialEligible(STARTER, [H1])) === false,
+);
 await as(T);
+check(
+  "trial_eligible: not on a plan without a trial",
+  (await trialEligible(MONTHLY, [H5])) === false,
+);
+check(
+  "trial_eligible: a new home and a new buyer get the trial",
+  (await trialEligible(STARTER, [H5])) === true,
+);
 const s5 = await start(STARTER, 2, 2, [H5]);
 const s5Row = await asOwner(() =>
   one(
@@ -829,18 +1023,35 @@ check(
     e5.days_left === 14,
   e5,
 );
+check(
+  "trial_eligible: not once the home has had a trial",
+  (await trialEligible(STARTER, [H5])) === false,
+);
 const s6 = await start(STARTER, 2, 2, [H5]);
 check(
   "trial: a home that had a subscription gets no second trial",
   s6.status === "pending" && typeof s6.invoice_id === "string",
   s6,
 );
+await as(Q);
+check(
+  "trial_eligible: unpaid checkouts (pending, canceled before starting, underpaid) don't use it up",
+  (await trialEligible(STARTER, [H3])) === true,
+);
+await as(P);
+check(
+  "trial_eligible: not for a buyer who already owns a subscription that started, even on a new home",
+  (await trialEligible(STARTER, [H6])) === false,
+);
+const sFarm = await start(STARTER, 2, 2, [H6]);
+check(
+  "trial: start_subscription follows trial_eligible (no trial farming through a new household)",
+  sFarm.status === "pending" && typeof sFarm.invoice_id === "string",
+  sFarm,
+);
 
 // The grace week after a period ends, then the free tier.
-const setEnd = (id, sql) =>
-  asOwner(() =>
-    q(`UPDATE public.subscriptions SET current_period_end = ${sql} WHERE id = $1`, [id]),
-  );
+await as(T);
 await setEnd(s5.subscription_id, `now() - interval '2 days'`);
 const eGrace = await entitlements(H5);
 check(
@@ -937,6 +1148,25 @@ await expectError(
   () => q(GRANT, [H7, MONTHLY]),
   /^NOT_FOUND/,
 );
+await expectError(
+  "grant: a period end in the past raises BAD_PERIOD",
+  () =>
+    q(`SELECT public.grant_subscription($1, $2, 2, 2, now() - interval '1 day', 'late')`, [
+      H2,
+      MONTHLY,
+    ]),
+  /^BAD_PERIOD/,
+);
+await expectError(
+  "grant: negative helper seats raise BAD_SEATS",
+  () => q(`SELECT public.grant_subscription($1, $2, -1, 2, NULL, 'x')`, [H2, MONTHLY]),
+  /^BAD_SEATS:helper/,
+);
+await expectError(
+  "grant: negative manager seats raise BAD_SEATS",
+  () => q(`SELECT public.grant_subscription($1, $2, 2, -1, NULL, 'x')`, [H2, MONTHLY]),
+  /^BAD_SEATS:manager/,
+);
 const granted = (await one(GRANT, [H2, MONTHLY])).r;
 const grantedSub = await subRow(granted.subscription_id);
 const grantedInvoice = await invoiceRow(granted.invoice_id);
@@ -967,6 +1197,117 @@ check(
   eGranted,
 );
 
+// --- Paying for a new plan replaces the running one ---------------------------------
+await as(Q);
+const s3c = await start(MONTHLY, 1, 2, [H3]);
+await asOwner(() =>
+  q(
+    `UPDATE public.platform_invoices SET period_start = now() - interval '10 days', period_end = now() - interval '9 days' WHERE id = $1`,
+    [s3c.invoice_id],
+  ),
+);
+await pay(s3c.external_id, "PAID", 49900, "xs_s3c");
+const s3cPeriods = await asOwner(() =>
+  one(
+    `SELECT i.period_start = s.current_period_start AND i.period_end = s.current_period_end AS same
+       FROM public.platform_invoices i JOIN public.subscriptions s ON s.id = i.subscription_id
+      WHERE i.id = $1`,
+    [s3c.invoice_id],
+  ),
+);
+check(
+  "settling rewrites the invoice's period to the one granted",
+  s3cPeriods.same === true,
+  s3cPeriods,
+);
+check(
+  "trial_eligible: not once a subscription on the home has started",
+  (await trialEligible(STARTER, [H3])) === false,
+);
+const s3d = await start(MONTHLY, 3, 2, [H3]);
+await pay(s3d.external_id, "PAID", 69700, "xs_s3d");
+const replaced = await asOwner(() =>
+  one(
+    `SELECT status, canceled_at IS NOT NULL AS canceled_at, current_period_end <= now() AS ended, note
+       FROM public.subscriptions WHERE id = $1`,
+    [s3c.subscription_id],
+  ),
+);
+check(
+  "paying for a new plan ends the running one on the same home, noted",
+  replaced.status === "canceled" &&
+    replaced.canceled_at &&
+    replaced.ended &&
+    replaced.note === `Replaced by ${s3d.subscription_id}`,
+  replaced,
+);
+check(
+  "a subscription that never started isn't touched by the replacement",
+  (await subRow(s3.subscription_id)).status === "past_due",
+);
+const e3d = await entitlements(H3);
+check(
+  "entitlements: the new plan is the home's",
+  e3d.source === "subscription" && e3d.subscription_id === s3d.subscription_id,
+  e3d,
+);
+
+// --- Acting for a subscription after the primary hands over -------------------------
+await asOwner(() =>
+  q(
+    `UPDATE public.household_managers SET role = 'co_manager' WHERE household_id = $1 AND user_id = $2;`,
+    [H3, Q],
+  ),
+);
+await asOwner(() =>
+  q(
+    `UPDATE public.household_managers SET role = 'primary_manager' WHERE household_id = $1 AND user_id = $2`,
+    [H3, R],
+  ),
+);
+await as(Q);
+await expectError(
+  "an owner who handed over primary can't renew",
+  () => renew(s3d.subscription_id),
+  /^NOT_FOUND/,
+);
+await expectError(
+  "an owner who handed over primary can't cancel",
+  () => cancel(s3d.subscription_id),
+  /^NOT_FOUND/,
+);
+await as(R);
+const rR = await renew(s3d.subscription_id);
+check(
+  "the new primary, not the owner, renews",
+  rR.reused === false && typeof rR.invoice_id === "string",
+  rR,
+);
+await as(Q);
+await expectError(
+  "an owner who handed over primary can't attach a payment link",
+  () => attach(rR.invoice_id, "xs_q", XENDIT("xs_q")),
+  /^NOT_FOUND/,
+);
+await as(R);
+await attach(rR.invoice_id, "xs_r", XENDIT("xs_r"), "rico@example.com");
+check(
+  "the new primary attaches the payment link",
+  (await invoiceRow(rR.invoice_id)).payer_email === "rico@example.com",
+);
+await asOwner(() =>
+  q(`DELETE FROM public.household_managers WHERE household_id = $1 AND user_id = $2`, [H3, Q]),
+);
+await as(Q);
+await expectError(
+  "an owner removed from the household can't renew",
+  () => renew(s3d.subscription_id),
+  /^NOT_FOUND/,
+);
+await as(R);
+await cancel(s3d.subscription_id);
+check("the new primary cancels", (await subRow(s3d.subscription_id)).status === "canceled");
+
 // --- The admin's household list --------------------------------------------------------
 await as(P);
 const r5 = await renew(s1.subscription_id);
@@ -981,7 +1322,7 @@ const names = overview.map((h) => h.name);
 const byId = Object.fromEntries(overview.map((h) => [h.household_id, h]));
 check(
   "overview: every household, ordered by name",
-  overview.length === 6 &&
+  overview.length === 7 &&
     JSON.stringify(names) === JSON.stringify([...names].sort((a, b) => a.localeCompare(b))),
   names,
 );
@@ -1002,6 +1343,69 @@ check(
     byId[H2].entitlements.source === "subscription" &&
     byId[H2].pending_invoice === null,
   byId[H2],
+);
+check(
+  "overview: the admin sees the subscriptions' notes (duplicate payment, underpaid)",
+  byId[H1].notes.some((n) => n.note.includes("Duplicate payment")) &&
+    byId[H3].notes.some((n) => n.note.startsWith("Paid ₱1.00")),
+  { H1: byId[H1].notes, H3: byId[H3].notes },
+);
+
+// --- Renewing a comp is priced from its plan -----------------------------------------
+await as(M2);
+const rComp = await renew(granted.subscription_id);
+check(
+  "renewing a comp invoices the plan's price for its seats (49900 + 1 extra helper)",
+  rComp.reused === false && rComp.amount_centavos === 59800,
+  rComp,
+);
+
+// --- Admins cancel; a comp ends at once ------------------------------------------------
+await as(ADMIN);
+await cancel(granted.subscription_id);
+const revoked = await asOwner(() =>
+  one(
+    `SELECT status, current_period_end <= now() AS ended FROM public.subscriptions WHERE id = $1`,
+    [granted.subscription_id],
+  ),
+);
+check(
+  "an admin revokes a comp: canceled and ended now",
+  revoked.status === "canceled" && revoked.ended,
+  revoked,
+);
+await as(M2);
+check("a revoked comp leaves the free tier", (await entitlements(H2)).source === "free");
+await as(ADMIN);
+await cancel(s4.subscription_id);
+const adminCanceled = await subRow(s4.subscription_id);
+check(
+  "an admin cancels a paid subscription: its period is kept",
+  adminCanceled.status === "canceled" && adminCanceled.current_period_end === null,
+  adminCanceled,
+);
+
+// --- Deleting the owner's account keeps the revenue record -----------------------------
+const s6Invoices = async () =>
+  (
+    await asOwner(() =>
+      one(`SELECT count(*)::int AS n FROM public.platform_invoices WHERE subscription_id = $1`, [
+        s6.subscription_id,
+      ]),
+    )
+  ).n;
+const invoicesBefore = await s6Invoices();
+await asOwner(() => q(`DELETE FROM auth.users WHERE id = $1`, [T]));
+const orphan = await subRow(s6.subscription_id);
+check(
+  "deleting the owner's account keeps the subscription, without an owner",
+  orphan !== undefined && orphan.owner_user_id === null && orphan.status === "active",
+  orphan,
+);
+check(
+  "and its invoices",
+  invoicesBefore === 1 && (await s6Invoices()) === invoicesBefore,
+  invoicesBefore,
 );
 
 console.log(failures === 0 ? "\nall passed" : `\n${failures} failed`);
