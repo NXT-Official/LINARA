@@ -1,0 +1,42 @@
+src/features/legal/terms-of-service.tsx
+  s_015ef908465883::t_7b993f64fb52e2 62-75,78-80
+  s_015ef908465883::t_4003ffce0d6f13 76-77
+CHANGELOG.md
+  s_015ef908465883::t_dc0cbbb2ca3ac8 1-45
+.env.example
+  s_015ef908465883::t_51e6c0c26f4790 31-36,59
+supabase/DEPLOYMENTS.md
+  s_015ef908465883::t_7b993f64fb52e2 89
+README.md
+  s_015ef908465883::t_51e6c0c26f4790 412-413,435-437,453-459
+  s_015ef908465883::t_74b1b1b6aa3635 460
+e2e/public.spec.ts
+  s_015ef908465883::t_7b993f64fb52e2 6,48-56,61
+  s_015ef908465883::t_618bbb6eb72569 57-60,62-63
+docs/OPERATOR-GO-LIVE.md
+  s_015ef908465883::t_11e75910d51c86 1-100
+e2e/helpers.ts
+  s_015ef908465883::t_7b993f64fb52e2 18-28,32-42
+KNOWN_GAPS.md
+  s_015ef908465883::t_51e6c0c26f4790 394-489
+src/features/legal/privacy-policy.tsx
+  s_015ef908465883::t_4003ffce0d6f13 111-112
+src/features/legal/legal.constants.ts
+  s_015ef908465883::t_7b993f64fb52e2 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73d57f2588a4b0777a4293fcf57ba9c727da3aab",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
