@@ -1,0 +1,51 @@
+src/features/billing/money.ts
+  s_015ef908465883::t_4aa4635fa87d37 1-11
+src/features/billing/pages/pricing-page.tsx
+  s_015ef908465883::t_74e4d1f5887a69 1-59
+src/features/billing/money.test.ts
+  s_015ef908465883::t_ea149d289cd00b 1-18
+src/routes/admin/plans.tsx
+  s_015ef908465883::t_1784f54ffbed66 1-10
+src/features/billing/plan.actions.ts
+  s_015ef908465883::t_0922f0ca70bf68 1-99,114-128
+  s_015ef908465883::t_8c7739dea9e17e 100-113
+src/features/billing/pages/platform-admin-plans-page.test.tsx
+  s_015ef908465883::t_14675b128cb0fc 1-126
+src/routes/pricing.tsx
+  s_015ef908465883::t_8f6cdfcc2197c1 1-22
+src/features/billing/plan.types.ts
+  s_015ef908465883::t_6af3c05d79218d 1-119
+src/features/billing/pages/pricing-page.test.tsx
+  s_015ef908465883::t_8c7739dea9e17e 59-62
+  s_015ef908465883::t_969f24241f1991 66
+  s_015ef908465883::t_af9d6c0d42a398 1-58,63-65,67-75
+src/features/billing/plan.pricing.test.ts
+  s_015ef908465883::t_4c764370f974ea 1-82
+src/features/billing/components/plan-form-modal.tsx
+  s_015ef908465883::t_8c7739dea9e17e 123-124,185-188
+  s_015ef908465883::t_ef58fd5ebd417c 1-8,10-122,125-162,164-184,189-373
+  s_015ef908465883::t_cc139fd00dd633 9,163
+src/features/billing/pages/platform-admin-plans-page.tsx
+  s_015ef908465883::t_0cc7c15ea9adb7 1-134,140-201,208-308,310-430
+  s_015ef908465883::t_8c7739dea9e17e 135-139,202-207,309
+src/features/billing/components/plan-card.tsx
+  s_015ef908465883::t_d4071f39819ab7 1-40
+src/features/billing/plan.pricing.ts
+  s_015ef908465883::t_243d7025575bcf 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60863427e31cb0bdeb40ed2b854c3eba452dcd11",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": null
+    }
+  }
+}
