@@ -1209,7 +1209,7 @@ check(
   "Xendit confirming the stored session after a manual mark is not applied, noted as a confirmation (no refund), its callback kept",
   afterManual.applied === false &&
     afterManualNote ===
-      `Xendit confirmed session xs_s6 after invoice ${s6.invoice_number} was marked paid by hand on ${manilaToday}; no second payment` &&
+      `Xendit confirmed session xs_s6 after invoice ${s6.invoice_number} was marked paid by hand on ${manilaToday}; check Xendit and refund if the hand-marked payment was separate` &&
     afterManualInvoice.raw_callback.manual === true &&
     afterManualInvoice.raw_callback.callback_xs_s6?.event === "payment_session.completed",
   { afterManual, afterManualNote, raw: afterManualInvoice.raw_callback },

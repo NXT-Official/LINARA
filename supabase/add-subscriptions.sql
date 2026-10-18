@@ -524,7 +524,7 @@ BEGIN
                 THEN format('Late payment: session %s paid invoice %s on %s after its plan was replaced; refund in Xendit',
                             v_session, v_invoice.invoice_number, v_paid_on)
                 WHEN v_confirmed
-                THEN format('Xendit confirmed session %s after invoice %s was marked paid by hand on %s; no second payment',
+                THEN format('Xendit confirmed session %s after invoice %s was marked paid by hand on %s; check Xendit and refund if the hand-marked payment was separate',
                             v_session, v_invoice.invoice_number,
                             to_char(COALESCE(v_invoice.paid_at, now()) AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD'))
                 ELSE format('Duplicate payment: session %s paid invoice %s again on %s; refund in Xendit',
