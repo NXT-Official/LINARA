@@ -1,0 +1,22 @@
+supabase/add-support-chat.sql
+  s_015ef908465883::t_fca3ea97b538f3 1-234
+supabase/tests/support-chat.test.mjs
+  s_015ef908465883::t_979d2876a1025b 101-103,111-119,163-166,189-193,199-202,213-216
+  s_015ef908465883::t_1e7aa013330925 1-100,104-110,120-162,167-188,194-198,203-212,217-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f730fae3d7f2914ab870439b51d302b7cb6b5c33",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
