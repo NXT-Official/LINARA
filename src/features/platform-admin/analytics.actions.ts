@@ -2,7 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
 
-import type { Analytics, CostEntry, CostEntryInput, ModelPrice } from "./analytics.types";
+import {
+  COST_CATEGORIES,
+  type Analytics,
+  type CostCategory,
+  type CostEntry,
+  type CostEntryInput,
+  type ModelPrice,
+} from "./analytics.types";
 
 /**
  * Costs and analytics for Linara staff. Until the SQL that creates the tables
@@ -70,7 +77,7 @@ export const getAnalyticsFn = createServerFn({ method: "POST" })
 type CostRow = {
   id: string;
   month: string;
-  category: string;
+  category: CostCategory;
   label: string;
   amount_centavos: number;
   note: string | null;
@@ -102,7 +109,16 @@ export const listCostEntriesFn = createServerFn({ method: "POST" })
   });
 
 export const saveCostEntryFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; entry: CostEntryInput }) => data)
+  .validator((data: { token: string; entry: CostEntryInput }) => {
+    const { entry } = data;
+    if (!COST_CATEGORIES.includes(entry.category)) throw new Error("Pick a valid category.");
+    if (!/^\d{4}-\d{2}-01$/.test(entry.month)) throw new Error("Pick a month.");
+    if (!entry.label.trim()) throw new Error("Add a label.");
+    if (!Number.isSafeInteger(entry.amountCentavos) || entry.amountCentavos < 0) {
+      throw new Error("The amount must be ₱0 or more.");
+    }
+    return data;
+  })
   .handler(async ({ data }): Promise<{ available: boolean; entry: CostEntry | null }> => {
     const client = createAuthedClient(data.token);
     const { entry } = data;
@@ -126,9 +142,15 @@ export const deleteCostEntryFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; id: string }) => data)
   .handler(async ({ data }): Promise<{ available: boolean }> => {
     const client = createAuthedClient(data.token);
-    const { error } = await client.from("cost_entries").delete().eq("id", data.id);
+    const { data: removed, error } = await client
+      .from("cost_entries")
+      .delete()
+      .eq("id", data.id)
+      .select("id");
     if (missing(error)) return { available: false };
     if (error) throw new Error(error.message || "Couldn't delete the cost");
+    // RLS filters a delete it doesn't allow without an error: zero rows means nothing happened.
+    if (!removed || removed.length === 0) throw new Error("Couldn't delete the cost");
     return { available: true };
   });
 
@@ -165,7 +187,18 @@ export const listModelPricesFn = createServerFn({ method: "POST" })
   });
 
 export const saveModelPriceFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; price: ModelPrice }) => data)
+  .validator((data: { token: string; price: ModelPrice }) => {
+    const { price } = data;
+    if (!price.model.trim()) throw new Error("Name the model.");
+    for (const v of [
+      price.inputCentavosPer1m,
+      price.outputCentavosPer1m,
+      price.audioCentavosPerMinute,
+    ]) {
+      if (!Number.isSafeInteger(v) || v < 0) throw new Error("Prices must be ₱0 or more.");
+    }
+    return data;
+  })
   .handler(async ({ data }): Promise<{ available: boolean; price: ModelPrice | null }> => {
     const client = createAuthedClient(data.token);
     const { price } = data;

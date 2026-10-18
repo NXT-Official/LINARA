@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Analytics } from "../analytics.types";
@@ -53,6 +53,23 @@ describe("PlatformAdminOverviewPage", () => {
     render(<PlatformAdminOverviewPage />);
     expect(await screen.findByText(/Couldn.t load the analytics/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("keeps the newest answer when an older request resolves last", async () => {
+    const resolvers: ((v: unknown) => void)[] = [];
+    getAnalyticsFn.mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    render(<PlatformAdminOverviewPage />);
+    fireEvent.click(screen.getByRole("button", { name: "This year" }));
+    const answer = (revenueCentavos: number) => ({
+      available: true,
+      analytics: { ...analytics, revenueCentavos },
+    });
+    resolvers[1](answer(100000));
+    expect(await screen.findByText("₱1,000.00")).toBeTruthy();
+    resolvers[0](answer(50000));
+    await Promise.resolve();
+    expect(screen.getByText("₱1,000.00")).toBeTruthy();
+    expect(screen.queryByText("₱500.00")).toBeNull();
   });
 
   it("shows revenue and a dash for a null cost per call", async () => {

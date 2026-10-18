@@ -31,20 +31,22 @@ export type Analytics = {
   aiByFn: AiByFunction[];
 };
 
-export const COST_CATEGORIES = [
-  "hosting",
-  "ai",
-  "payments",
-  "support",
-  "marketing",
-  "other",
-] as const;
+export const COST_CATEGORIES = ["infra", "ai", "payments", "support", "other"] as const;
+export type CostCategory = (typeof COST_CATEGORIES)[number];
+
+export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
+  infra: "Infra",
+  ai: "AI",
+  payments: "Payments",
+  support: "Support",
+  other: "Other",
+};
 
 export type CostEntry = {
   id: string;
   /** `YYYY-MM-DD`, always the first of the month */
   month: string;
-  category: string;
+  category: CostCategory;
   label: string;
   amountCentavos: number;
   note: string | null;
@@ -53,7 +55,7 @@ export type CostEntry = {
 export type CostEntryInput = {
   id?: string;
   month: string;
-  category: string;
+  category: CostCategory;
   label: string;
   amountCentavos: number;
   note: string | null;

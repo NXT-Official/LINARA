@@ -5,7 +5,13 @@ import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
 
 import { saveCostEntryFn } from "../analytics.actions";
-import { COST_CATEGORIES, type CostEntry } from "../analytics.types";
+import {
+  COST_CATEGORIES,
+  COST_CATEGORY_LABELS,
+  type CostCategory,
+  type CostEntry,
+} from "../analytics.types";
+import { pesosToCentavos } from "../analytics.utils";
 
 const inputCls =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground";
@@ -25,7 +31,7 @@ export function CostEntryModal({
   onSaved: (saved: CostEntry) => void;
 }) {
   const [month, setMonth] = useState(entry ? entry.month.slice(0, 7) : "");
-  const [category, setCategory] = useState(entry?.category ?? COST_CATEGORIES[0]);
+  const [category, setCategory] = useState<CostCategory>(entry?.category ?? COST_CATEGORIES[0]);
   const [label, setLabel] = useState(entry?.label ?? "");
   const [amount, setAmount] = useState(entry ? String(entry.amountCentavos / 100) : "");
   const [note, setNote] = useState(entry?.note ?? "");
@@ -34,15 +40,13 @@ export function CostEntryModal({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const pesos = Number(amount);
+    const centavos = pesosToCentavos(amount);
     const next: Errors = {};
     if (!month) next.month = "Pick a month.";
     if (!label.trim()) next.label = "Add a label.";
-    if (amount.trim() === "" || !Number.isFinite(pesos) || pesos < 0) {
-      next.amount = "Enter an amount of ₱0 or more.";
-    }
+    if (centavos === null) next.amount = "Enter an amount like 1200 or 1200.50.";
     setErrors(next);
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0 || centavos === null) return;
 
     setSaving(true);
     try {
@@ -54,7 +58,7 @@ export function CostEntryModal({
             month: `${month}-01`,
             category,
             label: label.trim(),
-            amountCentavos: Math.round(pesos * 100),
+            amountCentavos: centavos,
             note: note.trim() === "" ? null : note.trim(),
           },
         },
@@ -88,12 +92,12 @@ export function CostEntryModal({
         <Field label="Category">
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => setCategory(e.target.value as CostCategory)}
             className={inputCls}
           >
             {COST_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
+                {COST_CATEGORY_LABELS[c]}
               </option>
             ))}
           </select>

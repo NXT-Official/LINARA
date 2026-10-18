@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
+import { Modal } from "@/components/shared/modal";
 import { fmtCentavos } from "@/features/billing/money";
 
 import {
@@ -10,8 +11,8 @@ import {
   listModelPricesFn,
   saveModelPriceFn,
 } from "../analytics.actions";
-import type { CostEntry, ModelPrice } from "../analytics.types";
-import { monthHeading } from "../analytics.utils";
+import { COST_CATEGORY_LABELS, type CostEntry, type ModelPrice } from "../analytics.types";
+import { monthHeading, pesosToCentavos } from "../analytics.utils";
 import { CostEntryModal } from "../components/cost-entry-modal";
 import { usePlatformAdminSession } from "../hooks/use-platform-admin-session";
 
@@ -34,8 +35,6 @@ const primaryCls =
 const inputCls =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground";
 
-const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
 function groupByMonth(entries: CostEntry[]): { month: string; items: CostEntry[] }[] {
   const groups: { month: string; items: CostEntry[] }[] = [];
   for (const e of entries) {
@@ -52,6 +51,7 @@ export function PlatformAdminCostsPage() {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [editing, setEditing] = useState<CostEntry | "new" | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<CostEntry | null>(null);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -86,6 +86,7 @@ export function PlatformAdminCostsPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't delete the cost.");
     } finally {
+      setConfirming(null);
       setBusyId(null);
     }
   }
@@ -148,7 +149,7 @@ export function PlatformAdminCostsPage() {
           <div className="mt-4 rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
             <p className="font-display text-lg text-foreground">No costs recorded</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Add hosting, tools and other monthly costs so profit on the overview is true.
+              Add infra, tools and other monthly costs so profit on the overview is true.
             </p>
             <button
               type="button"
@@ -172,7 +173,7 @@ export function PlatformAdminCostsPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">{entry.label}</p>
                       <p className="mt-0.5 text-[13px] text-muted-foreground">
-                        {capitalise(entry.category)}
+                        {COST_CATEGORY_LABELS[entry.category]}
                         {entry.note ? ` · ${entry.note}` : ""}
                       </p>
                     </div>
@@ -193,7 +194,7 @@ export function PlatformAdminCostsPage() {
                         className={actionCls}
                         aria-label={`Delete ${entry.label}`}
                         disabled={busyId === entry.id}
-                        onClick={() => void remove(entry)}
+                        onClick={() => setConfirming(entry)}
                       >
                         Delete
                       </button>
@@ -206,6 +207,31 @@ export function PlatformAdminCostsPage() {
       </section>
 
       <ModelPricesSection token={token} />
+
+      {confirming && (
+        <Modal onClose={() => setConfirming(null)}>
+          <div className="space-y-4 p-5">
+            <h2 className="font-display text-xl text-foreground">Delete this cost?</h2>
+            <p className="text-sm text-muted-foreground">
+              {confirming.label} ({fmtCentavos(confirming.amountCentavos)}) will come out of the
+              overview figures.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" className={actionCls} onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={primaryCls}
+                disabled={busyId === confirming.id}
+                onClick={() => void remove(confirming)}
+              >
+                Delete cost
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {editing !== null && (
         <CostEntryModal
@@ -309,13 +335,14 @@ function PriceRow({
   const isNew = price === null;
 
   async function save() {
-    const parsed = [input, output, audio].map((v) => (v.trim() === "" ? 0 : Number(v)));
+    const parsed = [input, output, audio].map((v) => (v.trim() === "" ? 0 : pesosToCentavos(v)));
     if (!model.trim()) {
       setError("Name the model.");
       return;
     }
-    if (parsed.some((n) => !Number.isFinite(n) || n < 0)) {
-      setError("Prices must be ₱0 or more.");
+    const [inputC, outputC, audioC] = parsed;
+    if (inputC === null || outputC === null || audioC === null) {
+      setError("Prices must be amounts like 1200 or 1200.50.");
       return;
     }
     setError(null);
@@ -326,9 +353,9 @@ function PriceRow({
           token,
           price: {
             model: model.trim(),
-            inputCentavosPer1m: Math.round(parsed[0] * 100),
-            outputCentavosPer1m: Math.round(parsed[1] * 100),
-            audioCentavosPerMinute: Math.round(parsed[2] * 100),
+            inputCentavosPer1m: inputC,
+            outputCentavosPer1m: outputC,
+            audioCentavosPerMinute: audioC,
             note: note.trim() === "" ? null : note.trim(),
           },
         },

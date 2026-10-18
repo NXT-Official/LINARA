@@ -11,7 +11,7 @@ import {
 import { fmtCentavos } from "@/features/billing/money";
 
 import type { Analytics } from "../analytics.types";
-import { seriesForChart } from "../analytics.utils";
+import { pesoAxisLabel, seriesForChart } from "../analytics.utils";
 
 // Theme tokens, not hex: pine (dark teal) vs terracotta differ by hue and by
 // lightness, and the profit line is ink so it reads against both bars.
@@ -20,8 +20,6 @@ const config = {
   cogs: { label: "COGS", color: "var(--terracotta)" },
   profit: { label: "Profit", color: "var(--ink)" },
 } satisfies ChartConfig;
-
-const pesos = (v: number) => `₱${v.toLocaleString("en-US")}`;
 
 /** Revenue and COGS bars per month, profit as a line, all on one peso axis. */
 export function AnalyticsChart({ analytics }: { analytics: Analytics }) {
@@ -46,7 +44,7 @@ export function AnalyticsChart({ analytics }: { analytics: Analytics }) {
           tickLine={false}
           axisLine={false}
           fontSize={13}
-          tickFormatter={pesos}
+          tickFormatter={pesoAxisLabel}
           label={{
             value: "Pesos (₱)",
             angle: -90,

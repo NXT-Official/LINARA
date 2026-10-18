@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Field } from "@/components/shared/field";
 import { fmtCentavos } from "@/features/billing/money";
@@ -92,21 +92,26 @@ export function PlatformAdminOverviewPage() {
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [load, setLoad] = useState<Load>({ kind: "loading" });
+  const latest = useRef(0);
 
   const rangeError =
     !from || !to ? "Pick both dates." : from > to ? "Start must be before end." : null;
 
   const refresh = useCallback(async () => {
     if (!token || rangeError) return;
+    const mine = ++latest.current;
     setLoad({ kind: "loading" });
     try {
       const res = await getAnalyticsFn({ data: { token, from, to } });
+      // A slower, older request must not overwrite a newer one.
+      if (mine !== latest.current) return;
       setLoad(
         res.available && res.analytics
           ? { kind: "ready", analytics: res.analytics }
           : { kind: "unavailable" },
       );
     } catch {
+      if (mine !== latest.current) return;
       setLoad({ kind: "error" });
     }
   }, [token, from, to, rangeError]);
