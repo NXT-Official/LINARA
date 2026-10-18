@@ -1,0 +1,29 @@
+src/routes/admin/households.tsx
+  s_015ef908465883::t_4529b56a44882d 1-10
+src/features/platform-admin/pages/platform-admin-households-page.test.tsx
+  s_015ef908465883::t_a68e66682c11a9 1-200
+src/features/platform-admin/components/grant-plan-modal.tsx
+  s_015ef908465883::t_f59740a545d3d9 1-208
+src/features/platform-admin/pages/platform-admin-households-page.tsx
+  s_015ef908465883::t_a6ced75b3d714a 1-211
+src/features/platform-admin/components/mark-paid-modal.tsx
+  s_015ef908465883::t_57f1571dc8fc58 1-128
+src/features/platform-admin/households.actions.ts
+  s_015ef908465883::t_43d8e85bdab3fe 1-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a6bbe7751cd1006fad2fcc47ba13bbcc3770970",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
