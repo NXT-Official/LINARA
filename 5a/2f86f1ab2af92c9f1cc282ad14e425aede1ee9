@@ -1,0 +1,21 @@
+supabase/add-platform-admins.sql
+  s_015ef908465883::t_dabf4c9986b0c7 1-61
+supabase/tests/platform-admins.test.mjs
+  s_015ef908465883::t_8ae57789e08019 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a2f86f1ab2af92c9f1cc282ad14e425aede1ee9",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
