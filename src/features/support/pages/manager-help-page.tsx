@@ -136,6 +136,7 @@ export function ManagerHelpPage() {
 
       {selected && token && (
         <ThreadView
+          key={selected.id}
           token={token}
           thread={selected}
           me="household"

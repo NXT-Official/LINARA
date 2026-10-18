@@ -133,6 +133,46 @@ describe("ThreadView", () => {
     expect(await screen.findByRole("button", { name: "Reopen conversation" })).toBeTruthy();
   });
 
+  it("drops a late response for the previous thread", async () => {
+    let resolveA: (v: unknown) => void = () => {};
+    listMessagesFn.mockReturnValueOnce(new Promise((r) => (resolveA = r)));
+    const other = { ...THREAD, id: "t2", subject: "Other", householdUnread: 0 };
+    const { rerender } = render(
+      <ThreadView token="tok" thread={THREAD} me="household" onChanged={vi.fn()} />,
+    );
+    listMessagesFn.mockResolvedValueOnce({
+      available: true,
+      messages: [{ ...MESSAGES[0], id: "mb", threadId: "t2", body: "From B" }],
+    });
+    rerender(<ThreadView token="tok" thread={other} me="household" onChanged={vi.fn()} />);
+    expect(await screen.findByText("From B")).toBeTruthy();
+    resolveA({ available: true, messages: MESSAGES });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("Hello there")).toBeNull();
+    expect(screen.getByText("From B")).toBeTruthy();
+  });
+
+  it("starts a keyed switch with an empty composer", async () => {
+    const other = { ...THREAD, id: "t2", subject: "Other", householdUnread: 0 };
+    const { rerender } = render(
+      <ThreadView key="t1" token="tok" thread={THREAD} me="household" onChanged={vi.fn()} />,
+    );
+    await screen.findByText("Hello there");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "for A" } });
+    rerender(<ThreadView key="t2" token="tok" thread={other} me="household" onChanged={vi.fn()} />);
+    await screen.findByText("Hello there");
+    expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("toasts and does not refresh when the status change is unavailable", async () => {
+    setThreadStatusFn.mockResolvedValue({ available: false });
+    const onChanged = renderView("platform_admin");
+    await screen.findByText("Hello there");
+    fireEvent.click(screen.getByRole("button", { name: "Close conversation" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
   it("gives a household no Close button", async () => {
     renderView("household");
     await screen.findByText("Hello there");

@@ -45,14 +45,27 @@ export function ThreadView({
   const onChangedRef = useRef(onChanged);
   onChangedRef.current = onChanged;
 
+  // Only the newest request may write: a slow reply for an earlier load (or
+  // another thread) must not land under this header.
+  const requestId = useRef(0);
+  useEffect(
+    () => () => {
+      requestId.current += 1;
+    },
+    [],
+  );
+
   const loadMessages = useCallback(async () => {
+    requestId.current += 1;
+    const mine = requestId.current;
     try {
       const reply = await listMessagesFn({ data: { token, threadId: thread.id } });
+      if (mine !== requestId.current) return;
       setLoad(
         reply.available ? { state: "ready", messages: reply.messages } : { state: "unavailable" },
       );
     } catch {
-      setLoad({ state: "error" });
+      if (mine === requestId.current) setLoad({ state: "error" });
     }
   }, [token, thread.id]);
 
@@ -116,9 +129,13 @@ export function ThreadView({
   const toggleStatus = async () => {
     setChangingStatus(true);
     try {
-      await setThreadStatusFn({
+      const reply = await setThreadStatusFn({
         data: { token, threadId: thread.id, status: thread.status === "open" ? "closed" : "open" },
       });
+      if (!reply.available) {
+        toast.error("Support chat isn't switched on yet");
+        return;
+      }
       onChanged();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't change the conversation");
@@ -202,6 +219,7 @@ export function ThreadView({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
+          disabled={sending}
           rows={2}
           maxLength={4000}
           placeholder="Write a message"

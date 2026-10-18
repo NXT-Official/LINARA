@@ -82,6 +82,41 @@ describe("useSupportThreads", () => {
     expect(listThreadsFn).toHaveBeenCalledTimes(2);
   });
 
+  it("ignores an older response that resolves after a newer one", async () => {
+    listThreadsFn.mockResolvedValue({ available: true, threads: [] });
+    const { result } = renderHook(() => useSupportThreads(ARGS));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    let resolveOld: (v: unknown) => void = () => {};
+    listThreadsFn.mockReturnValueOnce(new Promise((r) => (resolveOld = r)));
+    listThreadsFn.mockResolvedValueOnce({
+      available: true,
+      threads: [{ ...THREAD, subject: "Newer" }],
+    });
+    await act(async () => {
+      void result.current.refresh();
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.threads[0]?.subject).toBe("Newer"));
+    await act(async () => {
+      resolveOld({ available: true, threads: [{ ...THREAD, subject: "Older" }] });
+    });
+    expect(result.current.threads[0].subject).toBe("Newer");
+  });
+
+  it("collapses the two events of one message into one refetch", async () => {
+    listThreadsFn.mockResolvedValue({ available: true, threads: [] });
+    const { result } = renderHook(() => useSupportThreads(ARGS));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    act(() => {
+      channelHandlers.list[0].cb();
+      channelHandlers.list[1].cb();
+    });
+    await waitFor(() => expect(listThreadsFn).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 250));
+    expect(listThreadsFn).toHaveBeenCalledTimes(2);
+  });
+
   it("removes the channel on unmount", async () => {
     listThreadsFn.mockResolvedValue({ available: true, threads: [] });
     const { result, unmount } = renderHook(() => useSupportThreads(ARGS));

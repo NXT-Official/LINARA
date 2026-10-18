@@ -70,6 +70,7 @@ export function PlatformAdminSupportPage() {
 
       {selected && token && (
         <ThreadView
+          key={selected.id}
           token={token}
           thread={selected}
           me="platform_admin"

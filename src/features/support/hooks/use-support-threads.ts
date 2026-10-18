@@ -25,6 +25,9 @@ export function useSupportThreads({
   const [status, setStatus] = useState<SupportThreadsStatus>("loading");
   const [threads, setThreads] = useState<SupportThread[]>([]);
   const alive = useRef(true);
+  // Only the newest request may write: one new message fires two realtime
+  // events, and a token or household change leaves older calls in flight.
+  const requestId = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -35,11 +38,13 @@ export function useSupportThreads({
 
   const refresh = useCallback(async () => {
     if (!ready || !token) return;
+    requestId.current += 1;
+    const mine = requestId.current;
     try {
       const reply = await listThreadsFn({
         data: { token, scope, householdId: householdId ?? undefined },
       });
-      if (!alive.current) return;
+      if (!alive.current || mine !== requestId.current) return;
       if (!reply.available) {
         setStatus("unavailable");
         setThreads([]);
@@ -48,7 +53,7 @@ export function useSupportThreads({
       setThreads(reply.threads);
       setStatus("ready");
     } catch {
-      if (alive.current) setStatus("error");
+      if (alive.current && mine === requestId.current) setStatus("error");
     }
   }, [ready, token, scope, householdId]);
 
@@ -59,18 +64,21 @@ export function useSupportThreads({
   useEffect(() => {
     if (!ready || !token) return;
     const client = createAuthedClient(token);
+    // The two events of one message arrive together: one refetch covers both.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const soon = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 150);
+    };
     // A fresh topic per run: channel(name) returns any not-yet-removed channel
     // of that name, which is already joined.
     const channel = client
       .channel(`support:${crypto.randomUUID()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_threads" }, () => {
-        void refresh();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, () => {
-        void refresh();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_threads" }, soon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, soon)
       .subscribe();
     return () => {
+      clearTimeout(timer);
       void client.removeChannel(channel);
     };
   }, [ready, token, refresh]);
