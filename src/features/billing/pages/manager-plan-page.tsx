@@ -85,12 +85,16 @@ function PlanSection({
   const pending = data.invoices.find(
     (i) => stillPayable(i) && (!subscription || i.subscriptionId === subscription.id),
   );
-  const canAct = isPrimary && subscription !== null && subscription.status !== "canceled";
+  // A lapsed plan has no entitlement (source is free or none) but still has its row to renew.
+  const hasSub = !!ent?.subscriptionId;
+  const ended = status === "expired" || status === "past_due";
+  const canRenew = isPrimary && subscription !== null;
+  const canCancel =
+    canRenew && subscription.status !== "canceled" && status !== "expired" && status !== "canceled";
   const [confirming, setConfirming] = useState(false);
 
-  const name =
-    source === "subscription" ? (ent?.planName ?? "Your plan") : hasPlan ? "Free" : "No plan";
-  const endLabel = status === "trialing" ? "Trial ends" : "Period ends";
+  const name = hasSub ? (ent?.planName ?? "Your plan") : hasPlan ? "Free" : "No plan";
+  const endLabel = status === "trialing" ? "Trial ends" : ended ? "Period ended" : "Period ends";
 
   return (
     <section className={SECTION} aria-labelledby="your-plan">
@@ -99,7 +103,7 @@ function PlanSection({
       </h2>
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
         <p className="text-lg font-semibold text-foreground">{name}</p>
-        {source === "subscription" && status && <Pill status={status} />}
+        {hasSub && status && <Pill status={status} />}
       </div>
 
       <ul className="mt-3 divide-y divide-border/60 border-y border-border/60">
@@ -115,12 +119,12 @@ function PlanSection({
             {seatText(data.usage.managers, ent?.managerSeats ?? null, hasPlan)}
           </span>
         </li>
-        {source === "subscription" && ent?.periodEnd && (
+        {hasSub && ent?.periodEnd && (
           <li className="flex justify-between gap-3 py-2.5 text-sm">
             <span className="text-foreground">{endLabel}</span>
             <span className="text-foreground">
               {fmtLongDate(ent.periodEnd)}
-              {ent.daysLeft !== null && ent.daysLeft >= 0
+              {!ended && ent.daysLeft !== null && ent.daysLeft >= 0
                 ? ` · ${ent.daysLeft} ${ent.daysLeft === 1 ? "day" : "days"} left`
                 : ""}
             </span>
@@ -134,14 +138,14 @@ function PlanSection({
         </p>
       )}
 
-      {(pending || canAct) && (
+      {(pending || canRenew) && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {pending?.paymentUrl && isPrimary && (
             <a href={pending.paymentUrl} className={PRIMARY_BUTTON}>
               Pay now
             </a>
           )}
-          {canAct && !pending && source === "subscription" && (
+          {canRenew && !pending && (
             <button
               type="button"
               disabled={busy}
@@ -152,7 +156,7 @@ function PlanSection({
               Renew
             </button>
           )}
-          {canAct && (
+          {canCancel && (
             <button
               type="button"
               disabled={busy}
@@ -267,14 +271,21 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
     };
   }, []);
 
-  // Coming back from Xendit's page.
+  // Coming back from Xendit's page. The redirect proves nothing: "paid" is
+  // only said once this household's newest invoice really is paid.
   const toasted = useRef(false);
+  const latestPaid = data?.invoices[0]?.status === "paid";
+  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!paid || toasted.current) return;
-    toasted.current = true;
-    if (paid === "1") toast.success(PAID_COPY);
-    else toast.error(NOT_PAID_COPY);
-  }, [paid]);
+    if (toasted.current) return;
+    if (paid === "0") {
+      toasted.current = true;
+      toast.error(NOT_PAID_COPY);
+    } else if (paid === "1" && latestPaid) {
+      toasted.current = true;
+      toast.success(PAID_COPY);
+    }
+  }, [paid, latestPaid]);
 
   // The webhook, not the redirect, moves the plan: look again whenever the tab
   // comes back, and for a minute after a payment until the newest invoice is paid.
@@ -291,13 +302,13 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
     };
   }, [refresh]);
 
-  const latestPaid = data?.invoices[0]?.status === "paid";
   useEffect(() => {
     if (paid !== "1" || latestPaid) return;
     const startedAt = Date.now();
     const id = setInterval(() => {
-      if (Date.now() - startedAt > 60_000) {
+      if (Date.now() - startedAt >= 60_000) {
         clearInterval(id);
+        setTimedOut(true);
         return;
       }
       void refresh();
@@ -397,6 +408,16 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
   } else {
     body = (
       <>
+        {paid === "1" && !latestPaid && (
+          <p
+            role="status"
+            className="rounded-2xl bg-secondary/60 px-4 py-3 text-sm text-foreground"
+          >
+            {timedOut
+              ? "Xendit hasn't confirmed yet. This page updates on its own; you can also come back later."
+              : "Checking your payment with Xendit…"}
+          </p>
+        )}
         <PlanSection
           data={data}
           isPrimary={isPrimary}
@@ -432,6 +453,7 @@ export function ManagerPlanPage({ paid }: { paid?: "1" | "0" }) {
                 plans={plans.list}
                 usage={data.usage}
                 homes={data.homes}
+                homesWithHistory={data.homesWithHistory}
                 currentHouseholdId={householdId}
                 busy={busy}
                 onSubmit={checkout}

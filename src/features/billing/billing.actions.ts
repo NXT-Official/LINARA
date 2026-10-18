@@ -10,6 +10,7 @@ import type {
   PlatformInvoice,
   Subscription,
 } from "./billing.types";
+import { trialEligible } from "./billing.types";
 import { createPaymentSession } from "./xendit-sessions";
 
 /**
@@ -35,6 +36,15 @@ const missing = (error: RpcError) =>
 function fail(error: RpcError, fallback: string): never {
   throw new Error(error?.message || fallback);
 }
+
+/** Where a handled-but-worrying error goes. The server functions wire in Sentry; tests pass a spy. */
+export type Report = (error: unknown) => Promise<void>;
+
+/** Imported inside the handler: a `*.server` file must stay out of the client bundle's import graph. */
+const reportToSentry: Report = async (error) => {
+  const { captureServerError } = await import("@/lib/observability/sentry.server");
+  await captureServerError(error);
+};
 
 export type BillingEnv = {
   platformBilling: string | undefined;
@@ -84,10 +94,10 @@ function toSubscription(row: Record<string, unknown>): Subscription {
   return {
     id: String(row.id),
     planId: String(row.plan_id),
-    ownerUserId: String(row.owner_user_id),
+    ownerUserId: str(row.owner_user_id),
     status: String(row.status),
-    helperSeats: Number(row.helper_seats),
-    managerSeats: Number(row.manager_seats),
+    helperSeats: num(row.helper_seats),
+    managerSeats: num(row.manager_seats),
     homeSeats: Number(row.home_seats),
     amountCentavos: Number(row.amount_centavos),
     currentPeriodStart: str(row.current_period_start),
@@ -116,6 +126,12 @@ function toInvoice(row: Record<string, unknown>): PlatformInvoice {
   };
 }
 
+// Explicit columns: raw_callback and the payer's details stay out of the browser's reach.
+const SUBSCRIPTION_COLUMNS =
+  "id, plan_id, owner_user_id, status, helper_seats, manager_seats, home_seats, amount_centavos, current_period_start, current_period_end, canceled_at, note, created_at";
+const INVOICE_COLUMNS =
+  "id, invoice_number, subscription_id, external_id, payment_url, expires_at, status, amount_centavos, currency, period_start, period_end, paid_at, created_at";
+
 const EMPTY: BillingSnapshot = {
   available: false,
   entitlements: null,
@@ -123,6 +139,7 @@ const EMPTY: BillingSnapshot = {
   invoices: [],
   usage: { helpers: 0, managers: 0 },
   homes: [],
+  homesWithHistory: [],
 };
 
 export async function getBilling(client: Client, householdId: string): Promise<BillingSnapshot> {
@@ -132,9 +149,7 @@ export async function getBilling(client: Client, householdId: string): Promise<B
   if (missing(entError)) return EMPTY;
   if (entError) fail(entError, "Couldn't load your plan");
 
-  const [subs, invoices, helpers, managers, homes] = await Promise.all([
-    client.from("subscriptions").select("*").order("created_at", { ascending: false }),
-    client.from("platform_invoices").select("*").order("created_at", { ascending: false }),
+  const [helpers, managers, homes] = await Promise.all([
     client
       .from("helper_profiles")
       .select("id", { count: "exact", head: true })
@@ -146,9 +161,6 @@ export async function getBilling(client: Client, householdId: string): Promise<B
       .eq("household_id", householdId),
     client.rpc("my_households"),
   ]);
-  if (missing(subs.error) || missing(invoices.error)) return EMPTY;
-  if (subs.error) fail(subs.error, "Couldn't load your subscriptions");
-  if (invoices.error) fail(invoices.error, "Couldn't load your invoices");
   if (helpers.error) fail(helpers.error, "Couldn't count your helpers");
   if (managers.error) fail(managers.error, "Couldn't count your managers");
 
@@ -162,6 +174,50 @@ export async function getBilling(client: Client, householdId: string): Promise<B
     name: h.name,
     primary: h.role === "primary_manager",
   }));
+  const homeIds = Array.from(new Set([householdId, ...homeList.map((h) => h.id)]));
+
+  // Which subscriptions cover THIS home (invoices follow), and which of the
+  // caller's homes have already had one that got past `pending`.
+  const links = await client
+    .from("subscription_homes")
+    .select("subscription_id, household_id, subscriptions!inner(status)")
+    .in("household_id", homeIds);
+  if (missing(links.error)) return EMPTY;
+  if (links.error) fail(links.error, "Couldn't load your subscriptions");
+  const linkRows = (links.data ?? []) as unknown as {
+    subscription_id: string;
+    household_id: string;
+    subscriptions: { status: string } | { status: string }[] | null;
+  }[];
+  const statusOf = (l: (typeof linkRows)[number]) =>
+    Array.isArray(l.subscriptions) ? l.subscriptions[0]?.status : l.subscriptions?.status;
+  const subIds = linkRows
+    .filter((l) => l.household_id === householdId)
+    .map((l) => l.subscription_id);
+  const homesWithHistory = Array.from(
+    new Set(linkRows.filter((l) => statusOf(l) !== "pending").map((l) => l.household_id)),
+  );
+
+  const [subs, invoices] =
+    subIds.length === 0
+      ? [
+          { data: [], error: null },
+          { data: [], error: null },
+        ]
+      : await Promise.all([
+          client
+            .from("subscriptions")
+            .select(SUBSCRIPTION_COLUMNS)
+            .in("id", subIds)
+            .order("created_at", { ascending: false }),
+          client
+            .from("platform_invoices")
+            .select(INVOICE_COLUMNS)
+            .in("subscription_id", subIds)
+            .order("created_at", { ascending: false }),
+        ]);
+  if (subs.error) fail(subs.error, "Couldn't load your subscriptions");
+  if (invoices.error) fail(invoices.error, "Couldn't load your invoices");
 
   const entRow = oneRow(ent);
   return {
@@ -171,6 +227,7 @@ export async function getBilling(client: Client, householdId: string): Promise<B
     invoices: ((invoices.data ?? []) as Record<string, unknown>[]).map(toInvoice),
     usage: { helpers: helpers.count ?? 0, managers: managers.count ?? 0 },
     homes: homeList,
+    homesWithHistory,
   };
 }
 
@@ -222,6 +279,7 @@ async function payInvoice(
   env: BillingEnv,
   secretKey: string,
   fetchImpl: typeof fetch,
+  report: Report,
 ): Promise<CheckoutResult> {
   if (start.reused) {
     const { data: existing } = await client
@@ -243,6 +301,12 @@ async function payInvoice(
   if (!user) return { ok: false, code: "NOT_FOUND" };
   const customerEmail = email.trim() || user.email || "";
   if (!customerEmail) return { ok: false, code: "PAYMENT_PROVIDER" };
+  const { data: profile } = await client
+    .from("user_profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const fullName = str(record(profile)?.full_name)?.trim();
 
   let session;
   try {
@@ -253,7 +317,7 @@ async function payInvoice(
         customer: {
           referenceId: user.id,
           email: customerEmail,
-          givenNames: customerEmail.split("@")[0] || "Linara",
+          givenNames: fullName || customerEmail.split("@")[0] || "Linara",
         },
         description: `Linara subscription ${start.invoiceNumber}`,
         successUrl: `${env.siteUrl}/billing/return?paid=1`,
@@ -268,14 +332,17 @@ async function payInvoice(
     return { ok: false, code: "PAYMENT_PROVIDER" };
   }
 
-  // A failed attach still leaves a payable session: the webhook finds the
-  // invoice by external_id, so the household is sent on to pay either way.
-  await client.rpc("attach_xendit_invoice", {
+  // A failed attach still leaves a payable session (the webhook finds the
+  // invoice by external_id), so report it and send the household on to pay.
+  const { error: attachError } = await client.rpc("attach_xendit_invoice", {
     p_invoice_id: start.invoiceId,
     p_xendit_id: session.sessionId,
     p_url: session.paymentUrl,
     p_expires_at: session.expiresAt,
   });
+  if (attachError) {
+    await report(new Error(`attach_xendit_invoice: ${attachError.message}`));
+  }
   return { ok: true, invoiceUrl: session.paymentUrl, trialing: false };
 }
 
@@ -289,10 +356,13 @@ async function finish(
   email: string,
   env: BillingEnv,
   fetchImpl: typeof fetch,
+  report: Report,
 ): Promise<CheckoutResult> {
   const start = toStart(data);
   if (!start) return { ok: false, code: "NOT_FOUND" };
   if (start.invoiceId === null) return { ok: true, invoiceUrl: null, trialing: true };
+  // Backstop: the callers close the gate before any RPC, so this is only
+  // reachable if the SQL decided on a payment we did not expect.
   if (!checkoutOpen(env)) return { available: false };
   return payInvoice(
     client,
@@ -301,7 +371,27 @@ async function finish(
     env,
     env.secretKey,
     fetchImpl,
+    report,
   );
+}
+
+/** Mirrors the SQL: the plan has a trial and none of these homes ever had a subscription past `pending`. */
+async function wouldTrial(client: Client, planId: string, homeIds: string[]): Promise<boolean> {
+  const { data: plan } = await client
+    .from("plans")
+    .select("trial_days")
+    .eq("id", planId)
+    .maybeSingle();
+  const trialDays = Number(record(plan)?.trial_days ?? 0);
+  if (trialDays <= 0) return false;
+  const { data: links, error } = await client
+    .from("subscription_homes")
+    .select("household_id, subscriptions!inner(status)")
+    .in("household_id", homeIds)
+    .neq("subscriptions.status", "pending");
+  if (error) return false;
+  const history = ((links ?? []) as { household_id: string }[]).map((l) => l.household_id);
+  return trialEligible({ trialDays }, homeIds, history);
 }
 
 export async function startCheckout(
@@ -315,7 +405,14 @@ export async function startCheckout(
   },
   env: BillingEnv,
   fetchImpl: typeof fetch = fetch,
+  report: Report = reportToSentry,
 ): Promise<CheckoutResult> {
+  // A trial takes no payment, so it may start with billing off. Anything
+  // else must not touch the database until checkout is open: a refused Pay
+  // click would leave a pending subscription and burn an invoice number.
+  const trial = await wouldTrial(client, input.planId, input.homeIds);
+  if (!trial && !checkoutOpen(env)) return { available: false };
+
   const { data, error } = await client.rpc("start_subscription", {
     p_plan_id: input.planId,
     p_helper_seats: input.helperSeats,
@@ -324,7 +421,7 @@ export async function startCheckout(
   });
   if (missing(error)) return { available: false };
   if (error) return { ok: false, code: error.message ?? "" };
-  return finish(client, data, input.email, env, fetchImpl);
+  return finish(client, data, input.email, env, fetchImpl, report);
 }
 
 export async function renewCheckout(
@@ -332,13 +429,15 @@ export async function renewCheckout(
   input: { subscriptionId: string; email: string },
   env: BillingEnv,
   fetchImpl: typeof fetch = fetch,
+  report: Report = reportToSentry,
 ): Promise<CheckoutResult> {
+  if (!checkoutOpen(env)) return { available: false };
   const { data, error } = await client.rpc("renew_subscription", {
     p_subscription_id: input.subscriptionId,
   });
   if (missing(error)) return { available: false };
   if (error) return { ok: false, code: error.message ?? "" };
-  return finish(client, data, input.email, env, fetchImpl);
+  return finish(client, data, input.email, env, fetchImpl, report);
 }
 
 export async function cancelSubscription(

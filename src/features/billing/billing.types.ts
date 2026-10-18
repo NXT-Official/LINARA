@@ -15,10 +15,11 @@ export type Entitlements = {
 export type Subscription = {
   id: string;
   planId: string;
-  ownerUserId: string;
+  ownerUserId: string | null;
   status: string;
-  helperSeats: number;
-  managerSeats: number;
+  /** A null seat count is unlimited. */
+  helperSeats: number | null;
+  managerSeats: number | null;
   homeSeats: number;
   amountCentavos: number;
   currentPeriodStart: string | null;
@@ -55,6 +56,8 @@ export type BillingSnapshot = {
   invoices: PlatformInvoice[];
   usage: SeatUsage;
   homes: BillingHome[];
+  /** Homes (among the caller's) that already had a subscription that got past `pending`: no trial for them. */
+  homesWithHistory: string[];
 };
 
 export type CheckoutResult =
@@ -107,3 +110,23 @@ export const fmtLongDate = (iso: string): string =>
 
 /** A payment page is only ever opened from an https address. */
 export const isHttpsUrl = (url: string): boolean => url.startsWith("https://");
+
+/** A trial is for homes that never had a subscription (the SQL's rule, mirrored for the picker). */
+export const trialEligible = (
+  plan: { trialDays: number },
+  homeIds: string[],
+  homesWithHistory: string[],
+): boolean => plan.trialDays > 0 && !homeIds.some((id) => homesWithHistory.includes(id));
+
+/** `?paid=1` reaches validateSearch as the number 1 (the router parses JSON), so take both forms. */
+export const paidFlag = (value: unknown): "1" | "0" | undefined => {
+  if (value === 1 || value === "1") return "1";
+  if (value === 0 || value === "0") return "0";
+  return undefined;
+};
+
+/** What a person joining with a manager code reads when the household has no manager seat left. */
+export const joinErrorCopy = (message: string): string =>
+  message.startsWith("SEAT_LIMIT:manager")
+    ? "This household has used all its manager seats. Ask its primary manager to add one."
+    : message;

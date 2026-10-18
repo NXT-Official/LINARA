@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { paidFlag } from "@/features/billing/billing.types";
 import { RouteError } from "@/components/shared/route-error";
 import { ManagerPlanPage } from "@/features/billing/pages/manager-plan-page";
 
@@ -10,7 +11,7 @@ type PlanSearch = {
 
 export const Route = createFileRoute("/_app/manager/plan")({
   validateSearch: (search: Record<string, unknown>): PlanSearch => ({
-    paid: search.paid === "1" || search.paid === "0" ? search.paid : undefined,
+    paid: paidFlag(search.paid),
   }),
   head: () => ({ meta: [{ title: "Plan & billing | Linara" }] }),
   component: ManagerPlanRoute,

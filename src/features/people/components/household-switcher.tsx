@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
+import { joinErrorCopy } from "@/features/billing/billing.types";
+
 import { lookupManagerInviteFn } from "../household.actions";
 import { adminTypeLabel, managerRoleType } from "../people.constants";
 import { clearPendingCode, readPendingCode } from "../pending-invite";
@@ -261,7 +263,7 @@ export function JoinHouseholdForm({
     setBusy(true);
     onJoin(cleaned, askName ? fullName.trim() : undefined).catch((err: Error) => {
       setBusy(false);
-      toast.error(err.message);
+      toast.error(joinErrorCopy(err.message));
     });
   };
 

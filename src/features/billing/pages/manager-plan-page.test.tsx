@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BillingSnapshot, Entitlements, PlatformInvoice } from "../billing.types";
+import type {
+  BillingSnapshot,
+  Entitlements,
+  PlatformInvoice,
+  Subscription,
+} from "../billing.types";
 import type { Plan } from "../plan.types";
 
 const billing = vi.hoisted(() => ({ value: {} as unknown }));
@@ -13,7 +18,8 @@ vi.mock("@tanstack/react-router", () => ({
     <a href={to}>{children}</a>
   ),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
 vi.mock("@/features/dashboard/app-store-context", () => ({
   useAppStores: () => ({
     session: { token: "t", householdId: "h1", status: "authed", adminType: "primary" },
@@ -32,7 +38,11 @@ import { ManagerPlanPage } from "./manager-plan-page";
 beforeEach(() => {
   plansFn.mockResolvedValue({ available: true, plans: [] });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  toast.success.mockClear();
+  toast.error.mockClear();
+});
 
 const ent = (over: Partial<Entitlements>): Entitlements => ({
   source: "subscription",
@@ -94,6 +104,7 @@ const ready = (over: Partial<BillingSnapshot>) => {
       invoices: [],
       usage: { helpers: 2, managers: 1 },
       homes: [{ id: "h1", name: "Home", primary: true }],
+      homesWithHistory: [],
       ...over,
     },
   };
@@ -179,9 +190,103 @@ describe("ManagerPlanPage", () => {
     expect(await screen.findByRole("radio", { name: /Home/ })).toBeTruthy();
   });
 
-  it("names a lapsed plan", () => {
-    ready({ entitlements: ent({ status: "active", effectiveStatus: "expired" }) });
+  it("offers Renew but not Cancel on a lapsed plan, which the database reports as free", () => {
+    const sub: Subscription = {
+      id: "s1",
+      planId: "p1",
+      ownerUserId: null,
+      status: "active",
+      helperSeats: 3,
+      managerSeats: 2,
+      homeSeats: 1,
+      amountCentavos: 49900,
+      currentPeriodStart: "2026-09-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-10-01T00:00:00.000Z",
+      canceledAt: null,
+      note: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+    };
+    ready({
+      subscriptions: [sub],
+      entitlements: ent({
+        source: "free",
+        status: "active",
+        effectiveStatus: "expired",
+        helperSeats: 1,
+        managerSeats: 1,
+        periodEnd: "2026-10-01T00:00:00.000Z",
+        daysLeft: 0,
+      }),
+    });
     render(<ManagerPlanPage />);
+    expect(screen.getByText("Home")).toBeTruthy();
     expect(screen.getByText("Expired")).toBeTruthy();
+    expect(screen.getByText("Period ended")).toBeTruthy();
+    expect(screen.queryByText(/days? left/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Renew" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+  });
+});
+
+describe("ManagerPlanPage trial offer", () => {
+  const trialPlan = { ...plan, trialDays: 14 };
+
+  it("offers the trial to a home that never had a subscription", async () => {
+    plansFn.mockResolvedValue({ available: true, plans: [trialPlan] });
+    ready({});
+    render(<ManagerPlanPage />);
+    expect(
+      await screen.findByRole("button", { name: "Start your 14-day free trial" }),
+    ).toBeTruthy();
+  });
+
+  it("shows the price instead when the home already had one", async () => {
+    plansFn.mockResolvedValue({ available: true, plans: [trialPlan] });
+    ready({ homesWithHistory: ["h1"] });
+    render(<ManagerPlanPage />);
+    expect(await screen.findByRole("button", { name: /^Pay ₱/ })).toBeTruthy();
+    expect(screen.queryByText(/free trial/)).toBeNull();
+  });
+});
+
+describe("ManagerPlanPage after Xendit", () => {
+  it("checks first and toasts nothing until the newest invoice is paid", () => {
+    ready({ invoices: [invoice({ status: "pending", paidAt: null })] });
+    render(<ManagerPlanPage paid="1" />);
+    expect(screen.getByText("Checking your payment with Xendit…")).toBeTruthy();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("toasts the paid copy once the newest invoice is paid", () => {
+    ready({ invoices: [invoice({ status: "paid" })] });
+    render(<ManagerPlanPage paid="1" />);
+    expect(toast.success).toHaveBeenCalledWith("Paid, thank you.");
+    expect(screen.queryByText("Checking your payment with Xendit…")).toBeNull();
+  });
+
+  it("says Xendit has not confirmed after a minute without the invoice turning paid", () => {
+    vi.useFakeTimers();
+    try {
+      ready({ invoices: [invoice({ status: "pending", paidAt: null })] });
+      render(<ManagerPlanPage paid="1" />);
+      act(() => {
+        vi.advanceTimersByTime(65_000);
+      });
+      expect(
+        screen.getByText(
+          "Xendit hasn't confirmed yet. This page updates on its own; you can also come back later.",
+        ),
+      ).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("toasts the failure straight away on paid=0", () => {
+    ready({});
+    render(<ManagerPlanPage paid="0" />);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Payment didn't go through. Try again when you're ready.",
+    );
   });
 });

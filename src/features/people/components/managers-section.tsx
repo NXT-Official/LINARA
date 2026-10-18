@@ -4,8 +4,8 @@ import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
+import { getBillingFn } from "@/features/billing/billing.actions";
 import { SeatLimitModal } from "@/features/billing/components/seat-limit-modal";
-import { isSeatLimitError } from "@/features/billing/billing.types";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import {
@@ -39,6 +39,8 @@ export function ManagersSection() {
   const isPrimary = session.adminType === "primary";
   const [invites, setInvites] = useState<ManagerInvite[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [seatLimit, setSeatLimit] = useState(false);
+  const [checkingSeats, setCheckingSeats] = useState(false);
   const [confirm, setConfirm] = useState<{
     kind: "remove" | "primary" | "leave";
     admin: Admin;
@@ -70,6 +72,30 @@ export function ManagersSection() {
       () => session.setManagerRole(a.id, role),
       `${a.short} is now a ${adminTypeLabel[managerRoleType[role]].toLowerCase()}.`,
     );
+
+  // The seat is taken when the invitee claims the code, so a full household
+  // is told here, before a code is made that could never be used.
+  const openInvite = async () => {
+    if (!token || !session.householdId) {
+      setInviting(true);
+      return;
+    }
+    setCheckingSeats(true);
+    try {
+      const billing = await getBillingFn({ data: { token, householdId: session.householdId } });
+      const seats = billing.entitlements?.managerSeats ?? null;
+      if (billing.available && seats !== null && billing.usage.managers >= seats) {
+        setSeatLimit(true);
+      } else {
+        setInviting(true);
+      }
+    } catch {
+      // Can't tell: the claim is checked again by the database.
+      setInviting(true);
+    } finally {
+      setCheckingSeats(false);
+    }
+  };
 
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
@@ -237,7 +263,8 @@ export function ManagersSection() {
             </div>
           )}
           <button
-            onClick={() => setInviting(true)}
+            onClick={openInvite}
+            disabled={checkingSeats}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary"
           >
             <Plus className="h-3.5 w-3.5" /> Invite a manager
@@ -245,6 +272,7 @@ export function ManagersSection() {
         </div>
       )}
 
+      {seatLimit && <SeatLimitModal kind="manager" onClose={() => setSeatLimit(false)} />}
       {inviting && (
         <InviteManagerModal
           token={token}
@@ -293,18 +321,13 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<ManagerInvite | null>(null);
   const [copied, setCopied] = useState(false);
-  const [seatLimit, setSeatLimit] = useState(false);
 
   const create = () => {
     if (!token) return;
     setBusy(true);
     createManagerInviteFn({ data: { token, role } })
       .then(setMade)
-      .catch((err: Error) => {
-        // No seat left on the plan: a way forward, not a toast.
-        if (isSeatLimitError(err)) setSeatLimit(true);
-        else toast.error(err.message);
-      })
+      .catch((err: Error) => toast.error(err.message))
       .finally(() => setBusy(false));
   };
 
@@ -424,7 +447,6 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
           </>
         )}
       </Modal>
-      {seatLimit && <SeatLimitModal kind="manager" onClose={() => setSeatLimit(false)} />}
     </>
   );
 }

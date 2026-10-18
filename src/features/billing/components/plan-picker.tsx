@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 
 import { Field } from "@/components/shared/field";
 
-import type { BillingHome, SeatUsage } from "../billing.types";
+import { trialEligible, type BillingHome, type SeatUsage } from "../billing.types";
 import { fmtCentavos } from "../money";
 import { describePlanPricing, intervalLabel, quoteAmount } from "../plan.pricing";
 import type { Plan } from "../plan.types";
@@ -71,6 +71,7 @@ export function PlanPicker({
   plans,
   usage,
   homes,
+  homesWithHistory,
   currentHouseholdId,
   busy,
   onSubmit,
@@ -78,20 +79,22 @@ export function PlanPicker({
   plans: Plan[];
   usage: SeatUsage;
   homes: BillingHome[];
+  homesWithHistory: string[];
   currentHouseholdId: string;
   busy: boolean;
   onSubmit: (choice: CheckoutChoice) => void;
 }) {
   const [planId, setPlanId] = useState(plans[0]?.id ?? "");
-  const [helperSeats, setHelperSeats] = useState(usage.helpers);
-  const [managerSeats, setManagerSeats] = useState(usage.managers);
+  // null = untouched: the stepper then starts at what the plan includes, never below what is in use.
+  const [helperPick, setHelperSeats] = useState<number | null>(null);
+  const [managerPick, setManagerSeats] = useState<number | null>(null);
   const [pickedHomes, setPickedHomes] = useState<string[]>([currentHouseholdId]);
   const [email, setEmail] = useState("");
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0];
   const primaries = homes.filter((h) => h.primary);
-  const helpers = Math.max(helperSeats, usage.helpers);
-  const managers = Math.max(managerSeats, usage.managers);
+  const helpers = Math.max(helperPick ?? plan?.includedHelpers ?? 0, usage.helpers);
+  const managers = Math.max(managerPick ?? plan?.includedManagers ?? 0, usage.managers);
   const homeIds =
     primaries.length > 1 && pickedHomes.length > 0 ? pickedHomes : [currentHouseholdId];
 
@@ -105,7 +108,7 @@ export function PlanPicker({
   const toggleHome = (id: string) =>
     setPickedHomes((prev) => (prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]));
 
-  const trial = plan.trialDays > 0;
+  const trial = trialEligible(plan, homeIds, homesWithHistory);
   const buttonLabel = !quote.ok
     ? "Pick a smaller number"
     : trial
