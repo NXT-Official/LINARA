@@ -189,7 +189,9 @@ $$;
 
 -- Revenue, cost of goods and profit for p_from..p_to inclusive (Manila days).
 -- Revenue is paid invoices by paid_at; cost entries count when their month's
--- first day is in range; AI spend is by call time.
+-- first day is in range; AI spend is by call time. Paying households are those
+-- covered by a paid plan at any point in the range (a ₱0 comp is not paying);
+-- users are the distinct managers of those households.
 CREATE OR REPLACE FUNCTION public.platform_analytics(p_from DATE, p_to DATE)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -235,6 +237,7 @@ BEGIN
           FROM public.subscription_homes sh
           JOIN public.subscriptions s ON s.id = sh.subscription_id
          WHERE s.status IN ('active', 'past_due', 'canceled')
+           AND s.amount_centavos > 0
            AND s.current_period_start <= v_end
            AND COALESCE(s.current_period_end, 'infinity'::timestamptz) >= v_start
     )

@@ -45,7 +45,8 @@ export function parseSessionCallback(payload: unknown): SessionCallback | null {
     xenditId,
     status,
     paidCentavos,
-    paidAt: nonEmptyString(envelope.created),
+    // When the session changed state (data.updated), else when the event was sent.
+    paidAt: nonEmptyString(data.updated) ?? nonEmptyString(envelope.created),
     channel: nonEmptyString(data.payment_channel) ?? nonEmptyString(data.channel_code),
   };
 }

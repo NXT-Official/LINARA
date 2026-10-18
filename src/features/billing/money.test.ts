@@ -29,4 +29,8 @@ describe("pesosToCentavos", () => {
       expect(pesosToCentavos(bad)).toBeNull();
     }
   });
+
+  it("refuses an amount too big to be exact centavos", () => {
+    expect(pesosToCentavos("999999999999999999")).toBeNull();
+  });
 });

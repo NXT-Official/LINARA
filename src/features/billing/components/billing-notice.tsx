@@ -15,11 +15,16 @@ const over = (seats: number | null, used: number) => seats !== null && used > se
 export function noticeFor(
   entitlements: Entitlements | null,
   usage: SeatUsage,
+  now: Date = new Date(),
 ): { text: string } | null {
   if (!entitlements) return null;
   const status = entitlements.effectiveStatus ?? entitlements.status;
 
   if (status === "past_due") {
+    // Past due inside a running period: the last payment was short of the invoice.
+    if (entitlements.periodEnd && new Date(entitlements.periodEnd).getTime() > now.getTime()) {
+      return { text: "Your last payment didn't cover the plan. Check your plan." };
+    }
     const when = entitlements.periodEnd ? `on ${fmtLongDate(entitlements.periodEnd)}` : "recently";
     return {
       text: `Your plan's period ended ${when}. You have 7 days to renew before seats go back to the free tier.`,

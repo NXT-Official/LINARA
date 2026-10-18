@@ -9,8 +9,11 @@
 // what isn't theirs, the browser never reads notes or raw callbacks, platform
 // admins mark an invoice paid by hand, comp and revoke a household and list
 // every household, trials can't be farmed, a renewed comp gets concrete seats,
-// a deleted owner leaves the revenue record, and household_entitlements falls
-// back to the free tier. Sell-Linara plan, Task 3.
+// a deleted owner leaves the revenue record, household_entitlements falls back
+// to the free tier, a paid plan cancels an abandoned checkout for its homes (a
+// late payment of it is noted for a refund), a renewal replaces nothing, and
+// Xendit confirming a manual mark is noted as a confirmation, not a refund.
+// Sell-Linara plan, Task 3.
 //
 //   npm run test:sql
 import { readFileSync } from "node:fs";
@@ -1199,15 +1202,35 @@ await expectError(
 const afterManual = await pay(s6.external_id, "PAID", null, "xs_s6");
 const afterManualInvoice = await invoiceRow(s6.invoice_id);
 const afterManualNote = (await subRow(s6.subscription_id)).note ?? "";
+const manilaToday = (
+  await one(`SELECT to_char(now() AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD') AS d`)
+).d;
 check(
-  "a Xendit payment after a manual mark is not applied, but noted for a refund and its callback kept",
+  "Xendit confirming the stored session after a manual mark is not applied, noted as a confirmation (no refund), its callback kept",
   afterManual.applied === false &&
-    afterManualNote.includes(
-      `Duplicate payment: session xs_s6 paid invoice ${s6.invoice_number} again on `,
-    ) &&
+    afterManualNote ===
+      `Xendit confirmed session xs_s6 after invoice ${s6.invoice_number} was marked paid by hand on ${manilaToday}; no second payment` &&
     afterManualInvoice.raw_callback.manual === true &&
     afterManualInvoice.raw_callback.callback_xs_s6?.event === "payment_session.completed",
   { afterManual, afterManualNote, raw: afterManualInvoice.raw_callback },
+);
+const confirmedAgain = await pay(s6.external_id, "PAID", null, "xs_s6");
+check(
+  "the same confirmation again adds no second note",
+  confirmedAgain.applied === false &&
+    ((await subRow(s6.subscription_id)).note ?? "") === afterManualNote,
+  confirmedAgain,
+);
+const otherAfterManual = await pay(s6.external_id, "PAID", null, "xs_s6_other");
+const otherAfterManualNote = (await subRow(s6.subscription_id)).note ?? "";
+check(
+  "another session paying an invoice marked paid by hand is a duplicate payment to refund",
+  otherAfterManual.applied === false &&
+    otherAfterManualNote.includes(
+      `Duplicate payment: session xs_s6_other paid invoice ${s6.invoice_number} again on `,
+    ) &&
+    otherAfterManualNote.endsWith("; refund in Xendit"),
+  { otherAfterManual, otherAfterManualNote },
 );
 
 // H5 now has s5 (canceled, ended an hour ago: expired) and s6 (active). With
@@ -1610,6 +1633,114 @@ check(
   "and its invoices",
   invoicesBefore === 1 && (await s6Invoices()) === invoicesBefore,
   invoicesBefore,
+);
+
+// --- An abandoned checkout ends when another plan for its homes is paid ----------------
+const W = "00000000-0000-0000-0000-0000000000b8"; // primary of H11 and H12
+const H11 = "10000000-0000-0000-0000-000000000011";
+const H12 = "10000000-0000-0000-0000-000000000012";
+await asOwner(() =>
+  db.exec(`
+    INSERT INTO auth.users VALUES ('${W}');
+    INSERT INTO households (id, name) VALUES ('${H11}', 'Uy Household'), ('${H12}', 'Uy Annex');
+    INSERT INTO user_profiles (id, household_id, full_name, user_type) VALUES
+      ('${W}', '${H11}', 'Wen Uy', 'primary_manager');
+    INSERT INTO household_managers (household_id, user_id, role) VALUES
+      ('${H11}', '${W}', 'primary_manager'), ('${H12}', '${W}', 'primary_manager');
+  `),
+);
+await as(W);
+const abandoned = await start(MONTHLY, 1, 2, [H11]);
+await attach(abandoned.invoice_id, "xs_abandoned", XENDIT("xs_abandoned"));
+const widerPending = await start(MONTHLY, 1, 2, [H11, H12]);
+const chosen = await start(MONTHLY, 3, 2, [H11]);
+await pay(chosen.external_id, "PAID", chosen.amount_centavos, "xs_chosen");
+const abandonedRow = await subRow(abandoned.subscription_id);
+check(
+  "paying a plan cancels a checkout for the same home that was never paid, noted",
+  abandonedRow.status === "canceled" &&
+    abandonedRow.canceled_at !== null &&
+    (await nearNow(abandonedRow.canceled_at)) &&
+    abandonedRow.current_period_start === null &&
+    abandonedRow.current_period_end === null &&
+    abandonedRow.note === `Replaced by ${chosen.subscription_id}`,
+  abandonedRow,
+);
+const abandonedInvoice = await invoiceRow(abandoned.invoice_id);
+check(
+  "and expires its pending invoice, marked replaced",
+  abandonedInvoice.status === "expired" &&
+    abandonedInvoice.raw_callback.replaced_by === chosen.subscription_id &&
+    abandonedInvoice.raw_callback.note === `Replaced by ${chosen.subscription_id}`,
+  abandonedInvoice,
+);
+check(
+  "a checkout that also covers a home the paid plan doesn't stays pending",
+  (await subRow(widerPending.subscription_id)).status === "pending" &&
+    (await invoiceRow(widerPending.invoice_id)).status === "pending",
+);
+const lateAbandoned = await pay(
+  abandoned.external_id,
+  "PAID",
+  abandoned.amount_centavos,
+  "xs_abandoned",
+);
+const abandonedAfter = await subRow(abandoned.subscription_id);
+const eChosen = await entitlements(H11);
+check(
+  "paying the abandoned checkout later is not applied: the paid plan stays, a refund is noted",
+  lateAbandoned.applied === false &&
+    abandonedAfter.status === "canceled" &&
+    abandonedAfter.note.includes(
+      `Late payment: session xs_abandoned paid invoice ${abandoned.invoice_number} on `,
+    ) &&
+    abandonedAfter.note.endsWith("; refund in Xendit") &&
+    (await subRow(chosen.subscription_id)).status === "active" &&
+    eChosen.subscription_id === chosen.subscription_id,
+  { lateAbandoned, note: abandonedAfter.note, eChosen },
+);
+await as(ADMIN);
+const markAbandoned = await rpc(`public.mark_platform_invoice_paid_manually($1, 'gcash', 'late')`, [
+  abandoned.invoice_id,
+]);
+check(
+  "nor can the admin mark the abandoned checkout's invoice paid",
+  markAbandoned.applied === false &&
+    (await subRow(abandoned.subscription_id)).status === "canceled" &&
+    (await invoiceRow(abandoned.invoice_id)).status === "expired",
+  markAbandoned,
+);
+
+// --- A renewal replaces nothing ---------------------------------------------------------
+// The wider plan's first payment still replaces the narrower one it covers.
+await pay(widerPending.external_id, "PAID", widerPending.amount_centavos, "xs_wider");
+check(
+  "a first payment of a wider plan replaces the narrower plan it covers",
+  (await subRow(chosen.subscription_id)).status === "canceled" &&
+    (await subRow(widerPending.subscription_id)).status === "active",
+);
+await as(W);
+const narrow = await start(MONTHLY, 1, 2, [H12]);
+await pay(narrow.external_id, "PAID", narrow.amount_centavos, "xs_narrow");
+const narrowBefore = await subRow(narrow.subscription_id);
+const narrowPending = await start(MONTHLY, 2, 2, [H12]);
+const rWider = await renew(widerPending.subscription_id);
+const widerRenewed = await pay(rWider.external_id, "PAID", rWider.amount_centavos, "xs_wider_2");
+const narrowAfter = await subRow(narrow.subscription_id);
+check(
+  "renewing a wider plan doesn't end a narrower one mid-period",
+  widerRenewed.applied === true &&
+    narrowBefore.status === "active" &&
+    narrowAfter.status === "active" &&
+    narrowAfter.canceled_at === null &&
+    narrowAfter.note === null &&
+    narrowAfter.current_period_end.getTime() === narrowBefore.current_period_end.getTime(),
+  narrowAfter,
+);
+check(
+  "nor cancel a checkout for its homes",
+  (await subRow(narrowPending.subscription_id)).status === "pending" &&
+    (await invoiceRow(narrowPending.invoice_id)).status === "pending",
 );
 
 console.log(failures === 0 ? "\nall passed" : `\n${failures} failed`);

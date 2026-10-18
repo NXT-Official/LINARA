@@ -136,11 +136,33 @@ export type GroceryBoard = {
   month: MonthSpend;
 };
 
-/** Before add-grocery-runs.sql: every line on one list, against the old petty-cash number. */
-async function legacyBoard(client: Client): Promise<GroceryBoard> {
+/** The caller's own household (user_profiles), as people.actions.ts resolves it. */
+async function ownHouseholdId(client: Client): Promise<string> {
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser();
+  if (error || !user) throw new Error("Unauthorized: Invalid token");
+  const { data: profile, error: profileError } = await client
+    .from("user_profiles")
+    .select("household_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) throw new Error(profileError.message);
+  if (!profile?.household_id) throw new Error("Unauthorized: Profile not found");
+  return profile.household_id as string;
+}
+
+/**
+ * Before add-grocery-runs.sql: every line on one list, against the old
+ * petty-cash number. The household is read by id: RLS lets a platform admin
+ * read every household, so "the one row I can see" is not the caller's.
+ */
+export async function legacyBoard(client: Client): Promise<GroceryBoard> {
+  const householdId = await ownHouseholdId(client);
   const [items, household] = await Promise.all([
     client.from("grocery_items").select("*").order("created_at", { ascending: true }),
-    client.from("households").select("petty_cash_budget").limit(1).maybeSingle(),
+    client.from("households").select("petty_cash_budget").eq("id", householdId).maybeSingle(),
   ]);
   if (items.error) throw new Error(items.error.message);
   const rows = ((items.data ?? []) as GroceryItemRow[]).map(toGroceryItem);

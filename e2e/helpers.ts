@@ -23,6 +23,7 @@ export const MANAGER_ROUTES = [
 export const PLATFORM_ADMIN_ROUTES = [
   "/admin",
   "/admin/plans",
+  "/admin/households",
   "/admin/costs",
   "/admin/support",
   "/admin/faqs",

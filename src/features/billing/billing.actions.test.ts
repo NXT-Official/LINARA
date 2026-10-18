@@ -129,6 +129,7 @@ describe("startCheckout", () => {
     expect(body.amount).toBe(499);
     expect(body.success_return_url).toBe("https://linara.test/billing/return?paid=1");
     expect(body.customer.individual_detail.given_names).toBe("Maria Santos");
+    expect(body.customer.reference_id).toBe("u1");
     expect(rpc).toHaveBeenLastCalledWith("attach_xendit_invoice", {
       p_invoice_id: "inv-1",
       p_xendit_id: "ps-1",
@@ -137,6 +138,20 @@ describe("startCheckout", () => {
       p_payer_email: "maria@example.com",
     });
     expect(captureServerError).not.toHaveBeenCalled();
+  });
+
+  it("sends Xendit the customer's uuid without hyphens (an alphanumeric reference_id)", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "5b1f2c0e-0000-4000-8000-000000000001", email: "login@example.com" } },
+    });
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    rpc.mockResolvedValueOnce({ data: paidRow, error: null });
+    rpc.mockResolvedValueOnce({ data: null, error: null });
+    const fetchImpl = vi.fn().mockResolvedValue(session);
+    await startCheckout(client, input, on, fetchImpl, captureServerError);
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(body.customer.reference_id).toBe("5b1f2c0e000040008000000000000001");
+    expect(body.customer.reference_id).toMatch(/^[A-Za-z0-9]+$/);
   });
 
   it("reports a failed attach but still sends the household to pay", async () => {

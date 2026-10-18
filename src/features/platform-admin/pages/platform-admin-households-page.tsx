@@ -5,7 +5,11 @@ import { fmtCentavos } from "@/features/billing/money";
 import { GrantPlanModal } from "../components/grant-plan-modal";
 import { MarkPaidModal } from "../components/mark-paid-modal";
 import { usePlatformAdminSession } from "../hooks/use-platform-admin-session";
-import { listHouseholdsOverviewFn, type HouseholdOverview } from "../households.actions";
+import {
+  listHouseholdsOverviewFn,
+  needsAttention,
+  type HouseholdOverview,
+} from "../households.actions";
 
 type Load =
   | { state: "loading" }
@@ -38,6 +42,18 @@ const dateFmt = new Intl.DateTimeFormat("en-PH", {
 });
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** "No plan" when the free tier is off and nothing covers the home; "Free" on the free tier. */
+function PlanLine({ entitlements }: { entitlements: HouseholdOverview["entitlements"] }) {
+  const status = entitlements.effectiveStatus ?? entitlements.status;
+  const noPlan = entitlements.source === "none";
+  return (
+    <>
+      <span>{entitlements.planName ?? (noPlan ? "No plan" : "Free")}</span>
+      {(status || !noPlan) && <StatusPill status={status} />}
+    </>
+  );
+}
 
 function StatusPill({ status }: { status: string | null }) {
   const key = status ?? "free";
@@ -151,13 +167,19 @@ export function PlatformAdminHouseholdsPage() {
           {shown.map((h) => (
             <li key={h.householdId} className="flex flex-wrap items-center gap-3 py-3.5">
               <div className="min-w-0 flex-1 basis-56">
-                <p className="text-sm font-semibold text-foreground">{h.name}</p>
+                <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+                  {h.name}
+                  {needsAttention(h.notes) && (
+                    <span className="rounded-full bg-status-late-soft px-2.5 py-0.5 text-[13px] font-semibold text-status-late-ink">
+                      Needs attention
+                    </span>
+                  )}
+                </p>
                 <p className="mt-0.5 text-[13px] text-muted-foreground">
                   {plural(h.managers, "manager")} · {plural(h.helpers, "helper")}
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
-                  <span>{h.entitlements.planName ?? "Free"}</span>
-                  <StatusPill status={h.entitlements.effectiveStatus ?? h.entitlements.status} />
+                  <PlanLine entitlements={h.entitlements} />
                   {h.entitlements.periodEnd && (
                     <span>until {dateFmt.format(new Date(h.entitlements.periodEnd))}</span>
                   )}
@@ -179,6 +201,21 @@ export function PlatformAdminHouseholdsPage() {
                   Grant plan
                 </button>
               </div>
+              {h.notes.length > 0 && (
+                <ul
+                  aria-label={`Notes on ${h.name}`}
+                  className="basis-full divide-y divide-border/60 border-t border-border/60"
+                >
+                  {h.notes.map((note, i) => (
+                    <li
+                      key={`${i}:${note}`}
+                      className="break-words py-1.5 text-[13px] text-muted-foreground"
+                    >
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

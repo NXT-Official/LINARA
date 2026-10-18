@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
-import { fmtCentavos } from "@/features/billing/money";
+import { fmtCentavos, pesosToCentavos } from "@/features/billing/money";
 
 import {
   deleteCostEntryFn,
@@ -12,7 +12,7 @@ import {
   saveModelPriceFn,
 } from "../analytics.actions";
 import { COST_CATEGORY_LABELS, type CostEntry, type ModelPrice } from "../analytics.types";
-import { monthHeading, pesosToCentavos } from "../analytics.utils";
+import { monthHeading } from "../analytics.utils";
 import { CostEntryModal } from "../components/cost-entry-modal";
 import { usePlatformAdminSession } from "../hooks/use-platform-admin-session";
 

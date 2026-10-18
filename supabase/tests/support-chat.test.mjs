@@ -1,7 +1,8 @@
 // Runs add-support-chat.sql against a real Postgres (PGlite) as the API's
 // `authenticated` role: a household's manager opens a thread with Linara, a
 // platform admin answers, unread counters follow each side, another
-// household sees nothing, and no one writes the tables directly.
+// household sees nothing, no one writes the tables directly, and deleting the
+// opener's account leaves the thread and its replies.
 //
 //   npm run test:sql
 import { readFileSync } from "node:fs";
@@ -75,9 +76,24 @@ await db.exec(readFileSync(`${REPO}/fix-helper-write-access.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-account-deletion.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-household-managers.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-platform-admins.sql`, "utf8"));
+// The first version of support_threads (5b6af00): opened_by NOT NULL, ON DELETE
+// CASCADE. The file is applied over it, as it would be over a database that ran it.
+await db.exec(`
+  CREATE TABLE public.support_threads (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
+      opened_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL CHECK (length(subject) BETWEEN 1 AND 120),
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_message_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      household_unread INT NOT NULL DEFAULT 0,
+      platform_admin_unread INT NOT NULL DEFAULT 0
+  );
+`);
 await db.exec(readFileSync(`${REPO}/add-support-chat.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-support-chat.sql`, "utf8"));
-console.log("migration applied twice");
+console.log("migration applied twice, over its first version");
 
 const M1 = "00000000-0000-0000-0000-00000000000a"; // manager, Reyes
 const M2 = "00000000-0000-0000-0000-00000000000c"; // manager, Cruz
@@ -287,6 +303,41 @@ await expectError(
 );
 const total = await asOwner(() => one(`SELECT count(*)::int AS n FROM support_messages`));
 check("rejected posts left no message behind", total.n === 5, total);
+
+// --- The opener's account is deleted ------------------------------------------
+const M3 = "00000000-0000-0000-0000-00000000000d"; // co-manager, Reyes, later deleted
+await asOwner(() =>
+  db.exec(`
+    INSERT INTO auth.users VALUES ('${M3}');
+    INSERT INTO user_profiles VALUES ('${M3}', '${H1}', 'Carla Reyes', 'co_manager', now());
+    INSERT INTO household_managers (household_id, user_id, role) VALUES ('${H1}', '${M3}', 'co_manager');
+  `),
+);
+await as(M3);
+const { id: T3 } = await one(
+  `SELECT public.open_support_thread($1, 'Invoice question', 'Which card was charged?') AS id`,
+  [H1],
+);
+await as(AD);
+await q(`SELECT public.post_support_message($1, 'The GCash one.')`, [T3]);
+await asOwner(() => q(`DELETE FROM auth.users WHERE id = $1`, [M3]));
+const orphan = await asOwner(() =>
+  one(
+    `SELECT t.opened_by, (SELECT count(*)::int FROM support_messages m WHERE m.thread_id = t.id) AS messages
+       FROM support_threads t WHERE t.id = $1`,
+    [T3],
+  ),
+);
+check(
+  "deleting the opener's account keeps the thread and the admin's reply, opened_by NULL",
+  orphan !== undefined && orphan.opened_by === null && orphan.messages === 2,
+  orphan,
+);
+await as(M1);
+check(
+  "the household's other manager still reads it",
+  (await q(`SELECT id FROM support_threads WHERE id = $1`, [T3])).length === 1,
+);
 
 console.log(failures === 0 ? "\nall passed" : `\n${failures} failed`);
 process.exit(failures === 0 ? 0 : 1);

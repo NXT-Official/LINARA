@@ -14,6 +14,7 @@ import {
   type BillingSnapshot,
   type CheckoutResult,
   type PlatformInvoice,
+  type Subscription,
 } from "../billing.types";
 import { PlanPicker, type CheckoutChoice } from "../components/plan-picker";
 import { useBilling } from "../hooks/use-billing";
@@ -202,8 +203,13 @@ function PlanSection({
         <Modal onClose={() => setConfirming(false)}>
           <h3 className="font-display text-xl text-foreground">Cancel this plan?</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Seats go back to the free tier. Everyone you have keeps working; you just can&rsquo;t
-            add more until you pick a plan again.
+            {subscription.amountCentavos === 0
+              ? "Your plan ends now; nothing renews after that."
+              : subscription.currentPeriodEnd
+                ? `Your plan stays active until ${fmtLongDate(subscription.currentPeriodEnd)}; nothing renews after that.`
+                : "Your plan stays active; nothing renews after that."}{" "}
+            Then seats go back to the free tier. Everyone you have keeps working; you just
+            can&rsquo;t add more until you pick a plan again.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
@@ -230,7 +236,15 @@ function PlanSection({
   );
 }
 
-function InvoicesSection({ invoices }: { invoices: PlatformInvoice[] }) {
+function InvoicesSection({
+  invoices,
+  subscriptions,
+}: {
+  invoices: PlatformInvoice[];
+  subscriptions: Subscription[];
+}) {
+  // A canceled subscription's invoice is never offered for payment (its link stays on the row).
+  const canceled = new Set(subscriptions.filter((s) => s.status === "canceled").map((s) => s.id));
   return (
     <section className={SECTION} aria-labelledby="invoices">
       <h2 id="invoices" className="font-display text-xl text-foreground">
@@ -258,7 +272,7 @@ function InvoicesSection({ invoices }: { invoices: PlatformInvoice[] }) {
               <div className="flex items-center gap-3">
                 <span className="text-sm text-foreground">{fmtCentavos(inv.amountCentavos)}</span>
                 <Pill status={inv.status} />
-                {stillPayable(inv) && inv.paymentUrl && (
+                {stillPayable(inv) && !canceled.has(inv.subscriptionId) && inv.paymentUrl && (
                   <a
                     href={inv.paymentUrl}
                     onClick={() => rememberPendingInvoice(inv.id)}
@@ -497,7 +511,7 @@ export function ManagerPlanPage({ paid }: { paid?: 1 | 0 }) {
           )}
         </section>
 
-        <InvoicesSection invoices={data.invoices} />
+        <InvoicesSection invoices={data.invoices} subscriptions={data.subscriptions} />
       </>
     );
   }

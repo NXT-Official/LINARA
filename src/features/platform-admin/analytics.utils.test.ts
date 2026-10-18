@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { pesosToCentavos } from "@/features/billing/money";
+
 import type { Analytics } from "./analytics.types";
-import { pesoAxisLabel, pesosToCentavos, rangeFor, seriesForChart } from "./analytics.utils";
+import { pesoAxisLabel, rangeFor, seriesForChart } from "./analytics.utils";
 
 describe("rangeFor", () => {
   const today = new Date(2026, 9, 19);

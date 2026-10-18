@@ -10,10 +10,14 @@ export function fmtCentavos(c: number): string {
   return `${negative ? "−" : ""}₱${pesos.toLocaleString("en-US")}.${centavos}`;
 }
 
-/** Centavos from a pesos string ("19.99" -> 1999), or null when it is not pesos with up to two decimals. */
+/**
+ * Centavos from a pesos string ("19.99" -> 1999), or null when it is not pesos
+ * with up to two decimals, or too big to be an exact integer.
+ */
 export function pesosToCentavos(text: string): number | null {
   const [whole = "", cents, ...rest] = text.trim().split(".");
   if (rest.length > 0 || !/^[0-9]+$/.test(whole)) return null;
   if (cents !== undefined && !/^[0-9]{1,2}$/.test(cents)) return null;
-  return Math.round(Number(text.trim()) * 100);
+  const centavos = Math.round(Number(text.trim()) * 100);
+  return Number.isSafeInteger(centavos) ? centavos : null;
 }

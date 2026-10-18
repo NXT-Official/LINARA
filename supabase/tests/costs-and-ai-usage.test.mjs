@@ -313,7 +313,21 @@ await asOwner(() =>
   ),
 );
 
+// H2 is comped (₱0) for October: covered, but not paying.
 await as(ADMIN);
+const comp = (
+  await one(
+    `SELECT public.grant_subscription($1, $2, 2, 2, now() + interval '30 days', 'pilot') AS r`,
+    [H2, plan],
+  )
+).r;
+await asOwner(() =>
+  q(
+    `UPDATE public.subscriptions SET current_period_start = '2026-10-02 10:00+08',
+            current_period_end = '2026-12-01 10:00+08' WHERE id = $1`,
+    [comp.subscription_id],
+  ),
+);
 const a = await analytics("2026-10-01", "2026-10-31");
 check(
   "analytics: revenue, cost of goods and profit add up",
@@ -330,7 +344,7 @@ check(
   a,
 );
 check(
-  "analytics: one paying household, its two managers, profit per user",
+  "analytics: one paying household (the comp isn't), its two managers, profit per user",
   a.paying_households === 1 && a.users === 2 && a.profit_per_user_centavos === -40152,
   a,
 );

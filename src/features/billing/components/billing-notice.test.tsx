@@ -54,10 +54,23 @@ describe("noticeFor", () => {
   });
 
   it("explains a past-due plan with its end date and the seven days", () => {
-    const n = noticeFor(ent({ effectiveStatus: "past_due" }), usage);
+    const n = noticeFor(
+      ent({ effectiveStatus: "past_due" }),
+      usage,
+      new Date("2026-10-14T00:00:00.000Z"),
+    );
     expect(n?.text).toBe(
       "Your plan's period ended on October 12, 2026. You have 7 days to renew before seats go back to the free tier.",
     );
+  });
+
+  it("says a short payment, not an ended period, when past due before the period ends", () => {
+    const n = noticeFor(
+      ent({ effectiveStatus: "past_due" }),
+      usage,
+      new Date("2026-10-01T00:00:00.000Z"),
+    );
+    expect(n?.text).toBe("Your last payment didn't cover the plan. Check your plan.");
   });
 
   it("says the plan lapsed when nothing is left to fall back on", () => {

@@ -69,12 +69,12 @@ function figuresFor(a: Analytics): Figure[] {
     {
       label: "Paying households",
       value: count(a.payingHouseholds),
-      definition: "Households on a paid plan right now.",
+      definition: "Covered by a paid plan at any point in the range (₱0 comps excluded).",
     },
     {
       label: "Users",
       value: count(a.users),
-      definition: "Managers and helpers with an account.",
+      definition: "Distinct managers of those households.",
     },
     {
       label: "Profit per user",

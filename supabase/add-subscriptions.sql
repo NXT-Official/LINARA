@@ -48,13 +48,15 @@
 -- anything (see billing_settle_invoice). A Xendit payment that can't be applied
 -- (the invoice was already paid, by hand or by another session, or its plan was
 -- replaced) is never silent: it is noted on the subscription for the admin to
--- refund, with its callback kept. Paying a subscription in full makes it its
--- homes' plan: any other running subscription whose homes are all among its
--- homes ends then, and that subscription's pending invoices expire (changing
--- plan starts a new period on payment). A subscription that also covers a home
--- the payer's doesn't is left alone. Each invoice start and renew make carries
--- the quote it was priced from (platform_invoices.quote); paying it in full
--- sets the subscription's seats to that quote's.
+-- refund, with its callback kept. Paying a subscription in full for the first
+-- time makes it its homes' plan: any other running subscription whose homes are
+-- all among its homes ends then, any checkout on those homes never paid for
+-- (pending) is canceled, and their pending invoices expire (changing plan
+-- starts a new period on payment). A renewal replaces nothing. A subscription
+-- that also covers a home the payer's doesn't is left alone. Each invoice
+-- start and renew make carries the quote it was priced from
+-- (platform_invoices.quote); paying it in full sets the subscription's seats
+-- to that quote's.
 --
 -- Trials: a plan's trial is given only when none of the homes has had a
 -- subscription that started, and the buyer has never owned one that started.
@@ -434,9 +436,11 @@ $$;
 --     NULL or equal): the invoice is paid, its period rewritten to the one
 --     granted, and the subscription active for that period: from the current
 --     period's end if that's still ahead, else from now, with the seats of the
---     invoice's quote when it has one. Every other running subscription whose
---     homes are all among this one's ends now, replaced, and its pending
---     invoices expire, marked replaced.
+--     invoice's quote when it has one. On its first payment (the subscription
+--     had never started; a renewal replaces nothing) every other running
+--     subscription whose homes are all among this one's ends now, replaced,
+--     every checkout never paid for (pending, never started) on those homes is
+--     canceled, and their pending invoices expire, marked replaced.
 --   PAID, another amount: the payment is recorded and the subscription marked
 --     past_due with a note for the admin; its period doesn't move.
 --   PAID on an invoice already paid, or expired by a replacement: not applied.
@@ -444,8 +448,10 @@ $$;
 --     when the invoice was marked paid by hand, was paid by another session, or
 --     was replaced: noted once on the subscription for the admin to refund, and
 --     its callback kept on the invoice (raw_callback when that's empty, else
---     under 'callback_<session>'). The paying session again, or an admin's
---     mark again, is just a repeat.
+--     under 'callback_<session>'). The session stored on an invoice marked paid
+--     by hand is Xendit confirming that payment, not a second one: noted once
+--     as a confirmation. The paying session again, or an admin's mark again,
+--     is just a repeat.
 CREATE OR REPLACE FUNCTION public.billing_settle_invoice(
     p_invoice_id UUID,
     p_status TEXT,
@@ -469,8 +475,11 @@ DECLARE
     v_start TIMESTAMPTZ;
     v_end TIMESTAMPTZ;
     v_replaced BOOLEAN;
+    v_confirmed BOOLEAN;
+    v_first BOOLEAN;
     v_paid_on TEXT;
     v_duplicate TEXT;
+    v_marker TEXT;
 BEGIN
     SELECT * INTO v_invoice FROM public.platform_invoices WHERE id = p_invoice_id FOR UPDATE;
     SELECT * INTO v_sub FROM public.subscriptions WHERE id = v_invoice.subscription_id FOR UPDATE;
@@ -497,16 +506,27 @@ BEGIN
 
     v_replaced := v_invoice.status = 'expired' AND COALESCE(v_invoice.raw_callback ? 'replaced_by', false);
     IF v_invoice.status = 'paid' OR v_replaced THEN
+        v_confirmed := NOT v_replaced
+                       AND v_invoice.paid_channel LIKE 'manual:%'
+                       AND v_session IS NOT DISTINCT FROM v_invoice.xendit_session_id;
+        v_marker := CASE WHEN v_confirmed
+            THEN format('Xendit confirmed session %s after invoice %s ', v_session, v_invoice.invoice_number)
+            ELSE format('session %s paid invoice %s ', v_session, v_invoice.invoice_number)
+        END;
         IF v_session IS NOT NULL
            AND (v_replaced
                 OR v_invoice.paid_channel LIKE 'manual:%'
                 OR v_session IS DISTINCT FROM v_invoice.xendit_session_id)
-           AND position(format('session %s paid invoice %s ', v_session, v_invoice.invoice_number)
-                        IN COALESCE(v_sub.note, '')) = 0 THEN
+           AND position(v_marker IN COALESCE(v_sub.note, '')) = 0 THEN
             v_paid_on := to_char(COALESCE(p_paid_at, now()) AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD');
-            v_duplicate := CASE WHEN v_replaced
+            v_duplicate := CASE
+                WHEN v_replaced
                 THEN format('Late payment: session %s paid invoice %s on %s after its plan was replaced; refund in Xendit',
                             v_session, v_invoice.invoice_number, v_paid_on)
+                WHEN v_confirmed
+                THEN format('Xendit confirmed session %s after invoice %s was marked paid by hand on %s; no second payment',
+                            v_session, v_invoice.invoice_number,
+                            to_char(COALESCE(v_invoice.paid_at, now()) AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD'))
                 ELSE format('Duplicate payment: session %s paid invoice %s again on %s; refund in Xendit',
                             v_session, v_invoice.invoice_number, v_paid_on)
             END;
@@ -532,6 +552,7 @@ BEGIN
                         THEN v_sub.current_period_end
                         ELSE now() END;
         v_end := public.billing_period_end(v_start, v_interval);
+        v_first := v_sub.current_period_start IS NULL;
 
         UPDATE public.platform_invoices
            SET status = 'paid',
@@ -561,36 +582,45 @@ BEGIN
          WHERE id = v_sub.id
         RETURNING * INTO v_sub;
 
-        -- Replaced: running subscriptions sharing a home with this one whose
-        -- homes are all among its homes (the payer is primary of every one of
-        -- them). Their pending invoices expire with them, so paying one can't
-        -- bring the old plan back.
-        WITH replaced AS (
-            UPDATE public.subscriptions o
-               SET status = 'canceled',
-                   canceled_at = now(),
-                   current_period_end = now(),
-                   note = public.billing_add_note(o.note, 'Replaced by ' || v_sub.id)
-             WHERE o.id <> v_sub.id
-               AND o.status IN ('trialing', 'active', 'past_due', 'canceled')
-               AND o.current_period_start IS NOT NULL
-               AND (o.current_period_end IS NULL OR o.current_period_end > now())
-               AND EXISTS (SELECT 1 FROM public.subscription_homes mine
-                             JOIN public.subscription_homes theirs ON theirs.household_id = mine.household_id
-                            WHERE mine.subscription_id = v_sub.id AND theirs.subscription_id = o.id)
-               AND NOT EXISTS (SELECT 1 FROM public.subscription_homes theirs
-                                WHERE theirs.subscription_id = o.id
-                                  AND NOT EXISTS (SELECT 1 FROM public.subscription_homes mine
-                                                   WHERE mine.subscription_id = v_sub.id
-                                                     AND mine.household_id = theirs.household_id))
-            RETURNING o.id
-        )
-        UPDATE public.platform_invoices i
-           SET status = 'expired',
-               raw_callback = jsonb_build_object('replaced_by', v_sub.id,
-                                                 'note', 'Replaced by ' || v_sub.id)
-         WHERE i.status = 'pending'
-           AND i.subscription_id IN (SELECT id FROM replaced);
+        -- Replaced, on the first payment only (a renewal of a broader plan
+        -- must not end a narrower one mid-period): running subscriptions
+        -- sharing a home with this one whose homes are all among its homes (the
+        -- payer is primary of every one of them), and checkouts on those homes
+        -- never paid for (pending, never started), so the link of an abandoned
+        -- checkout cannot later activate the old plan over this one. Their
+        -- pending invoices expire with them, marked replaced: paying one later
+        -- is a late payment to refund.
+        IF v_first THEN
+            WITH replaced AS (
+                UPDATE public.subscriptions o
+                   SET status = 'canceled',
+                       canceled_at = now(),
+                       current_period_end = CASE WHEN o.current_period_start IS NULL
+                                                 THEN o.current_period_end
+                                                 ELSE now() END,
+                       note = public.billing_add_note(o.note, 'Replaced by ' || v_sub.id)
+                 WHERE o.id <> v_sub.id
+                   AND ((o.status IN ('trialing', 'active', 'past_due', 'canceled')
+                         AND o.current_period_start IS NOT NULL
+                         AND (o.current_period_end IS NULL OR o.current_period_end > now()))
+                        OR (o.status = 'pending' AND o.current_period_start IS NULL))
+                   AND EXISTS (SELECT 1 FROM public.subscription_homes mine
+                                 JOIN public.subscription_homes theirs ON theirs.household_id = mine.household_id
+                                WHERE mine.subscription_id = v_sub.id AND theirs.subscription_id = o.id)
+                   AND NOT EXISTS (SELECT 1 FROM public.subscription_homes theirs
+                                    WHERE theirs.subscription_id = o.id
+                                      AND NOT EXISTS (SELECT 1 FROM public.subscription_homes mine
+                                                       WHERE mine.subscription_id = v_sub.id
+                                                         AND mine.household_id = theirs.household_id))
+                RETURNING o.id
+            )
+            UPDATE public.platform_invoices i
+               SET status = 'expired',
+                   raw_callback = jsonb_build_object('replaced_by', v_sub.id,
+                                                     'note', 'Replaced by ' || v_sub.id)
+             WHERE i.status = 'pending'
+               AND i.subscription_id IN (SELECT id FROM replaced);
+        END IF;
     ELSE
         UPDATE public.platform_invoices
            SET status = 'paid',

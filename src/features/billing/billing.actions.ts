@@ -326,7 +326,9 @@ async function payInvoice(
         referenceId: start.externalId,
         amountCentavos: start.amountCentavos,
         customer: {
-          referenceId: user.id,
+          // Xendit takes an alphanumeric customer reference_id; a uuid's hyphens go.
+          // src: https://docs.xendit.co/apidocs/create-session.md · Payment Sessions · 2026-10-19
+          referenceId: user.id.replace(/-/g, ""),
           email: customerEmail,
           givenNames: fullName || customerEmail.split("@")[0] || "Linara",
         },

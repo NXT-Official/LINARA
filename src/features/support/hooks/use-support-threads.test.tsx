@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const listThreadsFn = vi.hoisted(() => vi.fn());
 const channelHandlers = vi.hoisted(() => ({ list: [] as { table: string; cb: () => void }[] }));
 const removeChannel = vi.hoisted(() => vi.fn());
+const calls = vi.hoisted(() => ({ order: [] as string[] }));
+const setAuth = vi.hoisted(() => vi.fn());
 
 vi.mock("../support.actions", () => ({ listThreadsFn }));
 vi.mock("@/lib/supabase", () => {
@@ -14,11 +16,24 @@ vi.mock("@/lib/supabase", () => {
       return channel;
     },
     subscribe() {
+      calls.order.push("subscribe");
       return channel;
     },
   };
   return {
-    createAuthedClient: () => ({ channel: () => channel, removeChannel }),
+    createAuthedClient: () => ({
+      channel: () => {
+        calls.order.push("channel");
+        return channel;
+      },
+      removeChannel,
+      realtime: {
+        setAuth: (token: string) => {
+          calls.order.push(`setAuth:${token}`);
+          return setAuth(token);
+        },
+      },
+    }),
   };
 });
 
@@ -42,7 +57,10 @@ afterEach(cleanup);
 beforeEach(() => {
   listThreadsFn.mockReset();
   removeChannel.mockReset();
+  setAuth.mockReset();
+  setAuth.mockResolvedValue(undefined);
   channelHandlers.list = [];
+  calls.order = [];
 });
 
 describe("useSupportThreads", () => {
@@ -115,6 +133,22 @@ describe("useSupportThreads", () => {
     await waitFor(() => expect(listThreadsFn).toHaveBeenCalledTimes(2));
     await new Promise((r) => setTimeout(r, 250));
     expect(listThreadsFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives realtime the token before joining, so the tables' RLS lets events through", async () => {
+    listThreadsFn.mockResolvedValue({ available: true, threads: [] });
+    const { result } = renderHook(() => useSupportThreads(ARGS));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(setAuth).toHaveBeenCalledWith("t");
+    expect(calls.order).toEqual(["setAuth:t", "channel", "subscribe"]);
+  });
+
+  it("still loads when realtime refuses the token", async () => {
+    setAuth.mockRejectedValue(new Error("socket down"));
+    listThreadsFn.mockResolvedValue({ available: true, threads: [THREAD] });
+    const { result } = renderHook(() => useSupportThreads(ARGS));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.threads).toHaveLength(1);
   });
 
   it("removes the channel on unmount", async () => {

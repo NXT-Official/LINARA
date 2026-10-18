@@ -64,6 +64,15 @@ export function useSupportThreads({
   useEffect(() => {
     if (!ready || !token) return;
     const client = createAuthedClient(token);
+    // Realtime never sees global.headers: it joins with the session's token or,
+    // with no session (this client keeps none), the anon key, and anon can't
+    // read the support tables, so no change would ever arrive. Hand it the
+    // token first; setAuth(token) stores it synchronously and sends it on join.
+    // src: https://unpkg.com/@supabase/supabase-js@2.111.0/dist/index.mjs (SupabaseClient: realtime gets accessToken: _getAccessToken, the session token or the anon key) · 2.111.0 · 2026-10-19
+    // src: https://unpkg.com/@supabase/realtime-js@2.111.0/dist/module/RealtimeClient.js (options.headers ignored; setAuth(token) -> _performAuth sets accessTokenValue, a manual token) · 2.111.0 · 2026-10-19
+    client.realtime.setAuth(token).catch(() => {
+      // Live updates only: without them the list still loads and refreshes on demand.
+    });
     // The two events of one message arrive together: one refetch covers both.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const soon = () => {

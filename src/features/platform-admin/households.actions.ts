@@ -6,7 +6,8 @@ import { createAuthedClient } from "@/lib/supabase";
  * Every household's plan, and the two hand-sold-deal writes (supabase/add-subscriptions.sql).
  * Until that SQL is applied the functions don't exist and every answer is
  * `available: false`, so the page says so instead of failing. Errors from the
- * database arrive as messages starting NOT_ADMIN or NOT_FOUND.
+ * database arrive as messages starting NOT_ADMIN, NOT_FOUND, BAD_PERIOD or
+ * BAD_SEATS.
  */
 type DbError = { code?: string; message?: string } | null;
 
@@ -45,6 +46,8 @@ export type HouseholdOverview = {
   helpers: number;
   entitlements: HouseholdEntitlements;
   pendingInvoice: PendingInvoice | null;
+  /** One line per note on its subscriptions (underpaid, refund owed, replaced, comp), newest first. */
+  notes: string[];
 };
 
 type Json = Record<string, unknown>;
@@ -79,6 +82,29 @@ function toPending(raw: unknown): PendingInvoice | null {
   };
 }
 
+/**
+ * platform_households_overview().notes is [{subscription_id, status, note}],
+ * each note one or more lines (billing_add_note joins them with newlines).
+ */
+function toNotes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry) => {
+    const text =
+      typeof entry === "string"
+        ? entry
+        : entry && typeof entry === "object" && typeof (entry as Json).note === "string"
+          ? ((entry as Json).note as string)
+          : "";
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  });
+}
+
+/** A note asks the admin to act when it owes the customer a refund. */
+export const needsAttention = (notes: string[]) => notes.some((n) => /refund/i.test(n));
+
 export function toHousehold(raw: Json): HouseholdOverview {
   return {
     householdId: String(raw.household_id ?? ""),
@@ -88,6 +114,7 @@ export function toHousehold(raw: Json): HouseholdOverview {
     helpers: num(raw.helpers),
     entitlements: toEntitlements(raw.entitlements),
     pendingInvoice: toPending(raw.pending_invoice),
+    notes: toNotes(raw.notes),
   };
 }
 
@@ -116,10 +143,14 @@ export type GrantPlanInput = {
   note: string;
 };
 
-/** The database signals NOT_ADMIN / NOT_FOUND by message prefix; say them in words. */
+/** The database signals errors by message prefix (CODE:detail); say them in words. */
 export function describeAdminError(message: string): string {
   if (message.startsWith("NOT_ADMIN")) return "You don't have admin access.";
   if (message.startsWith("NOT_FOUND")) return "That household, plan or invoice no longer exists.";
+  if (message.startsWith("BAD_PERIOD")) {
+    return "The end date must be in the future (or blank for no end).";
+  }
+  if (message.startsWith("BAD_SEATS")) return "Seats must be blank (unlimited) or 0 or more.";
   return message;
 }
 

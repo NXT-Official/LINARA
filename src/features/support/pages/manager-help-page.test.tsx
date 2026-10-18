@@ -31,7 +31,13 @@ vi.mock("@/lib/supabase", () => {
       return channel;
     },
   };
-  return { createAuthedClient: () => ({ channel: () => channel, removeChannel: vi.fn() }) };
+  return {
+    createAuthedClient: () => ({
+      channel: () => channel,
+      removeChannel: vi.fn(),
+      realtime: { setAuth: () => Promise.resolve() },
+    }),
+  };
 });
 
 import { ManagerHelpPage } from "./manager-help-page";

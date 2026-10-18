@@ -51,6 +51,7 @@ const household = (over: Record<string, unknown>) => ({
   helpers: 2,
   entitlements,
   pendingInvoice: null,
+  notes: [],
   ...over,
 });
 
@@ -110,6 +111,68 @@ describe("PlatformAdminHouseholdsPage", () => {
     expect(screen.getByText(/₱499\.00/)).toBeTruthy();
     expect(screen.getAllByText("Mark paid")).toHaveLength(1);
     expect(screen.getAllByText("Grant plan")).toHaveLength(2);
+  });
+
+  it("shows a row's notes under it and flags a refund owed as needing attention", async () => {
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [
+        household({
+          notes: [
+            "Late payment: session ps_9 paid invoice LIN-0003 on 2026-10-19 after its plan was replaced; refund in Xendit",
+            "Replaced by s2",
+          ],
+        }),
+        household({
+          householdId: "h2",
+          name: "Santos household",
+          notes: ["Comped: pilot"],
+        }),
+      ],
+    });
+    render(<PlatformAdminHouseholdsPage />);
+    const reyes = await screen.findByRole("list", { name: "Notes on Reyes household" });
+    expect(reyes.querySelectorAll("li")).toHaveLength(2);
+    expect(reyes.textContent).toContain("refund in Xendit");
+    expect(screen.getByRole("list", { name: "Notes on Santos household" }).textContent).toBe(
+      "Comped: pilot",
+    );
+    expect(screen.getAllByText("Needs attention")).toHaveLength(1);
+  });
+
+  it("shows no notes list where there are none", async () => {
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [household({})],
+    });
+    render(<PlatformAdminHouseholdsPage />);
+    expect(await screen.findByText("Reyes household")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: /^Notes on/ })).toBeNull();
+    expect(screen.queryByText("Needs attention")).toBeNull();
+  });
+
+  it("says No plan, not Free, when nothing covers the home and the free tier is off", async () => {
+    const none = {
+      ...entitlements,
+      source: "none",
+      subscriptionId: null,
+      planName: null,
+      status: null,
+      effectiveStatus: null,
+      periodEnd: null,
+    };
+    const free = { ...none, source: "free" };
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [
+        household({ entitlements: none }),
+        household({ householdId: "h2", name: "Santos household", entitlements: free }),
+      ],
+    });
+    render(<PlatformAdminHouseholdsPage />);
+    expect(await screen.findByText("No plan")).toBeTruthy();
+    // "Free" once for the free-tier home's plan name and once for its pill; none for "No plan".
+    expect(screen.getAllByText("Free")).toHaveLength(2);
   });
 
   it("filters by name", async () => {

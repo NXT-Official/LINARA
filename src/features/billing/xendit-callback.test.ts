@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { parseSessionCallback } from "./xendit-callback";
@@ -57,6 +60,29 @@ describe("parseSessionCallback", () => {
     expect(parseSessionCallback("nope")).toBeNull();
     expect(parseSessionCallback(completed({ reference_id: undefined }))).toBeNull();
     expect(parseSessionCallback(completed({ payment_session_id: "" }))).toBeNull();
+  });
+
+  it("takes paidAt from data.updated, the moment the session completed, when present", () => {
+    expect(parseSessionCallback(completed({ updated: "2026-10-19T02:59:00.000Z" }))?.paidAt).toBe(
+      "2026-10-19T02:59:00.000Z",
+    );
+    expect(parseSessionCallback(completed())?.paidAt).toBe("2026-10-19T03:04:05.000Z");
+  });
+
+  it("keeps the edge function's copy of the parser identical", () => {
+    const body = (source: string) => {
+      const start = source.indexOf("function parseSessionCallback");
+      return source.slice(start, source.indexOf("\n}\n", start));
+    };
+    const web = readFileSync(resolve(__dirname, "xendit-callback.ts"), "utf8");
+    const edge = readFileSync(
+      resolve(__dirname, "../../../supabase/functions/xendit-session-webhook/index.ts"),
+      "utf8",
+    );
+    expect(body(edge)).toContain(
+      "nonEmptyString(data.updated) ?? nonEmptyString(envelope.created)",
+    );
+    expect(body(edge)).toBe(body(web));
   });
 
   it("returns a null paidAt when created is absent", () => {

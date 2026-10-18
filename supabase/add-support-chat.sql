@@ -25,7 +25,7 @@
 CREATE TABLE IF NOT EXISTS public.support_threads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
-    opened_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    opened_by UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
     subject TEXT NOT NULL CHECK (length(subject) BETWEEN 1 AND 120),
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS public.support_threads (
     household_unread INT NOT NULL DEFAULT 0,
     platform_admin_unread INT NOT NULL DEFAULT 0
 );
+-- A deleted manager's threads, and the admins' replies in them, stay: the
+-- opener goes NULL. Repeated here for a database with the earlier NOT NULL /
+-- ON DELETE CASCADE version of the column.
+ALTER TABLE public.support_threads ALTER COLUMN opened_by DROP NOT NULL;
+ALTER TABLE public.support_threads DROP CONSTRAINT IF EXISTS support_threads_opened_by_fkey;
+ALTER TABLE public.support_threads ADD CONSTRAINT support_threads_opened_by_fkey
+    FOREIGN KEY (opened_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS support_threads_by_household ON public.support_threads (household_id);
 CREATE INDEX IF NOT EXISTS support_threads_by_opened_by ON public.support_threads (opened_by);
 CREATE INDEX IF NOT EXISTS support_threads_by_status ON public.support_threads (status, last_message_at DESC);

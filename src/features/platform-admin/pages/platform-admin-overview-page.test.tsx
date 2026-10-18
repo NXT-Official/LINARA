@@ -80,4 +80,16 @@ describe("PlatformAdminOverviewPage", () => {
     expect(row?.textContent).toContain("—");
     expect(screen.getByText("sop")).toBeTruthy();
   });
+
+  it("defines paying households and users as the database counts them", async () => {
+    getAnalyticsFn.mockResolvedValue({ available: true, analytics });
+    render(<PlatformAdminOverviewPage />);
+    const paying = (await screen.findByText("Paying households")).closest("li");
+    expect(paying?.textContent).toContain(
+      "Covered by a paid plan at any point in the range (₱0 comps excluded).",
+    );
+    const users = screen.getByText("Users").closest("li");
+    expect(users?.textContent).toContain("Distinct managers of those households.");
+    expect(screen.queryByText(/helpers with an account/)).toBeNull();
+  });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -70,6 +70,22 @@ const invoice = (over: Partial<PlatformInvoice>): PlatformInvoice => ({
   periodStart: "2026-10-12T00:00:00.000Z",
   periodEnd: "2026-11-12T00:00:00.000Z",
   paidAt: "2026-10-12T00:00:00.000Z",
+  createdAt: "2026-10-12T00:00:00.000Z",
+  ...over,
+});
+
+const subscription = (over: Partial<Subscription>): Subscription => ({
+  id: "s1",
+  planId: "p1",
+  ownerUserId: null,
+  status: "active",
+  helperSeats: 3,
+  managerSeats: 2,
+  homeSeats: 1,
+  amountCentavos: 49900,
+  currentPeriodStart: "2026-10-12T00:00:00.000Z",
+  currentPeriodEnd: "2026-11-12T00:00:00.000Z",
+  canceledAt: null,
   createdAt: "2026-10-12T00:00:00.000Z",
   ...over,
 });
@@ -181,6 +197,54 @@ describe("ManagerPlanPage", () => {
     );
     expect(screen.getByText("LIN-0001")).toBeTruthy();
     expect(screen.getByText("LIN-0002")).toBeTruthy();
+  });
+
+  it("offers Pay on a pending invoice only while its subscription isn't canceled", () => {
+    const open = {
+      status: "pending",
+      expiresAt: "2999-01-01T00:00:00.000Z",
+      paidAt: null,
+    } as const;
+    ready({
+      subscriptions: [
+        subscription({}),
+        subscription({ id: "s-old", status: "canceled", canceledAt: "2026-10-13T00:00:00.000Z" }),
+      ],
+      invoices: [
+        invoice({
+          ...open,
+          id: "i-live",
+          invoiceNumber: "LIN-0003",
+          paymentUrl: "https://checkout.xendit.test/ps-live",
+        }),
+        invoice({
+          ...open,
+          id: "i-old",
+          invoiceNumber: "LIN-0004",
+          subscriptionId: "s-old",
+          paymentUrl: "https://checkout.xendit.test/ps-old",
+        }),
+      ],
+    });
+    render(<ManagerPlanPage />);
+    const live = screen.getByText("LIN-0003").closest("li") as HTMLElement;
+    const old = screen.getByText("LIN-0004").closest("li") as HTMLElement;
+    expect(within(live).getByRole("link", { name: "Pay" }).getAttribute("href")).toBe(
+      "https://checkout.xendit.test/ps-live",
+    );
+    expect(within(old).queryByRole("link", { name: "Pay" })).toBeNull();
+    expect(within(old).getByText("Waiting for payment")).toBeTruthy();
+  });
+
+  it("says the plan stays active until its period end before canceling", () => {
+    ready({ subscriptions: [subscription({})] });
+    render(<ManagerPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
+    expect(
+      screen.getByText(
+        /^Your plan stays active until November 12, 2026; nothing renews after that\./,
+      ),
+    ).toBeTruthy();
   });
 
   it("lists the public plans to choose from", async () => {

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
+import { pesosToCentavos } from "@/features/billing/money";
 
 import { saveCostEntryFn } from "../analytics.actions";
 import {
@@ -11,7 +12,6 @@ import {
   type CostCategory,
   type CostEntry,
 } from "../analytics.types";
-import { pesosToCentavos } from "../analytics.utils";
 
 const inputCls =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground";

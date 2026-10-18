@@ -33,18 +33,6 @@ export function seriesForChart(analytics: Analytics): ChartPoint[] {
   });
 }
 
-/** Pesos typed as "1200" or "1200.5" to integer centavos; null when it isn't a plain amount. */
-export function pesosToCentavos(text: string): number | null {
-  const trimmed = text.trim();
-  const [whole, fraction = "", ...rest] = trimmed.split(".");
-  if (trimmed.endsWith(".") || rest.length > 0 || !/^\d+$/.test(whole) || fraction.length > 2)
-    return null;
-  if (fraction !== "" && !/^\d+$/.test(fraction)) return null;
-  const v = fraction === "" ? whole : `${whole}.${fraction}`;
-  const centavos = Math.round(Number(v) * 100);
-  return Number.isSafeInteger(centavos) ? centavos : null;
-}
-
 /** Whole-peso axis/tooltip label with a true minus sign: "−₱1,200". */
 export function pesoAxisLabel(pesos: number): string {
   return `${pesos < 0 ? "−" : ""}₱${Math.abs(pesos).toLocaleString("en-US")}`;
