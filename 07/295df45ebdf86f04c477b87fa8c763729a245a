@@ -1,0 +1,557 @@
+src/features/legal/privacy-policy.tsx
+  s_015ef908465883::t_06dbff63b49cad 40-43
+src/features/people/people.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 8-43,45,50-54,76,95,130-156,166-167
+src/lib/shrink-photo.ts
+  s_015ef908465883::t_06dbff63b49cad 1-52
+src/features/ledger/hooks/use-vales.ts
+  s_015ef908465883::t_06dbff63b49cad 24-27
+src/features/leave/leave.constants.ts
+  s_015ef908465883::t_06dbff63b49cad 15-16,21-22,55-59,61
+src/features/tasks/components/task-card.tsx
+  s_015ef908465883::t_06dbff63b49cad 11,22,31,46,49-54,62
+src/features/dashboard/components/manager-pass-tab.tsx
+  s_015ef908465883::t_06dbff63b49cad 2-11,22-28,33,40,77-78,131,155,160-161,163,182-235,259,264,273-275,281-282,305-308,347,359,362-377,430,435-437,456-457,460-462,464-467,472-501,506-507
+src/features/sharing/components/busy-elsewhere-note.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-33
+supabase/add-grocery-runs.sql
+  s_015ef908465883::t_06dbff63b49cad 1-757
+supabase/tests/coworker-reads.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-213
+src/features/dashboard/components/remote-glance.tsx
+  s_015ef908465883::t_06dbff63b49cad 51
+src/features/tasks/planner.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 146-167
+src/features/sharing/hooks/use-sharing.ts
+  s_015ef908465883::t_06dbff63b49cad 1-184
+src/lib/map-limit.ts
+  s_015ef908465883::t_06dbff63b49cad 1-21
+src/features/tasks/routine.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-222
+src/features/groceries/components/run-status-pill.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-21
+src/features/people/components/edit-wage-modal.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-79
+supabase/functions/route-utos/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,120-122
+  s_015ef908465883::t_2338a8877e8c54 123
+src/features/pantry/hooks/use-pantry.ts
+  s_015ef908465883::t_06dbff63b49cad 130
+src/features/people/components/household-switcher.tsx
+  s_015ef908465883::t_06dbff63b49cad 19,38-55,59,107-112,121-122,128-130
+supabase/functions/simplify-sop/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,59-61
+  s_015ef908465883::t_aa1b6b5ff26cfa 62
+src/features/people/people.types.ts
+  s_015ef908465883::t_06dbff63b49cad 5-14,42-47,115-116
+src/features/sharing/components/shared-staff-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-82
+supabase/tests/household-managers.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 117-118,201-205
+  s_015ef908465883::t_760e65ff59c211 206
+src/features/groceries/grocery-runs.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 1-591
+src/features/tasks/components/routine-row.tsx
+  s_015ef908465883::t_06dbff63b49cad 2,5,9-10,19,27-54
+supabase/tests/wage-history.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-246
+src/features/dashboard/pages/manager-pass-page.tsx
+  s_015ef908465883::t_06dbff63b49cad 3,40,79,89-102,144,149,190,244-251
+src/features/pantry/pantry.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 6,13,16,20,24-26,28,30-34,86-91
+src/features/tasks/task.types.ts
+  s_015ef908465883::t_06dbff63b49cad 2,14-15,22-23,52-54,57-62,66-67,72-76
+supabase/fix-helper-coworker-reads.sql
+  s_015ef908465883::t_06dbff63b49cad 1-189
+src/features/tasks/components/lane-now-row.tsx
+  s_015ef908465883::t_06dbff63b49cad 4,39,48-49
+src/features/tasks/task.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1,4,7,23-36,43-47,49-60,100-117,120,123-136,188-214
+src/features/utos/utos.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 161,172,180-181,271-272
+src/features/sharing/components/trip-fields.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-45
+src/features/people/hooks/use-stations.ts
+  s_015ef908465883::t_06dbff63b49cad 1-83
+supabase/add-task-length-and-leave-unassign.sql
+  s_015ef908465883::t_06dbff63b49cad 1-137
+src/features/people/components/pantry-role-picker.tsx
+  s_015ef908465883::t_06dbff63b49cad 15,19-22
+  s_015ef908465883::t_391f699ee1641d 23
+src/features/tasks/planner.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 15,19-37,131-136,157,161-165
+supabase/functions/generate-sop/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,126-128
+  s_015ef908465883::t_91a0b5cb4ac521 129
+src/features/shifts/time-off.ts
+  s_015ef908465883::t_06dbff63b49cad 8,22-23,72-95,127-135
+src/features/appointments/components/appointments-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 17,33,40-41,57,131-160,212
+src/features/legal/terms-of-service.tsx
+  s_015ef908465883::t_06dbff63b49cad 30-31,53
+src/routes/_app/manager.tsx
+  s_015ef908465883::t_06dbff63b49cad 12-13,16-17,19-20
+supabase/add-shared-staff-availability.sql
+  s_015ef908465883::t_06dbff63b49cad 1-91
+supabase/tests/repeating-tasks.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-427
+src/features/tasks/components/planner-search-results.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-104
+src/features/pay/pay.types.ts
+  s_015ef908465883::t_06dbff63b49cad 79-81
+src/features/tasks/components/board-task-card.tsx
+  s_015ef908465883::t_06dbff63b49cad 5,10,35,65,72,107,118-123
+scripts/qa.mjs
+  s_015ef908465883::t_06dbff63b49cad 8
+src/features/teams/hooks/use-teams.ts
+  s_015ef908465883::t_06dbff63b49cad 1-155
+supabase/tests/teams-and-labels.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-193
+src/features/people/components/people-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-2,5-12,15,18,29,42,46-48,59,61-107,114-118,134-141,143-147,149-153,155-170,172-184,187-188,217-224,229-233,235-243,249-271,273
+  s_015ef908465883::t_397af6ed702afd 272,274
+supabase/add-end-of-day-holds.sql
+  s_015ef908465883::t_06dbff63b49cad 1-138
+DESIGN.md
+  s_015ef908465883::t_06dbff63b49cad 181-196,243-247,253-254,260,318-321,323-324,358-359
+supabase/add-grocery-pantry-link.sql
+  s_015ef908465883::t_06dbff63b49cad 1-68
+src/features/teams/components/label-chip.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-38
+src/features/availability/hooks/use-send-gate.ts
+  s_015ef908465883::t_06dbff63b49cad 11,60,73-74,119-137,141,191
+src/features/tasks/components/new-task-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 6-8,13-14,26-27,56-58,63,69-73,79-85,113-115,151-152,154-157,159,175,181-185,190-191,195-200,269
+src/features/teams/teams.constants.ts
+  s_015ef908465883::t_06dbff63b49cad 1-36
+src/lib/evidence-photo.ts
+  s_015ef908465883::t_06dbff63b49cad 1-91
+src/features/teams/components/staff-scope-bar.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-148
+src/lib/security-headers.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-38
+supabase/tests/shared-staff-and-places.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-569
+src/features/leave/components/record-leave-modal.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-49
+src/features/people/components/password-reset-flow.tsx
+  s_015ef908465883::t_06dbff63b49cad 8-9,17-19,74-78,81-86,200
+src/styles.css
+  s_015ef908465883::t_06dbff63b49cad 57-62,87-97
+  s_015ef908465883::t_691defa5179690 98
+src/features/teams/components/bulk-staff-bar.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-165
+src/features/teams/components/helper-picker.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-304
+src/features/teams/teams.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-82
+src/features/shifts/shift.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-19
+src/routeTree.gen.ts
+  s_015ef908465883::t_06dbff63b49cad 18,57-61,109,125,142,160,176,192,210,258-264,363
+src/features/tasks/components/edit-task-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,6-9,14-15,30-31,40-44,47-48,68,85-86,89-90,97-100,110,118-124,139-143,183-212,215-218,231,243-276,305-306,308-311,313,315-319,345,355-358
+  s_015ef908465883::t_7005db0720a67c 359-360
+src/features/utos/components/quick-utos-launcher.tsx
+  s_015ef908465883::t_06dbff63b49cad 5,56-57,59-60,62
+supabase/add-run-closes-task.sql
+  s_015ef908465883::t_06dbff63b49cad 1-36
+src/features/people/hooks/use-session.ts
+  s_015ef908465883::t_06dbff63b49cad 18,20,28-29,32,55-56,85-87,90-91,143-145,180,187-194,249-253,258-259,264,266,274-305
+  s_015ef908465883::t_197e8b5b12a02a 306
+src/features/groceries/grocery.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-2,4-130
+supabase/add-teams-and-labels.sql
+  s_015ef908465883::t_06dbff63b49cad 1-195
+src/features/pay/components/missed-periods-card.tsx
+  s_015ef908465883::t_06dbff63b49cad 39,49-50,134
+src/features/people/components/manager-auth-flow.tsx
+  s_015ef908465883::t_06dbff63b49cad 8,11-12,15-17,20-29,31-39,45-68,75,77-78,82,87,111,120-130,135-142,145,156,166-169,209-277,291,297,300,318-320,328,336-359,361-367,369-373,375-392,394-395,397-399,402-408,411-436,440-441,445-446,448-460,462-476,478,482-483,485-487,489,491-501,503-514,520-521,523,526-544
+src/features/people/components/edit-wage-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 6-7,12-17,20-22,26,32-33,35,40-42,48-53,68,88-114,116-117,164-196
+  s_015ef908465883::t_8251355a2f5cb6 197-198
+src/features/sharing/hooks/use-busy-elsewhere.ts
+  s_015ef908465883::t_06dbff63b49cad 1-18
+src/features/tasks/components/task-planner.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 14,184-201,214-286,444-504
+src/features/groceries/grocery.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,6-10,15,17-19,31-33,36-48,50-52,55-62,65,96-97,153-165,237-239,241-244,247-272,275-277,283,286,294-366
+src/features/groceries/components/run-modal.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-160
+ARCHITECTURE.md
+  s_015ef908465883::t_06dbff63b49cad 299-300,701-703,745,767,771-862,888-896,929-932,938,1086-1134,1334-1360,1716,1950-1968,2324
+src/features/tasks/components/roll-call.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-194
+supabase/add-household-stations.sql
+  s_015ef908465883::t_06dbff63b49cad 1-242
+src/features/pay/components/record-payment-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 65-66
+src/features/people/people.auth.ts
+  s_015ef908465883::t_06dbff63b49cad 1-124
+src/features/tasks/hooks/use-task-search.ts
+  s_015ef908465883::t_06dbff63b49cad 1-83
+src/features/tasks/lane.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-50
+src/features/groceries/components/month-budget.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-225
+src/features/pay/hooks/use-household-payroll.ts
+  s_015ef908465883::t_06dbff63b49cad 3,8,201-211,267
+src/features/tasks/components/routines-view.tsx
+  s_015ef908465883::t_06dbff63b49cad 30-33,42-43,84,97-111
+src/features/people/components/managers-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 22
+src/features/shifts/time-off.test.ts
+  s_015ef908465883::t_06dbff63b49cad 14,138-174
+  s_015ef908465883::t_d31d216920de83 175
+supabase/add-helper-task-edit.sql
+  s_015ef908465883::t_06dbff63b49cad 1-106
+src/features/dashboard/app-store-context.ts
+  s_015ef908465883::t_06dbff63b49cad 11,17-19,39-40,42-45,48-53
+src/features/sharing/components/trip-fields.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-120
+src/features/pay/components/pay-direct-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 152-155,163,165-166,169,222
+src/features/pay/period-estimate.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-60
+src/features/shifts/hooks/use-time-off.ts
+  s_015ef908465883::t_06dbff63b49cad 13-14,16-17,35-36,63-64,66,77,82-92,104-109,145,147-162,194,216
+src/features/landing/landing-view.test.tsx
+  s_015ef908465883::t_a36de3b4f34c68 74-82
+src/features/teams/teams.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 1-194
+src/features/pay/hooks/use-pay-periods.ts
+  s_015ef908465883::t_06dbff63b49cad 3,36-42
+src/features/tasks/task.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,6,9-10,16,27,29-30,136-137,233-234,266-274,280-283,285,287-303,334,363-406,409,453-494,512-516,556-560,564,577-579,604-737,750-773,802-803,814-815
+e2e/deep/pantry.spec.ts
+  s_015ef908465883::t_06dbff63b49cad 45
+src/features/sharing/components/places-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-127
+src/features/leave/components/leave-section.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 93,102
+src/features/tasks/components/edit-task-modal.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 2,64-89
+  s_015ef908465883::t_7aca1afd49276c 90
+src/routes/_app/manager/money.tsx
+  s_015ef908465883::t_06dbff63b49cad 6-14,16-18,20,23-27
+src/features/ledger/rest-off.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 3,67-86
+  s_015ef908465883::t_a48afb92fb9a9e 87-88
+supabase/DEPLOYMENTS.md
+  s_015ef908465883::t_06dbff63b49cad 32-34,61,73
+supabase/functions/_shared/ai-guard.ts
+  s_015ef908465883::t_06dbff63b49cad 1-53
+src/features/people/pending-invite.ts
+  s_015ef908465883::t_06dbff63b49cad 1-29
+supabase/fix-station-rename.sql
+  s_015ef908465883::t_06dbff63b49cad 1-33
+src/features/people/pages/people-page.tsx
+  s_015ef908465883::t_06dbff63b49cad 6-8,15,17-36,40,43,51-54,65-86,88-189,193
+src/lib/signed-in-cookie.ts
+  s_015ef908465883::t_06dbff63b49cad 1-48
+src/features/shifts/shift.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 50-58
+src/features/teams/hooks/use-staff-scope.ts
+  s_015ef908465883::t_06dbff63b49cad 1-159
+src/features/groceries/components/history-view.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-230
+src/features/pantry/components/pantry-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 5,9,33-47,50-52,58,72,77,85-93,97,102-103,111-126
+src/features/tasks/components/suggestions-inbox.tsx
+  s_015ef908465883::t_06dbff63b49cad 32,65
+src/features/groceries/components/receipt-slot.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-3,6-7,10,21-31,33-43,45-49,51-108,112-121,132,136,146,149-166
+src/features/people/hooks/use-invites.ts
+  s_015ef908465883::t_06dbff63b49cad 58-59,93,113-114,128,144,167-168,188,192-193,226,228,248
+supabase/functions/transcribe-notes/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,44-46
+  s_015ef908465883::t_4a8232e094ffe6 47
+src/features/groceries/components/pool-picker.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-98
+src/features/pay/pay.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 3,8,255-259,261-263,265-273,276-301,403-408,598-600
+src/features/tasks/lane.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-65
+src/features/tasks/components/planner-day-column.tsx
+  s_015ef908465883::t_06dbff63b49cad 5,10,12,84,112,124,138-142
+e2e/deep/cleanup.ts
+  s_015ef908465883::t_06dbff63b49cad 19,69-123
+src/features/pay/net-pay.test.ts
+  s_015ef908465883::t_06dbff63b49cad 61-62,64,69,71-72,88,90,244,247
+src/features/pay/period-estimate.ts
+  s_015ef908465883::t_06dbff63b49cad 6-10,26-35
+src/features/sharing/components/trip-chip.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-21
+src/features/tasks/task.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,8-10,70-77,157-202
+src/lib/mobile-app.ts
+  s_015ef908465883::t_06dbff63b49cad 1-27
+supabase/add-shared-staff-and-places.sql
+  s_015ef908465883::t_06dbff63b49cad 1-755
+src/features/ledger/components/rest-off-requests.tsx
+  s_015ef908465883::t_06dbff63b49cad 18
+src/features/people/components/legal-contribution-split-card.tsx
+  s_015ef908465883::t_06dbff63b49cad 44,57,68,81,91-94,96
+src/features/groceries/hooks/use-grocery-history.ts
+  s_015ef908465883::t_06dbff63b49cad 1-41
+src/features/groceries/components/palengke-chip.tsx
+  s_015ef908465883::t_06dbff63b49cad 4-6,8,10-24,26-35,38,41,43-44,47
+MULTI_HELPER_HANDLING.md
+  s_015ef908465883::t_06dbff63b49cad 188-198,222-243
+src/features/tasks/components/the-board-status-lists.tsx
+  s_015ef908465883::t_06dbff63b49cad 43
+supabase/functions/promote-voice-task/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,89-91
+  s_015ef908465883::t_8ff9147814513a 92
+src/features/people/components/helper-row.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-400
+vitest.config.ts
+  s_015ef908465883::t_06dbff63b49cad 23-24
+supabase/tests/end-of-day.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-166
+src/features/dashboard/components/app-store-provider.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,20-23,50-59,61-94,96-101,103,108,132,171-172,182,189,531,533-536,554-555,558-560,589
+src/features/dashboard/pages/manager-schedule-page.tsx
+  s_015ef908465883::t_06dbff63b49cad 46,61,75,80,159,211-218
+src/features/ledger/ledger.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 28,30,32,34
+src/features/pantry/components/pantry-item-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 96
+src/features/pay/pay.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 57-58
+e2e/public.spec.ts
+  s_015ef908465883::t_06dbff63b49cad 37-46,51-92
+src/features/pay/payslip-ack.ts
+  s_015ef908465883::t_06dbff63b49cad 1-16
+src/features/pay/components/payout-confirm-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 123
+src/features/people/people.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 4-5,32,76,87-89,154-156,166-177,224-230,232-233,235-237,242,252,256,309,509-510,525-526,536,550-554,634-637,639,665-680,690
+src/features/dashboard/pages/manager-money-page.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,11,18,23-24,39-40,42,62-83,119-120,122-124,126,152,154
+src/features/sharing/sharing.types.ts
+  s_015ef908465883::t_06dbff63b49cad 1-32
+src/features/tasks/components/duration-field.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-40
+supabase/functions/parse-scheduler/index.ts
+  s_015ef908465883::t_06dbff63b49cad 3-4,165-167
+  s_015ef908465883::t_c8255bd67fe697 168
+src/features/dashboard/components/manager-shell.tsx
+  s_015ef908465883::t_06dbff63b49cad 10
+src/features/appointments/appointment.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 13,60,62-63,176-177
+src/features/groceries/components/budget-bar.tsx
+  s_015ef908465883::t_06dbff63b49cad 3-14,16,22,24,27,29,34
+src/features/tasks/routine.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-153
+src/features/dashboard/components/top-bar.tsx
+  s_015ef908465883::t_06dbff63b49cad 3,6,10,16-21,26,41,47-65,84,92,96-97,107,118-145
+src/features/groceries/components/repeats-list.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-407
+supabase/restrict-account-deletion.sql
+  s_015ef908465883::t_06dbff63b49cad 1-49
+src/features/dashboard/components/spend-and-payday.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,9,33-42,56-57,75-81,83,88-90,94-95,98-100,105-112,116-123,128,130-134,147-148,152,155-157,165,170-173,175,185
+src/features/people/people.auth.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-168
+supabase/add-ai-call-limits.sql
+  s_015ef908465883::t_06dbff63b49cad 1-81
+supabase/tests/evidence-retention.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-189
+src/routes/_app/manager/people.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,4-9,12-14,16,19-31
+src/lib/signed-in-cookie.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-43
+src/features/teams/components/edit-team-labels-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-178
+src/features/people/stations.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 1-164
+supabase/tests/privacy.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 41-42,129-141
+src/features/landing/__fixtures__/landing.pre-cms.html
+  s_015ef908465883::t_a36de3b4f34c68 1
+src/features/pantry/components/pantry-row.tsx
+  s_015ef908465883::t_06dbff63b49cad 67
+.github/workflows/ci.yml
+  s_015ef908465883::t_06dbff63b49cad 1-13,17,19-20,22,28-29,31,34,36-38,40-41,43,45-46,48-49,51-52,54-62,64-74
+supabase/functions/purge-expired-evidence/index.ts
+  s_015ef908465883::t_06dbff63b49cad 1-82
+src/features/groceries/grocery.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-140
+src/features/groceries/components/grocery-row.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,4,16-18,26-27,35-37,58-59,67,69-77,80-91,114-116,120-124,126-137,150-158,160,167-193
+  s_015ef908465883::t_880479f05e174c 194-196
+src/features/tasks/components/new-routine-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 7,9,49,159-160,162-165,181-200
+src/features/groceries/components/runs-list.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-207
+src/features/availability/components/availability-gate.tsx
+  s_015ef908465883::t_06dbff63b49cad 46,85,98,100,102-103
+src/features/teams/hooks/use-team-view.ts
+  s_015ef908465883::t_06dbff63b49cad 1-58
+src/features/pay/wage-rate.ts
+  s_015ef908465883::t_06dbff63b49cad 1-25
+src/features/teams/components/team-label-fields.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-211
+src/features/teams/teams.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-95
+src/features/dashboard/components/sim-clock.tsx
+  s_015ef908465883::t_06dbff63b49cad 50
+src/features/people/components/invite-code-screen.tsx
+  s_015ef908465883::t_06dbff63b49cad 68-71
+src/features/tasks/components/helper-lane.tsx
+  s_015ef908465883::t_06dbff63b49cad 3,6,9-12,39-42,56,82-84,133,137,161,170
+supabase/tests/grocery-runs.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-563
+src/features/availability/hooks/use-send-gate.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 41
+src/features/people/people.utils.test.ts
+  s_015ef908465883::t_06dbff63b49cad 6,29-34,36-46,133-154
+  s_015ef908465883::t_2829f3186c2bd2 155
+supabase/tests/ai-call-limits.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-112
+supabase/tests/grocery-pantry-link.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-157
+src/features/people/components/invite-helper-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 6-7,24,29-31,37-39,42-43,47-49,51,63,66-67,84-85,105,113,116-120,134-139,189-190,204-206,211,218,247
+src/features/groceries/hooks/use-grocery-list.ts
+  s_015ef908465883::t_06dbff63b49cad 5-6,9,14,18-31,35-42,45-48,50-51,62-63,70-79,93-107,109,118-119,128,137-147,149-153,155-161,164-172,174,178-321
+src/features/leave/components/leave-rules.tsx
+  s_015ef908465883::t_06dbff63b49cad 57,60-61
+src/features/sharing/sharing.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-72
+src/features/pay/payslip-ack.test.ts
+  s_015ef908465883::t_06dbff63b49cad 1-21
+src/features/teams/hooks/use-staff-scope.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-73
+src/features/leave/components/record-leave-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 29,42-43,45-47,55,61,98-102,104,106,111-115
+src/features/groceries/components/grocery-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,6-14,16-23,25-36,39-49,51-65,71,76-81,83-87,90-93,95-127,129-133,135-140,142,145-149,151-164,166-171,173-174,178-179
+src/server.ts
+  s_015ef908465883::t_06dbff63b49cad 7-8,53-70,73-74
+supabase/add-evidence-photo-retention.sql
+  s_015ef908465883::t_06dbff63b49cad 1-144
+src/features/groceries/components/grocery-provider.tsx
+  s_015ef908465883::t_06dbff63b49cad 25
+src/lib/security-headers.ts
+  s_015ef908465883::t_06dbff63b49cad 1-32
+e2e/deep/receipts.spec.ts
+  s_015ef908465883::t_06dbff63b49cad 1-51
+src/components/shared/bottom-nav.tsx
+  s_015ef908465883::t_06dbff63b49cad 13-14,24
+src/features/pantry/pantry.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 18-24,27,30-34,36-37,43,45
+src/features/appointments/components/new-appointment-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 5,238-239,241-244,246
+KNOWN_GAPS.md
+  s_015ef908465883::t_06dbff63b49cad 27,38,44-45,50,56,60,65,72,74,76-83,88-94,117-393,3487,3573,3587-3712,3715-3751
+  s_015ef908465883::t_bab59da354189f 3752
+src/features/pay/components/pay-direct-modal.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 77,83
+home-management-concept.md
+  s_015ef908465883::t_06dbff63b49cad 502
+src/features/pay/components/payslip-history.tsx
+  s_015ef908465883::t_06dbff63b49cad 26,33,38,40-41,64,68,79-101,223,225,236,242,370
+src/features/groceries/components/receipt-slot.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-55
+src/features/people/people.constants.ts
+  s_015ef908465883::t_06dbff63b49cad 35,45-48,52,55-77,82,89-92
+src/features/teams/components/teams-labels-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-411
+src/features/dashboard/components/needs-you.tsx
+  s_015ef908465883::t_06dbff63b49cad 11,162,230,294,310-312,318-319,336,358,372,382-383,385-387,390,508
+src/features/shifts/components/shifts-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 8-11,15,29-30,32-34,36-90,108,110-111,115-121,128-148
+src/routes/_app/manager/pass.tsx
+  s_015ef908465883::t_06dbff63b49cad 14-17
+src/routes/signup.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-27
+src/features/groceries/components/needed-list.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-179
+src/features/leave/components/leave-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 33-42,238
+supabase/add-wage-history.sql
+  s_015ef908465883::t_06dbff63b49cad 1-368
+src/features/groceries/grocery.types.ts
+  s_015ef908465883::t_06dbff63b49cad 7-12,16-120,123-127,129-137,139,141-152,155,159-182
+src/features/tasks/components/planner-tone-legend.tsx
+  s_015ef908465883::t_06dbff63b49cad 9
+src/features/people/components/past-staff-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 117
+supabase/fix-label-policy-recursion.sql
+  s_015ef908465883::t_06dbff63b49cad 1-71
+src/features/tasks/components/planner-people.tsx
+  s_015ef908465883::t_06dbff63b49cad 4,20-21,121-136,140
+src/features/sharing/sharing.actions.ts
+  s_015ef908465883::t_06dbff63b49cad 1-228
+supabase/add-repeating-tasks.sql
+  s_015ef908465883::t_06dbff63b49cad 1-299
+src/features/people/components/end-employment-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 2,6,36,38-41,43,74-75,93-104,126-128,131,165-167,185-189,202,215-217,219-223,225,274-275,280-282,294,299-300
+supabase/add-run-change-limit.sql
+  s_015ef908465883::t_06dbff63b49cad 1-26
+e2e/manager.spec.ts
+  s_015ef908465883::t_06dbff63b49cad 39,61-85
+  s_015ef908465883::t_1999b78638e8fe 86
+src/features/availability/availability.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 73-74,80
+src/lib/ai.ts
+  s_015ef908465883::t_06dbff63b49cad 1-7
+supabase/tests/household-stations.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-255
+package.json
+  s_015ef908465883::t_06dbff63b49cad 24
+src/features/groceries/components/run-modal.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-822
+src/features/tasks/hooks/use-task-board.ts
+  s_015ef908465883::t_06dbff63b49cad 1,6-7,24,26,31-32,36-38,64-65,80,91-93,132-138,150,156-157,170-173,189-199,204-209,212,215-293,369-371,503-513,525-527,634-638,640-677,680-698,701-702,705,709,711-712,727,734,756
+src/features/teams/teams.types.ts
+  s_015ef908465883::t_06dbff63b49cad 1-23
+supabase/fix-trip-places-guard.sql
+  s_015ef908465883::t_06dbff63b49cad 1-52
+src/features/teams/components/helper-picker.test.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-82
+src/features/teams/components/team-group.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-59
+src/routes/login.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,5,7-10,12-20,25-26
+src/features/tasks/components/task-planner.tsx
+  s_015ef908465883::t_06dbff63b49cad 1,5,9-11,31,37-38,44,52,54,60,63,65-71,84-85,89-92,110,134-135,143,162-168,183-185,188-199,202-203,205-213,230-231,233,248,281,343,355-356,359-364,366,387-389,407-424,474-488,492-504,506-509,513-515,517,520-625
+supabase/config.toml
+  s_015ef908465883::t_06dbff63b49cad 33-41
+src/features/pay/components/payroll-summary.tsx
+  s_015ef908465883::t_06dbff63b49cad 2,7-9,13-14,27,30-36,51-59,70-81,84-100,124,130,132-136,140-152,154,156-161,164,166-174,176-191,194-265
+src/features/pay/pay.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 39-43
+src/features/people/components/stations-section.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-254
+supabase/tests/helper-task-edit.test.mjs
+  s_015ef908465883::t_06dbff63b49cad 1-309
+src/features/tasks/components/planner-list.tsx
+  s_015ef908465883::t_06dbff63b49cad 1-164
+src/components/shared/list-filter.utils.ts
+  s_015ef908465883::t_06dbff63b49cad 1-3
+supabase/restrict-create-household.sql
+  s_015ef908465883::t_06dbff63b49cad 1-53
+e2e/helpers.ts
+  s_015ef908465883::t_8a4cfe6a7ca29d 21
+src/features/landing/landing-view.tsx
+  s_015ef908465883::t_573c90c0dcb85e 62-77,101-102,104-105,110-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07295df45ebdf86f04c477b87fa8c763729a245a",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
