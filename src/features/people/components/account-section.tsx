@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { AlertCircle, Loader2, X } from "lucide-react";
+import { AlertCircle, ChevronRight, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Field } from "@/components/shared/field";
@@ -81,6 +81,25 @@ export function AccountSection({
         </Link>
         .
       </p>
+
+      <ul className="mt-4 divide-y divide-border/60 border-y border-border/60">
+        {(
+          [
+            { to: "/manager/plan", label: "Plan & billing" },
+            { to: "/manager/help", label: "Help & support" },
+          ] as const
+        ).map((row) => (
+          <li key={row.to}>
+            <Link
+              to={row.to}
+              className="flex items-center justify-between gap-3 py-3 text-sm font-semibold text-foreground hover:text-primary"
+            >
+              {row.label}
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
 
       {request ? (
         <div className="mt-4 rounded-2xl border border-accent/40 bg-terracotta-soft/40 px-4 py-3 text-sm">

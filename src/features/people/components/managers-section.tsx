@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
+import { SeatLimitModal } from "@/features/billing/components/seat-limit-modal";
+import { isSeatLimitError } from "@/features/billing/billing.types";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import {
@@ -291,13 +293,18 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<ManagerInvite | null>(null);
   const [copied, setCopied] = useState(false);
+  const [seatLimit, setSeatLimit] = useState(false);
 
   const create = () => {
     if (!token) return;
     setBusy(true);
     createManagerInviteFn({ data: { token, role } })
       .then(setMade)
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => {
+        // No seat left on the plan: a way forward, not a toast.
+        if (isSeatLimitError(err)) setSeatLimit(true);
+        else toast.error(err.message);
+      })
       .finally(() => setBusy(false));
   };
 
@@ -313,108 +320,111 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
   };
 
   return (
-    <Modal onClose={onClose}>
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">
-          {made ? "Share this code" : "Invite a manager"}
-        </h3>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+    <>
+      <Modal onClose={onClose}>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-display text-xl text-foreground">
+            {made ? "Share this code" : "Invite a manager"}
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-      {made ? (
-        <>
-          <div className="mt-5 rounded-3xl border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
-            <div className="font-display text-4xl font-semibold tracking-[0.15em] text-primary">
-              {made.code}
+        {made ? (
+          <>
+            <div className="mt-5 rounded-3xl border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
+              <div className="font-display text-4xl font-semibold tracking-[0.15em] text-primary">
+                {made.code}
+              </div>
+              <button
+                onClick={copy}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-3 w-3" /> Copy code
+                  </>
+                )}
+              </button>
             </div>
-            <button
-              onClick={copy}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3" /> Copied
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-3 w-3" /> Copy code
-                </>
-              )}
-            </button>
-          </div>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
-            {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
-            <span className="font-semibold text-foreground">Join with a code</span>. Someone who
-            already manages another household keeps it.
-          </p>
-          <div className="mt-5 flex justify-end">
-            <button
-              onClick={onClose}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-            >
-              Done
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <fieldset className="mt-4 space-y-2">
-            <legend className="sr-only">Their role</legend>
-            {(["co_manager", "remote_admin"] as const).map((r) => {
-              const type = managerRoleType[r];
-              return (
-                <label
-                  key={r}
-                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition ${
-                    role === r
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="manager-role"
-                    value={r}
-                    checked={role === r}
-                    onChange={() => setRole(r)}
-                    className="mt-1 accent-[var(--primary)]"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">
-                      {adminTypeLabel[type]}
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
+              {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
+              <span className="font-semibold text-foreground">Join with a code</span>. Someone who
+              already manages another household keeps it.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={onClose}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <fieldset className="mt-4 space-y-2">
+              <legend className="sr-only">Their role</legend>
+              {(["co_manager", "remote_admin"] as const).map((r) => {
+                const type = managerRoleType[r];
+                return (
+                  <label
+                    key={r}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition ${
+                      role === r
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="manager-role"
+                      value={r}
+                      checked={role === r}
+                      onChange={() => setRole(r)}
+                      className="mt-1 accent-[var(--primary)]"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">
+                        {adminTypeLabel[type]}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {adminPermSummary[type]}
+                      </span>
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {adminPermSummary[type]}
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
-          </fieldset>
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={create}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-            >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
-            </button>
-          </div>
-        </>
-      )}
-    </Modal>
+                  </label>
+                );
+              })}
+            </fieldset>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={create}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+      {seatLimit && <SeatLimitModal kind="manager" onClose={() => setSeatLimit(false)} />}
+    </>
   );
 }

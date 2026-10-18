@@ -11,18 +11,30 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as EmailConfirmedRouteImport } from './routes/email-confirmed'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppManagerRouteImport } from './routes/_app/manager'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminCostsRouteImport } from './routes/admin/costs'
+import { Route as AdminFaqsRouteImport } from './routes/admin/faqs'
+import { Route as AdminHouseholdsRouteImport } from './routes/admin/households'
+import { Route as AdminPlansRouteImport } from './routes/admin/plans'
+import { Route as AdminSupportRouteImport } from './routes/admin/support'
+import { Route as BillingReturnRouteImport } from './routes/billing/return'
 import { Route as AppManagerIndexRouteImport } from './routes/_app/manager/index'
+import { Route as AppManagerHelpRouteImport } from './routes/_app/manager/help'
 import { Route as AppManagerMoneyRouteImport } from './routes/_app/manager/money'
 import { Route as AppManagerPantryRouteImport } from './routes/_app/manager/pantry'
 import { Route as AppManagerPassRouteImport } from './routes/_app/manager/pass'
 import { Route as AppManagerPeopleRouteImport } from './routes/_app/manager/people'
+import { Route as AppManagerPlanRouteImport } from './routes/_app/manager/plan'
 import { Route as AppManagerScheduleRouteImport } from './routes/_app/manager/schedule'
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,14 +46,29 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailConfirmedRoute = EmailConfirmedRouteImport.update({
   id: '/email-confirmed',
   path: '/email-confirmed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -69,9 +96,49 @@ const AppManagerRoute = AppManagerRouteImport.update({
   path: '/manager',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCostsRoute = AdminCostsRouteImport.update({
+  id: '/costs',
+  path: '/costs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFaqsRoute = AdminFaqsRouteImport.update({
+  id: '/faqs',
+  path: '/faqs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHouseholdsRoute = AdminHouseholdsRouteImport.update({
+  id: '/households',
+  path: '/households',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSupportRoute = AdminSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AdminRoute,
+} as any)
+const BillingReturnRoute = BillingReturnRouteImport.update({
+  id: '/billing/return',
+  path: '/billing/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppManagerIndexRoute = AppManagerIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppManagerRoute,
+} as any)
+const AppManagerHelpRoute = AppManagerHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => AppManagerRoute,
 } as any)
 const AppManagerMoneyRoute = AppManagerMoneyRouteImport.update({
@@ -94,6 +161,11 @@ const AppManagerPeopleRoute = AppManagerPeopleRouteImport.update({
   path: '/people',
   getParentRoute: () => AppManagerRoute,
 } as any)
+const AppManagerPlanRoute = AppManagerPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => AppManagerRoute,
+} as any)
 const AppManagerScheduleRoute = AppManagerScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
@@ -102,32 +174,55 @@ const AppManagerScheduleRoute = AppManagerScheduleRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/email-confirmed': typeof EmailConfirmedRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/manager': typeof AppManagerRouteWithChildren
+  '/admin/costs': typeof AdminCostsRoute
+  '/admin/faqs': typeof AdminFaqsRoute
+  '/admin/households': typeof AdminHouseholdsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/billing/return': typeof BillingReturnRoute
+  '/admin/': typeof AdminIndexRoute
+  '/manager/help': typeof AppManagerHelpRoute
   '/manager/money': typeof AppManagerMoneyRoute
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/plan': typeof AppManagerPlanRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
   '/manager/': typeof AppManagerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/email-confirmed': typeof EmailConfirmedRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/admin/costs': typeof AdminCostsRoute
+  '/admin/faqs': typeof AdminFaqsRoute
+  '/admin/households': typeof AdminHouseholdsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/billing/return': typeof BillingReturnRoute
+  '/admin': typeof AdminIndexRoute
+  '/manager/help': typeof AppManagerHelpRoute
   '/manager/money': typeof AppManagerMoneyRoute
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/plan': typeof AppManagerPlanRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
   '/manager': typeof AppManagerIndexRoute
 }
@@ -135,17 +230,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/email-confirmed': typeof EmailConfirmedRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/_app/manager': typeof AppManagerRouteWithChildren
+  '/admin/costs': typeof AdminCostsRoute
+  '/admin/faqs': typeof AdminFaqsRoute
+  '/admin/households': typeof AdminHouseholdsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/billing/return': typeof BillingReturnRoute
+  '/admin/': typeof AdminIndexRoute
+  '/_app/manager/help': typeof AppManagerHelpRoute
   '/_app/manager/money': typeof AppManagerMoneyRoute
   '/_app/manager/pantry': typeof AppManagerPantryRoute
   '/_app/manager/pass': typeof AppManagerPassRoute
   '/_app/manager/people': typeof AppManagerPeopleRoute
+  '/_app/manager/plan': typeof AppManagerPlanRoute
   '/_app/manager/schedule': typeof AppManagerScheduleRoute
   '/_app/manager/': typeof AppManagerIndexRoute
 }
@@ -153,49 +260,84 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/email-confirmed'
+    | '/faq'
     | '/login'
+    | '/pricing'
     | '/privacy'
     | '/reset-password'
     | '/signup'
     | '/terms'
     | '/manager'
+    | '/admin/costs'
+    | '/admin/faqs'
+    | '/admin/households'
+    | '/admin/plans'
+    | '/admin/support'
+    | '/billing/return'
+    | '/admin/'
+    | '/manager/help'
     | '/manager/money'
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
+    | '/manager/plan'
     | '/manager/schedule'
     | '/manager/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/email-confirmed'
+    | '/faq'
     | '/login'
+    | '/pricing'
     | '/privacy'
     | '/reset-password'
     | '/signup'
     | '/terms'
+    | '/admin/costs'
+    | '/admin/faqs'
+    | '/admin/households'
+    | '/admin/plans'
+    | '/admin/support'
+    | '/billing/return'
+    | '/admin'
+    | '/manager/help'
     | '/manager/money'
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
+    | '/manager/plan'
     | '/manager/schedule'
     | '/manager'
   id:
     | '__root__'
     | '/'
     | '/_app'
+    | '/admin'
     | '/email-confirmed'
+    | '/faq'
     | '/login'
+    | '/pricing'
     | '/privacy'
     | '/reset-password'
     | '/signup'
     | '/terms'
     | '/_app/manager'
+    | '/admin/costs'
+    | '/admin/faqs'
+    | '/admin/households'
+    | '/admin/plans'
+    | '/admin/support'
+    | '/billing/return'
+    | '/admin/'
+    | '/_app/manager/help'
     | '/_app/manager/money'
     | '/_app/manager/pantry'
     | '/_app/manager/pass'
     | '/_app/manager/people'
+    | '/_app/manager/plan'
     | '/_app/manager/schedule'
     | '/_app/manager/'
   fileRoutesById: FileRoutesById
@@ -203,12 +345,16 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
   EmailConfirmedRoute: typeof EmailConfirmedRoute
+  FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
+  BillingReturnRoute: typeof BillingReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -227,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/email-confirmed': {
       id: '/email-confirmed'
       path: '/email-confirmed'
@@ -234,11 +387,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmailConfirmedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -276,11 +443,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManagerRouteImport
       parentRoute: typeof AppRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/costs': {
+      id: '/admin/costs'
+      path: '/costs'
+      fullPath: '/admin/costs'
+      preLoaderRoute: typeof AdminCostsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/faqs': {
+      id: '/admin/faqs'
+      path: '/faqs'
+      fullPath: '/admin/faqs'
+      preLoaderRoute: typeof AdminFaqsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/households': {
+      id: '/admin/households'
+      path: '/households'
+      fullPath: '/admin/households'
+      preLoaderRoute: typeof AdminHouseholdsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/support': {
+      id: '/admin/support'
+      path: '/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/billing/return': {
+      id: '/billing/return'
+      path: '/billing/return'
+      fullPath: '/billing/return'
+      preLoaderRoute: typeof BillingReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/manager/': {
       id: '/_app/manager/'
       path: '/'
       fullPath: '/manager/'
       preLoaderRoute: typeof AppManagerIndexRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
+    '/_app/manager/help': {
+      id: '/_app/manager/help'
+      path: '/help'
+      fullPath: '/manager/help'
+      preLoaderRoute: typeof AppManagerHelpRouteImport
       parentRoute: typeof AppManagerRoute
     }
     '/_app/manager/money': {
@@ -311,6 +534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManagerPeopleRouteImport
       parentRoute: typeof AppManagerRoute
     }
+    '/_app/manager/plan': {
+      id: '/_app/manager/plan'
+      path: '/plan'
+      fullPath: '/manager/plan'
+      preLoaderRoute: typeof AppManagerPlanRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
     '/_app/manager/schedule': {
       id: '/_app/manager/schedule'
       path: '/schedule'
@@ -322,19 +552,23 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppManagerRouteChildren {
+  AppManagerHelpRoute: typeof AppManagerHelpRoute
   AppManagerMoneyRoute: typeof AppManagerMoneyRoute
   AppManagerPantryRoute: typeof AppManagerPantryRoute
   AppManagerPassRoute: typeof AppManagerPassRoute
   AppManagerPeopleRoute: typeof AppManagerPeopleRoute
+  AppManagerPlanRoute: typeof AppManagerPlanRoute
   AppManagerScheduleRoute: typeof AppManagerScheduleRoute
   AppManagerIndexRoute: typeof AppManagerIndexRoute
 }
 
 const AppManagerRouteChildren: AppManagerRouteChildren = {
+  AppManagerHelpRoute: AppManagerHelpRoute,
   AppManagerMoneyRoute: AppManagerMoneyRoute,
   AppManagerPantryRoute: AppManagerPantryRoute,
   AppManagerPassRoute: AppManagerPassRoute,
   AppManagerPeopleRoute: AppManagerPeopleRoute,
+  AppManagerPlanRoute: AppManagerPlanRoute,
   AppManagerScheduleRoute: AppManagerScheduleRoute,
   AppManagerIndexRoute: AppManagerIndexRoute,
 }
@@ -353,15 +587,39 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AdminRouteChildren {
+  AdminCostsRoute: typeof AdminCostsRoute
+  AdminFaqsRoute: typeof AdminFaqsRoute
+  AdminHouseholdsRoute: typeof AdminHouseholdsRoute
+  AdminPlansRoute: typeof AdminPlansRoute
+  AdminSupportRoute: typeof AdminSupportRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminCostsRoute: AdminCostsRoute,
+  AdminFaqsRoute: AdminFaqsRoute,
+  AdminHouseholdsRoute: AdminHouseholdsRoute,
+  AdminPlansRoute: AdminPlansRoute,
+  AdminSupportRoute: AdminSupportRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
   EmailConfirmedRoute: EmailConfirmedRoute,
+  FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
+  BillingReturnRoute: BillingReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
