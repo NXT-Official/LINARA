@@ -1,0 +1,41 @@
+src/features/people/hooks/use-session.ts
+  s_015ef908465883::t_c906e30b045c18 254,332
+  s_015ef908465883::t_e25a86d844e5ef 54,83-101
+src/features/platform-admin/hooks/use-platform-admin-session.ts
+  s_015ef908465883::t_b207dc7d86036b 1-128
+src/features/platform-admin/platform-admin.actions.ts
+  s_015ef908465883::t_bdb36993a98d43 1-25
+src/features/platform-admin/components/require-platform-admin.test.tsx
+  s_015ef908465883::t_b0c492cf8b3a62 1-13,17-73
+  s_015ef908465883::t_bf8d496fae67a4 14-16
+src/features/platform-admin/platform-admin-nav.constants.ts
+  s_015ef908465883::t_cd7b7bfbb7a0bb 1-12
+src/routes/admin.tsx
+  s_015ef908465883::t_9aadbbecca4a10 1-22
+src/lib/signed-in-cookie.ts
+  s_015ef908465883::t_e25a86d844e5ef 36,42-43
+src/features/platform-admin/components/require-platform-admin.tsx
+  s_015ef908465883::t_5318418cb6013e 1-64
+src/features/platform-admin/components/platform-admin-shell.tsx
+  s_015ef908465883::t_48b3cc350aa686 1-71
+src/lib/signed-in-cookie.test.ts
+  s_015ef908465883::t_ccb6c07d3df3e9 32-45
+src/features/dashboard/components/top-bar.tsx
+  s_015ef908465883::t_b6710a125f191d 7,28,107-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "679787d15152a121e3a8c1543958c3822360b710",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
