@@ -19,8 +19,7 @@ const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
  * Same arithmetic as the SQL quote_subscription (supabase/add-subscriptions.sql):
  * per dimension, a null `included` is unlimited (no extra); over the cap with
  * no extra price is refused; otherwise max(0, seats - included) x extra price.
- * There is a line per capped dimension, so a cap with no extra price still
- * shows on the quote.
+ * The base line is always there; an extra line only when seats go over.
  */
 export function quoteAmount(plan: Plan, seats: Seats): Quote {
   const dims: { dim: Dimension; seats: number; included: number | null; extra: number | null }[] = [
@@ -51,7 +50,7 @@ export function quoteAmount(plan: Plan, seats: Seats): Quote {
     if (over > 0 && d.extra === null) return { ok: false, over: d.dim };
     const centavos = over * (d.extra ?? 0);
     total += centavos;
-    lines.push({ label: count(over, `extra ${d.dim}`), centavos });
+    if (over > 0) lines.push({ label: count(over, `extra ${d.dim}`), centavos });
   }
   return { ok: true, amountCentavos: total, lines };
 }

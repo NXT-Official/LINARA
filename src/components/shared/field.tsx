@@ -16,10 +16,10 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-semibold text-muted-foreground">{label}</span>
       {children}
       {error && (
-        <span role="alert" className="mt-1 block text-xs font-semibold text-destructive">
+        <span role="alert" className="mt-1 block text-[13px] font-semibold text-destructive">
           {error}
         </span>
       )}

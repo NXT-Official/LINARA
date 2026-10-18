@@ -3,9 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RouteError } from "@/components/shared/route-error";
 import { listPublicPlansFn } from "@/features/billing/plan.actions";
 import { PricingPage } from "@/features/billing/pages/pricing-page";
+import { loadPublicPlans } from "@/features/billing/public-plans-loader";
 
 export const Route = createFileRoute("/pricing")({
-  loader: () => listPublicPlansFn({ data: {} }),
+  loader: () => loadPublicPlans(() => listPublicPlansFn({ data: {} })),
   head: () => ({
     meta: [
       { title: "Pricing | Linara" },

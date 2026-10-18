@@ -123,4 +123,28 @@ describe("PlatformAdminPlansPage", () => {
     expect(arg.data.plan.baseCentavos).toBe(49950);
     expect(arg.data.plan.name).toBe("Home");
   });
+
+  it("converts 19.99 pesos to 1999 centavos", async () => {
+    actions.listAllPlansFn.mockResolvedValue({ available: true, plans: [] });
+    actions.savePlanFn.mockResolvedValue({ ...example, id: "new" });
+    render(<PlatformAdminPlansPage />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New plan" }))[0]);
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Cheap" } });
+    fireEvent.change(screen.getByLabelText("Base price (pesos)"), { target: { value: "19.99" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+    await waitFor(() => expect(actions.savePlanFn).toHaveBeenCalled());
+    const arg = actions.savePlanFn.mock.calls[0][0] as { data: { plan: Plan } };
+    expect(arg.data.plan.baseCentavos).toBe(1999);
+  });
+
+  it("rejects a price with three decimals", async () => {
+    actions.listAllPlansFn.mockResolvedValue({ available: true, plans: [] });
+    render(<PlatformAdminPlansPage />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New plan" }))[0]);
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "X" } });
+    fireEvent.change(screen.getByLabelText("Base price (pesos)"), { target: { value: "19.999" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+    expect(await screen.findByText("Use pesos with up to two decimals")).toBeTruthy();
+    expect(actions.savePlanFn).not.toHaveBeenCalled();
+  });
 });

@@ -71,8 +71,11 @@ export const savePlanFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<Plan> => {
     const client = createAuthedClient(data.token);
     const row = planToRow(data.plan);
+    // An edit never writes status: the form holds a stale copy, and status moves only through setPlanStatusFn.
+    const editable: Partial<typeof row> = { ...row };
+    delete editable.status;
     const query = data.plan.id
-      ? client.from("plans").update(row).eq("id", data.plan.id)
+      ? client.from("plans").update(editable).eq("id", data.plan.id)
       : client.from("plans").insert(row);
     const { data: saved, error } = await query.select("*").maybeSingle();
     if (error) fail(error, "Couldn't save the plan");

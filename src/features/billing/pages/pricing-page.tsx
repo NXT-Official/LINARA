@@ -27,16 +27,18 @@ export function PricingPage({ available, plans }: { available: boolean; plans: P
 
       <main className="mx-auto max-w-3xl px-4 pb-20 pt-6 sm:px-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight text-primary">Pricing</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Prices are in pesos and final: tax is already included.
-        </p>
-
         {hasPlans ? (
-          <ul className="mt-8 divide-y divide-border/60 rounded-3xl border border-border/60 bg-card shadow-soft">
-            {plans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </ul>
+          <>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Prices are in pesos and final: tax is already included.
+            </p>
+
+            <ul className="mt-8 divide-y divide-border/60 rounded-3xl border border-border/60 bg-card shadow-soft">
+              {plans.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} />
+              ))}
+            </ul>
+          </>
         ) : (
           <section className="mt-8 rounded-3xl border border-border/60 bg-card p-6 shadow-soft sm:p-8">
             <h2 className="font-display text-xl text-foreground">

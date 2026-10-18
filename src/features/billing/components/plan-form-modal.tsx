@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
 
-import { fmtCentavos } from "../money";
+import { fmtCentavos, pesosToCentavos } from "../money";
 import { savePlanFn } from "../plan.actions";
 import { quoteAmount } from "../plan.pricing";
 import type { Plan, PlanInterval } from "../plan.types";
@@ -94,7 +94,7 @@ function parseNonNegative(text: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-const toCentavos = (pesos: number) => Math.round(pesos * 100);
+const PESOS_ERROR = "Use pesos with up to two decimals";
 
 type Built = { plan: Plan; errors: Record<string, string> };
 
@@ -104,8 +104,8 @@ function build(form: Form, existing: Plan | null): Built {
   if (form.name.trim() === "") errors.name = "Give the plan a name.";
   else if (form.name.trim().length > 60) errors.name = "Keep the name to 60 characters.";
 
-  const base = parseNonNegative(form.base);
-  if (base === null) errors.base = "Enter the price in pesos, zero or more.";
+  const base = pesosToCentavos(form.base);
+  if (base === null) errors.base = PESOS_ERROR;
 
   const trial = parseNonNegative(form.trialDays);
   if (trial === null || !Number.isInteger(trial)) errors.trialDays = "Whole days, zero or more.";
@@ -127,9 +127,9 @@ function build(form: Form, existing: Plan | null): Built {
     const ex = form.extra[dim];
     if (ex.notSold || inc.unlimited) extra[dim] = null;
     else {
-      const n = parseNonNegative(ex.value);
-      if (n === null) errors[`extra-${dim}`] = "Price in pesos, zero or more.";
-      extra[dim] = n === null ? null : toCentavos(n);
+      const n = pesosToCentavos(ex.value);
+      if (n === null) errors[`extra-${dim}`] = PESOS_ERROR;
+      extra[dim] = n;
     }
   }
 
@@ -142,7 +142,7 @@ function build(form: Form, existing: Plan | null): Built {
       .map((l) => l.trim())
       .filter((l) => l !== ""),
     interval: form.interval,
-    baseCentavos: base === null ? 0 : toCentavos(base),
+    baseCentavos: base ?? 0,
     includedHelpers: included.helper,
     includedManagers: included.manager,
     includedHomes: included.home,

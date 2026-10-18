@@ -24,7 +24,7 @@ export const examplePlan = (over: Partial<Plan> = {}): Plan => ({
 });
 
 describe("quoteAmount", () => {
-  it("adds extra helpers to the base, with a line per capped dimension", () => {
+  it("adds extra helpers to the base, with a line per charged dimension", () => {
     const q = quoteAmount(examplePlan(), { helpers: 3, managers: 2, homes: 1 });
     expect(q).toEqual({
       ok: true,
@@ -32,7 +32,6 @@ describe("quoteAmount", () => {
       lines: [
         { label: "Home base", centavos: 49900 },
         { label: "2 extra helpers", centavos: 19800 },
-        { label: "0 extra managers", centavos: 0 },
       ],
     });
   });
