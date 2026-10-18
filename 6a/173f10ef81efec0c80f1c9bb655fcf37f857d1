@@ -1,0 +1,22 @@
+src/features/faq/faq-fallback.ts
+  s_015ef908465883::t_e975356f90a6fd 41,50,59
+  s_015ef908465883::t_35e44890dc071c 67,75
+src/features/faq/pages/platform-admin-faqs-page.test.tsx
+  s_015ef908465883::t_35e44890dc071c 2,7-9,13-14,16,25-26,85-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a173f10ef81efec0c80f1c9bb655fcf37f857d1",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "unknown"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
