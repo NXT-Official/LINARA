@@ -1,0 +1,105 @@
+src/features/leave/leave.actions.test.ts
+  s_015ef908465883::t_7e919bbb01d5c0 1-58
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_15b689c1cc3885 2,77-92,202-248
+  s_015ef908465883::t_d62e3906cde200 249
+src/features/leave/leave.actions.ts
+  s_015ef908465883::t_3dd41d3001d552 13-14
+  s_015ef908465883::t_7f691006d39846 167-170,172-199,202-204
+supabase/functions/xendit-session-webhook/index.ts
+  s_015ef908465883::t_fab58420850a47 61-62
+src/features/billing/xendit-callback.test.ts
+  s_015ef908465883::t_915f59921b99e8 1-3,65-86
+  s_015ef908465883::t_e59b77727645f9 87
+supabase/add-costs-and-ai-usage.sql
+  s_015ef908465883::t_8b09fb64dbecf8 192-194,240
+src/features/platform-admin/analytics.utils.test.ts
+  s_015ef908465883::t_1bd106573dbd86 3-4,6
+src/features/platform-admin/pages/platform-admin-households-page.tsx
+  s_015ef908465883::t_bd73d0d683fd73 210-213
+  s_015ef908465883::t_f4021458041f6f 8-12,46-57,170-177,182,204-209,214-218
+src/features/support/pages/manager-help-page.test.tsx
+  s_015ef908465883::t_e4e7ad7fbf848a 34-40
+src/features/groceries/grocery-runs.actions.ts
+  s_015ef908465883::t_3dd41d3001d552 139-162,165
+src/features/platform-admin/pages/platform-admin-costs-page.tsx
+  s_015ef908465883::t_0dd96a3aec33cf 6
+  s_015ef908465883::t_1bd106573dbd86 15
+src/features/billing/money.test.ts
+  s_015ef908465883::t_1bd106573dbd86 32-35
+src/features/support/hooks/use-support-threads.ts
+  s_015ef908465883::t_e4e7ad7fbf848a 67-75
+src/features/platform-admin/pages/platform-admin-households-page.test.tsx
+  s_015ef908465883::t_bd73d0d683fd73 54,116-176
+  s_015ef908465883::t_6c42c934e35277 177
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_185d8bbd0c0c92 17,206-212,239-247,275,514
+src/features/platform-admin/households.actions.test.ts
+  s_015ef908465883::t_bd73d0d683fd73 3,18-29,34-67
+  s_015ef908465883::t_64dfbbd46f7194 68
+src/features/platform-admin/pages/platform-admin-overview-page.test.tsx
+  s_015ef908465883::t_dcb0565ed9ec78 83-94
+src/features/groceries/grocery-runs.actions.test.ts
+  s_015ef908465883::t_7e919bbb01d5c0 1-53
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_932dbd860067c6 132,143-154
+  s_015ef908465883::t_a2c5e0ba7ad0db 155-156
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_932dbd860067c6 329-331
+src/features/billing/money.ts
+  s_015ef908465883::t_1bd106573dbd86 13-16,21-22
+src/features/billing/components/billing-notice.tsx
+  s_015ef908465883::t_ca9bb6e18044eb 18,24-27
+supabase/tests/subscriptions.test.mjs
+  s_015ef908465883::t_7e9e522d53766c 12-16
+  s_015ef908465883::t_c53d818bd66e23 1205-1207,1209,1211-1212,1217-1234,1638-1702,1706-1744
+  s_015ef908465883::t_32b458726f85ee 1703-1705
+  s_015ef908465883::t_9b268cf3413df3 1745
+supabase/tests/costs-and-ai-usage.test.mjs
+  s_015ef908465883::t_aeb023788a67d9 316,318-330,347
+supabase/add-subscriptions.sql
+  s_015ef908465883::t_c0dda858c74f17 56-59
+  s_015ef908465883::t_e7157767addcaf 509-515,520,522-523,526-529,555
+  s_015ef908465883::t_947df1bb4b78eb 51-55,589-590
+  s_015ef908465883::t_b0d2787e40ff38 439-443,451-454,478-479,482
+  s_015ef908465883::t_596dbac4573f87 585-588,591-623
+src/features/support/hooks/use-support-threads.test.tsx
+  s_015ef908465883::t_e4e7ad7fbf848a 8-9,19,24-36,60-61,63,138-152
+  s_015ef908465883::t_62132abf1a5491 153
+e2e/helpers.ts
+  s_015ef908465883::t_316b6169b309f7 26
+supabase/tests/support-chat.test.mjs
+  s_015ef908465883::t_6e795429ef01bc 79-93,96,307-340
+  s_015ef908465883::t_b5d6e5c6b158d6 4-5
+  s_015ef908465883::t_1bcc009c6b4089 341
+src/features/platform-admin/households.actions.ts
+  s_015ef908465883::t_203fe7f342fdaf 9-10
+  s_015ef908465883::t_e445eda20b4cd3 49-50,85-107,117,146,150-153
+src/features/platform-admin/pages/platform-admin-overview-page.tsx
+  s_015ef908465883::t_dcb0565ed9ec78 72,77
+src/features/billing/components/billing-notice.test.tsx
+  s_015ef908465883::t_ca9bb6e18044eb 57-61,67-73
+  s_015ef908465883::t_b4390893ed7177 74-75
+src/features/billing/xendit-callback.ts
+  s_015ef908465883::t_fab58420850a47 48-49
+supabase/add-support-chat.sql
+  s_015ef908465883::t_6e795429ef01bc 28,36-42
+src/features/platform-admin/components/cost-entry-modal.tsx
+  s_015ef908465883::t_0dd96a3aec33cf 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4bdc66c781eda0d09ee3f7ebac28af9c20f6dea2",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
