@@ -1,0 +1,45 @@
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_d6b405560dad7d 88-93,96-97,106,122,127,141,148,159,274-275,277-278,280-288,309,311,411-420,456
+src/features/billing/components/plan-picker.tsx
+  s_015ef908465883::t_c2226b447601fa 6,74,82,88-90,96-97,111
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_e01bd75aa2deca 18,20-22,59-60,113-132
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_27bf9e8977e3c5 13,97,99-100,129-134,142,152,177-220,230,304-309,320,335-337,343,345,364-365,378-396,410-415,434
+  s_015ef908465883::t_51e6c0c26f4790 40-48,282,344,359,374,408,424,432,440
+src/routes/_app/manager/plan.tsx
+  s_015ef908465883::t_e01bd75aa2deca 3,14
+src/features/people/components/household-switcher.tsx
+  s_015ef908465883::t_e01bd75aa2deca 17-18,266
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_643240a82bfefb 4,13-28,35,65,67-71,75,77-78,82-83,85,88-89,92,95-107,124,131,134-136,144-153,158-160,189-194,197,233-282
+  s_015ef908465883::t_51e6c0c26f4790 114,137-143
+src/routes/billing/return.tsx
+  s_015ef908465883::t_e01bd75aa2deca 3,14
+src/features/billing/billing.types.test.ts
+  s_015ef908465883::t_558b0af3c3553a 1-36
+src/features/people/components/household-switcher.test.tsx
+  s_015ef908465883::t_61fb4a8180c300 1-37
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_9cebbbdb57013a 2,5-10,21-22,41-45,107,193-220,222,224-290
+src/features/people/components/managers-section.test.tsx
+  s_015ef908465883::t_8abecb16813e25 8-14,55,134-156
+src/features/people/components/managers-section.tsx
+  s_015ef908465883::t_3b82e90e73612d 7,42-43,76-99,266-267,275,330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1631cf4dbf51b47b723c414fc5a819b8da8481f7",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
