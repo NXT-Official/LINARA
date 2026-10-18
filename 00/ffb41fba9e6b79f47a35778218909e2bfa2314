@@ -1,0 +1,35 @@
+src/features/platform-admin/hooks/use-platform-admin-session.test.tsx
+  s_015ef908465883::t_ff253daf6db72d 1-141
+src/features/platform-admin/components/platform-admin-shell.tsx
+  s_015ef908465883::t_e64d320898921b 32,36
+src/features/dashboard/components/top-bar.tsx
+  s_015ef908465883::t_e64d320898921b 2,110-112,114-115
+src/features/platform-admin/components/require-platform-admin.tsx
+  s_015ef908465883::t_e64d320898921b 28,52-66
+  s_015ef908465883::t_0f8924f265f9e5 67-68
+src/features/platform-admin/hooks/use-platform-admin-session.ts
+  s_015ef908465883::t_e64d320898921b 14-15,22-23,64-65,92,99-103,111,120-121,123
+src/features/platform-admin/platform-admin-nav.constants.ts
+  s_015ef908465883::t_e64d320898921b 6
+src/components/shared/bottom-nav.tsx
+  s_015ef908465883::t_e64d320898921b 8-9,30,34
+src/features/platform-admin/components/require-platform-admin.test.tsx
+  s_015ef908465883::t_e64d320898921b 2,8,10,25,70-75
+  s_015ef908465883::t_7bc5b04d449dd5 76-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "00ffb41fba9e6b79f47a35778218909e2bfa2314",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
