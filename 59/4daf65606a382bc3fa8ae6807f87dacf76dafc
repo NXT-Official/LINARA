@@ -1,0 +1,21 @@
+supabase/add-subscriptions.sql
+  s_015ef908465883::t_d8dfed7dede62a 527
+supabase/tests/subscriptions.test.mjs
+  s_015ef908465883::t_8e05fb59834998 1212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "594daf65606a382bc3fa8ae6807f87dacf76dafc",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
