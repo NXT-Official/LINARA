@@ -1,0 +1,44 @@
+src/routes/admin/costs.tsx
+  s_015ef908465883::t_b66ebb496c8930 1-10
+src/features/platform-admin/analytics.actions.ts
+  s_015ef908465883::t_388087f7f1a481 1-190
+src/features/platform-admin/analytics.utils.test.ts
+  s_015ef908465883::t_e64d320898921b 1-42
+src/features/platform-admin/analytics.utils.ts
+  s_015ef908465883::t_7afd26e8f88ed2 1-41
+src/features/platform-admin/pages/platform-admin-overview-page.tsx
+  s_015ef908465883::t_4da9c781ec90d5 96-97,189-192,213,265-268
+  s_015ef908465883::t_c6aa0c34077f68 1-95,98-188,193-212,214-264,269-287
+src/features/platform-admin/analytics.types.ts
+  s_015ef908465883::t_77c282e58f737d 1-70
+src/routes/admin/index.tsx
+  s_015ef908465883::t_41c8a28bdb3ceb 1-10
+src/features/platform-admin/pages/platform-admin-costs-page.tsx
+  s_015ef908465883::t_4da9c781ec90d5 100-103,153-157
+  s_015ef908465883::t_2b369fb879530d 1-99,104-152,158-426
+src/features/platform-admin/components/cost-entry-modal.tsx
+  s_015ef908465883::t_4da9c781ec90d5 78
+  s_015ef908465883::t_0f63010e5a3e00 1-77,79-149
+src/features/platform-admin/components/analytics-chart.tsx
+  s_015ef908465883::t_fc415e1d9c3d32 1-92
+src/features/platform-admin/pages/platform-admin-costs-page.test.tsx
+  s_015ef908465883::t_9eca3aea52122c 1-68
+src/features/platform-admin/pages/platform-admin-overview-page.test.tsx
+  s_015ef908465883::t_53e08b24b6be57 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "68c49924d0d415a7051babac1669f15e892c39f5",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
