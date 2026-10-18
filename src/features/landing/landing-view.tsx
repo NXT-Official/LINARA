@@ -244,6 +244,12 @@ export function LandingView({ content }: { content: LandingContent }) {
       >
         <p>{footer.copyright}</p>
         <p className="mt-2 flex justify-center gap-4">
+          <Link to="/faq" className="hover:text-foreground">
+            FAQ
+          </Link>
+          <Link to="/pricing" className="hover:text-foreground">
+            Pricing
+          </Link>
           <Link to="/privacy" className="hover:text-foreground">
             {footer.privacyLabel}
           </Link>
