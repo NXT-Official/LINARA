@@ -82,14 +82,16 @@ console.log("migration applied twice");
 const M1 = "00000000-0000-0000-0000-00000000000a"; // manager, Reyes
 const M2 = "00000000-0000-0000-0000-00000000000c"; // manager, Cruz
 const AD = "00000000-0000-0000-0000-0000000000ad"; // platform admin
+const HP = "00000000-0000-0000-0000-0000000000b1"; // helper in Reyes, not a manager
 const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
 
 await db.exec(`
-  INSERT INTO auth.users VALUES ('${M1}'), ('${M2}'), ('${AD}');
+  INSERT INTO auth.users VALUES ('${M1}'), ('${M2}'), ('${AD}'), ('${HP}');
   INSERT INTO households (id, name) VALUES ('${H1}', 'Reyes Household'), ('${H2}', 'Cruz Household');
   INSERT INTO user_profiles VALUES ('${M1}', '${H1}', 'Ben Reyes', 'primary_manager', now());
   INSERT INTO user_profiles VALUES ('${M2}', '${H2}', 'Ana Cruz', 'primary_manager', now());
+  INSERT INTO user_profiles VALUES ('${HP}', '${H1}', 'Marites Santos', 'helper', now());
   INSERT INTO household_managers (household_id, user_id, role)
     VALUES ('${H1}', '${M1}', 'primary_manager'), ('${H2}', '${M2}', 'primary_manager')
     ON CONFLICT DO NOTHING;
@@ -140,6 +142,40 @@ await expectError(
   /NOT_FOUND/,
 );
 
+// --- A helper of the household is not a manager ---------------------------------
+await as(HP);
+check("a helper sees no threads", (await q(`SELECT 1 FROM support_threads`)).length === 0);
+check("a helper sees no messages", (await q(`SELECT 1 FROM support_messages`)).length === 0);
+await expectError(
+  "a helper posting is NOT_FOUND",
+  () => q(`SELECT public.post_support_message($1, 'hi')`, [T]),
+  /NOT_FOUND/,
+);
+await expectError(
+  "a helper marking read is NOT_FOUND",
+  () => q(`SELECT public.mark_support_thread_read($1)`, [T]),
+  /NOT_FOUND/,
+);
+await expectError(
+  "a helper opening a thread for the household is NOT_FOUND",
+  () => q(`SELECT public.open_support_thread($1, 's', 'b')`, [H1]),
+  /NOT_FOUND/,
+);
+await expectError(
+  "a helper setting the status is NOT_ADMIN",
+  () => q(`SELECT public.set_support_thread_status($1, 'closed')`, [T]),
+  /NOT_ADMIN/,
+);
+
+// --- Counters accumulate -------------------------------------------------------
+await as(M1);
+await q(`SELECT public.post_support_message($1, 'One more thing')`, [T]);
+await q(`SELECT public.post_support_message($1, 'And another')`, [T]);
+check(
+  "three manager messages leave 3 unread for the admin",
+  (await threadRow(T)).platform_admin_unread === 3,
+);
+
 // --- The admin answers --------------------------------------------------------
 await as(AD);
 check("the admin sees the thread", (await q(`SELECT 1 FROM support_threads`)).length === 1);
@@ -151,8 +187,8 @@ const reply = await one(
 check("the reply is marked from the platform admin", reply?.from_platform_admin === true, reply);
 const afterReply = await threadRow(T);
 check(
-  "household gets 1 unread; admin side stays at 1",
-  afterReply.household_unread === 1 && afterReply.platform_admin_unread === 1,
+  "household gets 1 unread; admin side stays at 3",
+  afterReply.household_unread === 1 && afterReply.platform_admin_unread === 3,
   afterReply,
 );
 
@@ -161,8 +197,8 @@ check("admin reading zeroes the admin side", (await threadRow(T)).platform_admin
 
 await as(M1);
 check(
-  "M1 sees both messages",
-  (await q(`SELECT 1 FROM support_messages WHERE thread_id = $1`, [T])).length === 2,
+  "M1 sees all four messages",
+  (await q(`SELECT 1 FROM support_messages WHERE thread_id = $1`, [T])).length === 4,
 );
 await q(`SELECT public.mark_support_thread_read($1)`, [T]);
 const afterRead = await threadRow(T);
@@ -229,7 +265,7 @@ await expectError(
   /support_threads_subject_check|check constraint/,
 );
 const total = await asOwner(() => one(`SELECT count(*)::int AS n FROM support_messages`));
-check("rejected posts left no message behind", total.n === 3, total);
+check("rejected posts left no message behind", total.n === 5, total);
 
 console.log(failures === 0 ? "\nall passed" : `\n${failures} failed`);
 process.exit(failures === 0 ? 0 : 1);
