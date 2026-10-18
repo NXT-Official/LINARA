@@ -1,0 +1,23 @@
+src/routes/faq.tsx
+  s_015ef908465883::t_e9b8a55ebbcbb5 5,9-10
+src/features/faq/faq-loader.test.ts
+  s_015ef908465883::t_ca22c9194a3638 1-30
+src/features/faq/faq-loader.ts
+  s_015ef908465883::t_06f1d23e3aadff 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1537ddb21a942abaec2111ba5d3964de42adae79",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
