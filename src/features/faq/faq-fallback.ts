@@ -38,7 +38,7 @@ export const FAQ_FALLBACK: Faq[] = [
     id: "fallback-payslips",
     question: "How do payslips work?",
     answer:
-      "Linara prepares a payslip for each pay period with the statutory contributions and any vale deducted, so both sides see how the net pay was reached. Online payouts are still in testing, so payslips also record payments made outside the app.",
+      "Linara prepares a payslip for each pay period with the statutory contributions and any vale deducted, so the family and the helper see the same numbers.",
     category: "Pay",
     sortOrder: 1,
     published: true,
@@ -47,7 +47,7 @@ export const FAQ_FALLBACK: Faq[] = [
     id: "fallback-privacy",
     question: "Can I read my helper's private notes?",
     answer:
-      "No. A helper's private notes are visible only to her. Linara is built so that a manager cannot open them, however the account is set up.",
+      "No. A helper's private notes are visible only to her. Linara is built so that a manager cannot read them.",
     category: "Privacy",
     sortOrder: 1,
     published: true,
@@ -56,7 +56,7 @@ export const FAQ_FALLBACK: Faq[] = [
     id: "fallback-deletion",
     question: "Can I have my data deleted?",
     answer:
-      "Yes. You can ask for your account to be deleted at any time, and the privacy policy explains what is removed and what a household must keep. Quick Utos are deleted every night in any case.",
+      "Yes. You can ask for your account to be deleted at any time, and the privacy policy explains how. Quick Utos are deleted every night in any case.",
     category: "Privacy",
     sortOrder: 2,
     published: true,
@@ -64,8 +64,7 @@ export const FAQ_FALLBACK: Faq[] = [
   {
     id: "fallback-pricing",
     question: "How much does Linara cost?",
-    answer:
-      "Pricing is by conversation for now. Message us and we will talk through what your household needs.",
+    answer: "Pricing is by conversation for now. Use the Message us link below.",
     category: "Help",
     sortOrder: 1,
     published: true,
@@ -73,8 +72,7 @@ export const FAQ_FALLBACK: Faq[] = [
   {
     id: "fallback-help",
     question: "How do I get help?",
-    answer:
-      "Use the Message us link at the bottom of this page, or open Help in the manager dashboard. We read every message.",
+    answer: "Use the Message us link at the bottom of this page.",
     category: "Help",
     sortOrder: 2,
     published: true,
