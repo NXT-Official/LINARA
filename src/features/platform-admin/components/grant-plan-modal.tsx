@@ -7,7 +7,7 @@ import { Modal } from "@/components/shared/modal";
 import { listAllPlansFn } from "@/features/billing/plan.actions";
 import type { Plan } from "@/features/billing/plan.types";
 
-import { grantPlanFn, type HouseholdOverview } from "../households.actions";
+import { describeAdminError, grantPlanFn, type HouseholdOverview } from "../households.actions";
 
 const INPUT =
   "w-full rounded-2xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
@@ -19,6 +19,11 @@ const SECONDARY =
 type Plans = { state: "loading" } | { state: "error" } | { state: "ready"; plans: Plan[] };
 
 const digits = (v: string) => v.replace(/\D/g, "");
+
+/** A plan's seat allowance as field text; no limit is a blank field. */
+const seatText = (n: number | null) => (n === null ? "" : String(n));
+
+const seatValue = (text: string) => (text === "" ? null : Number(text));
 
 /** The date a person picked, as the last moment of that day in Manila. */
 const endOfDayManila = (date: string) => new Date(`${date}T23:59:59+08:00`).toISOString();
@@ -44,13 +49,11 @@ export function GrantPlanModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { helperSeats: currentHelpers, managerSeats: currentManagers } = household.entitlements;
-
   function choose(plan: Plan | undefined) {
     if (!plan) return;
     setPlanId(plan.id);
-    setHelperSeats(String(plan.includedHelpers ?? currentHelpers ?? 1));
-    setManagerSeats(String(plan.includedManagers ?? currentManagers ?? 1));
+    setHelperSeats(seatText(plan.includedHelpers));
+    setManagerSeats(seatText(plan.includedManagers));
   }
 
   useEffect(() => {
@@ -58,8 +61,14 @@ export function GrantPlanModal({
     listAllPlansFn({ data: { token } })
       .then((reply) => {
         if (!alive) return;
-        setPlans({ state: "ready", plans: reply.plans });
-        choose(reply.plans.find((p) => p.status === "active") ?? reply.plans[0]);
+        const offered = reply.plans.filter((p) => p.status !== "draft");
+        setPlans({ state: "ready", plans: offered });
+        const first = offered.find((p) => p.status === "active") ?? offered[0];
+        if (first) {
+          setPlanId(first.id);
+          setHelperSeats(seatText(first.includedHelpers));
+          setManagerSeats(seatText(first.includedManagers));
+        }
       })
       .catch(() => {
         if (alive) setPlans({ state: "error" });
@@ -67,22 +76,18 @@ export function GrantPlanModal({
     return () => {
       alive = false;
     };
-    // seeds the defaults once per open; `choose` only reads the household's current seats
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const helpers = Number(helperSeats);
-  const managers = Number(managerSeats);
+  const helpers = seatValue(helperSeats);
+  const managers = seatValue(managerSeats);
   const planError = tried && !planId ? "Pick a plan" : null;
-  const helperError = tried && helperSeats === "" ? "Enter the helper seats" : null;
   const managerError =
-    tried && (managerSeats === "" || managers < 1) ? "At least one manager seat" : null;
-  const dateError = tried && !periodEnd ? "Pick the period end date" : null;
+    tried && managers !== null && managers < 1 ? "At least one manager seat, or leave blank" : null;
 
   async function save() {
     setTried(true);
     setError(null);
-    if (!planId || helperSeats === "" || managerSeats === "" || managers < 1 || !periodEnd) return;
+    if (!planId || (managers !== null && managers < 1)) return;
     setSaving(true);
     try {
       const reply = await grantPlanFn({
@@ -92,7 +97,7 @@ export function GrantPlanModal({
           planId,
           helperSeats: helpers,
           managerSeats: managers,
-          periodEnd: endOfDayManila(periodEnd),
+          periodEnd: periodEnd ? endOfDayManila(periodEnd) : null,
           note: note.trim(),
         },
       });
@@ -103,7 +108,7 @@ export function GrantPlanModal({
       toast.success(`Plan granted to ${household.name}`);
       onGranted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't grant the plan");
+      setError(describeAdminError(e instanceof Error ? e.message : "Couldn't grant the plan"));
     } finally {
       setSaving(false);
     }
@@ -147,11 +152,11 @@ export function GrantPlanModal({
             </select>
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Helper seats" error={helperError}>
+            <Field label="Helper seats">
               <input
                 inputMode="numeric"
                 value={helperSeats}
-                aria-invalid={helperError ? true : undefined}
+                placeholder="Unlimited"
                 onChange={(e) => setHelperSeats(digits(e.target.value))}
                 className={INPUT}
               />
@@ -160,21 +165,25 @@ export function GrantPlanModal({
               <input
                 inputMode="numeric"
                 value={managerSeats}
+                placeholder="Unlimited"
                 aria-invalid={managerError ? true : undefined}
                 onChange={(e) => setManagerSeats(digits(e.target.value))}
                 className={INPUT}
               />
             </Field>
           </div>
-          <Field label="Period end" error={dateError}>
+          <p className="text-[13px] text-muted-foreground">Leave blank for unlimited.</p>
+          <Field label="Period end">
             <input
               type="date"
               value={periodEnd}
-              aria-invalid={dateError ? true : undefined}
               onChange={(e) => setPeriodEnd(e.target.value)}
               className={INPUT}
             />
           </Field>
+          <p className="text-[13px] text-muted-foreground">
+            Ends 11:59 pm Manila time. Leave blank for no end date (lifetime).
+          </p>
           <Field label="Note">
             <textarea
               value={note}

@@ -7,6 +7,7 @@ import { Modal } from "@/components/shared/modal";
 import { fmtCentavos } from "@/features/billing/money";
 
 import {
+  describeAdminError,
   markInvoicePaidFn,
   type HouseholdOverview,
   type PaymentChannel,
@@ -63,7 +64,9 @@ export function MarkPaidModal({
       );
       onPaid();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't mark the invoice paid");
+      setError(
+        describeAdminError(e instanceof Error ? e.message : "Couldn't mark the invoice paid"),
+      );
     } finally {
       setSaving(false);
     }

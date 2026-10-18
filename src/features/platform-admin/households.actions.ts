@@ -108,11 +108,26 @@ export async function listHouseholdsOverview(
 export type GrantPlanInput = {
   householdId: string;
   planId: string;
-  helperSeats: number;
-  managerSeats: number;
-  periodEnd: string;
+  /** null means unlimited */
+  helperSeats: number | null;
+  managerSeats: number | null;
+  /** null means no end date */
+  periodEnd: string | null;
   note: string;
 };
+
+/** The database signals NOT_ADMIN / NOT_FOUND by message prefix; say them in words. */
+export function describeAdminError(message: string): string {
+  if (message.startsWith("NOT_ADMIN")) return "You don't have admin access.";
+  if (message.startsWith("NOT_FOUND")) return "That household, plan or invoice no longer exists.";
+  return message;
+}
+
+function firstRow(data: unknown): Json {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") throw new Error("Nothing came back");
+  return row as Json;
+}
 
 export async function grantPlan(
   client: Client,
@@ -128,7 +143,7 @@ export async function grantPlan(
   });
   if (missing(error)) return { available: false, subscriptionId: null, invoiceId: null };
   if (error || !data) throw new Error(error?.message || "Couldn't grant the plan");
-  const row = (Array.isArray(data) ? data[0] : data) as Json;
+  const row = firstRow(data);
   return {
     available: true,
     subscriptionId: strOrNull(row.subscription_id),
@@ -156,7 +171,7 @@ export async function markInvoicePaid(
     return { available: false, applied: false, invoiceStatus: null, subscriptionStatus: null };
   }
   if (error || !data) throw new Error(error?.message || "Couldn't mark the invoice paid");
-  const row = (Array.isArray(data) ? data[0] : data) as Json;
+  const row = firstRow(data);
   return {
     available: true,
     applied: row.applied === true,
@@ -171,13 +186,21 @@ export const listHouseholdsOverviewFn = createServerFn({ method: "POST" })
 
 export const grantPlanFn = createServerFn({ method: "POST" })
   .validator((data: GrantPlanInput & { token: string }) => {
-    if (!Number.isSafeInteger(data.helperSeats) || data.helperSeats < 0) {
+    if (
+      data.helperSeats !== null &&
+      (!Number.isSafeInteger(data.helperSeats) || data.helperSeats < 0)
+    ) {
       throw new Error("Helper seats must be 0 or more.");
     }
-    if (!Number.isSafeInteger(data.managerSeats) || data.managerSeats < 1) {
+    if (
+      data.managerSeats !== null &&
+      (!Number.isSafeInteger(data.managerSeats) || data.managerSeats < 1)
+    ) {
       throw new Error("Manager seats must be 1 or more.");
     }
-    if (Number.isNaN(Date.parse(data.periodEnd))) throw new Error("Pick a period end date.");
+    if (data.periodEnd !== null && Number.isNaN(Date.parse(data.periodEnd))) {
+      throw new Error("Pick a period end date.");
+    }
     return data;
   })
   .handler(({ data }) => {

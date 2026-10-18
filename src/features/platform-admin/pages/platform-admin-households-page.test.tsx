@@ -16,7 +16,11 @@ const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("../hooks/use-platform-admin-session", () => ({
   usePlatformAdminSession: () => ({ ...session, userId: "u", logOut: vi.fn() }),
 }));
-vi.mock("../households.actions", () => actions);
+vi.mock("@/lib/supabase", () => ({ createAuthedClient: vi.fn(), supabaseClient: {} }));
+vi.mock("../households.actions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../households.actions")>()),
+  ...actions,
+}));
 vi.mock("@/features/billing/plan.actions", () => plans);
 vi.mock("sonner", () => ({ toast: toasts }));
 
@@ -150,7 +154,7 @@ describe("PlatformAdminHouseholdsPage", () => {
       managerSeats: 2,
       note: "paid cash",
     });
-    expect(new Date(arg.periodEnd).toISOString().startsWith("2027-01-1")).toBe(true);
+    expect(arg.periodEnd).toBe("2027-01-15T15:59:59.000Z");
     await waitFor(() => expect(toasts.success).toHaveBeenCalled());
     await waitFor(() => expect(actions.listHouseholdsOverviewFn).toHaveBeenCalledTimes(2));
   });
@@ -168,6 +172,74 @@ describe("PlatformAdminHouseholdsPage", () => {
     fireEvent.click(screen.getByText("Grant"));
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(toasts.success).not.toHaveBeenCalled();
+  });
+
+  it("sends blank seats and a blank period end as null", async () => {
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [household({})],
+    });
+    actions.grantPlanFn.mockResolvedValue({ available: true, subscriptionId: "s", invoiceId: "i" });
+    render(<PlatformAdminHouseholdsPage />);
+    fireEvent.click(await screen.findByText("Grant plan"));
+    await screen.findByLabelText("Plan");
+    fireEvent.change(screen.getByLabelText("Helper seats"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Manager seats"), { target: { value: "" } });
+    fireEvent.click(screen.getByText("Grant"));
+    await waitFor(() => expect(actions.grantPlanFn).toHaveBeenCalledTimes(1));
+    expect(actions.grantPlanFn.mock.calls[0][0].data).toMatchObject({
+      helperSeats: null,
+      managerSeats: null,
+      periodEnd: null,
+    });
+  });
+
+  it("allows zero helper seats", async () => {
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [household({})],
+    });
+    actions.grantPlanFn.mockResolvedValue({ available: true, subscriptionId: "s", invoiceId: "i" });
+    render(<PlatformAdminHouseholdsPage />);
+    fireEvent.click(await screen.findByText("Grant plan"));
+    await screen.findByLabelText("Plan");
+    fireEvent.change(screen.getByLabelText("Helper seats"), { target: { value: "0" } });
+    fireEvent.click(screen.getByText("Grant"));
+    await waitFor(() => expect(actions.grantPlanFn).toHaveBeenCalledTimes(1));
+    expect(actions.grantPlanFn.mock.calls[0][0].data.helperSeats).toBe(0);
+  });
+
+  it("never offers a draft plan and defaults to the first active one", async () => {
+    plans.listAllPlansFn.mockResolvedValue({
+      available: true,
+      plans: [
+        plan("p0", "Old tier", "archived"),
+        plan("p3", "Secret draft", "draft"),
+        plan("p1", "Family", "active"),
+      ],
+    });
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [household({})],
+    });
+    render(<PlatformAdminHouseholdsPage />);
+    fireEvent.click(await screen.findByText("Grant plan"));
+    await screen.findByText("Old tier (archived)");
+    expect(screen.queryByText("Secret draft")).toBeNull();
+    expect((screen.getByLabelText("Plan") as HTMLSelectElement).value).toBe("p1");
+  });
+
+  it("words NOT_ADMIN and NOT_FOUND failures", async () => {
+    actions.listHouseholdsOverviewFn.mockResolvedValue({
+      available: true,
+      households: [household({})],
+    });
+    actions.grantPlanFn.mockRejectedValue(new Error("NOT_ADMIN: nope"));
+    render(<PlatformAdminHouseholdsPage />);
+    fireEvent.click(await screen.findByText("Grant plan"));
+    await screen.findByLabelText("Plan");
+    fireEvent.click(screen.getByText("Grant"));
+    expect(await screen.findByText("You don't have admin access.")).toBeTruthy();
   });
 
   it("says when the invoice was already settled instead of Marked paid", async () => {
