@@ -409,7 +409,8 @@ Set these in the Vercel project's **Settings → Environment Variables**.
 | `USE_MOCK_AI` | same `define` block, build time — controls whether `utos/appointment/task.actions.ts` call the Supabase edge functions at all from the client | Always set explicitly (`true` while no live AI provider is wired up — see §12.4) |
 | `SITE_URL` | same `define` block, build time — absolute origin for `og:image`/`og:url` in [`__root.tsx`](src/routes/__root.tsx) | Optional — falls back to Vercel's `VERCEL_PROJECT_PRODUCTION_URL`; set it once a custom domain (e.g. linara.ph) is live so link previews use that domain |
 | `XENDIT_PAYOUTS` | same `define` block, build time ([payout-mode.ts](src/features/pay/payout-mode.ts)) | Unset (off): households pay her GCash / Maya directly and Linara records it (KNOWN_GAPS O35). `on` brings back paying through Linara's Xendit account, client and server |
-| `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled |
+| `XENDIT_SECRET_WRITE_KEY` | [pay.actions.ts](src/features/pay/pay.actions.ts) and [billing.actions.ts](src/features/billing/billing.actions.ts) — server-only `createServerFn`, read at **runtime**, never bundled to the client | Required once real payouts are enabled, and for plan checkout |
+| `PLATFORM_BILLING` | [billing.actions.ts](src/features/billing/billing.actions.ts) — server-only, runtime | Set to `on` to switch plan checkout on, together with `XENDIT_SECRET_WRITE_KEY`. Unset, checkout answers "not switched on yet". Set it only on a deployment where selling is meant to be live; the Xendit key and URL are per test/live mode |
 | `XENDIT_API_URL` | same file | Optional — defaults to `https://api.xendit.co` |
 | `REGIONAL_MINIMUM_WAGE` | [people.actions.ts](src/features/people/people.actions.ts) — server-only, runtime | Required (defaults to `6000.00` if unset) |
 | `EXPO_ACCESS_TOKEN` | [push.ts](src/features/notifications/push.ts) — server-only, runtime | Optional — only once "Enhanced push security" is turned on for the Expo project |
@@ -431,7 +432,9 @@ Set these via `supabase secrets set KEY=value` (or Dashboard → Edge Functions 
 | `SOP_SIMPLIFIER_MODEL` | `simplify-sop` | Optional, defaults to `gpt-4o-mini` |
 | `VOICE_PROMOTER_MODEL` | `promote-voice-task` | Optional, defaults to `gpt-4o-mini` |
 | `TRANSCRIBE_MODEL` | `transcribe-notes` | Optional, defaults to `whisper-1` |
-| `XENDIT_WEBHOOK_VERIFICATION_TOKEN` | `xendit-payout-webhook` | Required for the webhook to verify Xendit's callbacks |
+| `XENDIT_WEBHOOK_VERIFICATION_TOKEN` | `xendit-payout-webhook`, `xendit-session-webhook` | Required for the webhooks to verify Xendit's callbacks (one shared secret; the token and the URLs are per Xendit test/live mode) |
+
+**Xendit callback URL for plan payments.** In the Xendit dashboard, Settings → Developers → Webhooks, point the Payment Session completed and expired events at `https://tueckhlrrupmnzhblewy.supabase.co/functions/v1/xendit-session-webhook`. The events are `payment_session.completed` and `payment_session.expired`. The function is deployed with `verify_jwt = false` and checks the `x-callback-token` header. The owner's step-by-step is [docs/OPERATOR-GO-LIVE.md](docs/OPERATOR-GO-LIVE.md).
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (also used by `xendit-payout-webhook`) do **not** need to be set manually — Supabase auto-injects both as default secrets into every Edge Function.
 
@@ -446,6 +449,14 @@ Migrations under `supabase/*.sql` are applied by hand in the Supabase SQL editor
 | Job | Schedule | Defined in |
 | --- | --- | --- |
 | `purge-stale-quick-utos` | hourly at :05 — deletes each household's Quick Utos from before its own midnight | `supabase/add-nightly-utos-purge.sql` |
+
+Selling plans (2026-10-19) adds seven files, applied by hand in this order: `add-platform-admins.sql`, `add-plans.sql`, `add-subscriptions.sql`, `add-seat-limits.sql`, `add-costs-and-ai-usage.sql`, `add-support-chat.sql`, `add-faqs.sql`. Each is idempotent and has a PGlite test in `supabase/tests/`. Nobody can become a Linara admin through the app: the owner inserts their own row into `public.platform_admins` from the SQL editor, using the one-line `INSERT` in the header of `add-platform-admins.sql`:
+
+```sql
+INSERT INTO public.platform_admins (user_id, note)
+SELECT id, 'owner' FROM auth.users WHERE email = '<you>'
+ON CONFLICT DO NOTHING;
+```
 
 `supabase/DEPLOYMENTS.md` has the queries to check a job is scheduled and see its last runs. Account deletions are carried out by hand from the SQL editor (`process_account_deletion`, `supabase/add-account-deletion.sql`), within 30 days of the request.
 

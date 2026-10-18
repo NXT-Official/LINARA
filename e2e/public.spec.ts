@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   expectNoSidewaysScroll,
   MANAGER_ROUTES,
+  PLATFORM_ADMIN_ROUTES,
   PUBLIC_ROUTES,
   settle,
   watchErrors,
@@ -37,6 +38,22 @@ test.describe("signed out", () => {
   // QA LM-4: the server redirects, rather than rendering the page and leaving
   // the browser to move on once its scripts load.
   for (const path of MANAGER_ROUTES) {
+    test(`${path} answers a signed-out request with a 307 to /login`, async ({ request }) => {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toBe("/login");
+    });
+  }
+
+  for (const path of PLATFORM_ADMIN_ROUTES) {
+    test(`${path} sends you to log in, without errors`, async ({ page }) => {
+      const watch = watchErrors(page);
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/login/);
+      await settle(page);
+      expect(watch.errors).toEqual([]);
+    });
+
     test(`${path} answers a signed-out request with a 307 to /login`, async ({ request }) => {
       const response = await request.get(path, { maxRedirects: 0 });
       expect(response.status()).toBe(307);

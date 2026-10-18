@@ -15,10 +15,31 @@ export const MANAGER_ROUTES = [
   "/manager/pantry",
   "/manager/money",
   "/manager/people",
+  "/manager/plan",
+  "/manager/help",
+];
+
+/** Linara-admin pages; signed out they send you to log in. */
+export const PLATFORM_ADMIN_ROUTES = [
+  "/admin",
+  "/admin/plans",
+  "/admin/costs",
+  "/admin/support",
+  "/admin/faqs",
 ];
 
 /** Pages anyone can open. */
-export const PUBLIC_ROUTES = ["/", "/login", "/signup", "/privacy", "/terms", "/reset-password"];
+export const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/signup",
+  "/privacy",
+  "/terms",
+  "/reset-password",
+  "/pricing",
+  "/faq",
+  "/billing/return",
+];
 
 /**
  * Collects console errors and uncaught exceptions (React's #418 shows up as

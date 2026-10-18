@@ -391,6 +391,102 @@ the bottom.
   - The helper app's Kailangan and run lines read "1 pcs" where the web (and the app's own pantry list, via `unitFor`) says "1 pc".
 - **To close:** decide which deletes get a second tap; keep a New run draft (or ask) when Back closes it; give the prep rows the same warning as New task; default a routine's time to the chosen helper's shift start; use `unitFor` on the app's grocery lines. Web owns all but the last (LINARA_MOBILE). No schema.
 
+### O58. `supabase/add-platform-admins.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** Linara admins (`platform_admins`, `is_platform_admin()`, `am_i_platform_admin()`) exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, every `/admin/*` page shows "This account isn't a Linara admin" or degrades, whoever signs in. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/platform-admins.test.mjs`.
+
+### O59. `supabase/add-plans.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** The `plans` table behind `/pricing` and `/admin/plans` exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, `/pricing` shows "Pricing is by conversation for now" and `/admin/plans` cannot save. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/plans.test.mjs`.
+
+### O60. `supabase/add-subscriptions.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** Subscriptions, the homes they cover, platform invoices and their RPCs (including `trial_eligible()`, the Xendit URL allowlist and `p_payer_email` on `attach_xendit_invoice`, and column-level grants that hide `raw_callback` and `note` from managers) exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, `/manager/plan` answers `available: false` and checkout cannot start. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/subscriptions.test.mjs`.
+
+### O61. `supabase/add-seat-limits.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** `platform_settings`, `seats_available()` and the seat triggers on `helper_profiles` and `household_managers` (also on helper reactivation) exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, no seat limit is enforced and every household stays unlimited. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/seat-limits.test.mjs`.
+
+### O62. `supabase/add-costs-and-ai-usage.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** `cost_entries`, `model_prices`, `ai_usage`, `record_ai_usage` and `platform_analytics` exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, `/admin` and `/admin/costs` show no data and the six AI functions' usage writes are lost. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/costs-and-ai-usage.test.mjs`.
+
+### O63. `supabase/add-support-chat.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** `support_threads`, `support_messages`, the unread counters and realtime exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, `/manager/help` and `/admin/support` cannot open or read a thread. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/support-chat.test.mjs`.
+
+### O64. `supabase/add-faqs.sql` is built but not applied
+
+- **Found:** 2026-10-19, selling-Linara build (`docs/superpowers/specs/2026-10-19-sell-linara-design.md`). Built 2026-10-19, not applied.
+- **What's missing:** The `faqs` table behind `/admin/faqs` exist as SQL in the repo only; the database does not have them yet.
+- **Blocks:** Until it is applied, `/faq` and `/manager/help` serve the checked-in fallback list. Existing households lose nothing.
+- **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
+- **To close:** The owner applies the file in the SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (running it twice is safe), does the live checks there, then moves this item to Closed Gaps with the date. Test: `supabase/tests/faqs.test.mjs`.
+
+### O65. Xendit's legacy APIs are billed from 2026-10-01: payouts and invoices still use them
+
+- **Found:** 2026-10-19, while checking Xendit's docs for the plan checkout.
+- **What's missing:** Xendit classes `/v2/payouts` (used by `src/features/pay/pay.actions.ts`) and `/v2/invoices` as legacy and bills a monthly fee (USD 250) for legacy API use from 2026-10-01 (src https://docs.xendit.co/docs/migrating-to-xendit-s-latest-payments-stack.md). Plan checkout uses Payment Sessions (`POST /sessions`), the current API, so selling is not affected.
+- **Blocks:** Switching payouts back on (`XENDIT_PAYOUTS=on`).
+- **Current workaround:** Payouts are off (O35), so nothing is billed from this app today.
+- **To close:** Move payouts to Payouts v3 before they are switched on. Web owns it.
+
+### O66. Transcription cost is under-counted
+
+- **Found:** 2026-10-19, selling-Linara build.
+- **What's missing:** `supabase/functions/transcribe-notes` logs `audio_seconds: 0` to `ai_usage`, so the transcription cost on `/admin` is zero however much is transcribed.
+- **Blocks:** Nothing today (AI is on mocks, O26); it matters the day AI is switched on.
+- **Current workaround:** None. The other five functions record real token counts.
+- **To close:** Read the clip duration in `transcribe-notes` and pass it to `recordAiUsage`.
+
+### O67. The preview `linara-nicoledev` has no Supabase env, so most selling checks can't run there
+
+- **Found:** 2026-10-19, selling-Linara build (same cause as LW-9).
+- **What's missing:** `SUPABASE_URL` and `SUPABASE_ANON_KEY` on the preview, so manager and admin data pages degrade there.
+- **Blocks:** Checking plan, support and admin data flows on the preview. Only the public pages (`/pricing`, `/faq`, `/billing/return`) and the signed-out redirects for `/manager/*` and `/admin/*` can be checked there.
+- **Current workaround:** Data flows are proven by the PGlite SQL tests, Vitest and local browser runs.
+- **To close:** Set the two variables on the preview (step 5 of `docs/OPERATOR-GO-LIVE.md`), then run the live checks.
+
+### O68. Xendit sandbox behaviours to confirm once
+
+- **Found:** 2026-10-19, selling-Linara build.
+- **What's missing:** Two Payment Sessions behaviours are assumed, not seen: the same `customer.reference_id` is sent on every session for a buyer, and a second session with the same `reference_id` after an expiry is accepted.
+- **Blocks:** Renewing after an expired payment, if Xendit rejects the repeat.
+- **Current workaround:** None needed until tried.
+- **To close:** During the live check in test mode, let a session expire, then start another for the same buyer. If it is rejected, change how `reference_id` is built in `src/features/billing/billing.actions.ts`.
+
+### O69. Owner to review legal copy
+
+- **Found:** 2026-10-19, selling-Linara build.
+- **What's missing:** The new "Plans and payments" section in `terms-of-service.tsx` and the Xendit line in `privacy-policy.tsx` (plans bought per period on Xendit's hosted page, no stored card or wallet details, no automatic renewal, a lapsed plan keeps data and limits new seats only, refunds by conversation; name and email go to Xendit) are drafts. `LEGAL_LAST_UPDATED` is October 19, 2026. This sits on top of O8: no lawyer has reviewed either document.
+- **Blocks:** Taking a first real payment.
+- **Current workaround:** Draft copy is live.
+- **To close:** Owner reads both pages and sets `PRIVACY_CONTACT_EMAIL` (the refund line points at that contact) before selling.
+
 ## Closed Gaps
 
 Fixed and applied to the shared Supabase database. Kept here so neither repo

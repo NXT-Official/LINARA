@@ -59,6 +59,25 @@ export function TermsOfService() {
         </li>
       </ul>
 
+      <h2>Plans and payments</h2>
+      <ul>
+        <li>
+          A plan is bought for a period (a month, a year, or once) on a payment page that Xendit
+          hosts. Linara never sees or stores your card or wallet details.
+        </li>
+        <li>
+          Nothing renews automatically. When a period ends you choose whether to buy the next one.
+        </li>
+        <li>
+          If a plan lapses, your data stays and your pages keep working. Only adding new staff or
+          managers beyond your limits is held back until you renew.
+        </li>
+        <li>
+          Refunds are handled by conversation: write to us at the contact below and we&rsquo;ll work
+          it out with you.
+        </li>
+      </ul>
+
       <h2>Fair use</h2>
       <p>Use Linara to run a household fairly. In particular, don&rsquo;t:</p>
       <ul>
