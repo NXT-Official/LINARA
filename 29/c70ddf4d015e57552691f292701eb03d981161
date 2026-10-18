@@ -1,0 +1,41 @@
+supabase/functions/_shared/ai-usage.ts
+  s_015ef908465883::t_efc4523fd839cc 1-55
+src/features/billing/xendit-callback.ts
+  s_015ef908465883::t_efc4523fd839cc 1-51
+src/features/billing/xendit-callback.test.ts
+  s_015ef908465883::t_4369d7314488d2 1-66
+supabase/DEPLOYMENTS.md
+  s_015ef908465883::t_109ea699f14988 89
+supabase/config.toml
+  s_015ef908465883::t_b0c364dc5d5e76 33-39
+supabase/functions/generate-sop/index.ts
+  s_015ef908465883::t_97e978c29ce595 4,228
+supabase/functions/parse-scheduler/index.ts
+  s_015ef908465883::t_1a185502c8a9d7 4,281
+supabase/functions/promote-voice-task/index.ts
+  s_015ef908465883::t_d77aeb645cd27a 4,192
+supabase/functions/route-utos/index.ts
+  s_015ef908465883::t_ab8fad30abba8f 4,217
+supabase/functions/simplify-sop/index.ts
+  s_015ef908465883::t_d652bef809aad3 4,156
+supabase/functions/transcribe-notes/index.ts
+  s_015ef908465883::t_81f7196ce3971a 4,96
+supabase/functions/xendit-session-webhook/index.ts
+  s_015ef908465883::t_e0bc0f0a31042a 1-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "29c70ddf4d015e57552691f292701eb03d981161",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
