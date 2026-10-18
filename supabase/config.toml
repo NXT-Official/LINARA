@@ -30,6 +30,13 @@ project_id = "tueckhlrrupmnzhblewy"
 [functions.xendit-payout-webhook]
 verify_jwt = false
 
+# Same posture for the platform-invoice receiver: Xendit calls it with no
+# Supabase session, and it authenticates the caller via x-callback-token
+# (functions/xendit-session-webhook/index.ts). Left at the default of true the
+# gateway would 401 Xendit before the function ran.
+[functions.xendit-session-webhook]
+verify_jwt = false
+
 # ---------------------------------------------------------------------------
 # The nightly photo purge (add-evidence-photo-retention.sql). verify_jwt MUST
 # stay false for the same reason: its caller is our own pg_cron job via

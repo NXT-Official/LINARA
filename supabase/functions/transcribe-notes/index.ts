@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 import { guardAiCall } from "../_shared/ai-guard.ts";
+import { recordAiUsage } from "../_shared/ai-usage.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,6 +93,7 @@ serve(async (req) => {
     }
 
     const openAIData = await openAIResponse.json();
+    await recordAiUsage(req, "transcribe-notes", model, { audio_seconds: 0 });
     const transcript = openAIData.text;
 
     if (typeof transcript !== "string") {
