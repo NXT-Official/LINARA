@@ -1,0 +1,26 @@
+package.json
+  s_015ef908465883::t_89502c8dc9cb36 24
+docs/superpowers/specs/2026-10-19-sell-linara-design.md
+  s_015ef908465883::t_15ab242e616f63 1-258,285-304
+  s_015ef908465883::t_89502c8dc9cb36 259-284
+docs/superpowers/plans/2026-10-19-sell-linara.md
+  s_015ef908465883::t_360579b295a9ce 1-8,10-24,29-48,50-95,97-100,103-104,108-115,117-182,184-187,189-234,236,238-243,245,247,250-251,253-272,289-310,313-315,317-319,322-327,330,332
+  s_015ef908465883::t_471235144ba4bc 9,28,96,101-102,237,244,311-312,316,320-321
+  s_015ef908465883::t_89502c8dc9cb36 25-27,49,105-107,116,183,188,235,246,248-249,252,273-288,328-329,331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b691c57af7ebef902238c3e88758ec28f360002",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
