@@ -1,0 +1,49 @@
+src/features/support/pages/platform-admin-support-page.tsx
+  s_015ef908465883::t_f3b65aa6b34aff 1-81
+src/features/support/components/new-thread-modal.tsx
+  s_015ef908465883::t_84e30de99f21e5 1-95
+src/features/support/hooks/use-support-threads.test.tsx
+  s_015ef908465883::t_1602a8f8d04e44 1-95
+  s_015ef908465883::t_472961f8395541 96-98
+src/features/support/components/thread-view.tsx
+  s_015ef908465883::t_7894453f5a563c 5
+  s_015ef908465883::t_52f036558692f4 1-4,6-221
+src/features/support/support.utils.ts
+  s_015ef908465883::t_7894453f5a563c 1-18
+src/features/support/components/thread-view.test.tsx
+  s_015ef908465883::t_6c2c2099212229 1-141
+src/routes/admin/support.tsx
+  s_015ef908465883::t_83c5d8ca6818e3 1-10
+src/features/support/pages/manager-help-page.tsx
+  s_015ef908465883::t_1c6cf8a073b256 1-151
+  s_015ef908465883::t_4b02e99786b52e 152-159
+src/features/support/support.types.ts
+  s_015ef908465883::t_31f07ae9ed5f83 1-30
+src/features/support/support.actions.ts
+  s_015ef908465883::t_ef23ea059fe1ff 1-186
+src/routes/_app/manager/help.tsx
+  s_015ef908465883::t_40f2e0563ad2e4 1-10
+src/features/support/hooks/use-support-threads.ts
+  s_015ef908465883::t_5afc61c84587d5 1-84
+src/features/support/components/thread-list.tsx
+  s_015ef908465883::t_18f6d37c3bfd54 1,3-68
+  s_015ef908465883::t_7894453f5a563c 2
+src/features/support/pages/manager-help-page.test.tsx
+  s_015ef908465883::t_d577ea4b64c893 1-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cb22605f46d28d99b1775de7c97c30412766f691",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
