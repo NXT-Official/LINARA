@@ -1,0 +1,80 @@
+src/routeTree.gen.ts
+  s_015ef908465883::t_e6b012fec70080 14,49-53,72,263,318,376-380
+  s_015ef908465883::t_4f8363b6236fb1 29-30,32,73,108,113,124-133,139-141,143,168,191,194,217,220,247,250,277,280,303,306,332,335,481-494,502-508,537-543,555,560,566,595,604
+  s_015ef908465883::t_1fead7a427e44b 16,18,26,28,59-63,69-71,109-112,119-123,177,179,181,188,190,206,208,214,216,233,235,237,244,246,265,267,274,276,292,294,300,302,320,322,329,331,348,350,352,382,390-396,404-408,410,459-464,472-480,590,592,594,597-599,601,603,606-609,613,615,617
+  s_015ef908465883::t_1ebaca6f8078a1 27,114-118,189,215,245,275,301,330,465-471,593,602
+  s_015ef908465883::t_e28ba66f3ad586 24-25,99-107,187,193,213,219,243,249,273,279,299,305,328,334,446-458,591,596,600,605
+  s_015ef908465883::t_ab0e22a129f6be 37,142,164-167,192,199,218,225,248,255,278,285,304,311,333,340,357,381,409,571,622
+src/routes/_app/manager/plan.tsx
+  s_015ef908465883::t_6f4381297de98d 1-23
+src/routes/billing/return.tsx
+  s_015ef908465883::t_ea9ac22ac134d9 1-23
+src/features/people/components/invite-helper-modal.tsx
+  s_015ef908465883::t_958fdfd20b665c 8-9
+  s_015ef908465883::t_5c70a615e9604f 48,73-75,82-99,101,106-107,109-111,115-189,191-193,196-199,201,203-204,207-208,211-227,229-231,236-239,242-269
+src/features/billing/components/seat-limit-modal.tsx
+  s_015ef908465883::t_5c70a615e9604f 15-16
+  s_015ef908465883::t_ce7c55841daaa2 12
+  s_015ef908465883::t_7692faf4d8dd57 1-11,13-14,17-35
+src/features/billing/xendit-sessions.test.ts
+  s_015ef908465883::t_31ae3edb8581de 1-82
+src/features/dashboard/components/top-bar.tsx
+  s_015ef908465883::t_2a04df8a15d3c8 118-139
+  s_015ef908465883::t_19cae68689ac67 2
+src/features/billing/hooks/use-billing.ts
+  s_015ef908465883::t_6108ace207075a 1-53
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_5c70a615e9604f 1-66,71-109
+  s_015ef908465883::t_958fdfd20b665c 67-70
+src/features/billing/components/plan-picker.tsx
+  s_015ef908465883::t_94bf64969c9e4c 1-94,97-230
+  s_015ef908465883::t_5c70a615e9604f 95-96
+src/features/people/components/account-section.tsx
+  s_015ef908465883::t_5c70a615e9604f 2,85-102
+  s_015ef908465883::t_ead8aa19b6deae 103
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_a5266ab63fd17f 1-2,5-177
+  s_015ef908465883::t_23a4804c7928d7 3-4
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_57d10c6a03bf82 1-179,181-187,190-388
+  s_015ef908465883::t_958fdfd20b665c 180,188-189
+src/features/billing/pages/billing-return-page.tsx
+  s_015ef908465883::t_1e78d47504b2d4 1-45
+src/features/dashboard/pages/manager-pass-page.tsx
+  s_015ef908465883::t_d5cb9b84ee5c08 3
+  s_015ef908465883::t_7b1e41cf0fd566 162
+src/features/billing/components/billing-notice.tsx
+  s_015ef908465883::t_5c70a615e9604f 1-72
+src/features/billing/xendit-sessions.ts
+  s_015ef908465883::t_0f3931fa8c5ab0 1-78
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_5c70a615e9604f 106-111
+  s_015ef908465883::t_bdff676782084d 1-105,112-187
+src/features/billing/components/billing-notice.test.tsx
+  s_015ef908465883::t_d98538261af925 1-64,68-112
+  s_015ef908465883::t_5c70a615e9604f 65-67
+src/features/people/components/managers-section.tsx
+  s_015ef908465883::t_5c70a615e9604f 296,303-307,323-336,338-357,359-403,405-428
+  s_015ef908465883::t_958fdfd20b665c 7-8
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_5c70a615e9604f 1-456
+src/features/billing/pages/billing-return-page.test.tsx
+  s_015ef908465883::t_eec9c12a95d708 1-24,28-37
+  s_015ef908465883::t_5c70a615e9604f 25-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aca406ebd33bc8617be1e0055414ba5f775b673a",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
