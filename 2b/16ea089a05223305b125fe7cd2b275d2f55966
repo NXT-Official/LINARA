@@ -1,0 +1,42 @@
+src/routes/billing/return.tsx
+  s_015ef908465883::t_535b290ec0e7bc 8
+src/features/billing/billing.types.test.ts
+  s_015ef908465883::t_535b290ec0e7bc 3,7-10,28-35
+src/features/billing/pages/billing-return-page.tsx
+  s_015ef908465883::t_535b290ec0e7bc 11-12,33
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_535b290ec0e7bc 107,244,254,261,270,284-297,300
+  s_015ef908465883::t_cbb0295e5a105f 223,235,242
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_d1bc17905164b0 28-52,122,151,169-173,264,280,307-309,313,315,317,319,340,366,446,491
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_f050875cb6eba6 22
+  s_015ef908465883::t_d1bc17905164b0 76-77,80-81,85-86,89,93,97,107-108,110-112,116,125,137,143,157,164,175,182,188,225,249,253-261,265-266,285
+src/features/billing/components/plan-picker.tsx
+  s_015ef908465883::t_3447375accfa37 6,74,82,111-115
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_d1bc17905164b0 129,133-145,153,189,192-193,196-197,221-232,241,305,353,358,375-376,407
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_3447375accfa37 58-59,64,94-99
+  s_015ef908465883::t_535b290ec0e7bc 119-122
+src/features/billing/pages/billing-return-page.test.tsx
+  s_015ef908465883::t_535b290ec0e7bc 17,31
+src/routes/_app/manager/plan.tsx
+  s_015ef908465883::t_535b290ec0e7bc 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2b16ea089a05223305b125fe7cd2b275d2f55966",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
