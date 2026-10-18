@@ -142,6 +142,27 @@ await expectError(
   /NOT_FOUND/,
 );
 
+// --- Household names: the admin reads all, everyone else only their own ------
+const names = async () => (await q(`SELECT name FROM households ORDER BY name`)).map((r) => r.name);
+await as(AD);
+const adminNames = await names();
+check(
+  "the admin reads both household names",
+  adminNames.length === 2 &&
+    adminNames[0] === "Cruz Household" &&
+    adminNames[1] === "Reyes Household",
+  adminNames,
+);
+await as(M1);
+check(
+  "a manager still reads only their own household",
+  (await names()).join() === "Reyes Household",
+);
+await as(HP);
+// households_isolation is keyed on current_household_id(), so the helper sees the one row
+// she works in (as before this file); the new policy adds nothing for her.
+check("a helper reads only her own household's row", (await names()).join() === "Reyes Household");
+
 // --- A helper of the household is not a manager ---------------------------------
 await as(HP);
 check("a helper sees no threads", (await q(`SELECT 1 FROM support_threads`)).length === 0);

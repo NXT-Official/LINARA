@@ -12,6 +12,10 @@
 -- my_household_ids(): that one also reaches a shared helper's households, and
 -- a helper must never read the household's line to Linara.
 --
+-- The admin inbox (/admin/support) shows each thread's household name, so a
+-- platform admin also gets a read-only SELECT policy on public.households
+-- (the existing households_isolation policy only shows a manager their own).
+--
 -- Errors: RAISE EXCEPTION 'CODE:detail' with NOT_FOUND or NOT_ADMIN.
 --
 -- Apply by hand in the SQL editor. AFTER add-household-managers.sql and
@@ -215,6 +219,15 @@ GRANT EXECUTE ON FUNCTION public.open_support_thread(UUID, TEXT, TEXT) TO authen
 GRANT EXECUTE ON FUNCTION public.post_support_message(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_support_thread_read(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_support_thread_status(UUID, TEXT) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- A platform admin reads household names for the support inbox. Added beside
+-- households_isolation, which is left as it is (policies combine with OR).
+-- --------------------------------------------------------------------------
+DROP POLICY IF EXISTS households_platform_admin_read ON public.households;
+CREATE POLICY households_platform_admin_read ON public.households
+    FOR SELECT TO authenticated
+    USING (public.is_platform_admin());
 
 -- --------------------------------------------------------------------------
 -- Realtime: the chat listens to both tables. PGlite has no publication.
