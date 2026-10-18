@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { LogoMark } from "@/components/shared/logo";
 import { Modal } from "@/components/shared/modal";
+import { usePlatformAdminFlag } from "@/features/platform-admin/hooks/use-platform-admin-session";
 import { HouseholdSwitcher } from "@/features/people/components/household-switcher";
 
 import { useAppStores } from "../app-store-context";
@@ -24,6 +25,7 @@ export function TopBar() {
   const { status, logOut } = session;
   const navigate = useNavigate();
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
+  const isPlatformAdmin = usePlatformAdminFlag();
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
@@ -102,6 +104,14 @@ export function TopBar() {
           {status === "authed" && <HouseholdSwitcher />}
           {/* DISABLED 2026-08-15 -- see use-sim-clock.ts. */}
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
+          {status === "authed" && isPlatformAdmin && (
+            <Link
+              to="/admin"
+              className="hidden h-9 shrink-0 items-center rounded-lg px-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground sm:inline-flex"
+            >
+              Admin
+            </Link>
+          )}
           {status === "authed" && (
             <button
               onClick={() => setConfirmingLogOut(true)}

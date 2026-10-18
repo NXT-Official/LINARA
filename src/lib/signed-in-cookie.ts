@@ -33,13 +33,14 @@ export function hasSignedInCookie(cookieHeader: string | null): boolean {
 }
 
 /**
- * For a manager page requested without the marker: a 307 to /login, sent
+ * For a manager or Linara admin page requested without the marker: a 307 to /login, sent
  * before anything renders. Null for everything else.
  */
 export function signedOutRedirect(request: Request): Response | null {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const { pathname } = new URL(request.url);
-  if (pathname !== "/manager" && !pathname.startsWith("/manager/")) return null;
+  const inArea = (area: string) => pathname === area || pathname.startsWith(`${area}/`);
+  if (!inArea("/manager") && !inArea("/admin")) return null;
   if (hasSignedInCookie(request.headers.get("cookie"))) return null;
   return new Response(null, {
     status: 307,

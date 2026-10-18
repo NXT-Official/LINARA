@@ -29,6 +29,20 @@ describe("signedOutRedirect", () => {
     }
   });
 
+  it("sends an admin page without the marker to /login with a 307", () => {
+    for (const path of ["/admin", "/admin/plans", "/admin/costs?range=30d"]) {
+      const res = signedOutRedirect(get(path));
+      expect(res?.status).toBe(307);
+      expect(res?.headers.get("location")).toBe("/login");
+    }
+  });
+
+  it("lets an admin page with the marker through, and ignores lookalikes", () => {
+    expect(signedOutRedirect(get("/admin/plans", `${SIGNED_IN_COOKIE}=1`))).toBeNull();
+    expect(signedOutRedirect(get("/admin-ish"))).toBeNull();
+    expect(signedOutRedirect(get("/administrator/x"))).toBeNull();
+  });
+
   it("lets a manager page with the marker through", () => {
     expect(signedOutRedirect(get("/manager/pass", `${SIGNED_IN_COOKIE}=1`))).toBeNull();
   });

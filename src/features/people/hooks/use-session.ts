@@ -51,7 +51,7 @@ type Renewal = { status: "ok"; token: string } | { status: "expired" } | { statu
  * refresh token works once. "expired" means log in again; "failed" means try
  * again later.
  */
-async function renewStoredSession(held: string): Promise<Renewal> {
+export async function renewStoredSession(held: string): Promise<Renewal> {
   // Inside LINARA_MOBILE's WebView the app renews the session itself and
   // hands the page each new token, so the page leaves it alone there.
   if (inMobileApp()) return { status: "failed" };
@@ -78,6 +78,25 @@ async function renewStoredSession(held: string): Promise<Renewal> {
     console.error("[useSession] Couldn't renew the manager session:", err);
     return { status: "failed" };
   }
+}
+
+/** The stored manager access token, or null (signed out, or during SSR). */
+export function readStoredManagerToken(): string | null {
+  return typeof window === "undefined" ? null : window.localStorage.getItem(TOKEN_KEY);
+}
+
+/** The stored manager's user id, or null. */
+export function readStoredManagerUserId(): string | null {
+  return typeof window === "undefined" ? null : window.localStorage.getItem(USER_ID_KEY);
+}
+
+/** Forgets the stored manager session and the signed-in marker. */
+export function clearStoredManagerSession(): void {
+  markSignedIn(false);
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_KEY);
+  window.localStorage.removeItem(USER_ID_KEY);
+  window.localStorage.removeItem(HOUSEHOLD_ID_KEY);
 }
 
 export type SessionStatus = "loading" | "anon" | "needs_bootstrap" | "authed";
@@ -176,14 +195,6 @@ export function useSession(): Session {
     if (hhId) window.localStorage.setItem(HOUSEHOLD_ID_KEY, hhId);
   };
 
-  const clear = () => {
-    markSignedIn(false);
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.localStorage.removeItem(REFRESH_KEY);
-    window.localStorage.removeItem(USER_ID_KEY);
-    window.localStorage.removeItem(HOUSEHOLD_ID_KEY);
-  };
-
   // The marker the server reads to send a signed-out visitor of /manager/*
   // straight to /login (lib/signed-in-cookie.ts). Set on every signed-in load,
   // so a session the LINARA_MOBILE WebView wrote gets one too.
@@ -240,7 +251,7 @@ export function useSession(): Session {
       })
       .catch((err) => {
         console.error("[useSession] Failed to rehydrate manager session:", err);
-        clear();
+        clearStoredManagerSession();
         setToken(null);
         setStatus("anon");
       });
@@ -318,7 +329,7 @@ export function useSession(): Session {
   );
 
   const logOut = useCallback(() => {
-    clear();
+    clearStoredManagerSession();
     setHouseholdTimeZone(null);
     setToken(null);
     setUserId(null);
