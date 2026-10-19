@@ -1,0 +1,29 @@
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_9da4c77d704c62 90,401-413,445
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_444bfc520ae49b 118
+src/features/billing/billing.types.test.ts
+  s_015ef908465883::t_184af529688bd7 34-38
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_7430cb984c59d5 33-34,85
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_7b703b6dd57622 91,259-289,330
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_c6db201f1928ad 69,97-99,126-128,132,148,183-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "01ec00e5d27df1bc37ac78b4c5ddfe0222d0c6a4",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
