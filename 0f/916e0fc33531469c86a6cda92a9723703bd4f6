@@ -1,0 +1,69 @@
+src/features/billing/plan.types.test.ts
+  s_015ef908465883::t_766cac0bbc287a 50
+  s_015ef908465883::t_2d94a3d0ceed57 3
+supabase/tests/seat-limits.test.mjs
+  s_015ef908465883::t_1037c049809f66 13,20-33
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_6cdda06b3f8319 100-102,107-108
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_fccf6e6f108e82 93-97,117-118,123,125-129,177,283
+src/features/faq/faq.actions.test.ts
+  s_015ef908465883::t_683949948c347c 62
+.gitignore
+  s_015ef908465883::t_1037c049809f66 102-104
+src/components/shared/bottom-nav.tsx
+  s_015ef908465883::t_1037c049809f66 28
+KNOWN_GAPS.md
+  s_015ef908465883::t_de4e77b85898a6 400,408,416,424,432,440,448
+README.md
+  s_015ef908465883::t_de4e77b85898a6 455
+supabase/DEPLOYMENTS.md
+  s_015ef908465883::t_1037c049809f66 89
+src/features/support/support.utils.ts
+  s_015ef908465883::t_8edcb027e208ce 16
+docs/superpowers/specs/2026-10-19-sell-linara-design.md
+  s_015ef908465883::t_de4e77b85898a6 4
+  s_015ef908465883::t_41ae2c0271397f 3
+  s_015ef908465883::t_1037c049809f66 1-2,5-306
+src/features/support/components/thread-list.tsx
+  s_015ef908465883::t_8edcb027e208ce 39
+src/features/support/support.actions.ts
+  s_015ef908465883::t_8edcb027e208ce 15,22,38-41
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_6cdda06b3f8319 14-15,20-22
+src/features/support/support.types.ts
+  s_015ef908465883::t_f9564ab51b39b4 11-12,19-20
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_6cdda06b3f8319 78-79
+  s_015ef908465883::t_8e5e8256f1235e 6,384-399,420-421
+src/features/billing/billing.types.test.ts
+  s_015ef908465883::t_fccf6e6f108e82 30-33
+.github/workflows/ci.yml
+  s_015ef908465883::t_1037c049809f66 36-43,63
+src/features/billing/money.test.ts
+  s_015ef908465883::t_766cac0bbc287a 3
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_fcc226227b5d44 80-81,241-264,287-288
+src/features/faq/faq-loader.test.ts
+  s_015ef908465883::t_d1d9c9fe93abfe 8
+src/features/support/support.actions.test.ts
+  s_015ef908465883::t_d8b13ea92bade7 1-68
+src/features/support/support.utils.test.ts
+  s_015ef908465883::t_61d802394583c3 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f916e0fc33531469c86a6cda92a9723703bd4f6",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
