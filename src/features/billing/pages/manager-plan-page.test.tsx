@@ -88,6 +88,7 @@ const subscription = (over: Partial<Subscription>): Subscription => ({
   currentPeriodStart: "2026-10-12T00:00:00.000Z",
   currentPeriodEnd: "2026-11-12T00:00:00.000Z",
   canceledAt: null,
+  revoked: false,
   createdAt: "2026-10-12T00:00:00.000Z",
   ...over,
 });
@@ -255,6 +256,37 @@ describe("ManagerPlanPage", () => {
     expect(screen.queryByRole("link", { name: "Pay" })).toBeNull();
   });
 
+  it("shows a revoked plan as Revoked with the support line and no Renew, Cancel or Pay now", () => {
+    ready({
+      subscriptions: [subscription({ revoked: true })],
+      invoices: [
+        invoice({
+          status: "pending",
+          paymentUrl: "https://checkout.xendit.test/ps-3",
+          expiresAt: "2999-01-01T00:00:00.000Z",
+          paidAt: null,
+        }),
+      ],
+    });
+    render(<ManagerPlanPage />);
+    expect(screen.getByText("Revoked")).toBeTruthy();
+    expect(
+      screen.getByText((_, el) =>
+        el?.tagName === "P"
+          ? el.textContent ===
+            "This plan was ended by Linara support. Message us from Help if that’s unexpected."
+          : false,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Message us from Help" }).getAttribute("href")).toBe(
+      "/manager/help",
+    );
+    expect(screen.queryByRole("button", { name: "Renew" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pay now" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pay" })).toBeNull();
+  });
+
   it("offers no Renew on a one-time plan, which always refuses it", () => {
     ready({ subscriptions: [subscription({ interval: "one_time" })] });
     render(<ManagerPlanPage />);
@@ -295,6 +327,7 @@ describe("ManagerPlanPage", () => {
       currentPeriodStart: "2026-09-01T00:00:00.000Z",
       currentPeriodEnd: "2026-10-01T00:00:00.000Z",
       canceledAt: null,
+      revoked: false,
       createdAt: "2026-09-01T00:00:00.000Z",
     };
     ready({

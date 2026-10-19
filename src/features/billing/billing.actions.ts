@@ -115,6 +115,7 @@ function toSubscription(row: Record<string, unknown>): Subscription {
     currentPeriodStart: str(row.current_period_start),
     currentPeriodEnd: str(row.current_period_end),
     canceledAt: str(row.canceled_at),
+    revoked: row.revoked === true,
     createdAt: String(row.created_at),
   };
 }

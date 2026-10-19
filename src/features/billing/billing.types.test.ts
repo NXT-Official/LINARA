@@ -31,6 +31,11 @@ describe("billingErrorCopy", () => {
     expect(billingErrorCopy("BAD_SEATS:helper")).toMatch(/Something went wrong/);
   });
 
+  it("names a staff revoke plainly, not as a missing plan", () => {
+    expect(billingErrorCopy("NOT_FOUND:revoked")).toBe("That plan was ended by Linara support.");
+    expect(billingErrorCopy("NOT_FOUND:sub")).toMatch(/couldn't find/);
+  });
+
   it("has plain copy for the new SQL codes", () => {
     expect(billingErrorCopy("BAD_URL:host")).toMatch(/payment page/);
     expect(billingErrorCopy("BAD_SESSION:xendit_id")).toMatch(/payment page/);

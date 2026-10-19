@@ -66,6 +66,7 @@ const PILL: Record<string, { label: string; tone: string }> = {
   expired: { label: "Expired", tone: "bg-status-late-soft text-status-late-ink" },
   failed: { label: "Failed", tone: "bg-status-late-soft text-status-late-ink" },
   canceled: { label: "Canceled", tone: "bg-secondary text-muted-foreground" },
+  revoked: { label: "Revoked", tone: "bg-secondary text-muted-foreground" },
 };
 
 function Pill({ status }: { status: string }) {
@@ -93,7 +94,9 @@ const stillPayable = (invoice: PlatformInvoice) =>
 /** One rule for every Pay link: payable, and its subscription isn't canceled (paying would reactivate it). */
 const payable = (invoice: PlatformInvoice, subscriptions: Subscription[]) =>
   stillPayable(invoice) &&
-  !subscriptions.some((s) => s.id === invoice.subscriptionId && s.status === "canceled");
+  !subscriptions.some(
+    (s) => s.id === invoice.subscriptionId && (s.status === "canceled" || s.revoked),
+  );
 
 function PlanSection({
   data,
@@ -120,10 +123,13 @@ function PlanSection({
   // A lapsed plan has no entitlement (source is free or none) but still has its row to renew.
   const hasSub = !!ent?.subscriptionId;
   const ended = status === "expired" || status === "past_due";
-  const canRenew = isPrimary && subscription !== null && subscription.interval !== "one_time";
+  const revoked = subscription?.revoked === true;
+  const canRenew =
+    isPrimary && subscription !== null && !revoked && subscription.interval !== "one_time";
   const canCancel =
     isPrimary &&
     subscription !== null &&
+    !revoked &&
     subscription.status !== "canceled" &&
     status !== "expired" &&
     status !== "canceled";
@@ -139,7 +145,7 @@ function PlanSection({
       </h2>
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
         <p className="text-lg font-semibold text-foreground">{name}</p>
-        {hasSub && status && <Pill status={status} />}
+        {hasSub && status && <Pill status={revoked ? "revoked" : status} />}
       </div>
 
       <ul className="mt-3 divide-y divide-border/60 border-y border-border/60">
@@ -174,7 +180,17 @@ function PlanSection({
         </p>
       )}
 
-      {(pending || canRenew || canCancel) && (
+      {revoked && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          This plan was ended by Linara support.{" "}
+          <Link to="/manager/help" className="font-semibold text-primary hover:underline">
+            Message us from Help
+          </Link>{" "}
+          if that&rsquo;s unexpected.
+        </p>
+      )}
+
+      {!revoked && (pending || canRenew || canCancel) && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {pending?.paymentUrl && isPrimary && (
             <a

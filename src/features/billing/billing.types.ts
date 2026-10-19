@@ -30,6 +30,8 @@ export type Subscription = {
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   canceledAt: string | null;
+  /** A staff revoke: it cannot be renewed, canceled or paid. False when the reply says nothing. */
+  revoked: boolean;
   createdAt: string;
 };
 
@@ -80,6 +82,7 @@ export const errorCodeOf = (message: string): string => message.split(":")[0]?.t
 
 /** What a person reads for each code the billing RPCs and checkout can return. */
 export function billingErrorCopy(code: string): string {
+  if (code.trim() === "NOT_FOUND:revoked") return "That plan was ended by Linara support.";
   const base = errorCodeOf(code);
   switch (base) {
     case "NOT_PRIMARY":

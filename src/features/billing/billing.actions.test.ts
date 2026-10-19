@@ -87,6 +87,7 @@ const subscriptionRow = (over: Record<string, unknown> = {}) => ({
   current_period_end: "2026-11-01T00:00:00+00:00",
   canceled_at: null,
   created_at: "2026-10-01T00:00:00+00:00",
+  revoked: false,
   ...over,
 });
 
@@ -397,6 +398,19 @@ describe("getBilling", () => {
     expect(byId.b).toMatchObject({ interval: null, planName: null });
   });
 
+  it("maps revoked: true when present, false when absent", async () => {
+    const { revoked: _drop, ...bare } = subscriptionRow({ id: "b" });
+    void _drop;
+    rpc.mockResolvedValue({
+      data: myBilling({ subscriptions: [subscriptionRow({ id: "a", revoked: true }), bare] }),
+      error: null,
+    });
+    const out = await getBilling(client, "h1");
+    const byId = Object.fromEntries(out.subscriptions.map((s) => [s.id, s]));
+    expect(byId.a?.revoked).toBe(true);
+    expect(byId.b?.revoked).toBe(false);
+  });
+
   it("maps every part of the reply into the snapshot", async () => {
     rpc.mockResolvedValue({ data: myBilling(), error: null });
     const out = await getBilling(client, "h1");
@@ -428,6 +442,7 @@ describe("getBilling", () => {
           currentPeriodStart: "2026-10-01T00:00:00+00:00",
           currentPeriodEnd: "2026-11-01T00:00:00+00:00",
           canceledAt: null,
+          revoked: false,
           createdAt: "2026-10-01T00:00:00+00:00",
         },
       ],
