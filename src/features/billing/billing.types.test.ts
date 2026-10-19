@@ -27,9 +27,11 @@ describe("joinErrorCopy", () => {
 });
 
 describe("billingErrorCopy", () => {
+  it("leaves the retired BAD_SEATS and BAD_PERIOD codes to the generic copy", () => {
+    expect(billingErrorCopy("BAD_SEATS:helper")).toMatch(/Something went wrong/);
+  });
+
   it("has plain copy for the new SQL codes", () => {
-    expect(billingErrorCopy("BAD_SEATS:helper")).toMatch(/seat numbers/);
-    expect(billingErrorCopy("BAD_PERIOD:x")).toMatch(/billing period/);
     expect(billingErrorCopy("BAD_URL:host")).toMatch(/payment page/);
     expect(billingErrorCopy("BAD_SESSION:xendit_id")).toMatch(/payment page/);
     expect(billingErrorCopy("BAD_SESSION:xendit_id")).not.toMatch(/Something went wrong/);

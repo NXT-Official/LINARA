@@ -90,6 +90,11 @@ const stillPayable = (invoice: PlatformInvoice) =>
   isHttpsUrl(invoice.paymentUrl) &&
   (!invoice.expiresAt || new Date(invoice.expiresAt).getTime() > Date.now());
 
+/** One rule for every Pay link: payable, and its subscription isn't canceled (paying would reactivate it). */
+const payable = (invoice: PlatformInvoice, subscriptions: Subscription[]) =>
+  stillPayable(invoice) &&
+  !subscriptions.some((s) => s.id === invoice.subscriptionId && s.status === "canceled");
+
 function PlanSection({
   data,
   isPrimary,
@@ -109,14 +114,19 @@ function PlanSection({
   const hasPlan = source !== "none";
   const subscription = data.subscriptions.find((s) => s.id === ent?.subscriptionId) ?? null;
   const pending = data.invoices.find(
-    (i) => stillPayable(i) && (!subscription || i.subscriptionId === subscription.id),
+    (i) =>
+      payable(i, data.subscriptions) && (!subscription || i.subscriptionId === subscription.id),
   );
   // A lapsed plan has no entitlement (source is free or none) but still has its row to renew.
   const hasSub = !!ent?.subscriptionId;
   const ended = status === "expired" || status === "past_due";
-  const canRenew = isPrimary && subscription !== null;
+  const canRenew = isPrimary && subscription !== null && subscription.interval !== "one_time";
   const canCancel =
-    canRenew && subscription.status !== "canceled" && status !== "expired" && status !== "canceled";
+    isPrimary &&
+    subscription !== null &&
+    subscription.status !== "canceled" &&
+    status !== "expired" &&
+    status !== "canceled";
   const [confirming, setConfirming] = useState(false);
 
   const name = hasSub ? (ent?.planName ?? "Your plan") : hasPlan ? "Free" : "No plan";
@@ -164,7 +174,7 @@ function PlanSection({
         </p>
       )}
 
-      {(pending || canRenew) && (
+      {(pending || canRenew || canCancel) && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {pending?.paymentUrl && isPrimary && (
             <a
@@ -243,8 +253,6 @@ function InvoicesSection({
   invoices: PlatformInvoice[];
   subscriptions: Subscription[];
 }) {
-  // A canceled subscription's invoice is never offered for payment (its link stays on the row).
-  const canceled = new Set(subscriptions.filter((s) => s.status === "canceled").map((s) => s.id));
   return (
     <section className={SECTION} aria-labelledby="invoices">
       <h2 id="invoices" className="font-display text-xl text-foreground">
@@ -272,7 +280,7 @@ function InvoicesSection({
               <div className="flex items-center gap-3">
                 <span className="text-sm text-foreground">{fmtCentavos(inv.amountCentavos)}</span>
                 <Pill status={inv.status} />
-                {stillPayable(inv) && !canceled.has(inv.subscriptionId) && inv.paymentUrl && (
+                {payable(inv, subscriptions) && inv.paymentUrl && (
                   <a
                     href={inv.paymentUrl}
                     onClick={() => rememberPendingInvoice(inv.id)}

@@ -18,7 +18,6 @@ const row = {
   answer: "A.",
   category: "General",
   sort_order: 2,
-  published: true,
 };
 
 beforeEach(() => {
@@ -60,7 +59,7 @@ describe("loadFaqs", () => {
     expect((await loadFaqs()).source).toBe("fallback");
   });
 
-  it("maps rows, reading a row without the published flag as published", async () => {
+  it("maps rows", async () => {
     const unflagged = {
       id: "f1",
       question: "Q?",
@@ -79,7 +78,6 @@ describe("loadFaqs", () => {
           answer: "A.",
           category: "General",
           sortOrder: 2,
-          published: true,
         },
       ],
     });

@@ -10,16 +10,27 @@
 //
 //   npm run test:sql
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PGlite } from "@electric-sql/pglite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
-const CONSOLE = resolve(HERE, "../../../LINARA_ADMIN/supabase");
-if (!existsSync(CONSOLE)) {
-  console.error(`LINARA_ADMIN must sit beside LINARA (not found: ${CONSOLE})`);
+// LINARA_ADMIN_DIR (CI) may name the console's repo root or its supabase dir;
+// otherwise the console sits beside this repo.
+const STUB = join("tests", "stub-supabase.sql");
+const candidates = (dir) => [dir, join(dir, "supabase")];
+const consoleDir = (dir) => candidates(dir).find((d) => existsSync(join(d, STUB)));
+const FROM_ENV = process.env.LINARA_ADMIN_DIR;
+const SIBLING = resolve(HERE, "../../../LINARA_ADMIN/supabase");
+const CONSOLE = consoleDir(FROM_ENV ? resolve(FROM_ENV) : SIBLING);
+if (!CONSOLE) {
+  console.error(
+    FROM_ENV
+      ? `LINARA_ADMIN_DIR is not the console's repo root or supabase dir (no ${STUB} under ${FROM_ENV})`
+      : `LINARA_ADMIN must sit beside LINARA, or LINARA_ADMIN_DIR must point at it (not found: ${SIBLING})`,
+  );
   process.exit(1);
 }
 const db = new PGlite();

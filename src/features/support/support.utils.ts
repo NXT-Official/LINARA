@@ -13,7 +13,7 @@ export function sortThreads(threads: SupportThread[]): SupportThread[] {
   return [...threads].sort((a, b) => {
     const unread = Number(b.householdUnread > 0) - Number(a.householdUnread > 0);
     if (unread !== 0) return unread;
-    return b.lastMessageAt.localeCompare(a.lastMessageAt);
+    return (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt);
   });
 }
 

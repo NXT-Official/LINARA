@@ -11,10 +11,15 @@ export type Entitlements = {
   daysLeft: number | null;
 };
 
+export type SubscriptionInterval = "one_time" | "monthly" | "yearly";
+
 /** One subscription of billing_my_billing (the staff note is never sent). */
 export type Subscription = {
   id: string;
   planId: string;
+  planName: string | null;
+  /** A one_time plan has nothing to renew. Null when the reply doesn't say. */
+  interval: SubscriptionInterval | null;
   ownerUserId: string | null;
   status: string;
   /** A null seat count is unlimited. */
@@ -91,10 +96,6 @@ export function billingErrorCopy(code: string): string {
       return "A one-time plan has nothing to renew.";
     case "NOT_FOUND":
       return "We couldn't find that plan or subscription.";
-    case "BAD_SEATS":
-      return "Those seat numbers don't work. Check them and try again.";
-    case "BAD_PERIOD":
-      return "That billing period isn't valid. Try again, or message us from Help.";
     case "BAD_URL":
     case "BAD_SESSION":
       return "We couldn't open the payment page. Nothing was charged. Try again in a minute.";

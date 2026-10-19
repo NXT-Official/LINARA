@@ -79,41 +79,11 @@ export function planFromRow(row: PlanRow): Plan {
   };
 }
 
-/** Writable columns only; the caller adds `id` when updating. */
-export function planToRow(plan: Plan): Omit<PlanRow, "id"> {
-  return {
-    name: plan.name,
-    tagline: plan.tagline,
-    inclusions: plan.inclusions,
-    interval: plan.interval,
-    base_centavos: plan.baseCentavos,
-    included_helpers: plan.includedHelpers,
-    included_managers: plan.includedManagers,
-    included_homes: plan.includedHomes,
-    extra_helper_centavos: plan.extraHelperCentavos,
-    extra_manager_centavos: plan.extraManagerCentavos,
-    extra_home_centavos: plan.extraHomeCentavos,
-    trial_days: plan.trialDays,
-    is_public: plan.isPublic,
-    status: plan.status,
-    sort_order: plan.sortOrder,
-  };
-}
-
 export function settingsFromRow(row: PlatformSettingsRow): PlatformSettings {
   return {
     freeTierEnabled: row.free_tier_enabled,
     freeHelperSeats: row.free_helper_seats,
     freeManagerSeats: row.free_manager_seats,
     supportEmail: row.support_email,
-  };
-}
-
-export function settingsToRow(settings: PlatformSettings): PlatformSettingsRow {
-  return {
-    free_tier_enabled: settings.freeTierEnabled,
-    free_helper_seats: settings.freeHelperSeats,
-    free_manager_seats: settings.freeManagerSeats,
-    support_email: settings.supportEmail,
   };
 }

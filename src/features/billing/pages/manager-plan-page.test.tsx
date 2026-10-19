@@ -77,6 +77,8 @@ const invoice = (over: Partial<PlatformInvoice>): PlatformInvoice => ({
 const subscription = (over: Partial<Subscription>): Subscription => ({
   id: "s1",
   planId: "p1",
+  planName: "Home",
+  interval: "monthly",
   ownerUserId: null,
   status: "active",
   helperSeats: 3,
@@ -236,6 +238,30 @@ describe("ManagerPlanPage", () => {
     expect(within(old).getByText("Waiting for payment")).toBeTruthy();
   });
 
+  it("offers no Pay now in the plan section when its subscription is canceled", () => {
+    ready({
+      subscriptions: [subscription({ status: "canceled", canceledAt: "2026-10-13T00:00:00.000Z" })],
+      invoices: [
+        invoice({
+          status: "pending",
+          paymentUrl: "https://checkout.xendit.test/ps-2",
+          expiresAt: "2999-01-01T00:00:00.000Z",
+          paidAt: null,
+        }),
+      ],
+    });
+    render(<ManagerPlanPage />);
+    expect(screen.queryByRole("link", { name: "Pay now" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pay" })).toBeNull();
+  });
+
+  it("offers no Renew on a one-time plan, which always refuses it", () => {
+    ready({ subscriptions: [subscription({ interval: "one_time" })] });
+    render(<ManagerPlanPage />);
+    expect(screen.queryByRole("button", { name: "Renew" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel plan" })).toBeTruthy();
+  });
+
   it("says the plan stays active until its period end before canceling", () => {
     ready({ subscriptions: [subscription({})] });
     render(<ManagerPlanPage />);
@@ -258,6 +284,8 @@ describe("ManagerPlanPage", () => {
     const sub: Subscription = {
       id: "s1",
       planId: "p1",
+      planName: "Home",
+      interval: "monthly",
       ownerUserId: null,
       status: "active",
       helperSeats: 3,

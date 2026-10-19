@@ -8,14 +8,16 @@ export type SupportThread = {
   subject: string;
   status: SupportStatus;
   createdAt: string;
-  lastMessageAt: string;
+  /** Null until the first line is posted. */
+  lastMessageAt: string | null;
   householdUnread: number;
 };
 
 export type SupportMessage = {
   id: string;
   ticketId: string;
-  authorId: string;
+  /** Null for a staff line (the console's staff are not household users). */
+  authorId: string | null;
   fromStaff: boolean;
   body: string;
   createdAt: string;

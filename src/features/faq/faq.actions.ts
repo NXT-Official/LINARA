@@ -21,8 +21,6 @@ const toFaq = (r: Record<string, unknown>): Faq => ({
   answer: String(r.answer ?? ""),
   category: String(r.category ?? "General"),
   sortOrder: Number(r.sort_order ?? 0),
-  // faq_public_list returns published rows only.
-  published: r.published !== false,
 });
 
 const byCategory = (a: Faq, b: Faq) =>

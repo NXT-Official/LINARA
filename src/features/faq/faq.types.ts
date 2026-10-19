@@ -4,7 +4,6 @@ export type Faq = {
   answer: string;
   category: string;
   sortOrder: number;
-  published: boolean;
 };
 
 export type FaqSource = "db" | "fallback";

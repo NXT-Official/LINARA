@@ -3,13 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase", () => ({ supabaseClient: {}, createAuthedClient: () => ({}) }));
 const captureServerError = vi.hoisted(() => vi.fn());
 
-import {
-  cancelSubscription,
-  getBilling,
-  quote,
-  renewCheckout,
-  startCheckout,
-} from "./billing.actions";
+import { cancelSubscription, getBilling, renewCheckout, startCheckout } from "./billing.actions";
 
 const rpc = vi.hoisted(() => vi.fn());
 const from = vi.hoisted(() => vi.fn());
@@ -81,6 +75,8 @@ const invoiceRow = (over: Record<string, unknown> = {}) => ({
 const subscriptionRow = (over: Record<string, unknown> = {}) => ({
   id: "sub-1",
   plan_id: "plan-1",
+  plan_name: "Family",
+  interval: "monthly",
   owner_user_id: null,
   status: "active",
   helper_seats: null,
@@ -348,24 +344,6 @@ describe("renewCheckout", () => {
   });
 });
 
-describe("quote", () => {
-  it("asks billing_quote and reads the amount", async () => {
-    rpc.mockResolvedValueOnce({ data: { amount_centavos: "149900" }, error: null });
-    expect(await quote(client, input)).toEqual({ ok: true, quote: { amountCentavos: 149900 } });
-    expect(rpc).toHaveBeenCalledWith("billing_quote", {
-      p_plan_id: "plan-1",
-      p_helper_seats: 2,
-      p_manager_seats: 1,
-      p_home_ids: ["h1"],
-    });
-  });
-
-  it("passes a coded error through", async () => {
-    rpc.mockResolvedValueOnce({ data: null, error: { message: "SEATS_OVER_PLAN:helper" } });
-    expect(await quote(client, input)).toEqual({ ok: false, code: "SEATS_OVER_PLAN:helper" });
-  });
-});
-
 describe("cancelSubscription", () => {
   it("calls billing_cancel and passes a coded error through", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: null });
@@ -403,6 +381,22 @@ describe("getBilling", () => {
     expect(from).not.toHaveBeenCalled();
   });
 
+  it("maps a subscription's interval and plan name, and reads an unknown interval as none", async () => {
+    rpc.mockResolvedValue({
+      data: myBilling({
+        subscriptions: [
+          subscriptionRow({ id: "a", interval: "one_time", plan_name: "Setup" }),
+          subscriptionRow({ id: "b", interval: "weekly", plan_name: null }),
+        ],
+      }),
+      error: null,
+    });
+    const out = await getBilling(client, "h1");
+    const byId = Object.fromEntries(out.subscriptions.map((s) => [s.id, s]));
+    expect(byId.a).toMatchObject({ interval: "one_time", planName: "Setup" });
+    expect(byId.b).toMatchObject({ interval: null, planName: null });
+  });
+
   it("maps every part of the reply into the snapshot", async () => {
     rpc.mockResolvedValue({ data: myBilling(), error: null });
     const out = await getBilling(client, "h1");
@@ -423,6 +417,8 @@ describe("getBilling", () => {
         {
           id: "sub-1",
           planId: "plan-1",
+          planName: "Family",
+          interval: "monthly",
           ownerUserId: null,
           status: "active",
           helperSeats: null,

@@ -97,10 +97,15 @@ function toEntitlements(row: Record<string, unknown>): Entitlements {
   };
 }
 
+const toInterval = (v: unknown): Subscription["interval"] =>
+  v === "one_time" || v === "monthly" || v === "yearly" ? v : null;
+
 function toSubscription(row: Record<string, unknown>): Subscription {
   return {
     id: String(row.id),
     planId: String(row.plan_id),
+    planName: str(row.plan_name),
+    interval: toInterval(row.interval),
     ownerUserId: str(row.owner_user_id),
     status: String(row.status),
     helperSeats: num(row.helper_seats),
@@ -207,21 +212,6 @@ export async function getBilling(client: Client, householdId: string): Promise<B
     homes: rows(reply.homes).map(toHome),
     trialEligibleByPlan: toTrialMap(reply.trial_eligible_by_plan),
   };
-}
-
-export async function quote(
-  client: Client,
-  input: { planId: string; helperSeats: number; managerSeats: number; homeIds: string[] },
-): Promise<{ ok: true; quote: { amountCentavos: number | null } } | { ok: false; code: string }> {
-  const { data, error } = await client.rpc("billing_quote", {
-    p_plan_id: input.planId,
-    p_helper_seats: input.helperSeats,
-    p_manager_seats: input.managerSeats,
-    p_home_ids: input.homeIds,
-  });
-  if (error) return { ok: false, code: error.message ?? "" };
-  const row = oneRow(data);
-  return { ok: true, quote: { amountCentavos: num(row?.amount_centavos ?? null) } };
 }
 
 type InvoiceStart = {
@@ -434,18 +424,6 @@ export async function cancelSubscription(
 export const getBillingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; householdId: string }) => data)
   .handler(({ data }) => getBilling(createAuthedClient(data.token), data.householdId));
-
-export const quoteFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      planId: string;
-      helperSeats: number;
-      managerSeats: number;
-      homeIds: string[];
-    }) => data,
-  )
-  .handler(({ data }) => quote(createAuthedClient(data.token), data));
 
 export const startCheckoutFn = createServerFn({ method: "POST" })
   .validator(

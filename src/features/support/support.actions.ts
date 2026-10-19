@@ -12,14 +12,14 @@ type TicketRow = {
   subject: string;
   status: SupportStatus;
   created_at: string;
-  last_message_at: string;
+  last_message_at: string | null;
   household_unread: number;
 };
 
 type MessageRow = {
   id: string;
   ticket_id: string;
-  author_id: string;
+  author_id: string | null;
   from_staff: boolean;
   body: string;
   created_at: string;
@@ -35,6 +35,10 @@ const missing = (error: { code?: string; message?: string } | null) =>
 function fail(error: { message?: string } | null, fallback: string): never {
   const message = error?.message ?? "";
   if (/^NOT_FOUND\b/.test(message)) throw new Error("That conversation isn't available anymore.");
+  if (/^BAD_INPUT:subject\b/.test(message))
+    throw new Error("Give your message a subject (up to 120 characters).");
+  if (/^BAD_INPUT:body\b/.test(message))
+    throw new Error("Write a message (up to 4000 characters).");
   throw new Error(message || fallback);
 }
 

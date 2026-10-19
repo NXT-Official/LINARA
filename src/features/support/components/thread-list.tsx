@@ -36,7 +36,7 @@ export function ThreadList({
                   {t.subject}
                 </span>
                 <span className="block text-[13px] text-muted-foreground">
-                  {fmtSupportTime(t.lastMessageAt)}
+                  {fmtSupportTime(t.lastMessageAt ?? t.createdAt)}
                 </span>
               </span>
               {unread && (

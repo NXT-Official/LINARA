@@ -99,3 +99,6 @@ terminal_log.log
 
 # Impeccable engine binary: platform-specific (~17 MB); the launcher downloads it on first run.
 .claude/skills/impeccable/scripts/bin/
+
+# CI checkout of the console repo (the SQL test reads it)
+.linara-admin/

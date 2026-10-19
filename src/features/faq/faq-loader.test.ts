@@ -5,9 +5,7 @@ import { loadFaqsSafely, type FaqReply } from "./faq-loader";
 
 const good: FaqReply = {
   source: "db",
-  faqs: [
-    { id: "1", question: "Q?", answer: "A.", category: "Help", sortOrder: 0, published: true },
-  ],
+  faqs: [{ id: "1", question: "Q?", answer: "A.", category: "Help", sortOrder: 0 }],
 };
 
 describe("loadFaqsSafely", () => {

@@ -397,7 +397,7 @@ the bottom.
 - **What's missing:** The four staff permissions `billing.view`, `billing.manage`, `finance.view`, `faq.manage` and the updated role presets exist as SQL in LINARA_ADMIN only; the database does not have them yet.
 - **Blocks:** Until it is applied, no console role can open Plans, Finance or FAQs. Households lose nothing.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O59. LINARA_ADMIN `supabase/016-billing-plans.sql` is built but not applied
 
@@ -405,7 +405,7 @@ the bottom.
 - **What's missing:** The `billing_plans` and `billing_settings` tables and the RPCs behind `/pricing` (`billing_public_plans`, `billing_settings_public`) exist as SQL in LINARA_ADMIN only.
 - **Blocks:** Until it is applied, `/pricing` shows "Pricing is by conversation for now" and the console cannot save a plan.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O60. LINARA_ADMIN `supabase/017-billing-subscriptions.sql` is built but not applied
 
@@ -413,7 +413,7 @@ the bottom.
 - **What's missing:** Subscriptions, the homes they cover, invoices and their RPCs (`billing_my_billing`, `billing_quote`, `billing_trial_eligible`, `billing_start`, `billing_attach_session`, `billing_renew`, `billing_cancel`, `billing_household_entitlements`, `billing_record_invoice_result`) exist as SQL in LINARA_ADMIN only.
 - **Blocks:** Until it is applied, `/manager/plan` answers `available: false`, checkout cannot start and `xendit-session-webhook` cannot record a payment.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O61. LINARA_ADMIN `supabase/018-billing-finance.sql` is built but not applied
 
@@ -421,7 +421,7 @@ the bottom.
 - **What's missing:** Cost entries, model prices, AI usage and the finance RPCs (including `billing_record_ai_usage`, called by the six AI functions) exist as SQL in LINARA_ADMIN only.
 - **Blocks:** Until it is applied, the console Finance page shows no data and the AI functions' usage writes are lost.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O62. LINARA_ADMIN `supabase/019-support-in-app.sql` is built but not applied
 
@@ -429,7 +429,7 @@ the bottom.
 - **What's missing:** In-app support on the console's `support_tickets` (`support_ticket_messages`, `household_support_*`) exists as SQL in LINARA_ADMIN only.
 - **Blocks:** Until it is applied, `/manager/help` cannot open or read a conversation.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O63. LINARA_ADMIN `supabase/020-faq.sql` is built but not applied
 
@@ -437,7 +437,7 @@ the bottom.
 - **What's missing:** The `faq_entries` table and `faq_public_list` exist as SQL in LINARA_ADMIN only.
 - **Blocks:** Until it is applied, `/faq` and `/manager/help` serve the checked-in fallback list.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply it in the LINARA_ADMIN SQL editor, in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
+- **To close:** Apply it in the Supabase SQL editor of the shared project (the console repo holds the file), in the order in `docs/OPERATOR-GO-LIVE.md` (015 to 020, apply there first), do the live checks, then move this item to Closed Gaps with the date. Test: `../LINARA_ADMIN/supabase/tests/`.
 
 ### O64. `supabase/add-seat-limits.sql` is built but not applied
 
@@ -445,7 +445,7 @@ the bottom.
 - **What's missing:** The seat triggers on `helper_profiles` and `household_managers` (also on helper reactivation), which read `billing_household_entitlements`, exist as SQL in this repo only; the database does not have them yet.
 - **Blocks:** Until it is applied, no seat limit is enforced and every household stays unlimited. Existing households lose nothing.
 - **Current workaround:** The web code degrades (`available: false`) while the objects are missing.
-- **To close:** Apply LINARA_ADMIN 015 to 017 first, then this file in the LINARA SQL editor (running it twice is safe), do the live checks, then move this item to Closed Gaps with the date. Test: `supabase/tests/seat-limits.test.mjs`.
+- **To close:** Apply LINARA_ADMIN 015 to 017 first, then this file in the Supabase SQL editor of the shared project (running it twice is safe), do the live checks, then move this item to Closed Gaps with the date. Test: `supabase/tests/seat-limits.test.mjs` (reads the console from `LINARA_ADMIN_DIR`, else the sibling `../LINARA_ADMIN`; CI checks out the console's `nicoleBranch` into `.linara-admin/`, and that ref in `.github/workflows/ci.yml` switches to `main` once the console's branch merges).
 
 ### O65. Xendit's legacy APIs are billed from 2026-10-01: payouts and invoices still use them
 

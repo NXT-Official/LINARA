@@ -13,7 +13,6 @@ const faq = (over: Partial<Faq>): Faq => ({
   answer: "A home.",
   category: "General",
   sortOrder: 0,
-  published: true,
   ...over,
 });
 

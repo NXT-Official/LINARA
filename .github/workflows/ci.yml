@@ -33,6 +33,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The SQL test loads the console's billing migrations. Switch ref to
+      # main once the console's nicoleBranch is merged.
+      - uses: actions/checkout@v4
+        with:
+          repository: NXT-Official/LINARA_ADMIN
+          ref: nicoleBranch
+          path: .linara-admin
+
       # 24, as on the developers' machines: npm 10 (Node 22) reads
       # package-lock.json differently and refuses `npm ci`.
       - uses: actions/setup-node@v4
@@ -52,6 +60,7 @@ jobs:
         run: npm run qa
         env:
           CI: "true"
+          LINARA_ADMIN_DIR: ${{ github.workspace }}/.linara-admin
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           E2E_MANAGER_EMAIL: ${{ secrets.E2E_MANAGER_EMAIL }}

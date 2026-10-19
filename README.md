@@ -452,7 +452,7 @@ Migrations under `supabase/*.sql` are applied by hand in the Supabase SQL editor
 
 **Business schema lives in LINARA_ADMIN.** Plans, subscriptions, invoices, finance, FAQs and in-app support are tables and RPCs owned by the Linara Business Console (`../LINARA_ADMIN`, hand-applied migrations 015 to 020). This app only calls them; it keeps no copy of the SQL. The RPCs it calls:
 
-- Billing (manager and public pages): `billing_public_plans`, `billing_settings_public`, `billing_my_billing`, `billing_quote`, `billing_trial_eligible`, `billing_start`, `billing_attach_session`, `billing_renew`, `billing_cancel`, `billing_household_entitlements`.
+- Billing (manager and public pages): `billing_public_plans`, `billing_settings_public`, `billing_my_billing`, `billing_trial_eligible`, `billing_start`, `billing_attach_session`, `billing_renew`, `billing_cancel`.
 - Help: `faq_public_list`, `household_support_list`, `household_support_open`, `household_support_messages`, `household_support_post`, `household_support_mark_read`.
 - Edge functions: `billing_record_invoice_result` (`xendit-session-webhook`) and `billing_record_ai_usage` (the six AI functions).
 

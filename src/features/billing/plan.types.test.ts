@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  planFromRow,
-  planToRow,
-  settingsFromRow,
-  settingsToRow,
-  type PlanRow,
-  type PlatformSettingsRow,
-} from "./plan.types";
+import { planFromRow, settingsFromRow, type PlanRow, type PlatformSettingsRow } from "./plan.types";
 
 // Column names are exactly those of LINARA_ADMIN 016-billing-plans.sql. PostgREST returns
 // BIGINT columns as numbers or, for large values, strings.
@@ -51,18 +44,10 @@ describe("plan row mapping", () => {
       sortOrder: 3,
     });
   });
-
-  it("writes exactly the table's writable columns, and round-trips", () => {
-    const { id, ...columns } = row;
-    const written = planToRow(planFromRow(row));
-    expect(id).toBe(row.id);
-    expect(Object.keys(written).sort()).toEqual(Object.keys(columns).sort());
-    expect(written).toEqual({ ...columns, base_centavos: 49900, extra_helper_centavos: 9900 });
-  });
 });
 
 describe("settings row mapping", () => {
-  it("round-trips the free-tier columns, nulls included", () => {
+  it("reads the free-tier columns, nulls included", () => {
     const s: PlatformSettingsRow = {
       free_tier_enabled: false,
       free_helper_seats: null,
@@ -75,6 +60,5 @@ describe("settings row mapping", () => {
       freeManagerSeats: 1,
       supportEmail: null,
     });
-    expect(settingsToRow(settingsFromRow(s))).toEqual(s);
   });
 });
