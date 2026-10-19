@@ -1,0 +1,63 @@
+.env.example
+  s_015ef908465883::t_9511ef220cda36 31-36,59
+supabase/functions/xendit-session-webhook/index.ts
+  s_015ef908465883::t_9511ef220cda36 1-7,9-108,110-119,121-126
+  s_015ef908465883::t_e894f4af97b51d 8,109,120
+supabase/functions/generate-sop/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,228
+src/features/legal/legal.constants.ts
+  s_015ef908465883::t_9511ef220cda36 3
+docs/OPERATOR-GO-LIVE.md
+  s_015ef908465883::t_3f55a8fc218133 1-105
+supabase/functions/_shared/ai-usage.ts
+  s_015ef908465883::t_cb8d2a0682bd8e 53-56
+  s_015ef908465883::t_e894f4af97b51d 12,42,51
+  s_015ef908465883::t_9511ef220cda36 1-11,13-41,43-50,52,57-58
+supabase/functions/parse-scheduler/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,281
+README.md
+  s_015ef908465883::t_29136ea4d9ffd1 412-413,435-437,453-459
+  s_015ef908465883::t_a4109854d51e47 460
+supabase/tests/seat-limits.test.mjs
+  s_015ef908465883::t_9511ef220cda36 1-338
+supabase/functions/transcribe-notes/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,96
+supabase/DEPLOYMENTS.md
+  s_015ef908465883::t_e894f4af97b51d 89
+CHANGELOG.md
+  s_015ef908465883::t_7c331191944eb9 1-38
+src/features/legal/privacy-policy.tsx
+  s_015ef908465883::t_9511ef220cda36 111-112
+supabase/functions/route-utos/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,217
+supabase/functions/promote-voice-task/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,192
+KNOWN_GAPS.md
+  s_015ef908465883::t_29136ea4d9ffd1 394-489
+supabase/config.toml
+  s_015ef908465883::t_9511ef220cda36 33-39
+src/features/legal/terms-of-service.tsx
+  s_015ef908465883::t_9511ef220cda36 62-80
+supabase/functions/simplify-sop/index.ts
+  s_015ef908465883::t_9511ef220cda36 4,156
+supabase/add-seat-limits.sql
+  s_015ef908465883::t_9511ef220cda36 1-137
+e2e/helpers.ts
+  s_015ef908465883::t_29136ea4d9ffd1 18-19,23-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b4afbde1ae6e664e22c76f0ac5953e1ffe6626e0",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
