@@ -2,7 +2,7 @@
 -- subscription, or else the free tier, gives it (sell-Linara plan, Task 3,
 -- 2026-10-19).
 --
--- seat_limit(household, kind) is household_entitlements' helper_seats or
+-- seat_limit(household, kind) is billing_household_entitlements' helper_seats or
 -- manager_seats for kind 'helper' or 'manager' (NULL = unlimited). Seats are
 -- PER HOME, on purpose: a subscription for 2 homes with 3 helper seats lets
 -- each home have 3. seats_used(household, kind) counts the household's helpers
@@ -27,12 +27,18 @@
 --     add-household-managers.sql proposes those again, and ON CONFLICT drops
 --     them only after this trigger has seen them.
 --
+-- Two writers adding at once would both count the seats before either row
+-- exists and both pass. The trigger therefore takes a transaction-scoped
+-- advisory lock per household and kind before counting, so the second waits for
+-- the first to commit and then sees its row.
+--
 -- The functions have no caller check, so nobody can execute them through the
 -- API; the trigger runs as their owner (SECURITY DEFINER), which also lets it
 -- count rows RLS would hide from whoever is writing.
 --
--- Apply by hand in the SQL editor. AFTER add-subscriptions.sql (needs
--- billing_entitlements()). Safe to run twice.
+-- Apply by hand in the SQL editor AFTER LINARA_ADMIN's 017-billing-subscriptions.sql
+-- (the console owns the billing schema; this trigger enforces its seat limits
+-- on this app's tables). Safe to run twice.
 -- Tested in PGlite: supabase/tests/seat-limits.test.mjs.
 
 CREATE OR REPLACE FUNCTION public.seat_limit(p_household_id UUID, p_kind TEXT)
@@ -43,7 +49,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_entitlements JSONB := public.billing_entitlements(p_household_id);
+    v_entitlements JSONB := public.billing_household_entitlements(p_household_id);
 BEGIN
     IF p_kind = 'helper' THEN
         RETURN (v_entitlements ->> 'helper_seats')::INT;
@@ -112,6 +118,7 @@ BEGIN
         RAISE EXCEPTION 'enforce_seat_limit() is not for table %', TG_TABLE_NAME;
     END IF;
 
+    PERFORM pg_advisory_xact_lock(hashtext('seats:' || NEW.household_id::text || ':' || v_kind));
     v_limit := public.seat_limit(NEW.household_id, v_kind);
     IF v_limit IS NOT NULL AND public.seats_used(NEW.household_id, v_kind) >= v_limit THEN
         RAISE EXCEPTION 'SEAT_LIMIT:%', v_kind;

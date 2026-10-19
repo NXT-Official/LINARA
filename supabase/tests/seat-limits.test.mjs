@@ -4,10 +4,12 @@
 // inactive helper takes no seat, a subscription's seats replace the free
 // tier's while it lasts, NULL seats mean no limit, and a new household always
 // gets its primary manager.
-// Sell-Linara plan, Task 3.
+// The billing schema is the console's (LINARA_ADMIN, which must sit beside
+// LINARA): this loads its 016/017 and its seat entitlements, then enforces them
+// with add-seat-limits.sql. Sell-Linara plan, Task 3.
 //
 //   npm run test:sql
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,6 +17,11 @@ import { PGlite } from "@electric-sql/pglite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
+const CONSOLE = resolve(HERE, "../../../LINARA_ADMIN/supabase");
+if (!existsSync(CONSOLE)) {
+  console.error(`LINARA_ADMIN must sit beside LINARA (not found: ${CONSOLE})`);
+  process.exit(1);
+}
 const db = new PGlite();
 let failures = 0;
 
@@ -53,12 +60,14 @@ const asOwner = async (fn) => {
   }
 };
 const MIGRATION = (name) => readFileSync(`${REPO}/${name}`, "utf8");
+const CONSOLE_SQL = (name) => readFileSync(`${CONSOLE}/${name}`, "utf8");
 
 await db.exec(readFileSync(resolve(HERE, "base-schema.sql"), "utf8"));
 // What the live schema has that base-schema.sql doesn't, as in
 // household-managers.test.mjs, plus Supabase's service_role.
 await db.exec(`
-  CREATE ROLE service_role;
+  CREATE ROLE service_role BYPASSRLS;
+  GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
   ALTER TABLE user_profiles ALTER COLUMN household_id DROP NOT NULL;
   ALTER TABLE vales ADD COLUMN approved_by UUID, ADD COLUMN reason TEXT;
   ALTER TABLE households ADD COLUMN board_closed BOOLEAN NOT NULL DEFAULT false,
@@ -85,14 +94,65 @@ await db.exec(`
 await db.exec(MIGRATION("fix-helper-write-access.sql"));
 await db.exec(MIGRATION("add-account-deletion.sql"));
 await db.exec(MIGRATION("add-household-managers.sql"));
-await db.exec(MIGRATION("add-platform-admins.sql"));
-await db.exec(MIGRATION("add-plans.sql"));
-await db.exec(MIGRATION("add-subscriptions.sql"));
+// The console's migrations expect its stubs' auth columns and main-app tables;
+// the real main-app schema above already has this repo's versions of those, so
+// only what it lacks is added here (tests/stub-main-app.sql would collide).
+await db.exec(`
+  ALTER TABLE auth.users ADD COLUMN email TEXT, ADD COLUMN last_sign_in_at TIMESTAMPTZ,
+                         ADD COLUMN banned_until TIMESTAMPTZ,
+                         ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+  CREATE TABLE auth.sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE);
+  CREATE TABLE auth.mfa_factors (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    factor_type TEXT NOT NULL, status TEXT NOT NULL);
+  ALTER TABLE public.tickets ADD COLUMN actual_end TIMESTAMPTZ, ADD COLUMN occurrence_date DATE,
+                             ADD COLUMN cancelled_at TIMESTAMPTZ, ADD COLUMN routine_id TEXT;
+  ALTER TABLE public.helper_profiles ADD COLUMN IF NOT EXISTS employment TEXT,
+                             ADD COLUMN IF NOT EXISTS phone TEXT, ADD COLUMN IF NOT EXISTS started_on DATE,
+                             ADD COLUMN IF NOT EXISTS ended_on DATE;
+  CREATE TABLE IF NOT EXISTS public.helper_households (helper_id UUID NOT NULL, household_id UUID NOT NULL,
+    team_id UUID, added_by UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+  CREATE TABLE IF NOT EXISTS public.helper_payout_accounts (user_id UUID PRIMARY KEY, method TEXT NOT NULL,
+    account_name TEXT NOT NULL, account_number TEXT NOT NULL, qr_path TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+  CREATE TABLE IF NOT EXISTS public.account_deletion_requests (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL, user_type TEXT, note TEXT, status TEXT NOT NULL DEFAULT 'pending',
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now(), processed_at TIMESTAMPTZ);
+  ALTER TABLE public.payout_attempts ADD COLUMN IF NOT EXISTS psp_payout_id TEXT,
+                             ADD COLUMN IF NOT EXISTS failure_reason TEXT,
+                             ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                             ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+  CREATE TABLE IF NOT EXISTS public.ai_calls (id BIGSERIAL PRIMARY KEY, user_id UUID NOT NULL, fn TEXT NOT NULL,
+    at TIMESTAMPTZ NOT NULL DEFAULT now());
+  CREATE TABLE IF NOT EXISTS public.push_tokens (token TEXT PRIMARY KEY, user_id UUID NOT NULL, platform TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+`);
+await db.exec(CONSOLE_SQL("tests/stub-cron.sql"));
+for (const file of [
+  "001-staff-foundation.sql",
+  "002-visibility.sql",
+  "003-visibility-fixes.sql",
+  "004-crm.sql",
+  "005-crm-fixes.sql",
+  "006-crm-data.sql",
+  "007-crm-export.sql",
+  "008-account-actions.sql",
+  "009-account-actions-fixes.sql",
+  "010-support.sql",
+  "011-support-fixes.sql",
+  "012-operations.sql",
+  "013-roles.sql",
+  "014-roles-fixes.sql",
+  "015-business-permissions.sql",
+  "016-billing-plans.sql",
+  "017-billing-subscriptions.sql",
+]) {
+  await db.exec(CONSOLE_SQL(file));
+}
 await db.exec(MIGRATION("add-seat-limits.sql"));
 await db.exec(MIGRATION("add-seat-limits.sql"));
 console.log("migration applied twice");
 
-const ADMIN = "00000000-0000-0000-0000-0000000000a1";
 const P = "00000000-0000-0000-0000-00000000000a"; // primary of H1
 const C = "00000000-0000-0000-0000-00000000000c"; // co-manager of H1
 const M2 = "00000000-0000-0000-0000-0000000000b2"; // primary of H2
@@ -103,7 +163,7 @@ const H1 = "10000000-0000-0000-0000-000000000001";
 const H2 = "10000000-0000-0000-0000-000000000002";
 
 await db.exec(`
-  INSERT INTO auth.users VALUES ('${ADMIN}'), ('${P}'), ('${C}'), ('${M2}'), ('${D2}'), ('${N}'), ('${E}');
+  INSERT INTO auth.users (id) VALUES ('${P}'), ('${C}'), ('${M2}'), ('${D2}'), ('${N}'), ('${E}');
   INSERT INTO households (id, name) VALUES ('${H1}', 'Reyes Household'), ('${H2}', 'Cruz Household');
   INSERT INTO user_profiles (id, household_id, full_name, user_type) VALUES
     ('${P}', '${H1}', 'Ben Reyes', 'primary_manager'),
@@ -116,7 +176,6 @@ await db.exec(`
   INSERT INTO household_managers (household_id, user_id, role) VALUES
     ('${H1}', '${P}', 'primary_manager'), ('${H1}', '${C}', 'co_manager'),
     ('${H2}', '${M2}', 'primary_manager');
-  INSERT INTO platform_admins (user_id, note) VALUES ('${ADMIN}', 'owner');
 `);
 await db.exec(`SET ROLE authenticated`);
 
@@ -126,7 +185,7 @@ const addHelper = (household, name, status = "ACTIVE") =>
      VALUES ($1, $2, 'Cook', 7000, 'monthly', $3)`,
     [household, name, status],
   );
-const settings = (sql) => asOwner(() => q(`UPDATE public.platform_settings SET ${sql}`));
+const settings = (sql) => asOwner(() => q(`UPDATE public.billing_settings SET ${sql}`));
 const used = (household, kind) =>
   asOwner(async () => (await one(`SELECT public.seats_used($1, $2) AS n`, [household, kind])).n);
 
@@ -202,19 +261,29 @@ await succeeds("re-applying add-household-managers.sql over a full household wor
 );
 
 // --- A subscription's seats -----------------------------------------------------------
-await as(ADMIN);
+// A subscription for H1 the way the app sells one: the primary starts it, and
+// the Xendit webhook (service_role) marks its invoice paid in full.
+await as(P);
 const plan = (
-  await one(
-    `INSERT INTO public.plans (name, interval, base_centavos, included_helpers, extra_helper_centavos, status)
-     VALUES ('Household', 'monthly', 49900, 1, 9900, 'active') RETURNING id`,
+  await asOwner(() =>
+    one(
+      `INSERT INTO public.billing_plans (name, interval, base_centavos, included_helpers, extra_helper_centavos, status, is_public)
+       VALUES ('Household', 'monthly', 49900, 1, 9900, 'active', true) RETURNING id`,
+    ),
   )
 ).id;
-const grant = (
-  await one(
-    `SELECT public.grant_subscription($1, $2, 3, NULL, now() + interval '30 days', 'seats') AS r`,
-    [H1, plan],
-  )
+const started = (
+  await one(`SELECT public.billing_start($1, 3, NULL, ARRAY[$2]::uuid[]) AS r`, [plan, H1])
 ).r;
+await asOwner(async () => {
+  await db.exec("SET ROLE service_role");
+  await q(
+    `SELECT public.billing_record_invoice_result($1, 'ps_seats', 'PAID', $2, now(), 'GCASH', '{}'::jsonb)`,
+    [started.external_id, started.amount_centavos],
+  );
+  await db.exec("RESET ROLE");
+});
+const grant = { subscription_id: started.subscription_id };
 await as(P);
 await succeeds("with 3 subscribed helper seats, the 2nd helper is added", () =>
   addHelper(H1, "Nena"),
@@ -256,7 +325,7 @@ check("seats_used counts every manager row", (await used(H1, "manager")) === 3);
 // Ended over a week ago: back to the free tier's 1 helper seat.
 await asOwner(() =>
   q(
-    `UPDATE public.subscriptions SET current_period_end = now() - interval '8 days' WHERE id = $1`,
+    `UPDATE public.billing_subscriptions SET current_period_end = now() - interval '8 days' WHERE id = $1`,
     [grant.subscription_id],
   ),
 );
@@ -317,6 +386,14 @@ await expectError(
   "a manager can't call seat_limit directly",
   () => q(`SELECT public.seat_limit($1, 'helper')`, [H1]),
   /permission denied/,
+);
+
+// PGlite is single-connection, so a race can't be run; check the lock is there.
+check(
+  "the trigger serialises per household and kind with an advisory lock",
+  (
+    await asOwner(() => one(`SELECT pg_get_functiondef('public.enforce_seat_limit'::regproc) AS d`))
+  ).d.includes("pg_advisory_xact_lock(hashtext('seats:'"),
 );
 
 // --- A new household always gets its primary manager ----------------------------------
