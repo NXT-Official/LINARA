@@ -1,0 +1,21 @@
+supabase/add-seat-limits.sql
+  s_015ef908465883::t_a1ea13f82c45dc 5,30-34,39-41,52,121
+supabase/tests/seat-limits.test.mjs
+  s_015ef908465883::t_66ca9cd6506747 7-9,12,20-24,63,69-70,97-151,166,188,264-266,268-272,275-276,278-286,328,391-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76ba8f3406de0fffa7acc88fc9e81b48a4b99448",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
