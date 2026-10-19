@@ -15,10 +15,22 @@ export const MANAGER_ROUTES = [
   "/manager/pantry",
   "/manager/money",
   "/manager/people",
+  "/manager/plan",
+  "/manager/help",
 ];
 
 /** Pages anyone can open. */
-export const PUBLIC_ROUTES = ["/", "/login", "/signup", "/privacy", "/terms", "/reset-password"];
+export const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/signup",
+  "/privacy",
+  "/terms",
+  "/reset-password",
+  "/pricing",
+  "/faq",
+  "/billing/return",
+];
 
 /**
  * Collects console errors and uncaught exceptions (React's #418 shows up as

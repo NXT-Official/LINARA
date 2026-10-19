@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 import { guardAiCall } from "../_shared/ai-guard.ts";
+import { recordAiUsage } from "../_shared/ai-usage.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -224,6 +225,7 @@ ${station ? `Target Station/Role: "${station}"` : ""}`;
     }
 
     const openAIData = await openAIResponse.json();
+    await recordAiUsage(req, "generate-sop", model, openAIData.usage);
     const resultString = openAIData.choices?.[0]?.message?.content;
 
     if (!resultString) {

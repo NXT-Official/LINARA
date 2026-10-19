@@ -108,7 +108,8 @@ export function PrivacyPolicy() {
         </li>
         <li>
           <strong>Xendit</strong> sends pay by GCash or Maya. It receives the helper&rsquo;s name,
-          mobile number and the amount, and keeps its own payment records as the law requires.
+          mobile number and the amount, and keeps its own payment records as the law requires. When
+          you buy a plan, your name and email go to Xendit to issue the payment page.
         </li>
         <li>
           <strong>Expo</strong> delivers notifications to the helper app.
