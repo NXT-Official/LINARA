@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
+import { getBillingFn } from "@/features/billing/billing.actions";
+import { SeatLimitModal } from "@/features/billing/components/seat-limit-modal";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import {
@@ -37,6 +39,8 @@ export function ManagersSection() {
   const isPrimary = session.adminType === "primary";
   const [invites, setInvites] = useState<ManagerInvite[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [seatLimit, setSeatLimit] = useState(false);
+  const [checkingSeats, setCheckingSeats] = useState(false);
   const [confirm, setConfirm] = useState<{
     kind: "remove" | "primary" | "leave";
     admin: Admin;
@@ -68,6 +72,30 @@ export function ManagersSection() {
       () => session.setManagerRole(a.id, role),
       `${a.short} is now a ${adminTypeLabel[managerRoleType[role]].toLowerCase()}.`,
     );
+
+  // The seat is taken when the invitee claims the code, so a full household
+  // is told here, before a code is made that could never be used.
+  const openInvite = async () => {
+    if (!token || !session.householdId) {
+      setInviting(true);
+      return;
+    }
+    setCheckingSeats(true);
+    try {
+      const billing = await getBillingFn({ data: { token, householdId: session.householdId } });
+      const seats = billing.entitlements?.managerSeats ?? null;
+      if (billing.available && seats !== null && billing.usage.managers >= seats) {
+        setSeatLimit(true);
+      } else {
+        setInviting(true);
+      }
+    } catch {
+      // Can't tell: the claim is checked again by the database.
+      setInviting(true);
+    } finally {
+      setCheckingSeats(false);
+    }
+  };
 
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
@@ -235,7 +263,8 @@ export function ManagersSection() {
             </div>
           )}
           <button
-            onClick={() => setInviting(true)}
+            onClick={openInvite}
+            disabled={checkingSeats}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary"
           >
             <Plus className="h-3.5 w-3.5" /> Invite a manager
@@ -243,6 +272,7 @@ export function ManagersSection() {
         </div>
       )}
 
+      {seatLimit && <SeatLimitModal kind="manager" onClose={() => setSeatLimit(false)} />}
       {inviting && (
         <InviteManagerModal
           token={token}
@@ -313,108 +343,110 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
   };
 
   return (
-    <Modal onClose={onClose}>
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">
-          {made ? "Share this code" : "Invite a manager"}
-        </h3>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+    <>
+      <Modal onClose={onClose}>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-display text-xl text-foreground">
+            {made ? "Share this code" : "Invite a manager"}
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-      {made ? (
-        <>
-          <div className="mt-5 rounded-3xl border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
-            <div className="font-display text-4xl font-semibold tracking-[0.15em] text-primary">
-              {made.code}
+        {made ? (
+          <>
+            <div className="mt-5 rounded-3xl border border-dashed border-primary/40 bg-primary/5 px-5 py-6 text-center">
+              <div className="font-display text-4xl font-semibold tracking-[0.15em] text-primary">
+                {made.code}
+              </div>
+              <button
+                onClick={copy}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-3 w-3" /> Copy code
+                  </>
+                )}
+              </button>
             </div>
-            <button
-              onClick={copy}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3" /> Copied
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-3 w-3" /> Copy code
-                </>
-              )}
-            </button>
-          </div>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
-            {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
-            <span className="font-semibold text-foreground">Join with a code</span>. Someone who
-            already manages another household keeps it.
-          </p>
-          <div className="mt-5 flex justify-end">
-            <button
-              onClick={onClose}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
-            >
-              Done
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <fieldset className="mt-4 space-y-2">
-            <legend className="sr-only">Their role</legend>
-            {(["co_manager", "remote_admin"] as const).map((r) => {
-              const type = managerRoleType[r];
-              return (
-                <label
-                  key={r}
-                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition ${
-                    role === r
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="manager-role"
-                    value={r}
-                    checked={role === r}
-                    onChange={() => setRole(r)}
-                    className="mt-1 accent-[var(--primary)]"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">
-                      {adminTypeLabel[type]}
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
+              {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
+              <span className="font-semibold text-foreground">Join with a code</span>. Someone who
+              already manages another household keeps it.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={onClose}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <fieldset className="mt-4 space-y-2">
+              <legend className="sr-only">Their role</legend>
+              {(["co_manager", "remote_admin"] as const).map((r) => {
+                const type = managerRoleType[r];
+                return (
+                  <label
+                    key={r}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition ${
+                      role === r
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="manager-role"
+                      value={r}
+                      checked={role === r}
+                      onChange={() => setRole(r)}
+                      className="mt-1 accent-[var(--primary)]"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">
+                        {adminTypeLabel[type]}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {adminPermSummary[type]}
+                      </span>
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {adminPermSummary[type]}
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
-          </fieldset>
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={create}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
-            >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
-            </button>
-          </div>
-        </>
-      )}
-    </Modal>
+                  </label>
+                );
+              })}
+            </fieldset>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={create}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
   );
 }

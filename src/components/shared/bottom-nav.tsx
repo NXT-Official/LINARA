@@ -5,6 +5,8 @@ export type BottomNavItem = {
   to: LinkProps["to"];
   label: string;
   Icon: typeof ClipboardList;
+  /** Active only on this exact path, for an index tab whose siblings sit under it. */
+  exact?: boolean;
 };
 
 /**
@@ -25,10 +27,11 @@ export function BottomNav({ items }: { items: BottomNavItem[] }) {
       aria-label="Primary"
     >
       <div className="mx-auto flex max-w-lg items-stretch gap-1 px-2 py-1.5 sm:pointer-events-auto sm:w-fit sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-1.5 sm:shadow-lift sm:backdrop-blur-xl sm:supports-[backdrop-filter]:bg-card/90">
-        {items.map(({ to, label, Icon }) => (
+        {items.map(({ to, label, Icon, exact }) => (
           <Link
             key={to}
             to={to}
+            activeOptions={{ exact }}
             className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground sm:px-5"
             activeProps={{ className: "bg-secondary text-primary" }}
           >

@@ -10,6 +10,8 @@ import type {
   LeaveRequest,
 } from "./leave.types";
 
+type Client = ReturnType<typeof createAuthedClient>;
+
 /**
  * Leave (supabase/add-leave.sql). Reads are plain selects under RLS; every
  * write is one of the SECURITY DEFINER functions, which check who's asking,
@@ -162,26 +164,44 @@ export const setPayDaysPerYearFn = createServerFn({ method: "POST" })
   });
 
 /**
- * The household's SIL rule, or null before add-leave-policy.sql is applied
- * (People then hides the setting and the law's rule applies).
+ * The caller's own household's SIL rule, or null before add-leave-policy.sql
+ * is applied (People then hides the setting and the law's rule applies). Read
+ * by id: RLS lets a person read every household they belong to, so "the one
+ * row I can see" is not the caller's.
  */
+export async function readLeavePolicy(client: Client): Promise<LeavePolicy | null> {
+  const {
+    data: { user },
+    error: authError,
+  } = await client.auth.getUser();
+  if (authError || !user) throw new Error("Unauthorized: Invalid token");
+  const { data: profile, error: profileError } = await client
+    .from("user_profiles")
+    .select("household_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) throw new Error(profileError.message);
+  if (!profile?.household_id) return null;
+
+  const { data: row, error } = await client
+    .from("households")
+    .select("sil_waits_first_year, sil_days_per_year")
+    .eq("id", profile.household_id)
+    .maybeSingle();
+  if (error?.code === "42703") return null;
+  if (error) throw new Error(error.message);
+  if (!row) return null;
+  return {
+    silWaitsFirstYear: Boolean(row.sil_waits_first_year),
+    silDaysPerYear: Number(row.sil_days_per_year),
+  };
+}
+
 export const getLeavePolicyFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
-  .handler(async ({ data }): Promise<LeavePolicy | null> => {
-    const client = createAuthedClient(data.token);
-    const { data: row, error } = await client
-      .from("households")
-      .select("sil_waits_first_year, sil_days_per_year")
-      .limit(1)
-      .maybeSingle();
-    if (error?.code === "42703") return null;
-    if (error) throw new Error(error.message);
-    if (!row) return null;
-    return {
-      silWaitsFirstYear: Boolean(row.sil_waits_first_year),
-      silDaysPerYear: Number(row.sil_days_per_year),
-    };
-  });
+  .handler(async ({ data }): Promise<LeavePolicy | null> =>
+    readLeavePolicy(createAuthedClient(data.token)),
+  );
 
 /**
  * Sets the household's SIL rule. Managers only, here and in the database

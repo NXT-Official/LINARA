@@ -77,6 +77,8 @@ describe("LandingView", () => {
       "/signup?step=household",
       "/signup?step=join",
       "/signup?step=kasambahay",
+      "/faq",
+      "/pricing",
       "/privacy",
       "/terms",
     ]);

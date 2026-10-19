@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { BillingNotice } from "@/features/billing/components/billing-notice";
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
@@ -158,6 +159,7 @@ export function ManagerPassPage({
   return (
     <>
       <h1 className="sr-only">The Pass</h1>
+      <BillingNotice />
       <ManagerPassTab
         active={active}
         upcoming={upcoming}

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { CreditCard, LifeBuoy, LogOut, Wifi, WifiOff } from "lucide-react";
 import { useState } from "react";
 
 import { LogoMark } from "@/components/shared/logo";
@@ -102,6 +102,28 @@ export function TopBar() {
           {status === "authed" && <HouseholdSwitcher />}
           {/* DISABLED 2026-08-15 -- see use-sim-clock.ts. */}
           {/* <SimClock nowTs={nowTs} offsetMs={simOffsetMs} onChange={onSimOffsetChange} /> */}
+          {status === "authed" && (
+            <Link
+              to="/manager/plan"
+              title="Plan"
+              aria-label="Plan"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <CreditCard className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Plan</span>
+            </Link>
+          )}
+          {status === "authed" && (
+            <Link
+              to="/manager/help"
+              title="Help"
+              aria-label="Help"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <LifeBuoy className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Help</span>
+            </Link>
+          )}
           {status === "authed" && (
             <button
               onClick={() => setConfirmingLogOut(true)}

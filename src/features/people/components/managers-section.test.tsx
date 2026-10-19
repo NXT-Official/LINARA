@@ -5,6 +5,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Admin } from "../people.types";
 import { ManagersSection } from "./managers-section";
 
+const getBillingFn = vi.hoisted(() => vi.fn());
+vi.mock("@/features/billing/billing.actions", () => ({ getBillingFn }));
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("../household.actions", () => ({
   listManagerInvitesFn: vi.fn(async () => [
@@ -45,6 +52,7 @@ const session = {
   adminType: "primary" as Admin["type"],
   multiManager: true,
   token: "t",
+  householdId: "h1",
   setManagerRole: vi.fn(async () => {}),
   removeManager: vi.fn(async () => {}),
   leaveHousehold: vi.fn(async () => {}),
@@ -122,5 +130,28 @@ describe("ManagersSection", () => {
     render(<ManagersSection />);
     expect(screen.getByText("Ben Reyes")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Invite a manager/ })).toBeNull();
+  });
+
+  it("tells a full household to add a seat instead of opening the invite form", async () => {
+    getBillingFn.mockResolvedValue({
+      available: true,
+      entitlements: { managerSeats: 2 },
+      usage: { helpers: 0, managers: 2 },
+    });
+    render(<ManagersSection />);
+    fireEvent.click(screen.getByRole("button", { name: /Invite a manager/ }));
+    expect(await screen.findByText("You've used every manager seat on your plan.")).toBeTruthy();
+    expect(screen.queryByText("Make a code")).toBeNull();
+  });
+
+  it("opens the invite form when a seat is free", async () => {
+    getBillingFn.mockResolvedValue({
+      available: true,
+      entitlements: { managerSeats: 3 },
+      usage: { helpers: 0, managers: 2 },
+    });
+    render(<ManagersSection />);
+    fireEvent.click(screen.getByRole("button", { name: /Invite a manager/ }));
+    expect(await screen.findByText("Make a code")).toBeTruthy();
   });
 });
