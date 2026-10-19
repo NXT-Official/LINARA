@@ -1,0 +1,163 @@
+src/features/billing/pages/billing-return-page.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-37
+src/routes/_app/manager/plan.tsx
+  s_015ef908465883::t_9511ef220cda36 1-24
+src/routes/pricing.tsx
+  s_015ef908465883::t_9511ef220cda36 1-23
+src/features/billing/xendit-callback.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-92
+src/features/billing/pages/pricing-page.tsx
+  s_015ef908465883::t_bfd9847dee106a 9-10
+  s_015ef908465883::t_9511ef220cda36 1-8,11-61
+src/features/people/components/household-switcher.tsx
+  s_015ef908465883::t_9511ef220cda36 17-18,266
+src/features/billing/plan.actions.ts
+  s_015ef908465883::t_9511ef220cda36 1-14,21,26-31,33,52-53,66-68,70-72
+  s_015ef908465883::t_94bd0f85e016b8 15-20,22-25,32,34-39,41-51,54-65,69,73
+  s_015ef908465883::t_190142d33b05b1 40
+src/features/people/components/household-switcher.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-37
+src/features/billing/xendit-callback.ts
+  s_015ef908465883::t_9511ef220cda36 1-52
+src/features/billing/hooks/use-billing.ts
+  s_015ef908465883::t_9511ef220cda36 1-53
+src/features/faq/faq-loader.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-30
+src/features/billing/xendit-sessions.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-82
+src/features/billing/money.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-36
+src/features/billing/money.ts
+  s_015ef908465883::t_9511ef220cda36 1-23
+src/features/dashboard/components/top-bar.tsx
+  s_015ef908465883::t_779dc76651874a 2
+  s_015ef908465883::t_9511ef220cda36 105-126
+src/features/faq/faq-fallback.ts
+  s_015ef908465883::t_9511ef220cda36 1-80
+src/features/billing/plan.pricing.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-81
+src/features/faq/components/faq-list.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-49
+src/features/billing/public-plans-loader.ts
+  s_015ef908465883::t_9511ef220cda36 1-19
+src/features/billing/xendit-sessions.ts
+  s_015ef908465883::t_9511ef220cda36 1-78
+src/features/faq/faq.types.ts
+  s_015ef908465883::t_9511ef220cda36 1-10
+src/features/groceries/grocery-runs.actions.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-53
+src/features/billing/billing.actions.ts
+  s_015ef908465883::t_c4a979106a7db2 16-21,76-81,133-136,138-147,150-157,159,165,182-187,189,192-198,201-208,216,247-270,280,287-289,333,341,353,369,397,405-406,411,417,422,429,464-466
+  s_015ef908465883::t_190142d33b05b1 148
+  s_015ef908465883::t_9511ef220cda36 1-15,22-75,82-132,137,149,158,160-164,166-181,188,190-191,199-200,209-215,217-246,271-279,281-286,290-332,334-340,342-352,354-368,370-396,398-404,407-410,412-416,418-421,423-428,430-463,467-471
+src/features/leave/leave.actions.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-58
+src/features/billing/pages/manager-plan-page.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-369
+src/components/shared/bottom-nav.tsx
+  s_015ef908465883::t_9511ef220cda36 8-9,30,34
+src/features/billing/components/billing-notice.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-125
+src/features/billing/components/billing-notice.tsx
+  s_015ef908465883::t_9511ef220cda36 1-77
+src/features/billing/plan.types.test.ts
+  s_015ef908465883::t_efdcdb2b1b4d28 12
+  s_015ef908465883::t_9511ef220cda36 1-11,13-80
+src/features/faq/faq-loader.ts
+  s_015ef908465883::t_9511ef220cda36 1-21
+src/features/faq/components/faq-list.tsx
+  s_015ef908465883::t_9511ef220cda36 1-68
+src/components/shared/field.tsx
+  s_015ef908465883::t_9511ef220cda36 19,22
+src/routes/faq.tsx
+  s_015ef908465883::t_9511ef220cda36 1-19
+src/features/billing/components/plan-card.tsx
+  s_015ef908465883::t_a4f9a53e8f5782 1-40
+src/features/billing/components/plan-picker.tsx
+  s_015ef908465883::t_9511ef220cda36 1-237
+src/features/people/components/invite-helper-modal.tsx
+  s_015ef908465883::t_9511ef220cda36 8-9,48,73-75,82-99,101,106-107,109-111,115-189,191-193,196-199,201,203-204,207-208,211-227,229-231,236-239,242-269
+src/features/faq/faq.actions.ts
+  s_015ef908465883::t_9511ef220cda36 1-5,7,14,26-27,30-31,35-39,44-51
+  s_015ef908465883::t_94bd0f85e016b8 6,8-13,15-25,28-29,32-34,40-43
+src/routeTree.gen.ts
+  s_015ef908465883::t_69c35737d48f88 15,17,23,25,30,47-51,57-61,87-91,97-101,122-126,136,138,144-145,150,157,159,164-165,170,179,181,187-188,193,202,204,210-211,216,223,225,230-231,236,244,246,252-253,258,267,269,274,300-306,314-320,356-362,370-376,405-411,423,428,434,439,462,464,469
+src/features/billing/components/seat-limit-modal.tsx
+  s_015ef908465883::t_9511ef220cda36 1-35
+src/features/billing/billing.types.test.ts
+  s_015ef908465883::t_861b2a299004ad 34-35
+  s_015ef908465883::t_9511ef220cda36 1-33,36-37
+src/features/billing/pages/pricing-page.test.tsx
+  s_015ef908465883::t_9511ef220cda36 1-75
+src/features/dashboard/pages/manager-pass-page.tsx
+  s_015ef908465883::t_9511ef220cda36 3,162
+src/features/people/components/managers-section.test.tsx
+  s_015ef908465883::t_9511ef220cda36 8-14,55,134-156
+src/routes/billing/return.tsx
+  s_015ef908465883::t_9511ef220cda36 1-24
+src/features/billing/plan.actions.test.ts
+  s_015ef908465883::t_190142d33b05b1 48-53
+  s_015ef908465883::t_fbcfeeabc92b4f 1-47,54-159
+src/features/billing/billing.types.ts
+  s_015ef908465883::t_c4a979106a7db2 1,14,31,58,99
+  s_015ef908465883::t_9511ef220cda36 2-13,15-30,32-57,59-98,100-131
+src/features/groceries/grocery-runs.actions.ts
+  s_015ef908465883::t_bfd9847dee106a 158-159
+  s_015ef908465883::t_9511ef220cda36 139-157,160-162,165
+src/features/landing/__fixtures__/landing.pre-cms.html
+  s_015ef908465883::t_9511ef220cda36 1
+src/routes/_app/manager/help.tsx
+  s_015ef908465883::t_9511ef220cda36 1-10
+src/features/billing/billing.actions.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-5,13-18,20-62,120-135,140-146,148-156,158-164,166-169,171-172,174-188,190-191,193-218,220-233,237-279,282,284-288,294,296-302,361,367-369,371-372,374-379,381-384,386-387,423,427,453-454,494,496,505-507
+  s_015ef908465883::t_861b2a299004ad 6-12,19,63-119,136-139,147,157,165,170,173,189,192,219,234-236,280-281,283,289-293,295,303-360,362-366,370,373,380,385,388-422,424-426,428-452,455-493,495,497-504
+src/features/billing/pages/manager-plan-page.tsx
+  s_015ef908465883::t_9511ef220cda36 1-406,408-527
+  s_015ef908465883::t_c4a979106a7db2 407
+src/features/billing/plan.pricing.ts
+  s_015ef908465883::t_9511ef220cda36 1-18,20-72
+  s_015ef908465883::t_efdcdb2b1b4d28 19
+src/features/billing/public-plans-loader.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-25
+src/features/leave/leave.actions.ts
+  s_015ef908465883::t_bfd9847dee106a 169-170
+  s_015ef908465883::t_9511ef220cda36 13-14,167-168,172-199,202-204
+src/features/landing/landing-view.tsx
+  s_015ef908465883::t_9511ef220cda36 247-252
+src/features/billing/pages/billing-return-page.tsx
+  s_015ef908465883::t_9511ef220cda36 1-45
+src/features/faq/faq.actions.test.ts
+  s_015ef908465883::t_9511ef220cda36 1-2,4-6,9-11,14-24,26,33-34,43,45-51,56,58,61-62,72-87,96,99-100
+  s_015ef908465883::t_fbcfeeabc92b4f 3,7-8,12-13,25,27-32,35-42,44,52-55,57,59-60,63,71,88-95,97-98
+  s_015ef908465883::t_190142d33b05b1 64-70
+src/features/faq/pages/faq-page.tsx
+  s_015ef908465883::t_9511ef220cda36 1-35
+src/features/landing/landing-view.test.tsx
+  s_015ef908465883::t_9511ef220cda36 80-81
+src/features/people/components/managers-section.tsx
+  s_015ef908465883::t_9511ef220cda36 7-8,42-43,76-99,266-267,275,346-359,361-380,382-426,428-450
+src/features/people/components/account-section.tsx
+  s_015ef908465883::t_9511ef220cda36 2,85-102
+  s_015ef908465883::t_e15affa2ffe45d 103
+src/features/billing/plan.types.ts
+  s_015ef908465883::t_9511ef220cda36 1-30,32-50,52-119
+  s_015ef908465883::t_bfd9847dee106a 31,51
+package.json
+  s_015ef908465883::t_19613c633dffb8 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a13477820e6096ce1148c631d516f3420c865376",
+  "prompts": {},
+  "sessions": {
+    "s_015ef908465883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc0c8d9c-45ff-47d9-bb1d-e5046b9ee7e4",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "naaxtech <naaxtech.official@gmail.com>"
+    }
+  }
+}
