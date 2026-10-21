@@ -22,8 +22,7 @@ function authClient() {
 
 export type DirectSession = { accessToken: string; refreshToken: string; userId: string };
 export type DirectAuthResult =
-  | { status: "confirmation_pending" }
-  | ({ status: "ok" } & DirectSession);
+  { status: "confirmation_pending" } | ({ status: "ok" } & DirectSession);
 
 /** Auth's own message, except when it's throttling, which says so plainly. */
 function authFailure(error: AuthError): Error {
