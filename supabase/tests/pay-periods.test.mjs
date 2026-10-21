@@ -69,11 +69,24 @@ await db.exec(`
 `);
 
 // --- Pay periods ------------------------------------------------------------
+// Counted up to the database's own today (Manila), so the checks don't go
+// stale every half-month: Aug 1-15 (from Aug 10), Aug 16-31, Sep 1-15,
+// Sep 16-30, then every half-month from Oct 1 up to the current one.
+const { today } = await one(
+  `SELECT to_char((now() AT TIME ZONE 'Asia/Manila')::date, 'YYYY-MM-DD') AS today`,
+);
+const [ty, tm, td] = today.split("-").map(Number);
+const halvesSinceOct = (ty - 2026) * 24 + (tm - 10) * 2 + (td >= 16 ? 2 : 1);
+const expectedPeriods = 4 + halvesSinceOct;
+// Unpaid and not current: Aug 16-31 (left so on purpose below), plus every
+// half-month from Oct 1 that has already ended.
+const expectedMissed = 1 + (halvesSinceOct - 1);
+
 await as(M);
 let periods = await q(`SELECT * FROM helper_pay_periods($1)`, [HP]);
 check(
-  "five periods since Aug 10",
-  periods.length === 5,
+  `${expectedPeriods} periods since Aug 10 (today ${today})`,
+  periods.length === expectedPeriods,
   periods.map((p) => [p.full_start, p.worked_start]),
 );
 check(
@@ -82,7 +95,7 @@ check(
     periods[0].worked_start?.toISOString?.().startsWith("2026-08-10"),
   periods[0].worked_start,
 );
-check("last period is current", periods[4].is_current === true);
+check("last period is current", periods[periods.length - 1].is_current === true);
 
 // A legacy payslip keyed on the FULL Aug 1-15 bounds still settles the period.
 await db.exec(`INSERT INTO payslips (helper_id, cutoff_start, cutoff_end, base_pay, statutory_employee_share, net_pay, payout_channel_code, payout_status)
@@ -169,8 +182,8 @@ await expectError(
 periods = await q(`SELECT * FROM helper_pay_periods($1)`, [HP]);
 const unpaid = periods.filter((p) => !p.payslip_id && !p.is_current);
 check(
-  "exactly one missed period left (Aug 16-31)",
-  unpaid.length === 1,
+  `${expectedMissed} missed period(s) left (Aug 16-31, then any ended since Oct 1)`,
+  unpaid.length === expectedMissed,
   unpaid.map((p) => p.full_start),
 );
 
@@ -194,7 +207,7 @@ const preview = await one(
   `SELECT employment_end_preview($1, (now() AT TIME ZONE 'Asia/Manila')::date) AS p`,
   [HP],
 );
-check("preview counts the missed period", preview.p.unpaid_periods === 1, preview.p);
+check("preview counts the missed periods", preview.p.unpaid_periods === expectedMissed, preview.p);
 check("preview has no problem", preview.p.problem === null, preview.p.problem);
 const ended = await one(
   `SELECT end_helper_employment($1, (now() AT TIME ZONE 'Asia/Manila')::date, $2) AS r`,

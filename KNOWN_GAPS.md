@@ -16,6 +16,26 @@ the bottom.
 
 ## Open Gaps
 
+### O70. Push notifications: Android phones never register, and several events never notify anyone (unresolved)
+
+- **Found:** 2026-10-20, auditing the mobile app's notifications. Numbered O70 so it can't collide with the O58-O69 entries on `nicoleDev`.
+- **Status:** Item 1 fixed (2026-10-21, below); items 2-6 unresolved and waiting on product decisions. Owned by the project owner; the other mobile QA findings were fixed on `LINARA_MOBILE` `development` / `staging` (`822df9f`..`7920e67`).
+- **What's wrong:**
+  1. **Android never registers (blocker).** `LINARA_MOBILE/app.json` has no `android.googleServicesFile` and the Expo project has no FCM V1 key, so `getExpoPushTokenAsync` throws "Unable to get Firebase Messaging instance. Did you configure `googleServicesFile`". `lib/notifications.ts` only logs it (`[push] Not registered for notifications`, 31 times in the 2026-10-09 QA logcat, `stress-testing/runs/`), so no Android helper has a `push_tokens` row and every `pushToHelper` (C58) reaches nobody. iOS will need an APNs key the same way.
+  2. **On-shift sends never push.** Utos and tasks sent while she's on shift rely on Realtime, which only reaches an open app (C58, by design). A phone in a pocket or a closed app hears nothing until she opens it.
+  3. **Events with no push:** vale approved or declined, leave and rest-off decisions, a payment to confirm, leave a manager recorded for her to confirm.
+  4. **Managers get no pushes.** The manager side is the WebView (O18) and `use-push-notifications.ts` skips managers, so her vale or leave request, "Hindi ko magagawa ngayon" and a notice she gives reach the manager only when they look.
+  5. **Silent opt-out.** A helper who denies the permission is never told, though emergencies depend on it.
+  6. **Language.** Push text is Taglish whatever language she picks in the app (LINARA_MOBILE `22ba7ec`).
+- **To close (item 1):** create a Firebase project with an Android app `com.linara.mobile`, put its `google-services.json` in `LINARA_MOBILE` and set `android.googleServicesFile`, upload the FCM V1 service-account key with `eas credentials`, rebuild the APK (a native change; an update can't deliver it), then confirm a `push_tokens` row appears for an Android helper and a test override arrives. Items 2-6 each need a product decision first.
+- **Item 1 fixed (2026-10-21):** Firebase project `linara-d7dae`, `google-services.json` and `android.googleServicesFile` in `LINARA_MOBILE` `168c4b8`, FCM V1 key uploaded to the Expo project, and the Android API key restricted to `com.linara.mobile` (EAS signing SHA-1) and the Installations, Cloud Messaging and FCM Registration APIs. Verified on the emulator: the test helper registers a token (also again after the app's data is cleared), and a push sent to it with the app in the background is accepted, receipted `ok` and posted on the `alerts` channel. Not verified: tapping it opens Today (the emulator's shade wouldn't expand; the owner checked on a device). iOS still needs an APNs key. A Play Store release with Play App Signing needs Play's SHA-1 added to the key restriction.
+
+### O71. The vale form's reason choices stay under the keyboard after typing the amount
+
+- **Found:** 2026-10-21, mobile staging QA (`stress-testing/flows/staging-1020/LM-16-F-LM-005-vale-offline.yaml`, staging APK `168c4b8`).
+- **What's wrong:** On Android, typing the amount scrolls only the amount field above the keyboard; the reason choices below it ("Gamot para sa anak" and the rest) stay hidden until she closes the keyboard or scrolls. The same happens on the older staging build `7920e67`, so it predates the N-01 keyboard fix (`LINARA_MOBILE` `cbf1d3d`); it is the same pattern N-01 fixed for the note button on Today.
+- **To close:** scroll the reason choices into view once the keyboard is up, as `app/(app)/today.tsx` does for the note button, then rerun that flow. Owned by `LINARA_MOBILE`.
+
 ### O2. A household can only ever have one admin -- co-manager and remote (OFW) admin have no way in
 
 - **Found:** 2026-09-30, during a launch-readiness review (checking the marketing claims against the code).

@@ -404,10 +404,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Sync when transitioning back to online
+  // Sync when transitioning back to online. Realtime doesn't replay what
+  // changed while the connection was down, so also reload every list once it
+  // comes back; otherwise the dashboard stays stale until the next change
+  // event (same gap as the app's QA F-LM-008, device QA 2026-10-21).
+  const wasOfflineRef = useRef(false);
   useEffect(() => {
-    if (isOnline) {
-      syncOfflineQueue();
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    syncOfflineQueue();
+    if (!wasOfflineRef.current) return;
+    wasOfflineRef.current = false;
+    const lists = [boardRef, ledgerRef, appointmentsRef, pantryRef, utosRef];
+    for (const list of lists) {
+      list.current.refresh().catch((err) => {
+        console.error("[Reconnect] Failed to refresh:", err);
+      });
     }
   }, [isOnline]);
 
