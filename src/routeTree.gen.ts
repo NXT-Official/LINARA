@@ -23,6 +23,7 @@ import { Route as AppManagerMoneyRouteImport } from './routes/_app/manager/money
 import { Route as AppManagerPantryRouteImport } from './routes/_app/manager/pantry'
 import { Route as AppManagerPassRouteImport } from './routes/_app/manager/pass'
 import { Route as AppManagerPeopleRouteImport } from './routes/_app/manager/people'
+import { Route as AppManagerPlanRouteImport } from './routes/_app/manager/plan'
 import { Route as AppManagerScheduleRouteImport } from './routes/_app/manager/schedule'
 
 const IndexRoute = IndexRouteImport.update({
@@ -94,6 +95,11 @@ const AppManagerPeopleRoute = AppManagerPeopleRouteImport.update({
   path: '/people',
   getParentRoute: () => AppManagerRoute,
 } as any)
+const AppManagerPlanRoute = AppManagerPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => AppManagerRoute,
+} as any)
 const AppManagerScheduleRoute = AppManagerScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/plan': typeof AppManagerPlanRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
   '/manager/': typeof AppManagerIndexRoute
 }
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/manager/pantry': typeof AppManagerPantryRoute
   '/manager/pass': typeof AppManagerPassRoute
   '/manager/people': typeof AppManagerPeopleRoute
+  '/manager/plan': typeof AppManagerPlanRoute
   '/manager/schedule': typeof AppManagerScheduleRoute
   '/manager': typeof AppManagerIndexRoute
 }
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/_app/manager/pantry': typeof AppManagerPantryRoute
   '/_app/manager/pass': typeof AppManagerPassRoute
   '/_app/manager/people': typeof AppManagerPeopleRoute
+  '/_app/manager/plan': typeof AppManagerPlanRoute
   '/_app/manager/schedule': typeof AppManagerScheduleRoute
   '/_app/manager/': typeof AppManagerIndexRoute
 }
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
+    | '/manager/plan'
     | '/manager/schedule'
     | '/manager/'
   fileRoutesByTo: FileRoutesByTo
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/manager/pantry'
     | '/manager/pass'
     | '/manager/people'
+    | '/manager/plan'
     | '/manager/schedule'
     | '/manager'
   id:
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/_app/manager/pantry'
     | '/_app/manager/pass'
     | '/_app/manager/people'
+    | '/_app/manager/plan'
     | '/_app/manager/schedule'
     | '/_app/manager/'
   fileRoutesById: FileRoutesById
@@ -311,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManagerPeopleRouteImport
       parentRoute: typeof AppManagerRoute
     }
+    '/_app/manager/plan': {
+      id: '/_app/manager/plan'
+      path: '/plan'
+      fullPath: '/manager/plan'
+      preLoaderRoute: typeof AppManagerPlanRouteImport
+      parentRoute: typeof AppManagerRoute
+    }
     '/_app/manager/schedule': {
       id: '/_app/manager/schedule'
       path: '/schedule'
@@ -326,6 +345,7 @@ interface AppManagerRouteChildren {
   AppManagerPantryRoute: typeof AppManagerPantryRoute
   AppManagerPassRoute: typeof AppManagerPassRoute
   AppManagerPeopleRoute: typeof AppManagerPeopleRoute
+  AppManagerPlanRoute: typeof AppManagerPlanRoute
   AppManagerScheduleRoute: typeof AppManagerScheduleRoute
   AppManagerIndexRoute: typeof AppManagerIndexRoute
 }
@@ -335,6 +355,7 @@ const AppManagerRouteChildren: AppManagerRouteChildren = {
   AppManagerPantryRoute: AppManagerPantryRoute,
   AppManagerPassRoute: AppManagerPassRoute,
   AppManagerPeopleRoute: AppManagerPeopleRoute,
+  AppManagerPlanRoute: AppManagerPlanRoute,
   AppManagerScheduleRoute: AppManagerScheduleRoute,
   AppManagerIndexRoute: AppManagerIndexRoute,
 }

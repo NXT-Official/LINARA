@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LeaveSection } from "@/features/leave/components/leave-section";
 import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
+import { PlanSummary } from "@/features/plan/components/plan-summary";
 import { PlacesSection } from "@/features/sharing/components/places-section";
 import { SharedStaffSection } from "@/features/sharing/components/shared-staff-section";
 import { TeamsLabelsSection } from "@/features/teams/components/teams-labels-section";
@@ -186,6 +187,10 @@ export function PeoplePage({
           />
         </div>
       )}
+
+      <div className="mt-6">
+        <PlanSummary />
+      </div>
 
       <div className="mt-6">
         <AccountSection

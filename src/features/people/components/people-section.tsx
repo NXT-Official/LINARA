@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import { formatCutoffDay } from "@/features/pay/pay.utils";
+import { LimitNotice } from "@/features/plan/components/plan-gate";
+import { useCanAdd } from "@/features/plan/hooks/use-can-add";
 import { BulkStaffBar } from "@/features/teams/components/bulk-staff-bar";
 import { EditTeamLabelsModal } from "@/features/teams/components/edit-team-labels-modal";
 import { StaffScopeBar } from "@/features/teams/components/staff-scope-bar";
@@ -54,6 +56,7 @@ export function PeopleSection({
   onEndEmployment: (id: string, lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
+  const kasambahayCheck = useCanAdd("kasambahay");
   const [issued, setIssued] = useState<Invite | null>(null);
   const [editingWage, setEditingWage] = useState<Invite | null>(null);
   const [editingTeam, setEditingTeam] = useState<Invite | null>(null);
@@ -125,11 +128,13 @@ export function PeopleSection({
         {canInvite && (
           <button
             onClick={() => setInviteOpen(true)}
-            className="mb-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
+            disabled={!kasambahayCheck.ok}
+            className="mb-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Invite a helper
           </button>
         )}
+        {canInvite && <LimitNotice check={kasambahayCheck} className="mb-4" />}
 
         {canInvite && teams.available && current.length > 1 && !selecting && (
           <button

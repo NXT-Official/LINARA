@@ -48,10 +48,12 @@ const session = {
   setManagerRole: vi.fn(async () => {}),
   removeManager: vi.fn(async () => {}),
   leaveHousehold: vi.fn(async () => {}),
+  // Read by the plan's limit check on "Invite a manager".
+  households: [],
 };
 let current = session;
 vi.mock("@/features/dashboard/app-store-context", () => ({
-  useAppStores: () => ({ session: current }),
+  useAppStores: () => ({ session: current, invites: { invites: [] } }),
 }));
 
 afterEach(() => {

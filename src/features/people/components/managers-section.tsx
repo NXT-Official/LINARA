@@ -5,6 +5,10 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { LimitNotice } from "@/features/plan/components/plan-gate";
+import { useCanAdd } from "@/features/plan/hooks/use-can-add";
+import { hasFeature } from "@/features/plan/plan.logic";
+import { usePlan } from "@/features/plan/plan.store";
 
 import {
   createManagerInviteFn,
@@ -42,6 +46,7 @@ export function ManagersSection() {
     admin: Admin;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const managerCheck = useCanAdd("co_managers");
 
   const refreshInvites = useCallback(() => {
     if (!token || !isPrimary || !multiManager) return;
@@ -236,10 +241,12 @@ export function ManagersSection() {
           )}
           <button
             onClick={() => setInviting(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary"
+            disabled={!managerCheck.ok}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Invite a manager
           </button>
+          <LimitNotice check={managerCheck} className="mt-2" />
         </div>
       )}
 
@@ -288,6 +295,8 @@ function ConfirmInline({
 
 function InviteManagerModal({ token, onClose }: { token: string | null; onClose: () => void }) {
   const [role, setRole] = useState<InviteRole>("co_manager");
+  const { subscription } = usePlan();
+  const remoteAllowed = hasFeature(subscription, "remote_admin");
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<ManagerInvite | null>(null);
   const [copied, setCopied] = useState(false);
@@ -369,6 +378,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
             <legend className="sr-only">Their role</legend>
             {(["co_manager", "remote_admin"] as const).map((r) => {
               const type = managerRoleType[r];
+              const locked = r === "remote_admin" && !remoteAllowed;
               return (
                 <label
                   key={r}
@@ -383,6 +393,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
                     name="manager-role"
                     value={r}
                     checked={role === r}
+                    disabled={locked}
                     onChange={() => setRole(r)}
                     className="mt-1 accent-[var(--primary)]"
                   />
@@ -391,7 +402,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
                       {adminTypeLabel[type]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {adminPermSummary[type]}
+                      {locked ? "Not on your plan." : adminPermSummary[type]}
                     </span>
                   </span>
                 </label>

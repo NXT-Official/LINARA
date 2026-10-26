@@ -10,6 +10,7 @@ import { usePlannerTasks } from "@/features/tasks/hooks/use-planner-tasks";
 import { addDays } from "@/features/tasks/planner.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
+import { OverLimitBanner } from "@/features/plan/components/over-limit-banner";
 import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
 import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { parseISODate, startOfDayIso, toISODate } from "@/lib/time";
@@ -159,6 +160,9 @@ export function ManagerPassPage({
   return (
     <>
       <h1 className="sr-only">The Pass</h1>
+      <div className="mb-6 empty:hidden">
+        <OverLimitBanner />
+      </div>
       <ManagerPassTab
         active={active}
         upcoming={upcoming}

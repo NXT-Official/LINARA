@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { LimitNotice } from "@/features/plan/components/plan-gate";
+import { useCanAdd } from "@/features/plan/hooks/use-can-add";
 
 import { lookupManagerInviteFn } from "../household.actions";
 import { adminTypeLabel, managerRoleType } from "../people.constants";
@@ -157,9 +159,11 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const error = tried && !name.trim() ? "Give it a name." : null;
 
+  const householdCheck = useCanAdd("households");
+
   const create = () => {
     setTried(true);
-    if (!name.trim()) return;
+    if (!name.trim() || !householdCheck.ok) return;
     setBusy(true);
     session.createHousehold(name.trim()).catch((err: Error) => {
       setBusy(false);
@@ -174,6 +178,7 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
         A second home, or your parents&apos;. You&apos;ll be its primary manager, and you can switch
         back any time.
       </p>
+      <LimitNotice check={householdCheck} className="mt-4" />
       <div className="mt-4">
         <Field label="Household name" error={error}>
           <input
@@ -190,7 +195,7 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} className={quietButton}>
           Cancel
         </button>
-        <button onClick={create} disabled={busy} className={primaryButton}>
+        <button onClick={create} disabled={busy || !householdCheck.ok} className={primaryButton}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create household
         </button>
       </div>
