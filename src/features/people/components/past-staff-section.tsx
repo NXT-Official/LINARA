@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
+import { PayHrDisabledNotice } from "@/components/shared/pay-hr-disabled-notice";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
 import { periodEstimate } from "@/features/pay/period-estimate";
@@ -10,6 +11,7 @@ import type { PayPeriodStore } from "@/features/pay/hooks/use-pay-periods";
 import type { PaymentTarget } from "@/features/pay/hooks/use-payslips";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
 import type { ManualPayment, Payslip, PayoutChannelCode } from "@/features/pay/pay.types";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import type { Helper, Invite } from "../people.types";
 import { findHelper, initialsOf } from "../people.utils";
@@ -137,7 +139,8 @@ export function PastStaffSection({
                   {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
               </div>
-              {isOpen && (
+              {isOpen && !PAY_HR_ENABLED && <PayHrDisabledNotice className="mt-3" />}
+              {isOpen && PAY_HR_ENABLED && (
                 <div className="mt-3 space-y-3">
                   <PayslipHistory
                     helper={helper}

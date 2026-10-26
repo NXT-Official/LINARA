@@ -31,6 +31,7 @@ import { SuggestionsInbox } from "@/features/tasks/components/suggestions-inbox"
 import { TheBoardStatusLists } from "@/features/tasks/components/the-board-status-lists";
 import type { Task } from "@/features/tasks/task.types";
 import { useMounted } from "@/hooks/use-mounted";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { formatSimDate } from "@/lib/time";
 
 import { NeedsYou } from "./needs-you";
@@ -516,7 +517,7 @@ export function ManagerPassTab({
       {quickUtos}
 
       {/* Compact spend / payday dials */}
-      <SpendAndPayday />
+      {PAY_HR_ENABLED && <SpendAndPayday />}
     </>
   );
 }

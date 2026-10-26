@@ -11,6 +11,7 @@ import { addDays } from "@/features/tasks/planner.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
 import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { parseISODate, startOfDayIso, toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
@@ -165,12 +166,12 @@ export function ManagerPassPage({
         blocked={onBoard.filter((t) => t.status === "blocked")}
         pastDue={pastDue}
         nowTs={clock.nowTs}
-        pendingVales={vales.vales.filter((v) => v.status === "pending")}
+        pendingVales={PAY_HR_ENABLED ? vales.vales.filter((v) => v.status === "pending") : []}
         flaggedInvites={inviteStore.invites.filter(
           (i) => i.status !== "ended" && i.flags.length > 0,
         )}
-        owedPay={owedPay}
-        disputedPayments={disputedPayments}
+        owedPay={PAY_HR_ENABLED ? owedPay : []}
+        disputedPayments={PAY_HR_ENABLED ? disputedPayments : []}
         notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
         pendingLeave={pendingLeave}
         leaveTaskCounts={leaveTaskCounts}

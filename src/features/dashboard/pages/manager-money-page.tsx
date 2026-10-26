@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
+import { PayHrDisabledNotice } from "@/components/shared/pay-hr-disabled-notice";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
 import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
@@ -10,6 +11,7 @@ import { PayrollSummary } from "@/features/pay/components/payroll-summary";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
@@ -92,15 +94,19 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
   return (
     <div className="space-y-6">
       <h1 className="sr-only">Money</h1>
-      <PayrollSummary
-        selectedId={selectedHelper?.id ?? null}
-        onSelect={(id) => {
-          setPickedPayHelperId(id);
-          document
-            .getElementById("pay-details")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-      />
+      {PAY_HR_ENABLED ? (
+        <PayrollSummary
+          selectedId={selectedHelper?.id ?? null}
+          onSelect={(id) => {
+            setPickedPayHelperId(id);
+            document
+              .getElementById("pay-details")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
+      ) : (
+        <PayHrDisabledNotice />
+      )}
       <div
         id="pay-details"
         className="flex scroll-mt-20 flex-wrap items-center justify-between gap-2"
@@ -127,38 +133,44 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
           </div>
         )}
       </div>
-      <SpendAndPayday helper={selectedHelper} />
-      <PayslipHistory
-        helper={selectedHelper}
-        payslips={payslips.payslips}
-        cutoff={cutoff}
-        estimate={
-          selectedHelper && currentPeriod
-            ? Math.max(
-                0,
-                periodEstimate(selectedHelper, currentPeriod) -
-                  unsettledVales -
-                  unpaidLeaveDue(selectedHelper.id, currentPeriod.workedEnd).deduction,
-              )
-            : undefined
-        }
-        onPayNow={payslips.payNow}
-        onReconcile={payslips.reconcile}
-        onRecordOffApp={canPay ? (id, payment) => payslips.recordOffApp(id, payment) : undefined}
-        onWithdrawOffApp={canPay ? payslips.withdrawOffApp : undefined}
-      />
-      {selectedHelper && (
-        <MissedPeriodsCard
-          id="owed-pay"
-          helper={selectedHelper}
-          missed={missed}
-          token={session.token}
-          payslipsVersion={payslipsVersion}
-          unsettledVales={unsettledVales}
-          canPay={canPay}
-          onPayNow={payslips.payNow}
-          onRecordOffApp={payslips.recordOffApp}
-        />
+      {PAY_HR_ENABLED && (
+        <>
+          <SpendAndPayday helper={selectedHelper} />
+          <PayslipHistory
+            helper={selectedHelper}
+            payslips={payslips.payslips}
+            cutoff={cutoff}
+            estimate={
+              selectedHelper && currentPeriod
+                ? Math.max(
+                    0,
+                    periodEstimate(selectedHelper, currentPeriod) -
+                      unsettledVales -
+                      unpaidLeaveDue(selectedHelper.id, currentPeriod.workedEnd).deduction,
+                  )
+                : undefined
+            }
+            onPayNow={payslips.payNow}
+            onReconcile={payslips.reconcile}
+            onRecordOffApp={
+              canPay ? (id, payment) => payslips.recordOffApp(id, payment) : undefined
+            }
+            onWithdrawOffApp={canPay ? payslips.withdrawOffApp : undefined}
+          />
+          {selectedHelper && (
+            <MissedPeriodsCard
+              id="owed-pay"
+              helper={selectedHelper}
+              missed={missed}
+              token={session.token}
+              payslipsVersion={payslipsVersion}
+              unsettledVales={unsettledVales}
+              canPay={canPay}
+              onPayNow={payslips.payNow}
+              onRecordOffApp={payslips.recordOffApp}
+            />
+          )}
+        </>
       )}
       <RestOffRequests
         helper={selectedHelper}

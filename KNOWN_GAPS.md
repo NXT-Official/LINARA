@@ -30,6 +30,16 @@ the bottom.
 - **To close (item 1):** create a Firebase project with an Android app `com.linara.mobile`, put its `google-services.json` in `LINARA_MOBILE` and set `android.googleServicesFile`, upload the FCM V1 service-account key with `eas credentials`, rebuild the APK (a native change; an update can't deliver it), then confirm a `push_tokens` row appears for an Android helper and a test override arrives. Items 2-6 each need a product decision first.
 - **Item 1 fixed (2026-10-21):** Firebase project `linara-d7dae`, `google-services.json` and `android.googleServicesFile` in `LINARA_MOBILE` `168c4b8`, FCM V1 key uploaded to the Expo project, and the Android API key restricted to `com.linara.mobile` (EAS signing SHA-1) and the Installations, Cloud Messaging and FCM Registration APIs. Verified on the emulator: the test helper registers a token (also again after the app's data is cleared), and a push sent to it with the app in the background is accepted, receipted `ok` and posted on the `alerts` channel. Not verified: tapping it opens Today (the emulator's shade wouldn't expand; the owner checked on a device). iOS still needs an APNs key. A Play Store release with Play App Signing needs Play's SHA-1 added to the key restriction.
 
+### O72. Staff pay & HR is switched off while it's brought in line with the law
+
+- **Found:** 2026-10-26, the owner asked for payroll to be "temporarily disabled due to adhering to the law".
+- **What's off:** payslips and paying staff (Pay now, "I've sent it", missed periods, final and 13th-month pay figures), the payroll summary and spend/payday dials, vale (request and approval), where a helper is paid, wage changes, and the SSS / PhilHealth / Pag-IBIG figures. A notice ("temporarily disabled while we make sure they follow the law") stands where they were. **Still on:** leave, rest-off, the after-hours ledger, ending an employment, My Record's own history. Nothing is deleted.
+- **How:** `PAY_HR_ENABLED = false` in `src/lib/pay-hr.ts` and `../LINARA_MOBILE/lib/pay-hr.ts` (UI; the web's pay-writing server functions call `assertPayHrEnabled()`), and `supabase/add-pay-hr-switch.sql` (`app_switches.staff_pay_hr`, triggers refusing new payslips, vales, vale approvals, payout accounts and wage changes for every caller, so installed app builds and direct API calls are refused too). Tested: `supabase/tests/pay-hr-switch.test.mjs`, `src/lib/pay-hr.test.tsx`.
+- **Applied:** `add-pay-hr-switch.sql` on linara dev, 2026-10-26 (by the owner). Dev is the only environment; a future prod project gets it with the rest of the schema.
+- **Blocks:** `e2e/deep/pay.spec.ts` (records a payment) fails while it's off, by design.
+- **Open:** which features count as pay or HR is still the team lead's call (rest owed, leave); the subscription plan's global switch (`documentation/specs/2026-10-26-subscriptions-plan.md`, R5) should take over `app_switches`.
+- **To close:** flip both constants and `UPDATE public.app_switches SET enabled = true WHERE key = 'staff_pay_hr'`, then update `pay-hr.test.tsx`. Owned by `LINARA`.
+
 ### O71. The vale form's reason choices stay under the keyboard after typing the amount
 
 - **Found:** 2026-10-21, mobile staging QA (`stress-testing/flows/staging-1020/LM-16-F-LM-005-vale-offline.yaml`, staging APK `168c4b8`).

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { mapLimit } from "@/lib/map-limit";
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 import type { PaydayInterval } from "@/features/people/people.types";
 
@@ -436,6 +437,7 @@ export const recordOffAppPaymentFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const client = createAuthedClient(data.token);
     const kind = data.kind ?? "regular";
     const { basePay, statutoryShare } = await componentsForPayment(
@@ -473,6 +475,7 @@ export const previewPaymentFn = createServerFn({ method: "POST" })
     (data: { token: string; helperId: string; cutoffStart?: string; kind?: PayslipKind }) => data,
   )
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const client = createAuthedClient(data.token);
     const kind = data.kind ?? "regular";
     if (kind === "thirteenth_month") {
@@ -514,6 +517,7 @@ export const previewPaymentFn = createServerFn({ method: "POST" })
 export const withdrawOffAppPaymentFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; payslipId: string }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const client = createAuthedClient(data.token);
     const { error } = await client.rpc("withdraw_offapp_payslip", {
       p_payslip_id: data.payslipId,
@@ -592,6 +596,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     // Off unless the build turns it on: households pay her directly and
     // Linara records it (payout-mode.ts, KNOWN_GAPS O35).
     if (!XENDIT_PAYOUTS_ON) {
@@ -829,6 +834,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
 export const reconcilePayoutFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; payslipId: string }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, payslipId } = data;
     const authedClient = createAuthedClient(token);
 

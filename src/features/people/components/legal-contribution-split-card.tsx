@@ -1,5 +1,7 @@
 import { Info } from "lucide-react";
 
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
+
 import { computeStatutorySplit } from "../people.utils";
 
 interface LegalContributionSplitCardProps {
@@ -7,6 +9,7 @@ interface LegalContributionSplitCardProps {
 }
 
 export function LegalContributionSplitCard({ wagePHP }: LegalContributionSplitCardProps) {
+  if (!PAY_HR_ENABLED) return null;
   const {
     isUnder5k,
     sssEmployer,

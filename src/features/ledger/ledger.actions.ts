@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 
 import type { LedgerReason, LedgerResolution } from "./ledger.types";
@@ -250,6 +251,7 @@ export const listValesFn = createServerFn({ method: "POST" })
 export const insertValeFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string; amount: number; reason: string }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, helperId, amount, reason } = data;
 
     const authedClient = createAuthedClient(token);
@@ -274,6 +276,7 @@ export const insertValeFn = createServerFn({ method: "POST" })
 export const decideValeFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; valeId: string; decision: "approved" | "declined" }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, valeId, decision } = data;
 
     const authedClient = createAuthedClient(token);

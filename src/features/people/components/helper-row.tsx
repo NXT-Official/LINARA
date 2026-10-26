@@ -17,6 +17,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
 import { LabelChips } from "@/features/teams/components/label-chip";
 import type { Label } from "@/features/teams/teams.types";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Invite, PantryRole, Station } from "../people.types";
@@ -193,15 +194,17 @@ export function HelperRow({
             )}
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <button
-                type="button"
-                onClick={() => setShowContributions((v) => !v)}
-                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-              >
-                <Info className="h-3 w-3" />{" "}
-                {showContributions ? "Hide contributions" : "Contributions"}
-              </button>
-              {canInvite && (
+              {PAY_HR_ENABLED && (
+                <button
+                  type="button"
+                  onClick={() => setShowContributions((v) => !v)}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Info className="h-3 w-3" />{" "}
+                  {showContributions ? "Hide contributions" : "Contributions"}
+                </button>
+              )}
+              {canInvite && PAY_HR_ENABLED && (
                 <button
                   type="button"
                   onClick={onEditWage}

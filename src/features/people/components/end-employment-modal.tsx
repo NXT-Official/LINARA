@@ -13,6 +13,7 @@ import {
   workedShareOfCutoff,
 } from "@/features/pay/net-pay";
 import { formatCutoffRange } from "@/features/pay/pay.utils";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { householdNow, toISODate } from "@/lib/time";
 
 import { employmentEndPreviewFn, type EmploymentEndPreview } from "../people.actions";
@@ -227,38 +228,40 @@ export function EndEmploymentModal({
               </Field>
             )}
 
-            <div className="rounded-2xl bg-secondary/60 p-3.5">
-              <h4 className="text-sm font-semibold text-foreground">Final pay</h4>
-              {current.finalCutoffPaid ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Already paid for{" "}
-                  {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}. Nothing
-                  more to send through Linara.
-                </p>
-              ) : (
-                <>
-                  <p className="mt-1 text-sm text-foreground">
-                    <span className="font-semibold tabular-nums">{fmtPeso(finalNet)}</span> for{" "}
-                    {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}
-                    {share < 1 ? ` (${daysWorked} days worked of the cutoff)` : ""}
+            {PAY_HR_ENABLED && (
+              <div className="rounded-2xl bg-secondary/60 p-3.5">
+                <h4 className="text-sm font-semibold text-foreground">Final pay</h4>
+                {current.finalCutoffPaid ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Already paid for{" "}
+                    {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}. Nothing
+                    more to send through Linara.
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Basic {fmtPeso(components.basePay)} − contributions{" "}
-                    {fmtPeso(components.statutoryEmployeeShare)}
-                    {current.unsettledValeTotal > 0
-                      ? ` − vale ${fmtPeso(current.unsettledValeTotal)}`
-                      : ""}
-                    {current.unpaidLeaveDeduction > 0
-                      ? ` − unpaid leave ${fmtPeso(current.unpaidLeaveDeduction)} (${current.unpaidLeaveDays} ${current.unpaidLeaveDays === 1 ? "day" : "days"})`
-                      : ""}
-                    . You'll pay it from Past staff on this page, by GCash or Maya.
-                  </p>
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-foreground">
+                      <span className="font-semibold tabular-nums">{fmtPeso(finalNet)}</span> for{" "}
+                      {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}
+                      {share < 1 ? ` (${daysWorked} days worked of the cutoff)` : ""}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Basic {fmtPeso(components.basePay)} − contributions{" "}
+                      {fmtPeso(components.statutoryEmployeeShare)}
+                      {current.unsettledValeTotal > 0
+                        ? ` − vale ${fmtPeso(current.unsettledValeTotal)}`
+                        : ""}
+                      {current.unpaidLeaveDeduction > 0
+                        ? ` − unpaid leave ${fmtPeso(current.unpaidLeaveDeduction)} (${current.unpaidLeaveDays} ${current.unpaidLeaveDays === 1 ? "day" : "days"})`
+                        : ""}
+                      . You'll pay it from Past staff on this page, by GCash or Maya.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <ul className="space-y-2 text-xs text-foreground">
-              {current.unpaidPeriods > 0 && (
+              {PAY_HR_ENABLED && current.unpaidPeriods > 0 && (
                 <Note tone="warn">
                   {current.unpaidPeriods === 1
                     ? "One earlier pay period has"
@@ -268,7 +271,7 @@ export function EndEmploymentModal({
                   paid outside Linara.
                 </Note>
               )}
-              {thirteenth > 0 && (
+              {PAY_HR_ENABLED && thirteenth > 0 && (
                 <Note tone="warn">
                   13th-month pay: about <strong>{fmtPeso(thirteenth)}</strong>, a twelfth of the
                   basic pay on record for them this year. It becomes payable from Past staff once

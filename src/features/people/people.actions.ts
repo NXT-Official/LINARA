@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 import { rateForCutoff } from "@/features/pay/wage-rate";
 
@@ -636,6 +637,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       data,
   )
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, helperId, monthlyRate, effectiveFrom } = data;
 
     const authedClient = createAuthedClient(token);

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 
 import type { PayoutChannelCode } from "./pay.types";
@@ -34,6 +35,7 @@ const SIGNED_URL_SECONDS = 900;
 export const getPayoutAccountFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string }) => data)
   .handler(async ({ data }): Promise<PayoutAccount> => {
+    assertPayHrEnabled();
     const client = createAuthedClient(data.token);
     const { data: helper, error } = await client
       .from("helper_profiles")
