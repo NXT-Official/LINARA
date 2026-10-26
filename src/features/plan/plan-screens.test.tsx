@@ -102,8 +102,10 @@ describe("Your plan page", () => {
   it("refuses resubmitting the plan you already have", () => {
     render(<MyPlanPage />);
     fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
-    fireEvent.click(dialog().getByRole("button", { name: "Change plan" }));
+    // Premium is paid, so its button leads to payment; it's refused before that.
+    fireEvent.click(dialog().getByRole("button", { name: "Continue to payment" }));
     expect(dialog().getByRole("alert").textContent).toMatch(/already have/);
+    expect(dialog().queryByRole("button", { name: /^Pay / })).toBeNull();
   });
 
   it("prices add-ons as they're added, and stops at 10", () => {

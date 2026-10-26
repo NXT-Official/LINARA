@@ -22,7 +22,16 @@ import {
   quote,
 } from "../plan.logic";
 import { ADDONS, CATALOG, FEATURES } from "../plan.sample";
-import { changePlan, previewStatus, resetPlan, usePlan } from "../plan.store";
+import { PaymentDone, PaymentStep } from "../components/payment-step";
+import {
+  changePlan,
+  isCurrentPlan,
+  METHOD_LABEL,
+  previewStatus,
+  resetPlan,
+  usePlan,
+  type SamplePayment,
+} from "../plan.store";
 import type { Cycle, LimitKey, MySubscription, SubStatus, Usage } from "../plan.types";
 
 const dateFmt = new Intl.DateTimeFormat("en-PH", {
@@ -158,6 +167,34 @@ function ChangePlanModal({
   const q = quote(planId, cycle, addons);
   const after = overLimits({ ...sub, planId, addons }, usage);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"choose" | "pay">("choose");
+  const [receipt, setReceipt] = useState<SamplePayment | null>(null);
+  const needsPayment = q.ok && q.amount > 0;
+
+  if (receipt) {
+    return (
+      <Modal onClose={onClose}>
+        <PaymentDone payment={receipt} onDone={onClose} />
+      </Modal>
+    );
+  }
+
+  if (step === "pay") {
+    return (
+      <Modal onClose={onClose}>
+        <h3 className="font-display text-xl text-foreground">Pay for {plan.name}</h3>
+        <div className="mt-4">
+          <PaymentStep
+            planId={planId}
+            cycle={cycle}
+            addons={addons}
+            onBack={() => setStep("choose")}
+            onPaid={setReceipt}
+          />
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal onClose={onClose}>
@@ -171,7 +208,9 @@ function ChangePlanModal({
           <X className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">The new plan starts today. {SAMPLE}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        The new plan starts once it's paid. Payments here are a sample: nothing is charged.
+      </p>
 
       <fieldset className="mt-4">
         <legend className="text-xs font-semibold text-muted-foreground">Plan</legend>
@@ -287,6 +326,14 @@ function ChangePlanModal({
             type="button"
             disabled={!q.ok}
             onClick={() => {
+              if (isCurrentPlan(planId, cycle, addons)) {
+                setError("That's the plan you already have.");
+                return;
+              }
+              if (needsPayment) {
+                setStep("pay");
+                return;
+              }
               const res = changePlan(planId, cycle, addons);
               if (!res.ok) {
                 setError(res.message);
@@ -297,11 +344,77 @@ function ChangePlanModal({
             }}
             className={primaryBtn}
           >
-            Change plan
+            {needsPayment ? "Continue to payment" : "Change plan"}
           </button>
         </div>
       </div>
     </Modal>
+  );
+}
+
+function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => void }) {
+  const [paid, setPaid] = useState<SamplePayment | null>(null);
+  return (
+    <Modal onClose={onClose}>
+      {paid ? (
+        <PaymentDone payment={paid} onDone={onClose} />
+      ) : (
+        <>
+          <h3 className="font-display text-xl text-foreground">Pay now</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pays what's owed and keeps everything working.
+          </p>
+          <div className="mt-4">
+            <PaymentStep
+              planId={sub.planId}
+              cycle={sub.cycle}
+              addons={sub.addons}
+              onPaid={setPaid}
+            />
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function PaymentHistory({ payments }: { payments: SamplePayment[] }) {
+  return (
+    <section className={card} aria-labelledby="payments-heading">
+      <h2 id="payments-heading" className="mb-3 font-display text-xl text-foreground">
+        Payments
+      </h2>
+      {payments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No payments in this preview yet.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {payments.map((p) => (
+            <li
+              key={p.id}
+              className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
+            >
+              <span className="min-w-0 text-sm">
+                <span className="font-semibold text-foreground tabular-nums">
+                  {formatCentavos(p.amount)}
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  {planById(p.planId)?.name ?? p.planId}, {METHOD_LABEL[p.method].name},{" "}
+                  {fmtDate(p.at)}, <span className="tabular-nums">{p.reference}</span>
+                </span>
+                {p.failureReason ? (
+                  <span className="block text-xs text-status-late-ink">{p.failureReason}</span>
+                ) : null}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.status === "paid" ? "bg-status-done-soft text-status-done-ink" : "bg-status-late-soft text-status-late-ink"}`}
+              >
+                {p.status === "paid" ? "Paid" : "Declined"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -314,9 +427,11 @@ const PREVIEW: { value: SubStatus; label: string }[] = [
 
 /** The manager's plan, usage and add-ons, on sample data until billing is live. */
 export function MyPlanPage() {
-  const { subscription: sub } = usePlan();
+  const { subscription: sub, payments } = usePlan();
   const usage = usePlanUsage();
   const [changing, setChanging] = useState(false);
+  const [payingNow, setPayingNow] = useState(false);
+  const owes = sub.status === "past_due" || sub.status === "restricted";
   const inApp = inMobileApp();
   const plan = planById(sub.planId);
   const limits = limitsFor(sub);
@@ -357,9 +472,20 @@ export function MyPlanPage() {
             ) : null}
           </div>
           {!inApp ? (
-            <button type="button" onClick={() => setChanging(true)} className={primaryBtn}>
-              Change plan
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {owes && amount.ok && amount.amount > 0 ? (
+                <button type="button" onClick={() => setPayingNow(true)} className={primaryBtn}>
+                  Pay {formatCentavos(amount.amount)} now
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setChanging(true)}
+                className={owes ? secondaryBtn : primaryBtn}
+              >
+                Change plan
+              </button>
+            </div>
           ) : null}
         </div>
         <p
@@ -449,6 +575,8 @@ export function MyPlanPage() {
         </section>
       </div>
 
+      {!inApp ? <PaymentHistory payments={payments} /> : null}
+
       <section
         className="rounded-3xl border border-dashed border-border p-5 sm:p-7"
         aria-labelledby="preview-heading"
@@ -487,6 +615,7 @@ export function MyPlanPage() {
       {changing ? (
         <ChangePlanModal sub={sub} usage={usage} onClose={() => setChanging(false)} />
       ) : null}
+      {payingNow ? <PayNowModal sub={sub} onClose={() => setPayingNow(false)} /> : null}
     </div>
   );
 }
