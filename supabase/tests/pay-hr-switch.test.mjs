@@ -116,10 +116,7 @@ check(
   "but can't turn it on",
   (await changes(`UPDATE app_switches SET enabled = true WHERE key = 'staff_pay_hr'`)) === 0,
 );
-check(
-  "or delete it",
-  (await changes(`DELETE FROM app_switches WHERE key = 'staff_pay_hr'`)) === 0,
-);
+check("or delete it", (await changes(`DELETE FROM app_switches WHERE key = 'staff_pay_hr'`)) === 0);
 await expectError(
   "or add a second row",
   () => q(`INSERT INTO app_switches (key, enabled) VALUES ('staff_pay_hr_2', true)`),
@@ -188,7 +185,8 @@ await setSwitch(false);
 await as(U);
 await expectError(
   "off: she can't change it",
-  () => q(`UPDATE helper_payout_accounts SET account_number = '09181234567' WHERE user_id = $1`, [U]),
+  () =>
+    q(`UPDATE helper_payout_accounts SET account_number = '09181234567' WHERE user_id = $1`, [U]),
   OFF,
 );
 await as(M);
