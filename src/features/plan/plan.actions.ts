@@ -32,7 +32,8 @@ export type BillingPayment = {
   amount: number;
   /** Xendit's channel once paid ("GCASH", "CREDIT_CARD"), else null. */
   method: string | null;
-  status: "pending" | "paid" | "failed" | "expired" | "review";
+  /** cancelled: replaced by a newer payment before it was paid. */
+  status: "pending" | "paid" | "failed" | "expired" | "review" | "cancelled";
   at: string;
   paidAt: string | null;
   failureReason: string | null;

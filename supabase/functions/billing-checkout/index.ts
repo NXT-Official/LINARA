@@ -69,6 +69,25 @@ function returnTo(raw: unknown, paymentId: string, outcome: "paid" | "failed"): 
   return `${origin}/manager/plan?payment=${encodeURIComponent(paymentId)}&result=${outcome}`;
 }
 
+/**
+ * Closes an open Xendit page so it can't be paid. True once it can't be paid
+ * any more (closed now, or already expired); false when it was paid or
+ * Xendit couldn't say, so nothing new is opened on top of it.
+ */
+async function closeInvoice(key: string, invoiceId: string): Promise<boolean> {
+  const auth = { Authorization: `Basic ${btoa(`${key}:`)}` };
+  const res = await fetch(`${XENDIT_API}/invoices/${encodeURIComponent(invoiceId)}/expire!`, {
+    method: "POST",
+    headers: auth,
+  }).catch(() => null);
+  if (res?.ok) return true;
+  const check = await fetch(`${XENDIT_API}/v2/invoices/${encodeURIComponent(invoiceId)}`, {
+    headers: auth,
+  }).catch(() => null);
+  const invoice = check?.ok ? await check.json().catch(() => null) : null;
+  return invoice?.status === "EXPIRED";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
@@ -104,21 +123,48 @@ serve(async (req) => {
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: payment, error: payError } = await admin.rpc("billing_create_payment", {
-    p_manager: user.user.id,
-    p_kind: kind,
-    p_plan_id: planId,
-    p_cycle: cycle,
-    p_addons: addons,
-  });
-  if (payError || !payment) {
-    // The SQL's own messages are written for the manager ("That's the plan
-    // you already have."); anything else stays in the log.
-    const message = payError?.message ?? "";
-    if (payError?.code === "P0001") return reply(400, { error: message });
-    console.error("[billing-checkout] billing_create_payment failed:", message);
-    return reply(500, { error: "Couldn't start the payment. Try again." });
+  // One open payment per manager (add-billing-idempotency.sql): the same
+  // purchase again gets the page that's already open; a different one first
+  // closes the open page in Xendit, so two pages can never both be paid.
+  let payment: { id: string; amount: number; description?: string } | null = null;
+  for (let attempt = 0; attempt < 3 && !payment; attempt++) {
+    const { data, error: payError } = await admin.rpc("billing_create_payment", {
+      p_manager: user.user.id,
+      p_kind: kind,
+      p_plan_id: planId,
+      p_cycle: cycle,
+      p_addons: addons,
+    });
+    if (payError || !data) {
+      // The SQL's own messages are written for the manager ("That's the plan
+      // you already have."); anything else stays in the log.
+      const message = payError?.message ?? "";
+      if (payError?.code === "P0001") return reply(400, { error: message });
+      console.error("[billing-checkout] billing_create_payment failed:", message);
+      return reply(500, { error: "Couldn't start the payment. Try again." });
+    }
+    if (data.reuse && data.invoiceUrl) {
+      return reply(200, {
+        paymentId: data.id,
+        amount: data.amount,
+        invoiceUrl: data.invoiceUrl,
+        reused: true,
+      });
+    }
+    if (data.supersede) {
+      const closed = await closeInvoice(moneyInKey, data.supersede.invoiceId);
+      if (!closed) {
+        return reply(409, {
+          error:
+            "Your last payment page may have just been paid. Refresh to see it before paying again.",
+        });
+      }
+      await admin.rpc("billing_cancel_payment", { p_payment: data.supersede.id });
+      continue;
+    }
+    payment = data;
   }
+  if (!payment) return reply(409, { error: "Couldn't start the payment. Refresh and try again." });
 
   const success = returnTo(body.returnUrl, payment.id, "paid");
   const failure = returnTo(body.returnUrl, payment.id, "failed");

@@ -327,6 +327,22 @@ describe("Your plan, live", () => {
     expect(screen.getByRole("status").textContent).toMatch(/didn't go through/);
   });
 
+  it("a page replaced by a newer payment shows as Replaced, with nothing to finish", async () => {
+    await goLive(billing({ payments: [payment({ status: "cancelled", invoiceUrl: null })] }));
+    render(<MyPlanPage />);
+    expect(screen.getByText("Replaced")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Finish paying" })).toBeNull();
+  });
+
+  it("over the limit on Free: it doesn't offer add-ons Free can't buy", async () => {
+    await goLive();
+    render(<MyPlanPage />);
+    const over = screen.getAllByText(/over\./).map((e) => e.textContent);
+    expect(over.length).toBeGreaterThan(0);
+    expect(over.join(" ")).not.toMatch(/add-on/);
+    expect(over.join(" ")).toMatch(/Choose a bigger plan/);
+  });
+
   it("an unpaid page that's still open can be finished from the history", async () => {
     await goLive(billing({ payments: [payment({})] }));
     render(<MyPlanPage />);

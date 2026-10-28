@@ -7,6 +7,8 @@ import { inMobileApp } from "@/lib/mobile-app";
 
 import { usePlanUsage } from "../hooks/use-plan-usage";
 import {
+  addonFor,
+  addonsBlocked,
   CYCLE_LABEL,
   cyclesOf,
   formatCentavos,
@@ -85,7 +87,18 @@ function statusLine(sub: MySubscription): { tone: "calm" | "warn" | "late"; text
   }
 }
 
-function UsageRow({ k, used, limit }: { k: LimitKey; used: number; limit: number | null }) {
+function UsageRow({
+  k,
+  used,
+  limit,
+  canAddOn,
+}: {
+  k: LimitKey;
+  used: number;
+  limit: number | null;
+  /** Add-ons can be bought on this plan (not on Free). */
+  canAddOn: boolean;
+}) {
   const over = limit !== null && used > limit;
   const pct = limit === null || limit === 0 ? 0 : Math.min(100, (used / limit) * 100);
   return (
@@ -108,7 +121,8 @@ function UsageRow({ k, used, limit }: { k: LimitKey; used: number; limit: number
       ) : null}
       {over ? (
         <p className="mt-1.5 text-xs text-status-late-ink">
-          {used - limit} over. Add more with an add-on, or choose a bigger plan.
+          {used - limit} over.{" "}
+          {canAddOn ? "Add more with an add-on, or choose a bigger plan." : "Choose a bigger plan."}
         </p>
       ) : null}
     </li>
@@ -401,6 +415,7 @@ const PAYMENT_STATUS: Record<PlanPayment["status"], { label: string; tone: strin
   pending: { label: "Waiting", tone: "bg-terracotta-soft text-hearth-ink" },
   expired: { label: "Not paid", tone: "bg-secondary text-pine-deep" },
   review: { label: "Being checked", tone: "bg-terracotta-soft text-hearth-ink" },
+  cancelled: { label: "Replaced", tone: "bg-secondary text-pine-deep" },
 };
 
 /** "GCash", or Xendit's channel ("CREDIT_CARD" reads "Credit card"). */
@@ -669,7 +684,13 @@ export function MyPlanPage({
           </p>
           <ul className="divide-y divide-border">
             {(Object.keys(limits) as LimitKey[]).map((k) => (
-              <UsageRow key={k} k={k} used={usage[k]} limit={limits[k]} />
+              <UsageRow
+                key={k}
+                k={k}
+                used={usage[k]}
+                limit={limits[k]}
+                canAddOn={!addonsBlocked(sub) && !!addonFor(k)}
+              />
             ))}
           </ul>
           {addonLines.length ? (

@@ -75,6 +75,8 @@ for (const file of [
   "add-pay-hr-switch.sql",
   "add-billing.sql",
   "add-billing.sql",
+  "add-billing-idempotency.sql",
+  "add-billing-idempotency.sql",
 ]) {
   await db.exec(readFileSync(`${REPO}/${file}`, "utf8"));
 }
@@ -245,13 +247,13 @@ await expectError("a helper has no plan to manage", () => mine(U), /primary mana
 await expectError(
   "Free: a second kasambahay doesn't fit",
   () => addHelper(H, "Second"),
-  /Free plan allows 1 kasambahay, and 1 are in use/,
+  /The Free plan allows 1 kasambahay, and you have 1\./,
 );
 await as(M);
 await expectError(
   "Free: no co-manager invite",
   () => q(`SELECT * FROM create_manager_invite('co_manager')`),
-  /allows 0 co-managers/,
+  /The Free plan doesn't include co-managers\./,
 );
 await expectError(
   "Free: no remote admin",
@@ -267,7 +269,7 @@ await as(M);
 await expectError(
   "Free: a second household doesn't fit",
   () => q(`SELECT * FROM create_household('Beach house')`),
-  /allows 1 households/,
+  /allows 1 household, and you have 1/,
 );
 
 // --- What can't be bought --------------------------------------------------------
@@ -431,7 +433,7 @@ await addHelper(H, "Third");
 await expectError(
   "Normal: a 4th kasambahay doesn't fit",
   () => addHelper(H, "Fourth"),
-  /Normal plan allows 3 kasambahay, and 3 are in use/,
+  /The Normal plan allows 3 kasambahay, and you have 3\./,
 );
 check(
   "Pantry is on: a pantry item can be added",
@@ -447,7 +449,7 @@ const invite = await one(`SELECT * FROM create_manager_invite('co_manager')`);
 await expectError(
   "Normal: a second co-manager invite doesn't fit",
   () => q(`SELECT * FROM create_manager_invite('co_manager')`),
-  /allows 1 co-managers/,
+  /allows 1 co-manager, and you have 1\./,
 );
 await expectError(
   "Normal: still no remote admin",
@@ -495,7 +497,11 @@ check(
     b.subscription.cycle === "annual",
 );
 check("a 4th kasambahay fits now", (await addHelper(H, "Fourth")).length === 1);
-await expectError("but not a 5th", () => addHelper(H, "Fifth"), /allows 4 kasambahay/);
+await expectError(
+  "but not a 5th",
+  () => addHelper(H, "Fifth"),
+  /allows 4 kasambahay, and you have 4/,
+);
 await as(M);
 await expectError(
   "removing can't add",
@@ -511,6 +517,13 @@ await expectError(
 // Add-ons paid after the plan changed: kept for review, not stacked on the wrong plan.
 const a2 = await pay("addons", null, null, [{ addonId: "extra_kasambahay", quantity: 2 }]);
 const a2inv = await invoiceFor(a2);
+const replace = await pay("plan", "premium", "monthly");
+check(
+  "a different purchase while add-ons are open: close that page first",
+  replace.supersede?.id === a2.id && replace.supersede?.invoiceId === a2inv && !replace.id,
+  replace,
+);
+await svc(`SELECT billing_cancel_payment($1)`, [a2.id]);
 const p5 = await pay("plan", "premium", "monthly");
 check("Premium monthly ₱399", (await apply(paid(await invoiceFor(p5), 399))) === "applied");
 check("the old add-on payment goes to review", (await apply(paid(a2inv, 600))) === "review");
@@ -606,6 +619,104 @@ await q(
   [M],
 );
 check("a cancelled plan is Free after its period", (await mine()).subscription.planId === "free");
+
+// --- One open payment, and never paid twice -------------------------------------------
+const q1 = await pay("plan", "premium", "monthly");
+const q1inv = await invoiceFor(q1);
+const again = await pay("plan", "premium", "monthly");
+check(
+  "the same purchase again: the page that's open, not a new one",
+  again.reuse === true && again.id === q1.id && /xendit/.test(again.invoiceUrl),
+  again,
+);
+check(
+  "a double tap leaves one open payment",
+  (
+    await svc(
+      `SELECT count(*)::int AS n FROM billing_payments WHERE manager_id = $1 AND status = 'pending'`,
+      [M],
+    )
+  ).n === 1,
+);
+await expectError(
+  "a second open payment can't be written in at all",
+  () =>
+    svc(
+      `INSERT INTO billing_payments (manager_id, kind, plan_version_id, cycle, amount)
+         SELECT $1, 'plan', plan_version_id, 'monthly', 1 FROM billing_payments WHERE id = $2`,
+      [M, q1.id],
+    ),
+  /billing_payments_one_open|duplicate key/,
+);
+const swap = await pay("plan", "normal", "monthly");
+check(
+  "a different purchase: close the open page first",
+  swap.supersede?.id === q1.id && swap.supersede?.invoiceId === q1inv,
+);
+check(
+  "closing it once works",
+  (await svc(`SELECT billing_cancel_payment($1) AS ok`, [q1.id])).ok === true,
+);
+check(
+  "closing it again changes nothing",
+  (await svc(`SELECT billing_cancel_payment($1) AS ok`, [q1.id])).ok === false,
+);
+const q2 = await pay("plan", "normal", "monthly");
+const q2inv = await invoiceFor(q2);
+check(
+  "the replaced page, paid anyway: kept for a refund, not applied",
+  (await apply(paid(q1inv, 399))) === "review",
+);
+b = await mine();
+check("so the plan isn't Premium", b.subscription.planId !== "premium", b.subscription.planId);
+check(
+  "and it says why",
+  /Refund it in Xendit/.test(b.payments.find((p) => p.id === q1.id).failureReason),
+);
+check("its callback again: a duplicate", (await apply(paid(q1inv, 399))) === "duplicate");
+check("the newer page pays as normal", (await apply(paid(q2inv, 199))) === "applied");
+check("on Normal", (await mine()).subscription.planId === "normal");
+
+// A page that never got made: refused for a moment, then given up on.
+const q3 = await pay("plan", "premium", "annual");
+await expectError(
+  "while a page is being opened",
+  () => pay("plan", "premium", "annual"),
+  /being opened/,
+);
+await as(null);
+await q(`UPDATE billing_payments SET created_at = now() - interval '3 minutes' WHERE id = $1`, [
+  q3.id,
+]);
+const q3b = await pay("plan", "premium", "annual");
+check("after two minutes it's given up on and a new one starts", !!q3b.id && q3b.id !== q3.id);
+check(
+  "the stuck one is marked failed",
+  (await svc(`SELECT status FROM billing_payments WHERE id = $1`, [q3.id])).status === "failed",
+);
+const q3inv = await invoiceFor(q3b);
+check(
+  "Xendit says the page expired",
+  (await apply({ id: q3inv, status: "EXPIRED" })) === "expired",
+);
+const q4 = await pay("plan", "premium", "annual");
+check("the same purchase after it expired: a new page", !!q4.id && !q4.reuse && q4.id !== q3b.id);
+await apply(paid(await invoiceFor(q4), 3990));
+check("paid: Premium yearly", (await mine()).subscription.planId === "premium");
+check(
+  "the expired page paid late, after the newer one: kept for a refund, not applied twice",
+  (await apply(paid(q3inv, 3990))) === "review",
+);
+
+// A page past its expiry that Xendit never told us about is cleared on the next try.
+const q5 = await pay("addons", null, null, [{ addonId: "extra_kasambahay", quantity: 1 }]);
+await invoiceFor(q5);
+await as(null);
+await q(`UPDATE billing_payments SET expires_at = now() - interval '1 minute' WHERE id = $1`, [
+  q5.id,
+]);
+const q5b = await pay("addons", null, null, [{ addonId: "extra_kasambahay", quantity: 1 }]);
+check("a page past its expiry isn't reused", !!q5b.id && q5b.id !== q5.id && !q5b.reuse);
 
 // --- The catalog itself -------------------------------------------------------------
 await as(null);
