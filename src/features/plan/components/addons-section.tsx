@@ -283,6 +283,7 @@ export function AddonsSection({
   owner = true,
   preset,
   onPresetUsed,
+  waiting = false,
 }: {
   sub: MySubscription;
   inApp: boolean;
@@ -291,6 +292,8 @@ export function AddonsSection({
   /** Open the purchase with this add-on one higher (from a limit message). */
   preset?: string;
   onPresetUsed?: () => void;
+  /** A payment is being confirmed: nothing new until it is. */
+  waiting?: boolean;
 }) {
   const blocked = owner ? addonsBlocked(sub) : "Only the household's primary manager buys add-ons.";
   const [open, setOpen] = useState<{ preset?: string } | null>(() =>
@@ -314,7 +317,12 @@ export function AddonsSection({
           </p>
         </div>
         {!inApp && !blocked ? (
-          <button type="button" onClick={() => setOpen({})} className={primaryBtn}>
+          <button
+            type="button"
+            disabled={waiting}
+            onClick={() => setOpen({})}
+            className={primaryBtn}
+          >
             Buy add-ons
           </button>
         ) : null}
@@ -344,8 +352,9 @@ export function AddonsSection({
                   <button
                     type="button"
                     aria-label={`Remove one ${a.name}`}
+                    disabled={waiting}
                     onClick={() => setRemoving(a.id)}
-                    className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+                    className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
                   >
                     Remove…
                   </button>

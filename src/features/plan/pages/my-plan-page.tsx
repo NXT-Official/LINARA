@@ -206,6 +206,19 @@ function ChangePlanModal({
     return !m.ok && !!m.lower;
   };
   const after = overLimits({ ...sub, planId, addons }, usage);
+  // Paid add-ons left out of an upgrade go with it, unrefunded (as Remove does).
+  const dropped = running
+    ? ADDONS.flatMap((a) => {
+        const had = sub.addons
+          .filter((l) => l.addonId === a.id)
+          .reduce((n, l) => n + l.quantity, 0);
+        const keep = addons.find((l) => l.addonId === a.id)?.quantity ?? 0;
+        const n = had - keep;
+        if (n <= 0) return [];
+        const name = a.name.toLowerCase();
+        return [`${n} ${n === 1 ? name : name.replace("household", "households")}`];
+      })
+    : [];
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"choose" | "pay">("choose");
   // A payment going through can't be closed away: it would finish unseen.
@@ -365,6 +378,12 @@ function ChangePlanModal({
             ))}
           </ul>
         </fieldset>
+      ) : null}
+
+      {dropped.length && !current ? (
+        <p className="mt-4 rounded-xl bg-terracotta-soft px-3 py-2 text-sm text-hearth-ink">
+          This drops {dropped.join(" and ")} you've paid for this period. It isn't refunded.
+        </p>
       ) : null}
 
       {after.length ? (
@@ -603,45 +622,80 @@ const PREVIEW: { value: SubStatus; label: string }[] = [
   { value: "restricted", label: "Grace over" },
 ];
 
-/** How long to wait for Xendit's callback after coming back from its page. */
-const CONFIRM_POLL_MS = 2_000;
-const CONFIRM_TRIES = 45;
+/**
+ * How long to wait for Xendit's callback after coming back from its page:
+ * every 2 seconds for the first minute and a half, then every 15 seconds up
+ * to 10 minutes (on dev, 2026-10-28, one callback took 2 minutes).
+ */
+const CONFIRM_FAST_MS = 2_000;
+const CONFIRM_FAST_FOR_MS = 90_000;
+const CONFIRM_SLOW_MS = 15_000;
+const CONFIRM_GIVE_UP_MS = 10 * 60_000;
 
 /**
  * Back from Xendit's page: the plan changes only once Xendit's callback
- * reaches the database, so this asks again every couple of seconds until
- * that payment is settled, for up to a minute and a half.
+ * reaches the database, so this asks again until that payment is settled,
+ * and once more whenever the tab comes back. Sent back without paying
+ * (result "failed"), there's nothing to wait for.
  */
-function ReturnNotice({ paymentId, onDismiss }: { paymentId: string; onDismiss?: () => void }) {
+function ReturnNotice({
+  paymentId,
+  result,
+  onDismiss,
+}: {
+  paymentId: string;
+  result?: "paid" | "failed";
+  onDismiss?: () => void;
+}) {
   const { payments, live } = usePlan();
   const payment = payments.find((p) => p.id === paymentId);
   const status = payment?.status ?? "pending";
-  const [gaveUp, setGaveUp] = useState(false);
+  const waiting = live && status === "pending" && result !== "failed";
+  const [phase, setPhase] = useState<"fast" | "slow" | "gave_up">("fast");
   useEffect(() => {
-    if (!live || status !== "pending") return;
-    let tries = 0;
-    const t = window.setInterval(() => {
-      tries += 1;
-      if (tries > CONFIRM_TRIES) {
-        window.clearInterval(t);
-        setGaveUp(true);
+    if (!waiting) return;
+    const started = Date.now();
+    let t = 0;
+    const tick = () => {
+      const waited = Date.now() - started;
+      if (waited >= CONFIRM_GIVE_UP_MS) {
+        setPhase("gave_up");
         return;
       }
+      const slow = waited >= CONFIRM_FAST_FOR_MS;
+      setPhase(slow ? "slow" : "fast");
       void refreshPlan();
-    }, CONFIRM_POLL_MS);
-    return () => window.clearInterval(t);
-  }, [live, status]);
+      t = window.setTimeout(tick, slow ? CONFIRM_SLOW_MS : CONFIRM_FAST_MS);
+    };
+    t = window.setTimeout(tick, CONFIRM_FAST_MS);
+    return () => window.clearTimeout(t);
+  }, [waiting]);
+  useEffect(() => {
+    if (!waiting) return;
+    const again = () => {
+      if (document.visibilityState !== "hidden") void refreshPlan();
+    };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [waiting]);
   if (!live) return null;
+  const gaveUp = phase === "gave_up";
   const text =
     status === "paid"
       ? "Payment received. Your plan is updated."
       : status === "review"
         ? "Payment received, but the amount needs checking. We'll sort it out; nothing else is needed from you."
-        : status === "failed" || status === "expired"
+        : status === "failed" || status === "expired" || result === "failed"
           ? "That payment didn't go through, so nothing was charged. You can try again."
           : gaveUp
             ? "Xendit hasn't confirmed it yet. If you paid, it will show here once it does."
-            : "Confirming your payment with Xendit…";
+            : phase === "slow"
+              ? "Xendit is taking longer than usual. You can leave this page; your plan updates once it's confirmed."
+              : "Confirming your payment with Xendit…";
   const tone =
     status === "paid"
       ? "bg-status-done-soft text-status-done-ink"
@@ -654,12 +708,12 @@ function ReturnNotice({ paymentId, onDismiss }: { paymentId: string; onDismiss?:
       className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm ${tone}`}
     >
       <span className="flex items-center gap-2">
-        {status === "pending" && !gaveUp ? (
+        {waiting && !gaveUp ? (
           <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
         ) : null}
         {text}
       </span>
-      {onDismiss && status !== "pending" ? (
+      {onDismiss && !waiting ? (
         <button
           type="button"
           onClick={onDismiss}
@@ -678,6 +732,7 @@ export function MyPlanPage({
   buyAddon,
   onBuyAddonUsed,
   paymentId,
+  paymentResult,
   onPaymentSeen,
 }: {
   /** From a limit message: open the add-on purchase with this one already added. */
@@ -685,6 +740,8 @@ export function MyPlanPage({
   onBuyAddonUsed?: () => void;
   /** Back from Xendit's page with this payment. */
   paymentId?: string;
+  /** Which way Xendit sent them back. */
+  paymentResult?: "paid" | "failed";
   onPaymentSeen?: () => void;
 } = {}) {
   const { subscription: sub, payments, live, testMode, owner } = usePlan();
@@ -696,6 +753,13 @@ export function MyPlanPage({
   const [keepError, setKeepError] = useState<string | null>(null);
   const owes = sub.status === "past_due" || sub.status === "restricted";
   const running = periodRunning(sub);
+  // Paid on Xendit, not confirmed yet: another purchase now would only be
+  // refused (billing-checkout won't open a second page over a paid one).
+  const confirming =
+    live &&
+    !!paymentId &&
+    paymentResult === "paid" &&
+    payments.find((p) => p.id === paymentId)?.status === "pending";
   const inApp = inMobileApp();
   const plan = planById(sub.planId);
   const limits = limitsFor(sub);
@@ -725,7 +789,9 @@ export function MyPlanPage({
         ) : null}
       </div>
 
-      {paymentId ? <ReturnNotice paymentId={paymentId} onDismiss={onPaymentSeen} /> : null}
+      {paymentId ? (
+        <ReturnNotice paymentId={paymentId} result={paymentResult} onDismiss={onPaymentSeen} />
+      ) : null}
 
       <section className={card} aria-labelledby="plan-heading">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -748,12 +814,18 @@ export function MyPlanPage({
           {!inApp && owner ? (
             <div className="flex flex-wrap gap-2">
               {owes && amount.ok && amount.amount > 0 ? (
-                <button type="button" onClick={() => setPayingNow(true)} className={primaryBtn}>
+                <button
+                  type="button"
+                  disabled={confirming}
+                  onClick={() => setPayingNow(true)}
+                  className={primaryBtn}
+                >
                   Pay {formatCentavos(amount.amount)} now
                 </button>
               ) : null}
               <button
                 type="button"
+                disabled={confirming}
                 onClick={() => setChanging(true)}
                 className={owes ? secondaryBtn : primaryBtn}
               >
@@ -800,6 +872,7 @@ export function MyPlanPage({
             ) : (
               <button
                 type="button"
+                disabled={confirming}
                 onClick={() => setCancelling(true)}
                 className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
               >
@@ -808,6 +881,11 @@ export function MyPlanPage({
             )
           ) : null}
         </div>
+        {confirming ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Waiting for Xendit to confirm your last payment. Changes open again once it's in.
+          </p>
+        ) : null}
         {keepError ? (
           <p role="alert" className="mt-2 text-sm text-status-late-ink">
             {keepError}
@@ -901,6 +979,7 @@ export function MyPlanPage({
         inApp={inApp}
         owner={owner}
         preset={buyAddon}
+        waiting={confirming}
         onPresetUsed={onBuyAddonUsed}
       />
 

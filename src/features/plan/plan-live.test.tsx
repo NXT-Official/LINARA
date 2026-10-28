@@ -381,6 +381,98 @@ describe("Your plan, live", () => {
     expect(screen.getByText(/GCash/)).toBeTruthy();
   });
 
+  it("a slow callback (2 minutes, seen on dev): keeps checking, then says it's paid", async () => {
+    vi.useFakeTimers();
+    await goLive(billing({ payments: [payment({})] }));
+    render(<MyPlanPage paymentId={payment({}).id} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(95_000);
+    });
+    expect(screen.getByRole("status").textContent).toMatch(
+      /Xendit is taking longer than usual\. You can leave this page/,
+    );
+    const asked = server.getMyBillingFn.mock.calls.length;
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({
+        subscription: { ...billing().subscription, planId: "normal" },
+        payments: [payment({ status: "paid", method: "GCASH", invoiceUrl: null })],
+      }),
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(server.getMyBillingFn.mock.calls.length).toBeGreaterThan(asked);
+    expect(screen.getByRole("status").textContent).toMatch(/Payment received/);
+  });
+
+  it("after 10 minutes it stops asking, but checks again when the tab comes back", async () => {
+    vi.useFakeTimers();
+    await goLive(billing({ payments: [payment({})] }));
+    render(<MyPlanPage paymentId={payment({}).id} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11 * 60_000);
+    });
+    expect(screen.getByRole("status").textContent).toMatch(/hasn't confirmed it yet/);
+    const asked = server.getMyBillingFn.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+    });
+    expect(server.getMyBillingFn.mock.calls.length).toBe(asked);
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({ payments: [payment({ status: "paid", invoiceUrl: null })] }),
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(server.getMyBillingFn.mock.calls.length).toBeGreaterThan(asked);
+    expect(screen.getByRole("status").textContent).toMatch(/Payment received/);
+  });
+
+  it("while a payment is being confirmed, nothing new can be bought", async () => {
+    await goLive(
+      billing({
+        subscription: { ...billing().subscription, planId: "normal" },
+        payments: [payment({})],
+      }),
+    );
+    render(<MyPlanPage paymentId={payment({}).id} paymentResult="paid" />);
+    expect(
+      (screen.getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Buy add-ons" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.getByText(/Waiting for Xendit to confirm your last payment/)).toBeTruthy();
+  });
+
+  it("sent back without paying: no waiting, and buying stays open", async () => {
+    await goLive(
+      billing({
+        subscription: { ...billing().subscription, planId: "normal" },
+        payments: [payment({})],
+      }),
+    );
+    vi.useFakeTimers();
+    render(
+      <MyPlanPage paymentId={payment({}).id} paymentResult="failed" onPaymentSeen={() => {}} />,
+    );
+    expect(screen.getByRole("status").textContent).toMatch(
+      /didn't go through, so nothing was charged/,
+    );
+    const asked = server.getMyBillingFn.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(server.getMyBillingFn.mock.calls.length).toBe(asked);
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
   it("back from Xendit after an expired page: nothing charged, try again", async () => {
     await goLive(billing({ payments: [payment({ status: "expired", invoiceUrl: null })] }));
     render(<MyPlanPage paymentId={payment({}).id} />);
@@ -440,6 +532,24 @@ describe("plan changes while a paid period runs, live", () => {
     expect(
       dialog().getByText(
         /To move to a lower plan, cancel this one: you keep it until Nov 28, 2026/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("an upgrade that leaves out a paid add-on says it's dropped, not refunded", async () => {
+    await goLive(
+      billing({
+        subscription: runningSub({ addons: [{ addonId: "extra_kasambahay", quantity: 2 }] }),
+      }),
+    );
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    fireEvent.click(radio(/Premium/));
+    expect(dialog().queryByText(/you've paid for/)).toBeNull();
+    fireEvent.click(dialog().getByRole("button", { name: "Fewer: Extra kasambahay" }));
+    expect(
+      dialog().getByText(
+        "This drops 1 extra kasambahay you've paid for this period. It isn't refunded.",
       ),
     ).toBeTruthy();
   });

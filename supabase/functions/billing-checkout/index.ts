@@ -155,8 +155,10 @@ serve(async (req) => {
       const closed = await closeInvoice(moneyInKey, data.supersede.invoiceId);
       if (!closed) {
         return reply(409, {
+          // Xendit wouldn't close it: it was paid, and its callback hasn't
+          // reached us yet (seen taking 2 minutes on dev).
           error:
-            "Your last payment page may have just been paid. Refresh to see it before paying again.",
+            "Your last payment went through on Xendit and is still being confirmed. Give it a minute, then refresh before paying again.",
         });
       }
       await admin.rpc("billing_cancel_payment", { p_payment: data.supersede.id });
