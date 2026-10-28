@@ -86,8 +86,7 @@ describe("buying add-ons on Your plan", () => {
     expect(getPlanState().payments[0]).toMatchObject({ kind: "addons", amount: 5_000 });
   });
 
-  it("removing one saves without a payment", async () => {
-    render(<MyPlanPage />);
+  async function buyOneHousehold() {
     fireEvent.click(addons().getByRole("button", { name: "Buy add-ons" }));
     fireEvent.click(dialog().getByRole("button", { name: "More: Extra household" }));
     fireEvent.click(dialog().getByRole("button", { name: "Continue to payment" }));
@@ -96,13 +95,87 @@ describe("buying add-ons on Your plan", () => {
       await vi.advanceTimersByTimeAsync(PROCESSING_MS);
     });
     fireEvent.click(dialog().getByRole("button", { name: "Done" }));
+  }
+
+  it("buying counts only what's being bought: it starts at 0 and says what you have", async () => {
+    render(<MyPlanPage />);
+    await buyOneHousehold();
     fireEvent.click(addons().getByRole("button", { name: "Buy add-ons" }));
+    const row = within(dialog().getByRole("group", { name: "Extra household" }));
+    expect(row.getByText("0")).toBeTruthy();
+    expect(dialog().getByText("You have 1")).toBeTruthy();
+    // Nothing chosen yet: nothing to pay, and no way below 0 to remove one here.
+    expect(
+      (dialog().getByRole("button", { name: "Fewer: Extra household" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (dialog().getByRole("button", { name: "Continue to payment" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(dialog().queryByRole("button", { name: "Save" })).toBeNull();
+    // One more on top of the one owned: ₱100 now, two households after.
+    fireEvent.click(dialog().getByRole("button", { name: "More: Extra household" }));
+    expect(dialog().getByText("₱100 now, then ₱399 a month with your plan.")).toBeTruthy();
+    expect(dialog().getByText(/your plan allows 3 households/)).toBeTruthy();
     fireEvent.click(dialog().getByRole("button", { name: "Fewer: Extra household" }));
-    expect(dialog().getByText("Nothing to pay. Then ₱199 a month with your plan.")).toBeTruthy();
-    fireEvent.click(dialog().getByRole("button", { name: "Save" }));
+    expect(addons().getByText("1 household")).toBeTruthy();
+    expect(getPlanState().payments).toHaveLength(1);
+  });
+
+  it("the cap of 10 counts the ones already owned", async () => {
+    render(<MyPlanPage />);
+    await buyOneHousehold();
+    fireEvent.click(addons().getByRole("button", { name: "Buy add-ons" }));
+    const more = dialog().getByRole("button", {
+      name: "More: Extra household",
+    }) as HTMLButtonElement;
+    for (let i = 0; i < 15; i++) fireEvent.click(more);
+    expect(more.disabled).toBe(true);
+    expect(
+      within(dialog().getByRole("group", { name: "Extra household" })).getByText("9"),
+    ).toBeTruthy();
+  });
+
+  it("removing one is on its row, asks first, then saves without a payment", async () => {
+    render(<MyPlanPage />);
+    expect(addons().queryByRole("button", { name: /Remove/ })).toBeNull();
+    await buyOneHousehold();
+    fireEvent.click(addons().getByRole("button", { name: "Remove one Extra household" }));
+    expect(dialog().getByText(/your plan will allow 1 household/i)).toBeTruthy();
+    expect(dialog().getByText(/No refund/)).toBeTruthy();
+    fireEvent.click(dialog().getByRole("button", { name: "Remove" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(addons().getAllByText("None")).toHaveLength(2);
+    expect(getPlanState().subscription.addons).toEqual([]);
     expect(getPlanState().payments).toHaveLength(1);
+  });
+
+  it("cancelling the remove keeps the add-on", async () => {
+    render(<MyPlanPage />);
+    await buyOneHousehold();
+    fireEvent.click(addons().getByRole("button", { name: "Remove one Extra household" }));
+    fireEvent.click(dialog().getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(addons().getByText("1 household")).toBeTruthy();
+    expect(getPlanState().subscription.addons).toEqual([
+      { addonId: "extra_household", quantity: 1 },
+    ]);
+  });
+
+  it("removing one of two keeps the other", async () => {
+    render(<MyPlanPage />);
+    await buyOneHousehold();
+    await buyOneHousehold();
+    expect(addons().getByText("2 households")).toBeTruthy();
+    fireEvent.click(addons().getByRole("button", { name: "Remove one Extra household" }));
+    fireEvent.click(dialog().getByRole("button", { name: "Remove" }));
+    expect(addons().getByText("1 household")).toBeTruthy();
+  });
+
+  it("the sample preview says nothing is charged", () => {
+    render(<MyPlanPage />);
+    fireEvent.click(addons().getByRole("button", { name: "Buy add-ons" }));
+    expect(dialog().getByText(/sample: nothing is charged/)).toBeTruthy();
   });
 
   it("Escape can't close the add-on checkout mid-payment", async () => {
