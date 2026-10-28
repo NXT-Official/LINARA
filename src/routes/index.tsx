@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, Clock, Receipt, Shield } from "lucide-react";
 import { useEffect } from "react";
 
+import { PlansComparison } from "@/features/plan/components/plans-comparison";
+
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
@@ -244,7 +246,10 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* 5. Footer */}
+      {/* 5. Plans, side by side */}
+      <PlansComparison />
+
+      {/* 6. Footer */}
       <footer
         className="mx-auto max-w-7xl px-6 py-12 text-center text-xs text-muted-foreground border-t border-border/40"
         role="contentinfo"
@@ -257,6 +262,9 @@ function LandingPage() {
           <Link to="/terms" className="hover:text-foreground">
             Terms
           </Link>
+          <a href="#plans" className="hover:text-foreground">
+            Plans
+          </a>
         </p>
       </footer>
     </div>

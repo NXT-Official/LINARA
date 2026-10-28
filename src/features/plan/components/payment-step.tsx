@@ -1,63 +1,75 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 
-import { formatCentavos, planById, priceText, quote } from "../plan.logic";
+import { addonChange, formatCentavos, planById, priceText, quote } from "../plan.logic";
 import { ADDONS } from "../plan.sample";
-import { METHOD_LABEL, payForPlan, type PaymentMethod, type SamplePayment } from "../plan.store";
-import type { AddonLine, Cycle } from "../plan.types";
+import {
+  METHOD_LABEL,
+  payForAddons,
+  payForPlan,
+  type PaymentMethod,
+  type PayResult,
+  type SamplePayment,
+} from "../plan.store";
+import type { AddonLine, Cycle, MySubscription } from "../plan.types";
 
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:translate-y-0";
 const secondaryBtn =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
+const addonsText = (lines: AddonLine[]) =>
+  lines
+    .filter((l) => l.quantity > 0)
+    .map((l) => `${ADDONS.find((a) => a.id === l.addonId)?.name ?? l.addonId} × ${l.quantity}`)
+    .join(", ");
+
+type StepProps = {
+  /** Back to the previous choice; omitted when there's nothing to go back to. */
+  onBack?: () => void;
+  onPaid: (payment: SamplePayment) => void;
+  /** While a payment is going through, so the dialog around it can't be closed. */
+  onBusyChange?: (busy: boolean) => void;
+};
+
 /**
  * Choosing how to pay and paying, on sample data: Pay goes through after a
  * moment without charging anything, so the flow can be tried end to end.
  */
-export function PaymentStep({
-  planId,
-  cycle,
-  addons,
+function PaymentStep({
+  amount,
+  title,
+  detail,
+  pay: charge,
   onBack,
   onPaid,
-}: {
-  planId: string;
-  cycle: Cycle;
-  addons: AddonLine[];
-  /** Back to the plan choice; omitted when paying what's already owed. */
-  onBack?: () => void;
-  onPaid: (payment: SamplePayment) => void;
+  onBusyChange,
+}: StepProps & {
+  amount: number;
+  title: string;
+  detail?: string;
+  pay: (method: PaymentMethod) => Promise<PayResult>;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("gcash");
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const plan = planById(planId);
-  const lines = addons.filter((a) => a.quantity > 0);
-  const extras = lines
-    .map((l) => `${ADDONS.find((a) => a.id === l.addonId)?.name ?? l.addonId} × ${l.quantity}`)
-    .join(", ");
 
   const pay = async () => {
     setPaying(true);
+    onBusyChange?.(true);
     setError(null);
-    const res = await payForPlan(planId, cycle, addons, method);
+    const res = await charge(method);
     setPaying(false);
+    onBusyChange?.(false);
     if (res.ok) onPaid(res.payment);
     else setError(res.message);
   };
 
-  // The same quote the store charges.
-  const q = quote(planId, cycle, addons);
-  const amount = q.ok ? q.amount : 0;
-
   return (
     <div>
       <div className="rounded-2xl bg-secondary/60 px-4 py-3">
-        <p className="text-sm font-semibold text-foreground">
-          {plan?.name ?? "Plan"}, {priceText(amount, cycle)}
-        </p>
-        {extras ? <p className="text-xs text-muted-foreground">Includes {extras}</p> : null}
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
       </div>
 
       <fieldset className="mt-4" disabled={paying}>
@@ -121,6 +133,52 @@ export function PaymentStep({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Paying for a plan: a change of plan, or what's owed on the current one. */
+export function PlanPaymentStep({
+  planId,
+  cycle,
+  addons,
+  ...step
+}: StepProps & { planId: string; cycle: Cycle; addons: AddonLine[] }) {
+  // The same quote the store charges.
+  const q = quote(planId, cycle, addons);
+  const amount = q.ok ? q.amount : 0;
+  const extras = addonsText(addons);
+  return (
+    <PaymentStep
+      {...step}
+      amount={amount}
+      title={`${planById(planId)?.name ?? "Plan"}, ${priceText(amount, cycle)}`}
+      detail={extras ? `Includes ${extras}` : undefined}
+      pay={(method) => payForPlan(planId, cycle, addons, method)}
+    />
+  );
+}
+
+/** Paying for add-ons bought on the plan it has. */
+export function AddonPaymentStep({
+  sub,
+  lines,
+  ...step
+}: StepProps & { sub: MySubscription; lines: AddonLine[] }) {
+  // The same change the store charges.
+  const change = addonChange(sub, lines);
+  const dueNow = change.ok ? change.dueNow : 0;
+  return (
+    <PaymentStep
+      {...step}
+      amount={dueNow}
+      title={`Add-ons: ${addonsText(lines) || "none"}`}
+      detail={
+        change.ok
+          ? `${formatCentavos(dueNow)} now, for the period that's running. Then ${priceText(change.newAmount, sub.cycle)} with your plan.`
+          : change.message
+      }
+      pay={(method) => payForAddons(lines, method)}
+    />
   );
 }
 

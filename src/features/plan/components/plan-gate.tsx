@@ -2,7 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { cheapestPlanWith, hasFeature, type AddCheck } from "../plan.logic";
+import { inMobileApp } from "@/lib/mobile-app";
+
+import {
+  addonFor,
+  addonsBlocked,
+  cheapestPlanWith,
+  formatCentavos,
+  hasFeature,
+  type AddCheck,
+} from "../plan.logic";
 import { FEATURES } from "../plan.sample";
 import { usePlan } from "../plan.store";
 import type { FeatureKey } from "../plan.types";
@@ -37,21 +46,33 @@ export function PlanGate({ feature, children }: { feature: FeatureKey; children:
   );
 }
 
-/** Why an add button is off, with the way to the plan. Renders nothing when it fits. */
+/**
+ * Why an add button is off, with the way out: buying one more as an add-on
+ * when that's what's missing and the plan takes add-ons, otherwise the plan.
+ * Renders nothing when it fits.
+ */
 export function LimitNotice({ check, className = "" }: { check: AddCheck; className?: string }) {
+  const { subscription } = usePlan();
   if (check.ok) return null;
+  const addon = check.reason === "limit" && check.limitKey ? addonFor(check.limitKey) : undefined;
+  const canBuy = !!addon && !addonsBlocked(subscription) && !inMobileApp();
+  const link =
+    "font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
     <p
       role="status"
       className={`rounded-xl px-3 py-2 text-sm ${check.reason === "restricted" ? "bg-status-late-soft text-status-late-ink" : "bg-terracotta-soft text-hearth-ink"} ${className}`}
     >
       {check.message}{" "}
-      <Link
-        to="/manager/plan"
-        className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        See your plan
-      </Link>
+      {canBuy && addon ? (
+        <Link to="/manager/plan" search={{ addon: addon.id }} className={link}>
+          Add one for {formatCentavos(addon.monthlyPrice)} a month
+        </Link>
+      ) : (
+        <Link to="/manager/plan" className={link}>
+          See your plan
+        </Link>
+      )}
     </p>
   );
 }

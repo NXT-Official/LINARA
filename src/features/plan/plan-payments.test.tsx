@@ -100,6 +100,17 @@ describe("sample payments", () => {
     expect(usePlanState().payments.map((p) => p.status)).toEqual(["paid", "failed"]);
   });
 
+  it("Escape can't close the checkout while a payment is going through", async () => {
+    openNormalCheckout();
+    fireEvent.click(dialog().getByRole("button", { name: "Pay ₱199" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    await finishProcessing();
+    expect(dialog().getByText("Payment received")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("a double tap on Pay pays once", async () => {
     openNormalCheckout();
     const pay = dialog().getByRole("button", { name: "Pay ₱199" });

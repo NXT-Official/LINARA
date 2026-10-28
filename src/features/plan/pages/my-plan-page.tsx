@@ -22,7 +22,8 @@ import {
   quote,
 } from "../plan.logic";
 import { ADDONS, CATALOG, FEATURES } from "../plan.sample";
-import { PaymentDone, PaymentStep } from "../components/payment-step";
+import { AddonsSection } from "../components/addons-section";
+import { PaymentDone, PlanPaymentStep } from "../components/payment-step";
 import {
   changePlan,
   isCurrentPlan,
@@ -168,6 +169,11 @@ function ChangePlanModal({
   const after = overLimits({ ...sub, planId, addons }, usage);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"choose" | "pay">("choose");
+  // A payment going through can't be closed away: it would finish unseen.
+  const [busy, setBusy] = useState(false);
+  const close = () => {
+    if (!busy) onClose();
+  };
   const [receipt, setReceipt] = useState<SamplePayment | null>(null);
   const needsPayment = q.ok && q.amount > 0;
 
@@ -181,15 +187,16 @@ function ChangePlanModal({
 
   if (step === "pay") {
     return (
-      <Modal onClose={onClose}>
+      <Modal onClose={close}>
         <h3 className="font-display text-xl text-foreground">Pay for {plan.name}</h3>
         <div className="mt-4">
-          <PaymentStep
+          <PlanPaymentStep
             planId={planId}
             cycle={cycle}
             addons={addons}
             onBack={() => setStep("choose")}
             onPaid={setReceipt}
+            onBusyChange={setBusy}
           />
         </div>
       </Modal>
@@ -354,8 +361,9 @@ function ChangePlanModal({
 
 function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => void }) {
   const [paid, setPaid] = useState<SamplePayment | null>(null);
+  const [busy, setBusy] = useState(false);
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={() => !busy && onClose()}>
       {paid ? (
         <PaymentDone payment={paid} onDone={onClose} />
       ) : (
@@ -365,11 +373,12 @@ function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => voi
             Pays what's owed and keeps everything working.
           </p>
           <div className="mt-4">
-            <PaymentStep
+            <PlanPaymentStep
               planId={sub.planId}
               cycle={sub.cycle}
               addons={sub.addons}
               onPaid={setPaid}
+              onBusyChange={setBusy}
             />
           </div>
         </>
@@ -426,7 +435,14 @@ const PREVIEW: { value: SubStatus; label: string }[] = [
 ];
 
 /** The manager's plan, usage and add-ons, on sample data until billing is live. */
-export function MyPlanPage() {
+export function MyPlanPage({
+  buyAddon,
+  onBuyAddonUsed,
+}: {
+  /** From a limit message: open the add-on purchase with this one already added. */
+  buyAddon?: string;
+  onBuyAddonUsed?: () => void;
+} = {}) {
   const { subscription: sub, payments } = usePlan();
   const usage = usePlanUsage();
   const [changing, setChanging] = useState(false);
@@ -574,6 +590,8 @@ export function MyPlanPage() {
           </ul>
         </section>
       </div>
+
+      <AddonsSection sub={sub} inApp={inApp} preset={buyAddon} onPresetUsed={onBuyAddonUsed} />
 
       {!inApp ? <PaymentHistory payments={payments} /> : null}
 

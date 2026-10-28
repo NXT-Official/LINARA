@@ -81,7 +81,8 @@ export function cheapestPlanWith(key: FeatureKey): CatalogPlan | undefined {
 }
 
 export type AddCheck =
-  { ok: true } | { ok: false; reason: "limit" | "restricted"; message: string };
+  | { ok: true }
+  | { ok: false; reason: "limit" | "restricted"; message: string; limitKey?: LimitKey };
 
 /**
  * Whether one more household, kasambahay or co-manager fits. A restricted
@@ -101,6 +102,7 @@ export function canAdd(sub: MySubscription, usage: Usage, key: LimitKey): AddChe
   return {
     ok: false,
     reason: "limit",
+    limitKey: key,
     message:
       limit === 0
         ? `${plan} doesn't include ${LIMIT_LABEL[key].many}.`
@@ -193,4 +195,56 @@ export function priceText(amount: number, cycle: Cycle): string {
 /** The plan's cycles that have a price, in order. */
 export function cyclesOf(plan: CatalogPlan): Cycle[] {
   return (["monthly", "annual", "one_time"] as const).filter((c) => plan.prices[c] !== null);
+}
+
+/** The add-on that raises a limit, if one does. */
+export function addonFor(key: LimitKey) {
+  return ADDONS.find((a) => a.limitKey === key);
+}
+
+/** Why add-ons can't be bought on this plan right now, or null when they can. */
+export function addonsBlocked(sub: MySubscription): string | null {
+  const base = quote(sub.planId, sub.cycle, []);
+  if (!base.ok) return base.message;
+  if (base.amount === 0 || sub.cycle === "one_time") {
+    return "Add-ons are for paid monthly or yearly plans: Normal and Premium.";
+  }
+  if (sub.status === "past_due" || sub.status === "restricted") {
+    return "Pay what's owed first, then add more.";
+  }
+  return null;
+}
+
+export type AddonChange =
+  | {
+      ok: true;
+      /** Charged now: the added add-ons for the period that's running. 0 when only removing. */
+      dueNow: number;
+      /** What the plan and add-ons cost each cycle after the change. */
+      newAmount: number;
+    }
+  | { ok: false; message: string };
+
+/**
+ * Buying or removing add-ons on the plan the household has. Only paid
+ * monthly or yearly plans take add-ons, and not while a payment is owed.
+ * Added ones are charged now for the period that's running (a month's or a
+ * year's price; marketing sets proration later); removing one costs
+ * nothing and refunds nothing.
+ */
+export function addonChange(sub: MySubscription, lines: AddonLine[]): AddonChange {
+  const blocked = addonsBlocked(sub);
+  if (blocked) return { ok: false, message: blocked };
+  const base = quote(sub.planId, sub.cycle, []);
+  if (!base.ok) return base;
+  const next = quote(sub.planId, sub.cycle, lines);
+  if (!next.ok) return next;
+  const current = quote(sub.planId, sub.cycle, sub.addons);
+  const now = current.ok ? current.amount : base.amount;
+  const qty = (list: AddonLine[], id: string) =>
+    list.filter((l) => l.addonId === id).reduce((n, l) => n + l.quantity, 0);
+  if (ADDONS.every((a) => qty(lines, a.id) === qty(sub.addons, a.id))) {
+    return { ok: false, message: "Nothing changed." };
+  }
+  return { ok: true, dueNow: Math.max(0, next.amount - now), newAmount: next.amount };
 }
