@@ -130,6 +130,20 @@ export const changeToFreeFn = createServerFn({ method: "POST" })
     return error ? { ok: false, message: error.message } : { ok: true };
   });
 
+export const cancelPlanFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }): Promise<Done> => {
+    const { error } = await createAuthedClient(data.token).rpc("billing_cancel_plan");
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+
+export const resumePlanFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }): Promise<Done> => {
+    const { error } = await createAuthedClient(data.token).rpc("billing_resume_plan");
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+
 export const removeAddonsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; addons: AddonLine[] }) => data)
   .handler(async ({ data }): Promise<Done> => {

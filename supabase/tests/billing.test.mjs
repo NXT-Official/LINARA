@@ -77,6 +77,8 @@ for (const file of [
   "add-billing.sql",
   "add-billing-idempotency.sql",
   "add-billing-idempotency.sql",
+  "add-billing-plan-changes.sql",
+  "add-billing-plan-changes.sql",
 ]) {
   await db.exec(readFileSync(`${REPO}/${file}`, "utf8"));
 }
@@ -418,13 +420,22 @@ await expectError(
 // Expired, then paid late: Xendit can still take it.
 const p4 = await pay("plan", "normal", "annual");
 const inv4 = await invoiceFor(p4);
-check("yearly Normal is ₱1,990", p4.amount === 199000);
+// Monthly to yearly while the month runs: the year less the unused month
+// (add-billing-plan-changes.sql), here all but a few seconds of it.
+check(
+  "yearly Normal is ₱1,990 less the unused month",
+  p4.amount >= 179100 && p4.amount <= 179102,
+  p4.amount,
+);
 check("an unpaid page expires", (await apply({ id: inv4, status: "EXPIRED" })) === "expired");
 check(
   "the payment shows as expired",
   (await mine()).payments.find((p) => p.id === p4.id).status === "expired",
 );
-check("paid after it expired: still applied", (await apply(paid(inv4, 1990))) === "applied");
+check(
+  "paid after it expired: still applied",
+  (await apply(paid(inv4, p4.amount / 100))) === "applied",
+);
 check("now yearly", (await mine()).subscription.cycle === "annual");
 
 // --- Limits on Normal: 3 kasambahay, 1 co-manager, no remote admin -----------------
@@ -517,15 +528,19 @@ await expectError(
 // Add-ons paid after the plan changed: kept for review, not stacked on the wrong plan.
 const a2 = await pay("addons", null, null, [{ addonId: "extra_kasambahay", quantity: 2 }]);
 const a2inv = await invoiceFor(a2);
-const replace = await pay("plan", "premium", "monthly");
+// On Normal yearly, Premium yearly is the upgrade (yearly to monthly would be a downgrade).
+const replace = await pay("plan", "premium", "annual");
 check(
   "a different purchase while add-ons are open: close that page first",
   replace.supersede?.id === a2.id && replace.supersede?.invoiceId === a2inv && !replace.id,
   replace,
 );
 await svc(`SELECT billing_cancel_payment($1)`, [a2.id]);
-const p5 = await pay("plan", "premium", "monthly");
-check("Premium monthly ₱399", (await apply(paid(await invoiceFor(p5), 399))) === "applied");
+const p5 = await pay("plan", "premium", "annual");
+check(
+  "Premium yearly for the rest of the year (prorated)",
+  (await apply(paid(await invoiceFor(p5), p5.amount / 100))) === "applied",
+);
 check("the old add-on payment goes to review", (await apply(paid(a2inv, 600))) === "review");
 b = await mine();
 check(
@@ -555,7 +570,14 @@ check("the same kasambahay in two households counts once", b.usage.kasambahay ==
 
 // --- Over the limits after moving to Free -------------------------------------------
 await as(M);
-await q(`SELECT billing_change_to_free()`);
+await expectError(
+  "moving to Free mid-year is refused: cancel instead",
+  () => q(`SELECT billing_change_to_free()`),
+  /cancel your plan/,
+);
+await q(`SELECT billing_cancel_plan()`);
+await setPeriodEnd(`now() - interval '1 minute'`);
+await as(M);
 await expectError("Free twice", () => q(`SELECT billing_change_to_free()`), /already have/);
 b = await mine();
 check(
@@ -701,7 +723,7 @@ check(
 );
 const q4 = await pay("plan", "premium", "annual");
 check("the same purchase after it expired: a new page", !!q4.id && !q4.reuse && q4.id !== q3b.id);
-await apply(paid(await invoiceFor(q4), 3990));
+await apply(paid(await invoiceFor(q4), q4.amount / 100));
 check("paid: Premium yearly", (await mine()).subscription.planId === "premium");
 check(
   "the expired page paid late, after the newer one: kept for a refund, not applied twice",

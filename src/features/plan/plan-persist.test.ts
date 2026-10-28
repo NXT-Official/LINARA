@@ -31,7 +31,8 @@ describe("the sample plan is kept per manager account", () => {
   it("keeps payments and what stays active too", async () => {
     let store = await freshStore();
     store.loadPlanFor("u1");
-    const paying = store.payForPlan("normal", "monthly", [], "maya");
+    // An upgrade (the sample is on Premium monthly): moving down waits for a cancel.
+    const paying = store.payForPlan("premium", "annual", [], "maya");
     await vi.advanceTimersByTimeAsync(store.PROCESSING_MS);
     expect((await paying).ok).toBe(true);
     store.previewStatus("restricted");
@@ -45,7 +46,11 @@ describe("the sample plan is kept per manager account", () => {
     store = await freshStore();
     store.loadPlanFor("u1");
     const s = store.getPlanState();
-    expect(s.subscription).toMatchObject({ planId: "normal", status: "restricted" });
+    expect(s.subscription).toMatchObject({
+      planId: "premium",
+      cycle: "annual",
+      status: "restricted",
+    });
     expect(s.payments.map((p) => p.method)).toEqual(["maya"]);
     expect(s.selection).toEqual({ households: ["h1"], kasambahay: ["k1"] });
   });

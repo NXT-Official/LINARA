@@ -248,3 +248,112 @@ export function addonChange(sub: MySubscription, lines: AddonLine[]): AddonChang
   }
   return { ok: true, dueNow: Math.max(0, next.amount - now), newAmount: next.amount };
 }
+
+/** The smallest amount charged, in centavos: Xendit's card minimum (billing_min_charge). */
+export const MIN_CHARGE = 2_000;
+
+const dayFmt = new Intl.DateTimeFormat("en-PH", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "Asia/Manila",
+});
+/** "Nov 28, 2026", in Manila time (billing_date_text). */
+export const dayText = (iso: string | number) => dayFmt.format(new Date(iso));
+
+/** How high a plan ranks: its monthly price, or a twelfth of its yearly one. */
+function planRank(planId: string): number {
+  const p = planById(planId)?.prices;
+  if (!p) return 0;
+  return p.monthly ?? (p.annual !== null ? p.annual / 12 : (p.one_time ?? 0));
+}
+
+/** A paid period is running: active (not a trial), renewing after `now`. */
+export function periodRunning(sub: MySubscription, now = Date.now()): boolean {
+  return sub.status === "active" && !!sub.periodEnd && Date.parse(sub.periodEnd) > now;
+}
+
+const sameLines = (a: AddonLine[], b: AddonLine[]) =>
+  JSON.stringify(a.filter((l) => l.quantity > 0)) ===
+  JSON.stringify(b.filter((l) => l.quantity > 0));
+
+export type PlanMove =
+  | {
+      ok: true;
+      /** Charged now. 0 only when moving to Free with nothing running. */
+      dueNow: number;
+      /** The renewal date stays (a same-cycle upgrade); otherwise a new period starts when paid. */
+      keepsPeriod: boolean;
+      /** Worked out from the time left in the period that's running. */
+      prorated: boolean;
+    }
+  | { ok: false; message: string; lower?: boolean };
+
+/**
+ * Moving to a plan, cycle and add-ons, as billing_quote works it out
+ * (add-billing-plan-changes.sql). While a paid period runs a plan only goes
+ * up: a higher plan pays the gap for the time left and keeps the renewal
+ * date; monthly to yearly pays the year less what's unused, from today.
+ * Anything lower waits for a cancel to run out. With nothing running, any
+ * plan at its full price.
+ */
+export function planMove(
+  sub: MySubscription,
+  planId: string,
+  cycle: Cycle,
+  addons: AddonLine[],
+  now = Date.now(),
+): PlanMove {
+  const next = quote(planId, cycle, addons);
+  if (!next.ok) return next;
+  const same = planId === sub.planId && cycle === sub.cycle;
+
+  if (!periodRunning(sub, now)) {
+    const owes = sub.status === "past_due" || sub.status === "restricted";
+    if (same && sameLines(addons, sub.addons) && !owes) {
+      return { ok: false, message: "That's the plan you already have." };
+    }
+    return { ok: true, dueNow: next.amount, keepsPeriod: false, prorated: false };
+  }
+
+  const end = Date.parse(sub.periodEnd as string);
+  const lower = {
+    ok: false as const,
+    lower: true,
+    message: `To move to a lower plan, cancel this one. You keep it until ${dayFmt.format(end)}, then choose again.`,
+  };
+  if (same) {
+    return sameLines(addons, sub.addons)
+      ? { ok: false, message: "That's the plan you already have." }
+      : { ok: false, message: "To change add-ons, use Add-ons on Your plan." };
+  }
+  const current = quote(sub.planId, sub.cycle, sub.addons);
+  if (!current.ok) return current;
+  const start = sub.periodStart ? Date.parse(sub.periodStart) : NaN;
+  const left =
+    Number.isNaN(start) || end <= start ? 1 : Math.min(1, Math.max(0, (end - now) / (end - start)));
+
+  let dueNow: number;
+  let keepsPeriod: boolean;
+  if (cycle === sub.cycle && planRank(planId) > planRank(sub.planId)) {
+    if (next.amount <= current.amount) {
+      return {
+        ok: false,
+        message:
+          "That costs no more than what you pay now. Remove the add-ons you won't need first, then upgrade.",
+      };
+    }
+    dueNow = Math.ceil((next.amount - current.amount) * left);
+    keepsPeriod = true;
+  } else if (
+    sub.cycle === "monthly" &&
+    cycle === "annual" &&
+    planRank(planId) >= planRank(sub.planId)
+  ) {
+    dueNow = next.amount - Math.floor(current.amount * left);
+    keepsPeriod = false;
+  } else {
+    return lower;
+  }
+  return { ok: true, dueNow: Math.max(dueNow, MIN_CHARGE), keepsPeriod, prorated: true };
+}

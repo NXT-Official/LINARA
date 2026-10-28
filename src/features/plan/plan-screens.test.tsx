@@ -85,6 +85,8 @@ describe("Your plan page", () => {
   });
 
   it("warns before moving to a plan that's too small, then shows what's over", () => {
+    // Past due, nothing paid is running, so Free is allowed now (running, it waits for a cancel).
+    act(() => previewStatus("past_due"));
     render(<MyPlanPage />);
     fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
     fireEvent.click(dialog().getByRole("radio", { name: /Free/ }));
@@ -109,6 +111,10 @@ describe("Your plan page", () => {
   });
 
   it("prices add-ons as they're added, and stops at 10", () => {
+    // From Free, so Normal is a move up.
+    act(() => {
+      changePlan("free", "monthly", []);
+    });
     render(<MyPlanPage />);
     fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
     fireEvent.click(dialog().getByRole("radio", { name: /Normal/ }));
@@ -118,6 +124,22 @@ describe("Your plan page", () => {
     for (let i = 0; i < 15; i++) fireEvent.click(more);
     expect((more as HTMLButtonElement).disabled).toBe(true);
     expect(dialog().getByText("₱699 a month")).toBeTruthy();
+  });
+
+  it("in the preview, a running plan can be cancelled and kept, and only moves up", () => {
+    act(() => {
+      changePlan("normal", "monthly", []);
+    });
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    expect((dialog().getByRole("radio", { name: /Free/ }) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(dialog().getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
+    fireEvent.click(dialog().getByRole("button", { name: "Cancel plan" }));
+    expect(screen.getByText(/^Ends .*, then moves to Free\.$/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep my plan" }));
+    expect(screen.getByText(/^Renews /)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cancel plan" })).toBeTruthy();
   });
 
   it("explains a failed payment's grace period", () => {

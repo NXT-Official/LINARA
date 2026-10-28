@@ -75,6 +75,8 @@ export type MySubscription = {
   addons: AddonLine[];
   status: SubStatus;
   cancelAtPeriodEnd: boolean;
+  /** When the period started; prorates an upgrade. Missing in older saved previews. */
+  periodStart?: string | null;
   /** When the paid or trial period ends; null when nothing renews. */
   periodEnd: string | null;
 };

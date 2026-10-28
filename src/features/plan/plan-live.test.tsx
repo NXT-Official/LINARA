@@ -10,6 +10,8 @@ const server = vi.hoisted(() => ({
   getMyBillingFn: vi.fn(),
   startCheckoutFn: vi.fn(),
   changeToFreeFn: vi.fn(),
+  cancelPlanFn: vi.fn(),
+  resumePlanFn: vi.fn(),
   removeAddonsFn: vi.fn(),
   saveSelectionFn: vi.fn(),
   getCatalogFn: vi.fn(),
@@ -251,13 +253,15 @@ describe("Your plan, live", () => {
     expect(screen.getByText("5 of 1")).toBeTruthy();
   });
 
-  it("moving to Free saves in the database, then shows what it holds", async () => {
+  it("past due, moving to Free saves in the database, then shows what it holds", async () => {
+    // With a paid period running, Free waits for a cancel instead (below).
     await goLive(
       billing({
         subscription: {
           ...billing().subscription,
           planId: "normal",
-          periodEnd: "2026-11-28T00:00:00.000Z",
+          status: "past_due",
+          periodEnd: "2026-10-01T00:00:00.000Z",
         },
       }),
     );
@@ -291,6 +295,62 @@ describe("Your plan, live", () => {
     });
     expect(screen.getByRole("alert").textContent).toMatch(/primary manager/);
     expect(getPlanState().subscription.planId).toBe("normal");
+  });
+
+  it("buying add-ons live never claims it's a sample", async () => {
+    await goLive(billing({ subscription: { ...billing().subscription, planId: "normal" } }));
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Buy add-ons" }));
+    const d = within(screen.getByRole("dialog"));
+    expect(d.queryByText(/sample|nothing is charged/i)).toBeNull();
+    expect(d.getByText(/Xendit/)).toBeTruthy();
+  });
+
+  it("removing an add-on live sends only what stays, then shows what the database holds", async () => {
+    const sub = {
+      ...billing().subscription,
+      planId: "normal",
+      addons: [{ addonId: "extra_kasambahay", quantity: 2 }],
+    };
+    await goLive(billing({ subscription: sub }));
+    server.removeAddonsFn.mockResolvedValue({ ok: true });
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove one Extra kasambahay" }));
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({
+        subscription: { ...sub, addons: [{ addonId: "extra_kasambahay", quantity: 1 }] },
+      }),
+    });
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
+    });
+    expect(server.removeAddonsFn).toHaveBeenCalledWith({
+      data: { token: "token-1", addons: [{ addonId: "extra_kasambahay", quantity: 1 }] },
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(getPlanState().subscription.addons).toEqual([
+      { addonId: "extra_kasambahay", quantity: 1 },
+    ]);
+  });
+
+  it("a refused remove stays open and says why, and nothing changes", async () => {
+    const sub = {
+      ...billing().subscription,
+      planId: "normal",
+      addons: [{ addonId: "extra_kasambahay", quantity: 1 }],
+    };
+    await goLive(billing({ subscription: sub }));
+    server.removeAddonsFn.mockResolvedValue({ ok: false, message: "Pay what's owed first." });
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove one Extra kasambahay" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
+    });
+    expect(within(screen.getByRole("dialog")).getByRole("alert").textContent).toMatch(
+      /Pay what's owed first/,
+    );
+    expect(getPlanState().subscription.addons).toEqual(sub.addons);
   });
 
   it("a co-manager sees the owner's plan but can't change or buy, and sees no payments", async () => {
@@ -350,5 +410,150 @@ describe("Your plan, live", () => {
       "https://checkout-staging.xendit.co/web/inv_1",
     );
     expect(screen.getByText("Waiting")).toBeTruthy();
+  });
+});
+
+describe("plan changes while a paid period runs, live", () => {
+  const NOW = Date.parse("2026-11-08T00:00:00.000Z");
+  const DAY = 86_400_000;
+  // Normal monthly (₱250 in this catalog) with 20 of 30 days left, renewing Nov 28.
+  const runningSub = (change: Partial<MyBilling["subscription"]> = {}) => ({
+    ...billing().subscription,
+    planId: "normal",
+    periodStart: new Date(NOW - 10 * DAY).toISOString(),
+    periodEnd: new Date(NOW + 20 * DAY).toISOString(),
+    ...change,
+  });
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  const dialog = () => within(screen.getByRole("dialog"));
+  const radio = (name: RegExp) => dialog().getByRole("radio", { name }) as HTMLInputElement;
+
+  it("lower plans can't be picked, and it says to cancel instead", async () => {
+    await goLive(billing({ subscription: runningSub() }));
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    expect(radio(/Free/).disabled).toBe(true);
+    expect(radio(/Premium/).disabled).toBe(false);
+    expect(
+      dialog().getByText(
+        /To move to a lower plan, cancel this one: you keep it until Nov 28, 2026/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("an upgrade shows the gap for the time left, then pays it on Xendit", async () => {
+    await goLive(billing({ subscription: runningSub() }));
+    server.startCheckoutFn.mockResolvedValue({
+      ok: true,
+      invoiceUrl: "https://checkout-staging.xendit.co/web/x",
+    });
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    fireEvent.click(radio(/Premium/));
+    // (₱499 - ₱250) x 20/30 = ₱166.00.
+    expect(
+      dialog().getByText(
+        "₱166 now for the rest of this period, then ₱499 a month from Nov 28, 2026.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(dialog().getByRole("button", { name: "Continue to payment" }));
+    await act(async () => {
+      fireEvent.click(dialog().getByRole("button", { name: "Pay ₱166 on Xendit" }));
+    });
+    const sent = server.startCheckoutFn.mock.calls[0][0].data;
+    expect(sent).toMatchObject({ kind: "plan", planId: "premium", cycle: "monthly" });
+    expect(sent).not.toHaveProperty("amount");
+  });
+
+  it("on a yearly plan, monthly can't be picked", async () => {
+    await goLive(billing({ subscription: runningSub({ planId: "premium", cycle: "annual" }) }));
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    const monthly = dialog().getByRole("button", { name: /^Monthly/ }) as HTMLButtonElement;
+    expect(monthly.disabled).toBe(true);
+  });
+
+  it("Cancel plan asks first, then the plan ends at its renewal date", async () => {
+    await goLive(billing({ subscription: runningSub() }));
+    server.cancelPlanFn.mockResolvedValue({ ok: true });
+    render(<MyPlanPage />);
+    expect(screen.getByText("Renews Nov 28, 2026.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
+    expect(dialog().getByText(/You keep everything on Normal until Nov 28, 2026/)).toBeTruthy();
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({ subscription: runningSub({ cancelAtPeriodEnd: true }) }),
+    });
+    await act(async () => {
+      fireEvent.click(dialog().getByRole("button", { name: "Cancel plan" }));
+    });
+    expect(server.cancelPlanFn).toHaveBeenCalledWith({ data: { token: "token-1" } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Ends Nov 28, 2026, then moves to Free.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Keep my plan" })).toBeTruthy();
+  });
+
+  it("closing the cancel question changes nothing", async () => {
+    await goLive(billing({ subscription: runningSub() }));
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
+    fireEvent.click(dialog().getByRole("button", { name: "Keep Normal" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(server.cancelPlanFn).not.toHaveBeenCalled();
+  });
+
+  it("a refused cancel stays open and says why", async () => {
+    await goLive(billing({ subscription: runningSub() }));
+    server.cancelPlanFn.mockResolvedValue({
+      ok: false,
+      message: "There's no paid plan running to cancel.",
+    });
+    render(<MyPlanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel plan" }));
+    await act(async () => {
+      fireEvent.click(dialog().getByRole("button", { name: "Cancel plan" }));
+    });
+    expect(dialog().getByRole("alert").textContent).toMatch(/no paid plan running/);
+    expect(getPlanState().subscription.cancelAtPeriodEnd).toBe(false);
+  });
+
+  it("Keep my plan undoes the cancel in the database", async () => {
+    await goLive(billing({ subscription: runningSub({ cancelAtPeriodEnd: true }) }));
+    server.resumePlanFn.mockResolvedValue({ ok: true });
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({ subscription: runningSub() }),
+    });
+    render(<MyPlanPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Keep my plan" }));
+    });
+    expect(server.resumePlanFn).toHaveBeenCalledWith({ data: { token: "token-1" } });
+    expect(screen.getByText("Renews Nov 28, 2026.")).toBeTruthy();
+  });
+
+  it("nothing to cancel on Free, while past due, or for a co-manager", async () => {
+    await goLive(billing());
+    const { unmount } = render(<MyPlanPage />);
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+    unmount();
+    await goLive(
+      billing({
+        subscription: runningSub({
+          status: "past_due",
+          periodEnd: new Date(NOW - 2 * DAY).toISOString(),
+        }),
+      }),
+    );
+    const second = render(<MyPlanPage />);
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+    second.unmount();
+    await goLive(billing({ owner: false, usage: null, subscription: runningSub() }));
+    render(<MyPlanPage />);
+    expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
   });
 });

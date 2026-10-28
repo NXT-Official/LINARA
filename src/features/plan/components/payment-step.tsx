@@ -1,7 +1,15 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 
-import { addonChange, formatCentavos, planById, priceText, quote } from "../plan.logic";
+import {
+  addonChange,
+  dayText,
+  formatCentavos,
+  planById,
+  planMove,
+  priceText,
+  quote,
+} from "../plan.logic";
 import { ADDONS } from "../plan.sample";
 import {
   checkout,
@@ -240,16 +248,28 @@ export function PlanPaymentStep({
   addons,
   ...step
 }: StepProps & { planId: string; cycle: Cycle; addons: AddonLine[] }) {
-  // The same quote the store charges.
+  // The same price the store and the database charge: prorated while a period runs.
+  const { subscription } = usePlan();
   const q = quote(planId, cycle, addons);
-  const amount = q.ok ? q.amount : 0;
+  const move = planMove(subscription, planId, cycle, addons);
+  const full = q.ok ? q.amount : 0;
+  const amount = move.ok ? move.dueNow : full;
   const extras = addonsText(addons);
+  const name = planById(planId)?.name ?? "Plan";
+  const notes = [
+    move.ok && move.keepsPeriod && subscription.periodEnd
+      ? `${formatCentavos(amount)} now for the rest of this period, then ${priceText(full, cycle)} from ${dayText(subscription.periodEnd)}.`
+      : move.ok && move.prorated
+        ? `${formatCentavos(amount)} now: a year of ${name}, less what's unused of this month.`
+        : null,
+    extras ? `Includes ${extras}` : null,
+  ].filter(Boolean);
   return (
     <PaymentStep
       {...step}
       amount={amount}
-      title={`${planById(planId)?.name ?? "Plan"}, ${priceText(amount, cycle)}`}
-      detail={extras ? `Includes ${extras}` : undefined}
+      title={move.ok && move.prorated ? `${name}, upgrade` : `${name}, ${priceText(amount, cycle)}`}
+      detail={notes.length ? notes.join(" ") : undefined}
       pay={(method) => payForPlan(planId, cycle, addons, method)}
       open={() => checkout("plan", planId, cycle, addons)}
     />

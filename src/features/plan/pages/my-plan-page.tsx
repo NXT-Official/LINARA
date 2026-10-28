@@ -11,6 +11,7 @@ import {
   addonsBlocked,
   CYCLE_LABEL,
   cyclesOf,
+  dayText,
   formatCentavos,
   graceEndsAt,
   hasFeature,
@@ -19,7 +20,9 @@ import {
   limitsFor,
   MAX_ADDON_QUANTITY,
   overLimits,
+  periodRunning,
   planById,
+  planMove,
   priceText,
   quote,
 } from "../plan.logic";
@@ -27,7 +30,9 @@ import { ADDONS, CATALOG, FEATURES } from "../plan.sample";
 import { AddonsSection } from "../components/addons-section";
 import { PaymentDone, PlanPaymentStep } from "../components/payment-step";
 import {
-  changePlan,
+  cancelPlan,
+  cancelPlanLive,
+  changeToFree,
   changeToFreeLive,
   getPlanState,
   isCurrentPlan,
@@ -35,6 +40,8 @@ import {
   previewStatus,
   refreshPlan,
   resetPlan,
+  resumePlan,
+  resumePlanLive,
   usePlan,
   type PaymentMethod,
   type PlanPayment,
@@ -185,6 +192,19 @@ function ChangePlanModal({
   const paid = (plan.prices[cycle] ?? 0) > 0 && cycle !== "one_time";
   const addons = paid ? ADDONS.map((a) => ({ addonId: a.id, quantity: qty[a.id] ?? 0 })) : [];
   const q = quote(planId, cycle, addons);
+  // Up only while a paid period runs, at the price the database charges (planMove).
+  const running = periodRunning(sub);
+  const move = planMove(sub, planId, cycle, addons);
+  const current = isCurrentPlan(planId, cycle, addons);
+  const live = getPlanState().live;
+  const lowerThanNow = (id: string) => {
+    if (!running || id === sub.planId) return false;
+    const p = planById(id);
+    if (!p) return true;
+    const cs = cyclesOf(p);
+    const m = planMove(sub, id, cs.includes(sub.cycle) ? sub.cycle : cs[0], []);
+    return !m.ok && !!m.lower;
+  };
   const after = overLimits({ ...sub, planId, addons }, usage);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"choose" | "pay">("choose");
@@ -194,7 +214,17 @@ function ChangePlanModal({
     if (!busy) onClose();
   };
   const [receipt, setReceipt] = useState<SamplePayment | null>(null);
-  const needsPayment = q.ok && q.amount > 0;
+  const needsPayment = move.ok && move.dueNow > 0;
+  const fullPrice = q.ok ? priceText(q.amount, cycle) : "";
+  const summary = current
+    ? `${fullPrice}, your plan now`
+    : !move.ok
+      ? move.message
+      : move.keepsPeriod && sub.periodEnd
+        ? `${formatCentavos(move.dueNow)} now for the rest of this period, then ${fullPrice} from ${dayText(sub.periodEnd)}.`
+        : move.prorated
+          ? `${formatCentavos(move.dueNow)} now (the year, less what's unused of this month), then ${fullPrice}.`
+          : fullPrice;
 
   if (receipt) {
     return (
@@ -235,7 +265,12 @@ function ChangePlanModal({
         </button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        The new plan starts once it's paid. Payments here are a sample: nothing is charged.
+        {running && sub.periodEnd
+          ? `You can move up any time. To move to a lower plan, cancel this one: you keep it until ${dayText(sub.periodEnd)}.`
+          : "The new plan starts once it's paid."}
+        {live
+          ? " You pay on Xendit's secure page."
+          : " Payments here are a sample: nothing is charged."}
       </p>
 
       <fieldset className="mt-4">
@@ -243,16 +278,18 @@ function ChangePlanModal({
         <div className="mt-1.5 divide-y divide-border rounded-2xl border border-border">
           {CATALOG.map((p) => {
             const chosen = p.id === planId;
+            const lower = lowerThanNow(p.id);
             return (
               <label
                 key={p.id}
-                className={`flex min-h-14 cursor-pointer items-start gap-3 px-4 py-3 transition-colors first:rounded-t-2xl last:rounded-b-2xl ${chosen ? "bg-secondary/70" : "hover:bg-secondary/40"}`}
+                className={`flex min-h-14 items-start gap-3 px-4 py-3 transition-colors first:rounded-t-2xl last:rounded-b-2xl ${lower ? "cursor-not-allowed opacity-60" : chosen ? "cursor-pointer bg-secondary/70" : "cursor-pointer hover:bg-secondary/40"}`}
               >
                 <input
                   type="radio"
                   name="plan"
                   value={p.id}
                   checked={chosen}
+                  disabled={lower}
                   onChange={() => {
                     setPlanId(p.id);
                     setError(null);
@@ -271,6 +308,11 @@ function ChangePlanModal({
                     {limitText("kasambahay", p.limits.kasambahay)},{" "}
                     {limitText("co_managers", p.limits.co_managers)}
                   </span>
+                  {lower ? (
+                    <span className="block text-xs text-muted-foreground">
+                      Lower than your plan: cancel first.
+                    </span>
+                  ) : null}
                 </span>
               </label>
             );
@@ -290,8 +332,10 @@ function ChangePlanModal({
                 key={c}
                 type="button"
                 aria-pressed={cycle === c}
+                // Yearly to monthly is a move down: it waits for the year to end.
+                disabled={running && sub.cycle === "annual" && c === "monthly"}
                 onClick={() => setCycle(c)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${cycle === c ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cycle === c ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {CYCLE_LABEL[c].name}, {formatCentavos(plan.prices[c] ?? 0)}
               </button>
@@ -340,28 +384,31 @@ function ChangePlanModal({
         </p>
       ) : null}
 
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-semibold text-foreground" aria-live="polite">
-          {q.ok ? priceText(q.amount, cycle) : q.message}
+      <div className="mt-5 flex flex-col gap-3">
+        <p
+          className={`text-sm font-semibold ${move.ok ? "text-foreground" : "text-muted-foreground"}`}
+          aria-live="polite"
+        >
+          {q.ok ? summary : q.message}
         </p>
-        <div className="flex gap-2">
+        <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={secondaryBtn}>
             Cancel
           </button>
           <button
             type="button"
-            disabled={!q.ok}
+            disabled={!q.ok || (!move.ok && !current)}
             onClick={async () => {
-              if (isCurrentPlan(planId, cycle, addons)) {
+              if (current) {
                 setError("That's the plan you already have.");
                 return;
               }
+              if (!move.ok) return;
               if (needsPayment) {
                 setStep("pay");
                 return;
               }
-              const live = getPlanState().live;
-              const res = live ? await changeToFreeLive() : changePlan(planId, cycle, addons);
+              const res = live ? await changeToFreeLive() : changeToFree();
               if (!res.ok) {
                 setError(res.message);
                 return;
@@ -373,9 +420,67 @@ function ChangePlanModal({
             }}
             className={primaryBtn}
           >
-            {needsPayment ? "Continue to payment" : "Change plan"}
+            {/* A paid plan goes to payment; moving to Free with nothing running doesn't. */}
+            {needsPayment || (q.ok && q.amount > 0) ? "Continue to payment" : "Change plan"}
           </button>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Cancelling: asks first. The plan stays until its renewal date, then it's Free. */
+function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = planById(sub.planId)?.name ?? "your plan";
+  const close = () => {
+    if (!busy) onClose();
+  };
+  return (
+    <Modal onClose={close}>
+      <h3 className="font-display text-xl text-foreground">Cancel {name}?</h3>
+      <p className="mt-2 text-sm text-muted-foreground">
+        You keep everything on {name} until {sub.periodEnd ? dayText(sub.periodEnd) : "it ends"}.
+        Then you're on Free, and you can choose any plan. Changed your mind before then? Keep it
+        from Your plan.
+      </p>
+      {error ? (
+        <p
+          role="alert"
+          className="mt-3 rounded-xl bg-status-late-soft px-3 py-2 text-sm text-status-late-ink"
+        >
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <button type="button" onClick={close} disabled={busy} className={secondaryBtn}>
+          Keep {name}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            const res = getPlanState().live ? await cancelPlanLive() : cancelPlan();
+            setBusy(false);
+            if (!res.ok) {
+              setError(res.message);
+              return;
+            }
+            toast.success(`${name} ends ${sub.periodEnd ? dayText(sub.periodEnd) : "soon"}.`, {
+              description: "Nothing changes until then.",
+            });
+            onClose();
+          }}
+          className={primaryBtn}
+        >
+          {busy ? (
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          ) : null}
+          Cancel plan
+        </button>
       </div>
     </Modal>
   );
@@ -586,7 +691,11 @@ export function MyPlanPage({
   const usage = usePlanUsage();
   const [changing, setChanging] = useState(false);
   const [payingNow, setPayingNow] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [keeping, setKeeping] = useState(false);
+  const [keepError, setKeepError] = useState<string | null>(null);
   const owes = sub.status === "past_due" || sub.status === "restricted";
+  const running = periodRunning(sub);
   const inApp = inMobileApp();
   const plan = planById(sub.planId);
   const limits = limitsFor(sub);
@@ -653,8 +762,8 @@ export function MyPlanPage({
             </div>
           ) : null}
         </div>
-        <p
-          className={`mt-4 rounded-xl px-3 py-2 text-sm ${
+        <div
+          className={`mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl px-3 py-2 text-sm ${
             status.tone === "late"
               ? "bg-status-late-soft text-status-late-ink"
               : status.tone === "warn"
@@ -662,8 +771,48 @@ export function MyPlanPage({
                 : "bg-secondary text-pine-deep"
           }`}
         >
-          {status.text}
-        </p>
+          <p>{status.text}</p>
+          {!inApp && owner && running ? (
+            sub.cancelAtPeriodEnd ? (
+              <button
+                type="button"
+                disabled={keeping}
+                onClick={async () => {
+                  setKeeping(true);
+                  setKeepError(null);
+                  const res = live ? await resumePlanLive() : resumePlan();
+                  setKeeping(false);
+                  if (!res.ok) {
+                    setKeepError(res.message);
+                    return;
+                  }
+                  toast.success(`You're keeping ${plan?.name ?? "your plan"}.`, {
+                    description: sub.periodEnd ? `It renews ${dayText(sub.periodEnd)}.` : undefined,
+                  });
+                }}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
+              >
+                {keeping ? (
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+                ) : null}
+                Keep my plan
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCancelling(true)}
+                className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+              >
+                Cancel plan
+              </button>
+            )
+          ) : null}
+        </div>
+        {keepError ? (
+          <p role="alert" className="mt-2 text-sm text-status-late-ink">
+            {keepError}
+          </p>
+        ) : null}
         {inApp ? (
           <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -798,6 +947,7 @@ export function MyPlanPage({
         <ChangePlanModal sub={sub} usage={usage} onClose={() => setChanging(false)} />
       ) : null}
       {payingNow ? <PayNowModal sub={sub} onClose={() => setPayingNow(false)} /> : null}
+      {cancelling ? <CancelPlanModal sub={sub} onClose={() => setCancelling(false)} /> : null}
     </div>
   );
 }

@@ -1,7 +1,15 @@
 import { useSyncExternalStore } from "react";
 
 import type { BillingPayment, MyBilling } from "./plan.actions";
-import { addonChange, checkSelection, planById, quote, type SelectionCheck } from "./plan.logic";
+import {
+  addonChange,
+  checkSelection,
+  periodRunning,
+  planById,
+  planMove,
+  quote,
+  type SelectionCheck,
+} from "./plan.logic";
 import { SAMPLE_SUBSCRIPTION, setCatalog } from "./plan.sample";
 import {
   SUB_STATUSES,
@@ -116,7 +124,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 function readSubscription(v: unknown): MySubscription | null {
   if (!isRecord(v)) return null;
-  const { planId, planVersion, cycle, addons, status, cancelAtPeriodEnd, periodEnd } = v;
+  const { planId, planVersion, cycle, addons, status, cancelAtPeriodEnd, periodStart, periodEnd } =
+    v;
   if (!isString(planId) || !planById(planId)) return null;
   if (cycle !== "monthly" && cycle !== "annual" && cycle !== "one_time") return null;
   if (!Array.isArray(addons)) return null;
@@ -130,6 +139,8 @@ function readSubscription(v: unknown): MySubscription | null {
   if (!SUB_STATUSES.includes(status as SubStatus)) return null;
   if (typeof cancelAtPeriodEnd !== "boolean") return null;
   if (periodEnd !== null && !isIsoDate(periodEnd)) return null;
+  // Older saved previews have no start; a bad one is dropped, not trusted.
+  if (periodStart !== undefined && periodStart !== null && !isIsoDate(periodStart)) return null;
   if (typeof planVersion !== "number" || !Number.isInteger(planVersion) || planVersion < 1) {
     return null;
   }
@@ -140,6 +151,7 @@ function readSubscription(v: unknown): MySubscription | null {
     addons: lines,
     status: status as SubStatus,
     cancelAtPeriodEnd,
+    periodStart: (periodStart as string | null | undefined) ?? null,
     periodEnd: periodEnd as string | null,
   };
 }
@@ -350,6 +362,16 @@ export function changeToFreeLive(): Promise<ChangeResult> {
   return liveChange(async (t) => (await actions()).changeToFreeFn({ data: { token: t } }));
 }
 
+/** Live: the plan ends at its renewal date, then it's Free. */
+export function cancelPlanLive(): Promise<ChangeResult> {
+  return liveChange(async (t) => (await actions()).cancelPlanFn({ data: { token: t } }));
+}
+
+/** Live: keeps a cancelled plan after all, before its renewal date. */
+export function resumePlanLive(): Promise<ChangeResult> {
+  return liveChange(async (t) => (await actions()).resumePlanFn({ data: { token: t } }));
+}
+
 /** Live: fewer add-ons (nothing to pay, nothing refunded). */
 export function removeAddonsLive(lines: AddonLine[]): Promise<ChangeResult> {
   return liveChange(async (t) =>
@@ -399,7 +421,11 @@ export function isCurrentPlan(planId: string, cycle: Cycle, addons: AddonLine[])
   );
 }
 
-/** A plan change as the sample shows it: starts today, nothing is charged. */
+/**
+ * A plan change as the sample shows it: starts today, nothing is charged.
+ * Sets the plan directly (tests and the preview's own setup); what a manager
+ * can move to is planMove's call, checked by the screens and payForPlan.
+ */
 export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): ChangeResult {
   if (state.live) return { ok: false, message: NOT_SAMPLE };
   const q = quote(planId, cycle, addons);
@@ -410,8 +436,10 @@ export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): C
   if (isCurrentPlan(planId, cycle, addons)) {
     return { ok: false, message: "That's the plan you already have." };
   }
-  const end = new Date();
+  const start = new Date();
+  const end = new Date(start);
   end.setUTCMonth(end.getUTCMonth() + (cycle === "annual" ? 12 : 1));
+  const renews = q.amount > 0 && cycle !== "one_time";
   set({
     ...state,
     subscription: {
@@ -421,11 +449,51 @@ export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): C
       addons: lines,
       status: "active",
       cancelAtPeriodEnd: false,
-      periodEnd: q.amount > 0 && cycle !== "one_time" ? end.toISOString() : null,
+      periodStart: renews ? start.toISOString() : null,
+      periodEnd: renews ? end.toISOString() : null,
     },
     selection: null,
     payments: state.payments,
   });
+  return { ok: true };
+}
+
+/** Sample: moves to Free now, only when no paid period runs (as billing_change_to_free). */
+export function changeToFree(): ChangeResult {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  const move = planMove(state.subscription, "free", "monthly", []);
+  if (!move.ok) {
+    return move.lower
+      ? {
+          ok: false,
+          message: move.message.replace(
+            "To move to a lower plan, cancel this one. You keep it until",
+            "To move to Free, cancel your plan. You keep it until",
+          ),
+        }
+      : move;
+  }
+  return changePlan("free", "monthly", []);
+}
+
+/** Sample: the plan ends at its renewal date (as billing_cancel_plan). */
+export function cancelPlan(): ChangeResult {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  const s = state.subscription;
+  if (!periodRunning(s)) return { ok: false, message: "There's no paid plan running to cancel." };
+  if (s.cancelAtPeriodEnd) return { ok: false, message: "Your plan already ends then." };
+  set({ ...state, subscription: { ...s, cancelAtPeriodEnd: true } });
+  return { ok: true };
+}
+
+/** Sample: keeps a cancelled plan (as billing_resume_plan). */
+export function resumePlan(): ChangeResult {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  const s = state.subscription;
+  if (!periodRunning(s) || !s.cancelAtPeriodEnd) {
+    return { ok: false, message: "Your plan isn't set to end." };
+  }
+  set({ ...state, subscription: { ...s, cancelAtPeriodEnd: false } });
   return { ok: true };
 }
 
@@ -453,9 +521,9 @@ export async function payForPlan(
   const q = quote(planId, cycle, addons);
   if (!q.ok) return q;
   if (q.amount === 0) return { ok: false, message: "Nothing to pay on this plan." };
-  if (isCurrentPlan(planId, cycle, addons)) {
-    return { ok: false, message: "That's the plan you already have." };
-  }
+  // The same rule and price as the database: up only, prorated while a period runs.
+  const move = planMove(state.subscription, planId, cycle, addons);
+  if (!move.ok) return move;
   paying = true;
   try {
     await new Promise((r) => setTimeout(r, PROCESSING_MS));
@@ -466,7 +534,7 @@ export async function payForPlan(
       reference: `SAMPLE-${String(1001 + state.payments.length)}`,
       planId,
       cycle,
-      amount: q.amount,
+      amount: move.dueNow,
       method,
       status: declined ? "failed" : "paid",
       at: new Date().toISOString(),
@@ -476,8 +544,10 @@ export async function payForPlan(
       set({ ...state, payments: [payment, ...state.payments] });
       return { ok: false, message: "The card was declined. Nothing was charged; try another way." };
     }
-    const end = new Date();
+    const start = new Date();
+    const end = new Date(start);
     end.setUTCMonth(end.getUTCMonth() + (cycle === "annual" ? 12 : 1));
+    const kept = move.keepsPeriod ? state.subscription : null;
     set({
       ...state,
       subscription: {
@@ -487,7 +557,12 @@ export async function payForPlan(
         addons: addons.filter((a) => a.quantity > 0),
         status: "active",
         cancelAtPeriodEnd: false,
-        periodEnd: cycle === "one_time" ? null : end.toISOString(),
+        periodStart: kept
+          ? (kept.periodStart ?? null)
+          : cycle === "one_time"
+            ? null
+            : start.toISOString(),
+        periodEnd: kept ? kept.periodEnd : cycle === "one_time" ? null : end.toISOString(),
       },
       selection: null,
       payments: [payment, ...state.payments],
