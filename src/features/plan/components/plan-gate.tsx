@@ -16,12 +16,18 @@ import { FEATURES } from "../plan.sample";
 import { usePlan } from "../plan.store";
 import type { FeatureKey } from "../plan.types";
 
-/** Shows its children when the plan includes the feature, a quiet lock when it doesn't. */
+/**
+ * Shows its children when the plan includes the feature, a quiet lock when it
+ * doesn't. The primary manager gets the upgrade in one tap: Your plan opens
+ * Change plan with the cheapest plan that has it picked. Inside the Android
+ * app, and for a co-manager, it only points at the plan.
+ */
 export function PlanGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
-  const { subscription } = usePlan();
+  const { subscription, owner } = usePlan();
   if (hasFeature(subscription, feature)) return <>{children}</>;
   const f = FEATURES.find((x) => x.key === feature);
   const from = cheapestPlanWith(feature);
+  const canUpgrade = !!from && owner && !inMobileApp();
   return (
     <section
       role="status"
@@ -37,9 +43,10 @@ export function PlanGate({ feature, children }: { feature: FeatureKey; children:
         </p>
         <Link
           to="/manager/plan"
+          search={canUpgrade && from ? { upgrade: from.id } : undefined}
           className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          See your plan
+          {canUpgrade && from ? `Upgrade to ${from.name}` : "See your plan"}
         </Link>
       </div>
     </section>

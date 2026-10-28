@@ -175,13 +175,16 @@ function Stepper({
 function ChangePlanModal({
   sub,
   usage,
+  initialPlanId,
   onClose,
 }: {
   sub: MySubscription;
   usage: Usage;
+  /** Picked to start with (from a lock's "Upgrade to"). */
+  initialPlanId?: string;
   onClose: () => void;
 }) {
-  const [planId, setPlanId] = useState(sub.planId);
+  const [planId, setPlanId] = useState(initialPlanId ?? sub.planId);
   const plan = planById(planId) ?? CATALOG[0];
   const cycles = cyclesOf(plan);
   const [cycleState, setCycle] = useState<Cycle>(sub.cycle);
@@ -730,6 +733,8 @@ function ReturnNotice({
 /** The manager's plan, usage and add-ons: the real ones where billing is live, else a sample. */
 export function MyPlanPage({
   buyAddon,
+  upgradeTo,
+  onUpgradeUsed,
   onBuyAddonUsed,
   paymentId,
   paymentResult,
@@ -738,6 +743,9 @@ export function MyPlanPage({
   /** From a limit message: open the add-on purchase with this one already added. */
   buyAddon?: string;
   onBuyAddonUsed?: () => void;
+  /** From a locked feature: open Change plan with this plan picked. */
+  upgradeTo?: string;
+  onUpgradeUsed?: () => void;
   /** Back from Xendit's page with this payment. */
   paymentId?: string;
   /** Which way Xendit sent them back. */
@@ -746,7 +754,21 @@ export function MyPlanPage({
 } = {}) {
   const { subscription: sub, payments, live, testMode, owner } = usePlan();
   const usage = usePlanUsage();
-  const [changing, setChanging] = useState(false);
+  // A lock's "Upgrade to" lands here: open Change plan with that plan picked,
+  // when it's one this manager can move to now (a move down waits for a cancel).
+  const { subscription: start, owner: startOwner } = getPlanState();
+  const [changing, setChanging] = useState<{ planId?: string } | false>(() => {
+    if (!upgradeTo || !startOwner || inMobileApp()) return false;
+    const p = planById(upgradeTo);
+    if (!p) return false;
+    const cs = cyclesOf(p);
+    const move = planMove(start, upgradeTo, cs.includes(start.cycle) ? start.cycle : cs[0], []);
+    return move.ok ? { planId: upgradeTo } : false;
+  });
+  // The link's job is done once it has opened the dialog; clear it so a reload doesn't reopen it.
+  useEffect(() => {
+    if (upgradeTo) onUpgradeUsed?.();
+  }, [upgradeTo, onUpgradeUsed]);
   const [payingNow, setPayingNow] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [keeping, setKeeping] = useState(false);
@@ -826,7 +848,7 @@ export function MyPlanPage({
               <button
                 type="button"
                 disabled={confirming}
-                onClick={() => setChanging(true)}
+                onClick={() => setChanging({})}
                 className={owes ? secondaryBtn : primaryBtn}
               >
                 Change plan
@@ -1023,7 +1045,12 @@ export function MyPlanPage({
       )}
 
       {changing ? (
-        <ChangePlanModal sub={sub} usage={usage} onClose={() => setChanging(false)} />
+        <ChangePlanModal
+          sub={sub}
+          usage={usage}
+          initialPlanId={changing.planId}
+          onClose={() => setChanging(false)}
+        />
       ) : null}
       {payingNow ? <PayNowModal sub={sub} onClose={() => setPayingNow(false)} /> : null}
       {cancelling ? <CancelPlanModal sub={sub} onClose={() => setCancelling(false)} /> : null}

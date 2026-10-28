@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { PlanGate } from "@/features/plan/components/plan-gate";
 
 import { LABEL_TONES, labelToneSwatch } from "../teams.constants";
 import type { Label, LabelTone, Team } from "../teams.types";
@@ -12,13 +13,14 @@ import { LabelChip } from "./label-chip";
  * The household's teams and labels, on People: add, rename, recolour,
  * remove. Removing a team leaves its helpers on no team; removing a label
  * takes it off everyone. Read-only for a remote admin. Hidden until
- * add-teams-and-labels.sql is applied.
+ * add-teams-and-labels.sql is applied; off the plan, the lock and the upgrade.
  */
 export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
   const { teams, invites } = useAppStores();
   const [adding, setAdding] = useState<"team" | "label" | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  if (teams.locked) return <PlanGate feature="teams_labels">{null}</PlanGate>;
   if (!teams.available) return null;
 
   const current = invites.invites.filter((i) => i.status !== "ended");

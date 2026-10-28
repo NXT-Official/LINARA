@@ -27,8 +27,18 @@ const stores = vi.hoisted(() => ({
 const inApp = vi.hoisted(() => ({ value: false }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
-    <a href={to} className={className}>
+  Link: ({
+    to,
+    search,
+    children,
+    className,
+  }: {
+    to: string;
+    search?: Record<string, string>;
+    children: ReactNode;
+    className?: string;
+  }) => (
+    <a href={search ? `${to}?${new URLSearchParams(search)}` : to} className={className}>
       {children}
     </a>
   ),
@@ -162,6 +172,54 @@ describe("locks and limits", () => {
     expect(screen.queryByText("Pantry screen")).toBeNull();
     expect(screen.getByText("Pantry and groceries isn't on your plan")).toBeTruthy();
     expect(screen.getByText(/included from Normal/)).toBeTruthy();
+  });
+
+  it("the lock offers the upgrade straight away: the cheapest plan with it, picked", () => {
+    act(() => {
+      changePlan("free", "monthly", []);
+    });
+    render(
+      <PlanGate feature="pantry">
+        <p>Pantry screen</p>
+      </PlanGate>,
+    );
+    const link = screen.getByRole("link", { name: "Upgrade to Normal" });
+    expect(link.getAttribute("href")).toBe("/manager/plan?upgrade=normal");
+  });
+
+  it("inside the Android app the lock doesn't sell, it points at the plan", () => {
+    inApp.value = true;
+    act(() => {
+      changePlan("free", "monthly", []);
+    });
+    render(
+      <PlanGate feature="pantry">
+        <p>Pantry screen</p>
+      </PlanGate>,
+    );
+    expect(screen.queryByRole("link", { name: /Upgrade/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "See your plan" }).getAttribute("href")).toBe(
+      "/manager/plan",
+    );
+  });
+
+  it("arriving from the lock opens Change plan with that plan picked", () => {
+    act(() => {
+      changePlan("free", "monthly", []);
+    });
+    const used = vi.fn();
+    render(<MyPlanPage upgradeTo="normal" onUpgradeUsed={used} />);
+    const d = within(screen.getByRole("dialog"));
+    expect((d.getByRole("radio", { name: /Normal/ }) as HTMLInputElement).checked).toBe(true);
+    expect(used).toHaveBeenCalled();
+  });
+
+  it("an upgrade link to a plan that isn't higher just shows the page", () => {
+    act(() => {
+      changePlan("premium", "monthly", []);
+    });
+    render(<MyPlanPage upgradeTo="normal" />);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows the screen when the plan has it", () => {

@@ -12,6 +12,9 @@ import {
   updateLabelFn,
   type TeamsSnapshot,
 } from "../teams.actions";
+import { hasFeature } from "@/features/plan/plan.logic";
+import { usePlan } from "@/features/plan/plan.store";
+
 import { LABEL_TONES } from "../teams.constants";
 import type { Label, LabelTone, Team } from "../teams.types";
 
@@ -33,7 +36,13 @@ export function useTeams({
   ready: boolean;
   onRosterChange: () => Promise<void>;
 }) {
-  const [snapshot, setSnapshot] = useState<TeamsSnapshot>(EMPTY);
+  const [saved, setSnapshot] = useState<TeamsSnapshot>(EMPTY);
+  // Off the plan (Free, Normal) teams are kept in the database but shown
+  // nowhere, so every staff view falls back to its plain list; People shows
+  // the lock instead (add-teams-plan-guard.sql refuses new ones).
+  const { subscription } = usePlan();
+  const onPlan = hasFeature(subscription, "teams_labels");
+  const snapshot = onPlan ? saved : EMPTY;
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -88,7 +97,7 @@ export function useTeams({
 
   /** A new label takes the next colour round the palette unless one is given. */
   const createLabel = async (name: string, tone?: LabelTone): Promise<Label> => {
-    const next = tone ?? LABEL_TONES[snapshot.labels.length % LABEL_TONES.length];
+    const next = tone ?? LABEL_TONES[saved.labels.length % LABEL_TONES.length];
     const label = await createLabelFn({ data: { token: need(), name, tone: next } });
     setSnapshot((s) => ({
       ...s,
@@ -133,8 +142,10 @@ export function useTeams({
   };
 
   return {
-    /** False until add-teams-and-labels.sql is applied; hide teams then. */
+    /** False until add-teams-and-labels.sql is applied, or off the plan; hide teams then. */
     available: snapshot.available,
+    /** Set up in the database but not on the household's plan: show the lock. */
+    locked: saved.available && !onPlan,
     teams: snapshot.teams,
     labels: snapshot.labels,
     teamById,
