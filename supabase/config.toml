@@ -31,6 +31,19 @@ project_id = "tueckhlrrupmnzhblewy"
 verify_jwt = false
 
 # ---------------------------------------------------------------------------
+# Subscription payments (add-billing.sql). The webhook is called by Xendit
+# with no Supabase session, so verify_jwt MUST stay false, as for the payout
+# webhook above; it checks X-CALLBACK-TOKEN against
+# XENDIT_BILLING_WEBHOOK_TOKEN instead. The checkout is called by the web with
+# the manager's own token, so it keeps the gateway check.
+# ---------------------------------------------------------------------------
+[functions.xendit-billing-webhook]
+verify_jwt = false
+
+[functions.billing-checkout]
+verify_jwt = true
+
+# ---------------------------------------------------------------------------
 # The nightly photo purge (add-evidence-photo-retention.sql). verify_jwt MUST
 # stay false for the same reason: its caller is our own pg_cron job via
 # pg_net, which has no user session. It authenticates the caller with the

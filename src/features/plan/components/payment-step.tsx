@@ -4,9 +4,12 @@ import { useState } from "react";
 import { addonChange, formatCentavos, planById, priceText, quote } from "../plan.logic";
 import { ADDONS } from "../plan.sample";
 import {
+  checkout,
   METHOD_LABEL,
   payForAddons,
   payForPlan,
+  usePlan,
+  type CheckoutResult,
   type PaymentMethod,
   type PayResult,
   type SamplePayment,
@@ -33,14 +36,93 @@ type StepProps = {
 };
 
 /**
+ * Paying for real: the amount is worked out in the database and paid on
+ * Xendit's page, which takes GCash, Maya, cards, QR Ph and over the counter.
+ * The browser goes there and comes back to Your plan.
+ */
+function XenditStep({
+  amount,
+  title,
+  detail,
+  open,
+  testMode,
+  onBack,
+  onBusyChange,
+}: Omit<StepProps, "onPaid"> & {
+  amount: number;
+  title: string;
+  detail?: string;
+  open: () => Promise<CheckoutResult>;
+  testMode: boolean;
+}) {
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setOpening(true);
+    onBusyChange?.(true);
+    setError(null);
+    const res = await open();
+    // On success the browser is already leaving for Xendit; stay busy.
+    if (res.ok) return;
+    setOpening(false);
+    onBusyChange?.(false);
+    setError(res.message);
+  };
+  return (
+    <div>
+      <div className="rounded-2xl bg-secondary/60 px-4 py-3">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        You'll pay on Xendit's secure page: GCash, Maya, a card, QR Ph or over the counter. Then you
+        come back here.
+      </p>
+      {testMode ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Test mode: Xendit's test page lets you finish the payment without paying anything real.
+        </p>
+      ) : null}
+      {error ? (
+        <p
+          role="alert"
+          className="mt-3 rounded-xl bg-status-late-soft px-3 py-2 text-sm text-status-late-ink"
+        >
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-5 flex justify-end gap-2">
+        {onBack ? (
+          <button type="button" onClick={onBack} disabled={opening} className={secondaryBtn}>
+            Back
+          </button>
+        ) : null}
+        <button type="button" onClick={go} disabled={opening} className={primaryBtn}>
+          {opening ? (
+            <>
+              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+              Opening Xendit…
+            </>
+          ) : (
+            `Pay ${formatCentavos(amount)} on Xendit`
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Choosing how to pay and paying, on sample data: Pay goes through after a
  * moment without charging anything, so the flow can be tried end to end.
+ * Where billing is live, the Xendit step instead.
  */
 function PaymentStep({
   amount,
   title,
   detail,
   pay: charge,
+  open,
   onBack,
   onPaid,
   onBusyChange,
@@ -49,10 +131,25 @@ function PaymentStep({
   title: string;
   detail?: string;
   pay: (method: PaymentMethod) => Promise<PayResult>;
+  open: () => Promise<CheckoutResult>;
 }) {
+  const { live, testMode } = usePlan();
   const [method, setMethod] = useState<PaymentMethod>("gcash");
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  if (live) {
+    return (
+      <XenditStep
+        amount={amount}
+        title={title}
+        detail={detail}
+        open={open}
+        testMode={testMode}
+        onBack={onBack}
+        onBusyChange={onBusyChange}
+      />
+    );
+  }
 
   const pay = async () => {
     setPaying(true);
@@ -154,6 +251,7 @@ export function PlanPaymentStep({
       title={`${planById(planId)?.name ?? "Plan"}, ${priceText(amount, cycle)}`}
       detail={extras ? `Includes ${extras}` : undefined}
       pay={(method) => payForPlan(planId, cycle, addons, method)}
+      open={() => checkout("plan", planId, cycle, addons)}
     />
   );
 }
@@ -178,6 +276,7 @@ export function AddonPaymentStep({
           : change.message
       }
       pay={(method) => payForAddons(lines, method)}
+      open={() => checkout("addons", null, null, lines)}
     />
   );
 }

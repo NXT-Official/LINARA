@@ -8,7 +8,7 @@ import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import { usePlanUsage } from "../hooks/use-plan-usage";
 import { limitText, limitsFor, overLimits, planById } from "../plan.logic";
-import { saveSelection, usePlan } from "../plan.store";
+import { getPlanState, saveSelection, saveSelectionLive, usePlan } from "../plan.store";
 import type { ActiveSelection } from "../plan.types";
 
 type Item = { id: string; name: string };
@@ -146,17 +146,22 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
           Cancel
         </button>
         <button
-          onClick={() => {
-            const res = saveSelection(picked, {
+          onClick={async () => {
+            const available = {
               households: choices.households.map((h) => h.id),
               kasambahay: choices.kasambahay.map((k) => k.id),
-            });
+            };
+            const live = getPlanState().live;
+            // Live: the database checks the same rules against everything you own.
+            const res = live ? await saveSelectionLive(picked) : saveSelection(picked, available);
             if (!res.ok) {
               setError(res.message);
               return;
             }
             toast.success("Saved.", {
-              description: "Billing isn't live yet, so nothing changed for your staff.",
+              description: live
+                ? "Saved to your plan."
+                : "Billing isn't live yet, so nothing changed for your staff.",
             });
             onClose();
           }}

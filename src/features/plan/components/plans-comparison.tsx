@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Check, Minus } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import type { BillingCatalog } from "../plan.actions";
 import { formatCentavos, LIMIT_LABEL } from "../plan.logic";
 import { ADDONS, CATALOG, FEATURES } from "../plan.sample";
 import type { CatalogPlan, LimitKey } from "../plan.types";
@@ -26,9 +28,28 @@ function limitCell(value: number | null) {
   );
 }
 
-/** The plans side by side for the landing page, from the same catalog the app uses. */
+/**
+ * The plans side by side for the landing page: what the database sells
+ * (billing_catalog), or the built-in catalog where billing isn't set up yet.
+ */
 export function PlansComparison() {
-  const plans = CATALOG;
+  const [sold, setSold] = useState<BillingCatalog | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import("../plan.actions")
+      .then((m) => m.getCatalogFn())
+      .then((c) => {
+        if (!cancelled && c?.plans.length) setSold(c);
+      })
+      .catch(() => {
+        // Keeps the built-in catalog.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const plans = sold?.plans ?? CATALOG;
+  const addons = sold?.addons ?? ADDONS;
   const rights = FEATURES.filter((f) => f.everyPlan);
   const byPlan = FEATURES.filter((f) => !f.everyPlan && !f.offForEveryone);
 
@@ -147,7 +168,7 @@ export function PlansComparison() {
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-xl text-sm text-muted-foreground">
           Need a little more room on Normal or Premium? Add{" "}
-          {ADDONS.map((a) => a.name.toLowerCase()).join(" or ")} to your plan any time. Staff pay
+          {addons.map((a) => a.name.toLowerCase()).join(" or ")} to your plan any time. Staff pay
           &amp; HR is switched off for now while it&apos;s brought in line with the law.
         </p>
         <Link

@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 
+import type { BillingPayment, MyBilling } from "./plan.actions";
 import { addonChange, checkSelection, planById, quote, type SelectionCheck } from "./plan.logic";
-import { SAMPLE_SUBSCRIPTION } from "./plan.sample";
+import { SAMPLE_SUBSCRIPTION, setCatalog } from "./plan.sample";
 import {
   SUB_STATUSES,
   type ActiveSelection,
@@ -9,6 +10,7 @@ import {
   type Cycle,
   type MySubscription,
   type SubStatus,
+  type Usage,
 } from "./plan.types";
 
 export const PAYMENT_METHODS = ["gcash", "maya", "card", "qrph", "otc", "card_decline"] as const;
@@ -42,11 +44,25 @@ export type SamplePayment = {
   failureReason: string | null;
 };
 
+/** A payment in the history: a sample one, or a real one through Xendit. */
+export type PlanPayment = SamplePayment | BillingPayment;
+
 type PlanState = {
   subscription: MySubscription;
   selection: ActiveSelection | null;
   /** Newest first. */
-  payments: SamplePayment[];
+  payments: PlanPayment[];
+  /**
+   * Billing is set up in this database: the plan is the one it holds, and
+   * paying goes through Xendit. False: the sample preview, in this browser.
+   */
+  live: boolean;
+  /** Live through Xendit's test mode, so nothing real is charged. */
+  testMode: boolean;
+  /** Live: what's in use across every household the manager owns. */
+  usage: Usage | null;
+  /** The signed-in account pays for the plan; false for a co-manager or remote admin. */
+  owner: boolean;
 };
 
 /**
@@ -61,6 +77,10 @@ const SAMPLE_STATE: PlanState = {
   subscription: SAMPLE_SUBSCRIPTION,
   selection: null,
   payments: [],
+  live: false,
+  testMode: false,
+  usage: null,
+  owner: true,
 };
 const MAX_SAVED_PAYMENTS = 200;
 const storageKey = (accountId: string) => `linara_plan_preview:${accountId}`;
@@ -75,7 +95,7 @@ function emit() {
 }
 
 function save() {
-  if (!accountId) return;
+  if (!accountId || state.live) return;
   try {
     window.localStorage.setItem(storageKey(accountId), JSON.stringify(state));
   } catch {
@@ -193,7 +213,7 @@ function readSaved(id: string): PlanState | null {
     if (!payment) return null;
     payments.push(payment);
   }
-  return { subscription, selection, payments };
+  return { ...SAMPLE_STATE, subscription, selection, payments };
 }
 
 /**
@@ -201,11 +221,149 @@ function readSaved(id: string): PlanState | null {
  * resolves). Another account gets its own; signed out shows the sample.
  */
 export function loadPlanFor(id: string | null) {
-  if (id === accountId) return;
+  if (id === accountId && !state.live) return;
   accountId = id;
   paying = false;
+  setCatalog(null);
   state = (id && readSaved(id)) || SAMPLE_STATE;
   emit();
+}
+
+/** The server functions, loaded only once a signed-in manager needs them. */
+const actions = () => import("./plan.actions");
+
+let token: string | null = null;
+/** Bumped per load, so an older answer arriving late can't overwrite a newer one. */
+let loadSeq = 0;
+
+function applyLive(billing: MyBilling) {
+  setCatalog(billing.catalog);
+  state = {
+    subscription: billing.subscription,
+    selection: billing.selection,
+    payments: billing.payments,
+    live: true,
+    testMode: billing.testMode,
+    usage: billing.usage,
+    owner: billing.owner,
+  };
+  emit();
+}
+
+/**
+ * Loads the signed-in manager's real plan (ManagerShell, as the session
+ * resolves). Where billing isn't set up in the database yet, the sample
+ * preview is used instead, as before. Resolves true once live.
+ */
+export async function connectPlan(
+  id: string | null,
+  sessionToken: string | null,
+): Promise<boolean> {
+  const seq = ++loadSeq;
+  token = sessionToken;
+  if (!id || !sessionToken) {
+    loadPlanFor(id);
+    return false;
+  }
+  let res: Awaited<ReturnType<Awaited<ReturnType<typeof actions>>["getMyBillingFn"]>>;
+  try {
+    res = await (await actions()).getMyBillingFn({ data: { token: sessionToken } });
+  } catch (err) {
+    // A co-manager or remote admin has no plan of their own to manage here,
+    // and a network blip keeps what's showing; the database enforces either way.
+    console.warn("[plan] Couldn't load the plan:", err);
+    if (seq === loadSeq && accountId !== id) loadPlanFor(id);
+    return false;
+  }
+  if (seq !== loadSeq) return state.live;
+  if (res.missing) {
+    loadPlanFor(id);
+    return false;
+  }
+  accountId = id;
+  paying = false;
+  applyLive(res.billing);
+  return true;
+}
+
+/** Reads the real plan again, e.g. while a Xendit payment is being confirmed. */
+export async function refreshPlan(): Promise<boolean> {
+  if (!state.live || !token) return false;
+  return connectPlan(accountId, token);
+}
+
+const NOT_SAMPLE = "Billing is live here: this goes through Xendit.";
+
+export type CheckoutResult = { ok: true; invoiceUrl: string } | { ok: false; message: string };
+
+/**
+ * Live: opens a Xendit payment page for a plan (a change, or what's owed)
+ * or add-ons, then sends the browser there. The amount is worked out in the
+ * database, never here. A second tap while one is opening is refused.
+ */
+export async function checkout(
+  kind: "plan" | "addons",
+  planId: string | null,
+  cycle: Cycle | null,
+  addons: AddonLine[],
+): Promise<CheckoutResult> {
+  if (!state.live || !token) return { ok: false, message: "Billing isn't set up here yet." };
+  if (paying) return { ok: false, message: "A payment is already being opened." };
+  paying = true;
+  try {
+    const res = await (
+      await actions()
+    ).startCheckoutFn({
+      data: {
+        token,
+        kind,
+        planId,
+        cycle,
+        addons: addons.filter((a) => a.quantity > 0),
+        returnUrl: window.location.origin,
+      },
+    });
+    if (!res.ok) return res;
+    window.location.assign(res.invoiceUrl);
+    return { ok: true, invoiceUrl: res.invoiceUrl };
+  } catch {
+    return { ok: false, message: "Couldn't start the payment. Try again." };
+  } finally {
+    paying = false;
+  }
+}
+
+async function liveChange(run: (token: string) => Promise<ChangeResult>): Promise<ChangeResult> {
+  if (!state.live || !token) return { ok: false, message: "Billing isn't set up here yet." };
+  let res: ChangeResult;
+  try {
+    res = await run(token);
+  } catch {
+    return { ok: false, message: "Couldn't save that. Check your connection and try again." };
+  }
+  if (res.ok) await refreshPlan();
+  return res;
+}
+
+/** Live: moves to Free now (nothing to pay). */
+export function changeToFreeLive(): Promise<ChangeResult> {
+  return liveChange(async (t) => (await actions()).changeToFreeFn({ data: { token: t } }));
+}
+
+/** Live: fewer add-ons (nothing to pay, nothing refunded). */
+export function removeAddonsLive(lines: AddonLine[]): Promise<ChangeResult> {
+  return liveChange(async (t) =>
+    (await actions()).removeAddonsFn({
+      data: { token: t, addons: lines.filter((l) => l.quantity > 0) },
+    }),
+  );
+}
+
+/** Live: what stays active when over the limits. */
+export function saveSelectionLive(selection: ActiveSelection): Promise<ChangeResult> {
+  return liveChange(async (t) =>
+    (await actions()).saveSelectionFn({ data: { token: t, selection } }),
+  );
 }
 
 /** The current state, for code outside React. */
@@ -243,6 +401,7 @@ export function isCurrentPlan(planId: string, cycle: Cycle, addons: AddonLine[])
 
 /** A plan change as the sample shows it: starts today, nothing is charged. */
 export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): ChangeResult {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
   const q = quote(planId, cycle, addons);
   if (!q.ok) return q;
   const plan = planById(planId);
@@ -254,6 +413,7 @@ export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): C
   const end = new Date();
   end.setUTCMonth(end.getUTCMonth() + (cycle === "annual" ? 12 : 1));
   set({
+    ...state,
     subscription: {
       planId,
       planVersion: plan.version,
@@ -287,6 +447,7 @@ export async function payForPlan(
   addons: AddonLine[],
   method: PaymentMethod,
 ): Promise<PayResult> {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
   if (paying) return { ok: false, message: "A payment is already going through." };
   if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: "Choose how to pay." };
   const q = quote(planId, cycle, addons);
@@ -318,6 +479,7 @@ export async function payForPlan(
     const end = new Date();
     end.setUTCMonth(end.getUTCMonth() + (cycle === "annual" ? 12 : 1));
     set({
+      ...state,
       subscription: {
         planId,
         planVersion: planById(planId)?.version ?? 1,
@@ -336,13 +498,13 @@ export async function payForPlan(
   }
 }
 
-/** Preview only: see the screens as a household on another status would. */
 /**
  * Buys add-ons on the plan it has, as a sample: charges the added ones for
  * the period that's running and keeps the plan and its renewal date. The
  * test card declines; a second tap while one is going through is refused.
  */
 export async function payForAddons(lines: AddonLine[], method: PaymentMethod): Promise<PayResult> {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
   if (paying) return { ok: false, message: "A payment is already going through." };
   if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: "Choose how to pay." };
   const change = addonChange(state.subscription, lines);
@@ -385,6 +547,7 @@ export async function payForAddons(lines: AddonLine[], method: PaymentMethod): P
 
 /** Removes add-ons (nothing to pay, nothing refunded). Refuses a change that costs more. */
 export function removeAddons(lines: AddonLine[]): ChangeResult {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
   const change = addonChange(state.subscription, lines);
   if (!change.ok) return change;
   if (change.dueNow > 0) return { ok: false, message: "That adds add-ons: pay for them first." };
@@ -395,7 +558,9 @@ export function removeAddons(lines: AddonLine[]): ChangeResult {
   return { ok: true };
 }
 
+/** Preview only: see the screens as a household on another status would. */
 export function previewStatus(status: SubStatus) {
+  if (state.live) return;
   set({ ...state, subscription: { ...state.subscription, status }, selection: null });
 }
 
@@ -403,12 +568,14 @@ export function saveSelection(
   selection: ActiveSelection,
   available: { households: string[]; kasambahay: string[] },
 ): SelectionCheck {
+  if (state.live) return { ok: false, message: NOT_SAMPLE };
   const check = checkSelection(state.subscription, selection, available);
   if (check.ok) set({ ...state, selection });
   return check;
 }
 
 export function resetPlan() {
+  if (state.live) return;
   paying = false;
   if (accountId) {
     try {

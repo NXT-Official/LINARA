@@ -15,7 +15,7 @@ import {
   priceText,
 } from "../plan.logic";
 import { ADDONS } from "../plan.sample";
-import { removeAddons, type SamplePayment } from "../plan.store";
+import { getPlanState, removeAddons, removeAddonsLive, type SamplePayment } from "../plan.store";
 import type { AddonLine, MySubscription } from "../plan.types";
 import { AddonPaymentStep, PaymentDone } from "./payment-step";
 
@@ -187,13 +187,13 @@ function AddonsModal({
           <button
             type="button"
             disabled={!change.ok}
-            onClick={() => {
+            onClick={async () => {
               if (!change.ok) return;
               if (change.dueNow > 0) {
                 setStep("pay");
                 return;
               }
-              const res = removeAddons(lines);
+              const res = getPlanState().live ? await removeAddonsLive(lines) : removeAddons(lines);
               if (!res.ok) {
                 setError(res.message);
                 return;
@@ -218,16 +218,19 @@ function AddonsModal({
 export function AddonsSection({
   sub,
   inApp,
+  owner = true,
   preset,
   onPresetUsed,
 }: {
   sub: MySubscription;
   inApp: boolean;
+  /** The signed-in account pays for the plan (a co-manager only sees it). */
+  owner?: boolean;
   /** Open the purchase with this add-on one higher (from a limit message). */
   preset?: string;
   onPresetUsed?: () => void;
 }) {
-  const blocked = addonsBlocked(sub);
+  const blocked = owner ? addonsBlocked(sub) : "Only the household's primary manager buys add-ons.";
   const [open, setOpen] = useState<{ preset?: string } | null>(() =>
     preset && !inApp && !blocked ? { preset } : null,
   );

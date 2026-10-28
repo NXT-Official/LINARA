@@ -1,5 +1,5 @@
-import { Check, Info, Lock, Minus, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Check, Info, Loader2, Lock, Minus, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
@@ -26,11 +26,16 @@ import { AddonsSection } from "../components/addons-section";
 import { PaymentDone, PlanPaymentStep } from "../components/payment-step";
 import {
   changePlan,
+  changeToFreeLive,
+  getPlanState,
   isCurrentPlan,
   METHOD_LABEL,
   previewStatus,
+  refreshPlan,
   resetPlan,
   usePlan,
+  type PaymentMethod,
+  type PlanPayment,
   type SamplePayment,
 } from "../plan.store";
 import type { Cycle, LimitKey, MySubscription, SubStatus, Usage } from "../plan.types";
@@ -332,7 +337,7 @@ function ChangePlanModal({
           <button
             type="button"
             disabled={!q.ok}
-            onClick={() => {
+            onClick={async () => {
               if (isCurrentPlan(planId, cycle, addons)) {
                 setError("That's the plan you already have.");
                 return;
@@ -341,12 +346,15 @@ function ChangePlanModal({
                 setStep("pay");
                 return;
               }
-              const res = changePlan(planId, cycle, addons);
+              const live = getPlanState().live;
+              const res = live ? await changeToFreeLive() : changePlan(planId, cycle, addons);
               if (!res.ok) {
                 setError(res.message);
                 return;
               }
-              toast.success(`You're on ${plan.name}.`, { description: SAMPLE });
+              toast.success(`You're on ${plan.name}.`, {
+                description: live ? "Nothing was charged." : SAMPLE,
+              });
               onClose();
             }}
             className={primaryBtn}
@@ -387,14 +395,35 @@ function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => voi
   );
 }
 
-function PaymentHistory({ payments }: { payments: SamplePayment[] }) {
+const PAYMENT_STATUS: Record<PlanPayment["status"], { label: string; tone: string }> = {
+  paid: { label: "Paid", tone: "bg-status-done-soft text-status-done-ink" },
+  failed: { label: "Declined", tone: "bg-status-late-soft text-status-late-ink" },
+  pending: { label: "Waiting", tone: "bg-terracotta-soft text-hearth-ink" },
+  expired: { label: "Not paid", tone: "bg-secondary text-pine-deep" },
+  review: { label: "Being checked", tone: "bg-terracotta-soft text-hearth-ink" },
+};
+
+/** "GCash", or Xendit's channel ("CREDIT_CARD" reads "Credit card"). */
+function methodName(method: string | null): string | null {
+  if (!method) return null;
+  const sample = METHOD_LABEL[method as PaymentMethod];
+  if (sample) return sample.name;
+  const known: Record<string, string> = { GCASH: "GCash", PAYMAYA: "Maya", QRPH: "QR Ph" };
+  if (known[method]) return known[method];
+  const words = method.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function PaymentHistory({ payments, live }: { payments: PlanPayment[]; live: boolean }) {
   return (
     <section className={card} aria-labelledby="payments-heading">
       <h2 id="payments-heading" className="mb-3 font-display text-xl text-foreground">
         Payments
       </h2>
       {payments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No payments in this preview yet.</p>
+        <p className="text-sm text-muted-foreground">
+          {live ? "No payments yet." : "No payments in this preview yet."}
+        </p>
       ) : (
         <ul className="divide-y divide-border">
           {payments.map((p) => (
@@ -407,17 +436,37 @@ function PaymentHistory({ payments }: { payments: SamplePayment[] }) {
                   {formatCentavos(p.amount)}
                 </span>{" "}
                 <span className="text-muted-foreground">
-                  {planById(p.planId)?.name ?? p.planId}, {METHOD_LABEL[p.method].name},{" "}
-                  {fmtDate(p.at)}, <span className="tabular-nums">{p.reference}</span>
+                  {[
+                    p.kind === "addons" ? "Add-ons" : (planById(p.planId)?.name ?? p.planId),
+                    methodName(p.method),
+                    fmtDate(p.at),
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                  {p.reference ? (
+                    <>
+                      , <span className="tabular-nums">{p.reference}</span>
+                    </>
+                  ) : null}
                 </span>
                 {p.failureReason ? (
                   <span className="block text-xs text-status-late-ink">{p.failureReason}</span>
                 ) : null}
               </span>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.status === "paid" ? "bg-status-done-soft text-status-done-ink" : "bg-status-late-soft text-status-late-ink"}`}
-              >
-                {p.status === "paid" ? "Paid" : "Declined"}
+              <span className="flex items-center gap-2">
+                {"invoiceUrl" in p && p.invoiceUrl ? (
+                  <a
+                    href={p.invoiceUrl}
+                    className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Finish paying
+                  </a>
+                ) : null}
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_STATUS[p.status].tone}`}
+                >
+                  {PAYMENT_STATUS[p.status].label}
+                </span>
               </span>
             </li>
           ))}
@@ -434,16 +483,91 @@ const PREVIEW: { value: SubStatus; label: string }[] = [
   { value: "restricted", label: "Grace over" },
 ];
 
-/** The manager's plan, usage and add-ons, on sample data until billing is live. */
+/** How long to wait for Xendit's callback after coming back from its page. */
+const CONFIRM_POLL_MS = 2_000;
+const CONFIRM_TRIES = 45;
+
+/**
+ * Back from Xendit's page: the plan changes only once Xendit's callback
+ * reaches the database, so this asks again every couple of seconds until
+ * that payment is settled, for up to a minute and a half.
+ */
+function ReturnNotice({ paymentId, onDismiss }: { paymentId: string; onDismiss?: () => void }) {
+  const { payments, live } = usePlan();
+  const payment = payments.find((p) => p.id === paymentId);
+  const status = payment?.status ?? "pending";
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (!live || status !== "pending") return;
+    let tries = 0;
+    const t = window.setInterval(() => {
+      tries += 1;
+      if (tries > CONFIRM_TRIES) {
+        window.clearInterval(t);
+        setGaveUp(true);
+        return;
+      }
+      void refreshPlan();
+    }, CONFIRM_POLL_MS);
+    return () => window.clearInterval(t);
+  }, [live, status]);
+  if (!live) return null;
+  const text =
+    status === "paid"
+      ? "Payment received. Your plan is updated."
+      : status === "review"
+        ? "Payment received, but the amount needs checking. We'll sort it out; nothing else is needed from you."
+        : status === "failed" || status === "expired"
+          ? "That payment didn't go through, so nothing was charged. You can try again."
+          : gaveUp
+            ? "Xendit hasn't confirmed it yet. If you paid, it will show here once it does."
+            : "Confirming your payment with Xendit…";
+  const tone =
+    status === "paid"
+      ? "bg-status-done-soft text-status-done-ink"
+      : status === "failed" || status === "expired"
+        ? "bg-status-late-soft text-status-late-ink"
+        : "bg-secondary text-pine-deep";
+  return (
+    <p
+      role="status"
+      className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm ${tone}`}
+    >
+      <span className="flex items-center gap-2">
+        {status === "pending" && !gaveUp ? (
+          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+        ) : null}
+        {text}
+      </span>
+      {onDismiss && status !== "pending" ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="rounded-lg p-1 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      ) : null}
+    </p>
+  );
+}
+
+/** The manager's plan, usage and add-ons: the real ones where billing is live, else a sample. */
 export function MyPlanPage({
   buyAddon,
   onBuyAddonUsed,
+  paymentId,
+  onPaymentSeen,
 }: {
   /** From a limit message: open the add-on purchase with this one already added. */
   buyAddon?: string;
   onBuyAddonUsed?: () => void;
+  /** Back from Xendit's page with this payment. */
+  paymentId?: string;
+  onPaymentSeen?: () => void;
 } = {}) {
-  const { subscription: sub, payments } = usePlan();
+  const { subscription: sub, payments, live, testMode, owner } = usePlan();
   const usage = usePlanUsage();
   const [changing, setChanging] = useState(false);
   const [payingNow, setPayingNow] = useState(false);
@@ -461,13 +585,23 @@ export function MyPlanPage({
         <div className="min-w-0">
           <h1 className="font-display text-2xl text-foreground">Your plan</h1>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            A preview: billing isn't live yet, so nothing here charges you.
+            {!live
+              ? "A preview: billing isn't live yet, so nothing here charges you."
+              : testMode
+                ? "Test mode: payments go through Xendit's test page, so nothing real is charged."
+                : owner
+                  ? "Your plan covers every household you own."
+                  : "This household's plan belongs to its primary manager."}
           </p>
         </div>
-        <span className="inline-flex rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-hearth-ink">
-          Preview
-        </span>
+        {!live || testMode ? (
+          <span className="inline-flex rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-hearth-ink">
+            {live ? "Test mode" : "Preview"}
+          </span>
+        ) : null}
       </div>
+
+      {paymentId ? <ReturnNotice paymentId={paymentId} onDismiss={onPaymentSeen} /> : null}
 
       <section className={card} aria-labelledby="plan-heading">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -487,7 +621,7 @@ export function MyPlanPage({
               </p>
             ) : null}
           </div>
-          {!inApp ? (
+          {!inApp && owner ? (
             <div className="flex flex-wrap gap-2">
               {owes && amount.ok && amount.amount > 0 ? (
                 <button type="button" onClick={() => setPayingNow(true)} className={primaryBtn}>
@@ -529,8 +663,9 @@ export function MyPlanPage({
             What you're using
           </h2>
           <p className="mb-4 text-xs text-muted-foreground">
-            Kasambahay counts this household for now; across all your households once billing is
-            live.
+            {live && owner
+              ? "Across every household you own. A kasambahay working in two of them counts once."
+              : "Kasambahay counts this household for now; across all your households once billing is live."}
           </p>
           <ul className="divide-y divide-border">
             {(Object.keys(limits) as LimitKey[]).map((k) => (
@@ -591,44 +726,52 @@ export function MyPlanPage({
         </section>
       </div>
 
-      <AddonsSection sub={sub} inApp={inApp} preset={buyAddon} onPresetUsed={onBuyAddonUsed} />
+      <AddonsSection
+        sub={sub}
+        inApp={inApp}
+        owner={owner}
+        preset={buyAddon}
+        onPresetUsed={onBuyAddonUsed}
+      />
 
-      {!inApp ? <PaymentHistory payments={payments} /> : null}
+      {!inApp && owner ? <PaymentHistory payments={payments} live={live} /> : null}
 
-      <section
-        className="rounded-3xl border border-dashed border-border p-5 sm:p-7"
-        aria-labelledby="preview-heading"
-      >
-        <h2 id="preview-heading" className="font-display text-lg text-foreground">
-          Preview controls
-        </h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          See how the app looks on another payment status. Only this tab changes, until it's
-          reloaded.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <div
-            className="inline-flex flex-wrap rounded-xl border border-border bg-card p-1"
-            role="group"
-            aria-label="Payment status"
-          >
-            {PREVIEW.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                aria-pressed={sub.status === p.value}
-                onClick={() => previewStatus(p.value)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${sub.status === p.value ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {p.label}
-              </button>
-            ))}
+      {live ? null : (
+        <section
+          className="rounded-3xl border border-dashed border-border p-5 sm:p-7"
+          aria-labelledby="preview-heading"
+        >
+          <h2 id="preview-heading" className="font-display text-lg text-foreground">
+            Preview controls
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            See how the app looks on another payment status. Only this tab changes, until it's
+            reloaded.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div
+              className="inline-flex flex-wrap rounded-xl border border-border bg-card p-1"
+              role="group"
+              aria-label="Payment status"
+            >
+              {PREVIEW.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  aria-pressed={sub.status === p.value}
+                  onClick={() => previewStatus(p.value)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${sub.status === p.value ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={resetPlan} className={secondaryBtn}>
+              Reset preview
+            </button>
           </div>
-          <button type="button" onClick={resetPlan} className={secondaryBtn}>
-            Reset preview
-          </button>
-        </div>
-      </section>
+        </section>
+      )}
 
       {changing ? (
         <ChangePlanModal sub={sub} usage={usage} onClose={() => setChanging(false)} />

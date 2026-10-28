@@ -2,12 +2,15 @@ import { useEffect } from "react";
 
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
-import { loadPlanFor } from "../plan.store";
+import { connectPlan } from "../plan.store";
 
-/** Keeps the sample plan on the signed-in manager's own, across reloads and household switches. */
+/**
+ * Loads the signed-in manager's plan: the real one where billing is set up
+ * in the database, else the sample preview kept per account in this browser.
+ */
 export function usePlanAccount() {
   const { session } = useAppStores();
   useEffect(() => {
-    loadPlanFor(session.userId);
-  }, [session.userId]);
+    void connectPlan(session.userId, session.token);
+  }, [session.userId, session.token]);
 }

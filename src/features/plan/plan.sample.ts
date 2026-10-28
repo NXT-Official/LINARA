@@ -119,3 +119,18 @@ export const SAMPLE_SUBSCRIPTION: MySubscription = {
   cancelAtPeriodEnd: false,
   periodEnd: "2026-11-26T02:00:00.000Z",
 };
+
+/** The built-in catalog, kept for when billing isn't set up in a database yet. */
+const BUILT_IN = { plans: [...CATALOG], addons: [...ADDONS] };
+
+/**
+ * Swaps in the catalog the database sells (billing_catalog), in place, so
+ * everything reading CATALOG and ADDONS follows. Called by the plan store
+ * as it loads; null puts the built-in one back.
+ */
+export function setCatalog(next: { plans: CatalogPlan[]; addons: CatalogAddon[] } | null) {
+  const plans = next?.plans.length ? next.plans : BUILT_IN.plans;
+  const addons = next ? next.addons : BUILT_IN.addons;
+  CATALOG.splice(0, CATALOG.length, ...plans);
+  ADDONS.splice(0, ADDONS.length, ...addons);
+}

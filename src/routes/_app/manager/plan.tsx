@@ -8,11 +8,17 @@ import { ADDONS } from "@/features/plan/plan.sample";
 type PlanSearch = {
   /** An add-on to start buying, from a limit message ("Add one"). */
   addon?: string;
+  /** Back from Xendit's page with this payment (billing-checkout). */
+  payment?: string;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const Route = createFileRoute("/_app/manager/plan")({
   validateSearch: (search: Record<string, unknown>): PlanSearch => ({
     addon: ADDONS.some((a) => a.id === search.addon) ? (search.addon as string) : undefined,
+    payment:
+      typeof search.payment === "string" && UUID.test(search.payment) ? search.payment : undefined,
   }),
   head: () => ({ meta: [{ title: "Your plan | Linara" }] }),
   component: ManagerPlanRoute,
@@ -20,10 +26,20 @@ export const Route = createFileRoute("/_app/manager/plan")({
 });
 
 function ManagerPlanRoute() {
-  const { addon } = Route.useSearch();
+  const { addon, payment } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const clear = useCallback(() => {
-    void navigate({ search: {}, replace: true });
+  const clearAddon = useCallback(() => {
+    void navigate({ search: (s) => ({ ...s, addon: undefined }), replace: true });
   }, [navigate]);
-  return <MyPlanPage buyAddon={addon} onBuyAddonUsed={clear} />;
+  const clearPayment = useCallback(() => {
+    void navigate({ search: (s) => ({ ...s, payment: undefined }), replace: true });
+  }, [navigate]);
+  return (
+    <MyPlanPage
+      buyAddon={addon}
+      onBuyAddonUsed={clearAddon}
+      paymentId={payment}
+      onPaymentSeen={clearPayment}
+    />
+  );
 }

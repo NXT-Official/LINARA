@@ -1,5 +1,6 @@
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
+import { usePlan } from "../plan.store";
 import type { Usage } from "../plan.types";
 
 /**
@@ -14,6 +15,9 @@ import type { Usage } from "../plan.types";
  */
 export function usePlanUsage(): Usage {
   const { session, invites } = useAppStores();
+  const { live, usage } = usePlan();
+  // Live: counted by the database across every household the manager owns.
+  if (live && usage) return usage;
   const owned = session.households.filter((h) => h.role === "primary_manager").length;
   return {
     households: Math.max(owned, 1),
