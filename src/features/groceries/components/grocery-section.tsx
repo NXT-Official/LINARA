@@ -1,4 +1,3 @@
-import { ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useGrocery } from "../grocery-context";
@@ -39,6 +38,16 @@ export function GrocerySection() {
   const [tab, setTab] = useState<Tab>("needed");
   // "new", a run's id, or nothing open.
   const [openRun, setOpenRun] = useState<string | null>(null);
+  // A new household has nothing here yet: one line and one action, not four
+  // empty tabs, a budget and a form (audit 2026-10-29).
+  const [startedByHand, setStartedByHand] = useState(false);
+  const fresh =
+    ctx.runsAvailable &&
+    !startedByHand &&
+    ctx.needed.length === 0 &&
+    ctx.runs.length === 0 &&
+    ctx.templates.length === 0 &&
+    ctx.spent === 0;
   useEffect(() => setTab(readTab()), []);
   const choose = (t: Tab) => {
     setTab(t);
@@ -67,12 +76,7 @@ export function GrocerySection() {
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta-soft text-accent-foreground">
-              <ShoppingBasket className="h-4 w-4" />
-            </div>
-            <h2 className="font-display text-xl text-foreground">Grocery list</h2>
-          </div>
+          <h2 className="font-display text-xl text-foreground">Grocery list</h2>
           {/* With runs, the tabs say what's here and Needed carries the count. */}
           {!ctx.runsAvailable && (
             <p className="mt-1 text-xs text-muted-foreground">
@@ -87,7 +91,20 @@ export function GrocerySection() {
         )}
       </div>
 
-      {ctx.runsAvailable ? (
+      {fresh ? (
+        <div className="mt-2">
+          <p className="text-sm text-muted-foreground">
+            What runs low in the pantry lands here, ready for the next palengke run.
+          </p>
+          <button
+            type="button"
+            onClick={() => setStartedByHand(true)}
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+          >
+            Add an item
+          </button>
+        </div>
+      ) : ctx.runsAvailable ? (
         <>
           <div className="mt-3">
             <MonthBudget />

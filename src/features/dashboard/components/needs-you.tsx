@@ -114,7 +114,7 @@ export function NeedsYou({
           </div>
           <div>
             <div className="text-sm font-semibold text-foreground">Needs you</div>
-            <div className="text-xs text-muted-foreground">All clear — no one is stuck.</div>
+            <div className="text-xs text-muted-foreground">All clear. No one is stuck.</div>
           </div>
         </div>
       </section>

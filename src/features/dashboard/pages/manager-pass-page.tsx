@@ -18,6 +18,7 @@ import { parseISODate, startOfDayIso, toISODate } from "@/lib/time";
 import { useAppStores } from "../app-store-context";
 import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
+import { StaleDayNotice } from "../components/stale-day";
 
 /** Today at a glance: what needs a decision, then the day itself. */
 export function ManagerPassPage({
@@ -45,6 +46,8 @@ export function ManagerPassPage({
     timeOff,
     setUtosRecipientId,
     clock,
+    staleBoardToday,
+    catchUpToToday,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
 
@@ -163,6 +166,11 @@ export function ManagerPassPage({
       <div className="mb-6 empty:hidden">
         <OverLimitBanner />
       </div>
+      {staleBoardToday && canEndDay ? (
+        <div className="mb-6">
+          <StaleDayNotice from={board.simDate} today={staleBoardToday} onMove={catchUpToToday} />
+        </div>
+      ) : null}
       <ManagerPassTab
         active={active}
         upcoming={upcoming}
@@ -206,14 +214,19 @@ export function ManagerPassPage({
         onApproveSuggestion={approveSuggestion}
         onDismissSuggestion={dismissSuggestion}
         onNewTask={() => setOpen(true)}
+        // Nobody to send a small ask to yet: the Line leads to inviting a helper instead.
         quickUtos={
-          <QuickUtosLauncher
-            onSend={gate.sendUtos}
-            helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
-            activeHelpers={activeHelpers}
-            selectedHelperId={utosRecipientId}
-            onSelectHelper={setUtosRecipientId}
-          />
+          activeHelpers.length === 0 ? undefined : (
+            <QuickUtosLauncher
+              onSend={gate.sendUtos}
+              helperName={
+                activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"
+              }
+              activeHelpers={activeHelpers}
+              selectedHelperId={utosRecipientId}
+              onSelectHelper={setUtosRecipientId}
+            />
+          )
         }
         view={view}
         onViewChange={onViewChange}

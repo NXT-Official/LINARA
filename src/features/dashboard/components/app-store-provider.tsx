@@ -32,12 +32,10 @@ import { toast } from "sonner";
 
 import { AppStoreContext, type AppStores } from "../app-store-context";
 import { useSimClock } from "../hooks/use-sim-clock";
+import { rolloverDecision } from "./stale-day.logic";
 
 // A device clock that's wildly wrong (stuck, epoch-adjacent, set years off)
 // shouldn't be treated the same as a normal one-day catch-up --
-// KNOWN_GAPS.md O2's sanity bound on auto-rollover. Anything larger falls
-// back to the manual "Start new day" button (C30), which has no such cap.
-const MAX_PLAUSIBLE_ROLLOVER_DAYS = 14;
 
 /**
  * The composition root: every feature store is created here and shared with the
@@ -491,6 +489,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // stuck on a permanently wrong clock doesn't hammer getServerNowFn on
   // every 30s nowTs tick -- cleared once the device's perceived day changes.
   const rejectedRolloverDayRef = useRef<string | null>(null);
+  // Today's date when the board is more than two weeks behind: the Pass shows
+  // StaleDayNotice and the manager moves it (no automatic jump that big).
+  const [staleBoardToday, setStaleBoardToday] = useState<string | null>(null);
+  const catchUpToToday = async (): Promise<boolean> => {
+    if (!staleBoardToday) return true;
+    try {
+      await runDayRollover(parseISODate(staleBoardToday));
+      setStaleBoardToday(null);
+      rejectedRolloverDayRef.current = null;
+      toast.success("The board is on today now.");
+      return true;
+    } catch (err) {
+      console.error("[AppStoreProvider] Moving the board to today failed:", err);
+      return false;
+    }
+  };
   useEffect(() => {
     if (!board.rolloverNeededFor || rollingOverRef.current) return;
     const canAutoRollover =
@@ -517,7 +531,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         // want a Date; the day itself is never re-derived from it.
         const serverToday = parseISODate(serverTodayIso);
 
-        if (serverTodayIso <= toISODate(board.simDate)) {
+        const decision = rolloverDecision(serverTodayIso, toISODate(board.simDate));
+        if (decision.kind === "device_wrong") {
           // Server disagrees the day has moved -- the device's clock was
           // wrong. Expected false-positive path, not an error.
           console.warn(
@@ -528,15 +543,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const daysDiff = Math.round((serverToday.getTime() - board.simDate.getTime()) / 86_400_000);
-        if (daysDiff > MAX_PLAUSIBLE_ROLLOVER_DAYS) {
-          // Server-confirmed, but an implausibly large jump -- leave
-          // rolloverNeededFor set (not cleared) so this doesn't retry every
-          // tick; a manager can still catch up manually via "Start new day,"
-          // which has no such bound.
-          console.warn(
-            `[AppStoreProvider] Auto rollover skipped: ${daysDiff}-day jump exceeds the plausible bound -- use "Start new day" manually.`,
-          );
+        if (decision.kind === "too_far") {
+          // Server-confirmed, but more than two weeks: the Pass asks the
+          // manager (StaleDayNotice). Remembered for this device day so it
+          // isn't asked again on every 30s tick.
+          rejectedRolloverDayRef.current = targetDay;
+          setStaleBoardToday(decision.today);
           return;
         }
 
@@ -589,6 +601,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     isOnline,
     isOfflineSimulated,
     setOfflineSimulated,
+    staleBoardToday,
+    catchUpToToday,
   };
 
   const commentActivity = useCommentActivity({

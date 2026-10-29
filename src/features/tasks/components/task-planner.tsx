@@ -165,7 +165,7 @@ export function TaskPlanner({
   // of controls came before the first day (UX review 2026-10-07). A filter
   // that's applying stays on show, so it can't narrow the plan unseen.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const filtering = query.trim() !== "" || status !== "all";
+  const filtering = query.trim() !== "" || status !== "all" || who !== "all";
   // Phones stack the week, so days already gone would push today off screen.
   const [showEarlier, setShowEarlier] = useState(false);
 
@@ -181,6 +181,8 @@ export function TaskPlanner({
   });
 
   const { teams } = useTeamView();
+  // Nobody to pick between yet: no picker at all (audit 2026-10-29).
+  const canPickWho = activeHelpers.length > 0 || teams.teams.length > 0;
   const groupStaff = useStaffScope().group;
   const whoTeam = who.startsWith(TEAM_PREFIX) ? who.slice(TEAM_PREFIX.length) : null;
   const matchesWho = useCallback(
@@ -404,7 +406,11 @@ export function TaskPlanner({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-[9rem]">
+          {/* Whose tasks: on a phone it waits behind Filter, with search and
+              status, so the plan isn't four rows of controls (audit 2026-10-29). */}
+          <div
+            className={`min-w-[9rem] ${canPickWho ? "" : "hidden"} ${filtersOpen || who !== "all" ? "" : "max-lg:hidden"}`}
+          >
             <HelperPicker
               helpers={activeHelpers}
               value={who}

@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Package, Plus } from "lucide-react";
+import { AlertCircle, Check, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ListFilter } from "@/components/shared/list-filter";
@@ -62,12 +62,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-pine-deep">
-              <Package className="h-4 w-4" />
-            </div>
-            <h2 className="font-display text-xl text-foreground">Pantry</h2>
-          </div>
+          <h2 className="font-display text-xl text-foreground">Pantry</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Shared with your staff. What runs low goes on the grocery list.
           </p>
@@ -114,7 +109,7 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
           <div className="rounded-2xl bg-background/60 px-4 py-6 text-center">
             <p className="text-sm text-foreground">Nothing in the pantry yet.</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Add what your home keeps. What runs low goes on the grocery list.
+              Add what your home keeps, like rice, oil and soap.
             </p>
             <button
               onClick={() => setAdding(true)}

@@ -556,7 +556,59 @@ function methodName(method: string | null): string | null {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+function PaymentRow({ p }: { p: PlanPayment }) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+      <span className="min-w-0 text-sm">
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatCentavos(p.amount)}
+        </span>{" "}
+        <span className="text-muted-foreground">
+          {[
+            p.kind === "addons" ? "Add-ons" : (planById(p.planId)?.name ?? p.planId),
+            methodName(p.method),
+            fmtDate(p.at),
+          ]
+            .filter(Boolean)
+            .join(", ")}
+        </span>
+        {p.failureReason ? (
+          <span className="block text-xs text-status-late-ink">{p.failureReason}</span>
+        ) : null}
+        {/* For support and receipts, on its own quiet line. */}
+        {p.reference ? (
+          <span className="block text-xs text-muted-foreground tabular-nums">
+            Ref. {p.reference}
+          </span>
+        ) : null}
+      </span>
+      <span className="flex items-center gap-2">
+        {"invoiceUrl" in p && p.invoiceUrl ? (
+          <a
+            href={p.invoiceUrl}
+            className="inline-flex min-h-11 items-center text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Finish paying
+          </a>
+        ) : null}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_STATUS[p.status].tone}`}
+        >
+          {PAYMENT_STATUS[p.status].label}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+/**
+ * Payments that went somewhere first. Pages replaced by a newer one changed
+ * nothing and charged nothing, so they wait behind "Show N replaced".
+ */
 function PaymentHistory({ payments, live }: { payments: PlanPayment[]; live: boolean }) {
+  const [showReplaced, setShowReplaced] = useState(false);
+  const shown = payments.filter((p) => p.status !== "cancelled");
+  const replaced = payments.filter((p) => p.status === "cancelled");
   return (
     <section className={card} aria-labelledby="payments-heading">
       <h2 id="payments-heading" className="mb-3 font-display text-xl text-foreground">
@@ -567,52 +619,36 @@ function PaymentHistory({ payments, live }: { payments: PlanPayment[]; live: boo
           {live ? "No payments yet." : "No payments in this preview yet."}
         </p>
       ) : (
-        <ul className="divide-y divide-border">
-          {payments.map((p) => (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
-            >
-              <span className="min-w-0 text-sm">
-                <span className="font-semibold text-foreground tabular-nums">
-                  {formatCentavos(p.amount)}
-                </span>{" "}
-                <span className="text-muted-foreground">
-                  {[
-                    p.kind === "addons" ? "Add-ons" : (planById(p.planId)?.name ?? p.planId),
-                    methodName(p.method),
-                    fmtDate(p.at),
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                  {p.reference ? (
-                    <>
-                      , <span className="tabular-nums">{p.reference}</span>
-                    </>
-                  ) : null}
-                </span>
-                {p.failureReason ? (
-                  <span className="block text-xs text-status-late-ink">{p.failureReason}</span>
-                ) : null}
-              </span>
-              <span className="flex items-center gap-2">
-                {"invoiceUrl" in p && p.invoiceUrl ? (
-                  <a
-                    href={p.invoiceUrl}
-                    className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Finish paying
-                  </a>
-                ) : null}
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_STATUS[p.status].tone}`}
-                >
-                  {PAYMENT_STATUS[p.status].label}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {shown.length ? (
+            <ul className="divide-y divide-border">
+              {shown.map((p) => (
+                <PaymentRow key={p.id} p={p} />
+              ))}
+            </ul>
+          ) : null}
+          {replaced.length ? (
+            <>
+              <button
+                type="button"
+                aria-expanded={showReplaced}
+                onClick={() => setShowReplaced((v) => !v)}
+                className="mt-2 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-semibold text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+              >
+                {showReplaced
+                  ? "Hide replaced pages"
+                  : `Show ${replaced.length} replaced ${replaced.length === 1 ? "page" : "pages"}`}
+              </button>
+              {showReplaced ? (
+                <ul className="divide-y divide-border border-t border-border">
+                  {replaced.map((p) => (
+                    <PaymentRow key={p.id} p={p} />
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : null}
+        </>
       )}
     </section>
   );

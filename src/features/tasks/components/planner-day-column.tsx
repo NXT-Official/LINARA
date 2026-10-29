@@ -374,9 +374,13 @@ export function PlannerDayColumn({
       ))}
 
       {empty ? (
-        <p className="px-3 py-3 text-sm text-muted-foreground">
-          {isPast ? "Nothing was planned." : "Nothing planned yet."}
-        </p>
+        // Said once, on today and past days; an empty day ahead is just its
+        // header and Add task, so a week of them reads as one quiet list.
+        isToday || isPast ? (
+          <p className="px-3 py-3 text-sm text-muted-foreground">
+            {isPast ? "Nothing was planned." : "Nothing planned yet."}
+          </p>
+        ) : null
       ) : (
         <ul className="divide-y divide-border/60">
           {appointments.map((a) => (

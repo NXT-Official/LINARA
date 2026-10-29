@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
@@ -178,24 +179,40 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
         ready={session.status === "authed"}
         onDecided={timeOff.reload}
       />
-      <AfterHoursLedger
-        entries={helperLedgerEntries}
-        // Per-helper now, not household-wide (Session E / E2). The old props
-        // read a useState in useLedger that applied to every helper at once
-        // and reset on reload.
-        ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
-        isExplicitDefault={selectedHelper?.defaultResolution != null}
-        onSetDefault={async (resolution) => {
-          if (!selectedHelper) return;
-          await ledger.setHelperDefault(selectedHelper.id, resolution);
-          // effective_resolution is a generated column, so the new value has to
-          // come back from Postgres rather than be assumed here.
-          await invites.refresh();
-        }}
-        onUpdateEntry={ledger.updateEntry}
-        audience="manager"
-        helperName={selectedHelper?.short ?? "your helper"}
-      />
+      {!selectedHelper ? (
+        // Nobody employed yet: rest owed is per helper, so there is nothing to show.
+        <section className="rounded-3xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm font-semibold text-foreground">No helpers yet</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
+            Rest owed and pay show up here once a helper joins.
+          </p>
+          <Link
+            to="/manager/people"
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+          >
+            Invite a helper
+          </Link>
+        </section>
+      ) : (
+        <AfterHoursLedger
+          entries={helperLedgerEntries}
+          // Per-helper now, not household-wide (Session E / E2). The old props
+          // read a useState in useLedger that applied to every helper at once
+          // and reset on reload.
+          ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
+          isExplicitDefault={selectedHelper?.defaultResolution != null}
+          onSetDefault={async (resolution) => {
+            if (!selectedHelper) return;
+            await ledger.setHelperDefault(selectedHelper.id, resolution);
+            // effective_resolution is a generated column, so the new value has to
+            // come back from Postgres rather than be assumed here.
+            await invites.refresh();
+          }}
+          onUpdateEntry={ledger.updateEntry}
+          audience="manager"
+          helperName={selectedHelper.short}
+        />
+      )}
     </div>
   );
 }

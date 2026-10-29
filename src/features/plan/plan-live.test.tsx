@@ -479,11 +479,29 @@ describe("Your plan, live", () => {
     expect(screen.getByRole("status").textContent).toMatch(/didn't go through/);
   });
 
-  it("a page replaced by a newer payment shows as Replaced, with nothing to finish", async () => {
-    await goLive(billing({ payments: [payment({ status: "cancelled", invoiceUrl: null })] }));
+  it("a page replaced by a newer payment waits behind Show replaced, as Replaced, with nothing to finish", async () => {
+    await goLive(
+      billing({
+        payments: [
+          payment({ id: "6f1c1b0e-0000-4000-8000-000000000002", status: "paid", invoiceUrl: null }),
+          payment({ status: "cancelled", invoiceUrl: null }),
+        ],
+      }),
+    );
     render(<MyPlanPage />);
+    expect(screen.getByText("Paid")).toBeTruthy();
+    expect(screen.queryByText("Replaced")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 replaced page" }));
     expect(screen.getByText("Replaced")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Finish paying" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hide replaced pages" }));
+    expect(screen.queryByText("Replaced")).toBeNull();
+  });
+
+  it("an invoice reference sits on its own line, not inside the sentence", async () => {
+    await goLive(billing({ payments: [payment({ status: "paid", invoiceUrl: null })] }));
+    render(<MyPlanPage />);
+    expect(screen.getByText("Ref. inv_1")).toBeTruthy();
   });
 
   it("over the limit on Free: it doesn't offer add-ons Free can't buy", async () => {

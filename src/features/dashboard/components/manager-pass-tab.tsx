@@ -373,9 +373,9 @@ export function ManagerPassTab({
                 </span>{" "}
                 on shift
               </span>
-            ) : (
+            ) : activeHelpers.length > 0 ? (
               <RosaStatusChip status={rosaStatus} helperName={helperName} />
-            )}
+            ) : null}
           </span>
         </div>
         {dayNote && <p className="mt-2 text-sm text-muted-foreground">{dayNote}</p>}
@@ -472,8 +472,20 @@ export function ManagerPassTab({
                 />
               )}
             {activeHelpers.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                No active helpers yet — invite one from People to see their lane here.
+              // A new household's one next step, not an empty lane.
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center">
+                <p className="text-sm font-semibold text-foreground">No helpers yet</p>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
+                  Invite your first helper. Their day shows up here as they work.
+                </p>
+                {isRemote ? null : (
+                  <Link
+                    to="/manager/people"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+                  >
+                    Invite a helper
+                  </Link>
+                )}
               </div>
             ) : shownHelpers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">

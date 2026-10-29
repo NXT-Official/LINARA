@@ -86,8 +86,7 @@ export function AfterHoursLedger({
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Same numbers on both sides. On-shift work never lands here — every off-shift completion
-            does.
+            The same numbers show on both sides. Only work done off shift adds rest here.
           </p>
         </div>
         {audience === "manager" && onSetDefault && (
@@ -112,7 +111,7 @@ export function AfterHoursLedger({
                   }}
                   aria-pressed={ledgerDefault === k}
                   disabled={savingDefault}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-60 ${
+                  className={`min-h-11 rounded-lg px-3 text-xs font-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 motion-reduce:transition-none ${
                     ledgerDefault === k
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -227,11 +226,9 @@ export function AfterHoursLedger({
         </>
       )}
 
-      <p className="mt-3 text-xs italic text-muted-foreground">
-        Being Available doesn't waive rest — voluntarily reachable still counts.
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Rest-day premium rates follow local law (placeholder, configurable).
+      <p className="mt-3 text-xs text-muted-foreground">
+        Work off shift still counts as rest owed, even when marked Available. Rest-day premium rates
+        follow local law.
       </p>
     </section>
   );
