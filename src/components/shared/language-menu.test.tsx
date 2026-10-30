@@ -32,6 +32,32 @@ describe("the language menu", () => {
     expect(names).toEqual(["English", "Filipino", "Español", "简体中文", "日本語"]);
   });
 
+  it("shows a two-letter tag for the chosen language, so a long name can't stretch the bar", () => {
+    show();
+    const tag = screen.getByTestId("language-tag");
+    expect(tag.textContent).toBe("EN");
+    for (const [code, short] of [
+      ["fil", "TL"],
+      ["es", "ES"],
+      ["zh-CN", "ZH"],
+      ["ja", "JA"],
+      ["en", "EN"],
+    ]) {
+      fireEvent.change(screen.getByRole("combobox"), { target: { value: code } });
+      expect(tag.textContent).toBe(short);
+      expect(tag.textContent).toHaveLength(2);
+    }
+    // The select is laid over the tag, not beside it, so its own width (the
+    // chosen option's full name) never reaches the layout.
+    expect(screen.getByRole("combobox").className).toMatch(/\babsolute\b/);
+    expect(screen.getByRole("combobox").className).toMatch(/\binset-0\b/);
+  });
+
+  it("keeps the language's full name for screen readers", () => {
+    show("ja");
+    expect(screen.getByRole("combobox").getAttribute("aria-label")).toBe("言語: 日本語");
+  });
+
   it("switches the page in place and keeps the choice in the cookie", () => {
     show();
     expect(screen.getByRole("heading").textContent).toBe("Language");

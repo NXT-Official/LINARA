@@ -2,14 +2,16 @@
  * The manager app's languages: English first (the app's own wording and the
  * reference every other language is checked against), then Filipino and the
  * Business Console's other three. Each label is in its own language, so
- * anyone can find theirs.
+ * anyone can find theirs. `short` is the two-letter tag the closed menu
+ * shows (ISO 639-1; Filipino's is TL, as in LINARA_MOBILE), so a long name
+ * never stretches the top bar.
  */
 export const LOCALES = [
-  { code: "en", label: "English" },
-  { code: "fil", label: "Filipino" },
-  { code: "es", label: "Español" },
-  { code: "zh-CN", label: "简体中文" },
-  { code: "ja", label: "日本語" },
+  { code: "en", label: "English", short: "EN" },
+  { code: "fil", label: "Filipino", short: "TL" },
+  { code: "es", label: "Español", short: "ES" },
+  { code: "zh-CN", label: "简体中文", short: "ZH" },
+  { code: "ja", label: "日本語", short: "JA" },
 ] as const;
 
 export type Locale = (typeof LOCALES)[number]["code"];
