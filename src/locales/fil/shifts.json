@@ -1,0 +1,21 @@
+{
+  "shifts": {
+    "shifts": "Mga shift",
+    "oneShiftWindowAndRest": "Isang oras ng shift at araw ng pahinga bawat helper. Pindutin ang row para i-edit.",
+    "noActiveHelpersYet": "Wala pang aktibong helper.",
+    "shiftStart": "Simula ng shift",
+    "shiftEnd": "Tapos ng shift",
+    "restDay": "Araw ng pahinga",
+    "breakStartOptional": "Simula ng break (opsyonal)",
+    "breakEndOptional": "Tapos ng break (opsyonal)",
+    "cancel": "Kanselahin",
+    "saving": "Sine-save...",
+    "rest": "{station} · {value} · Pahinga: {value2}",
+    "helpers": "{el1} {length} helper",
+    "close": "Isara",
+    "edit": "I-edit",
+    "noOneCovers": "Walang naka-assign sa {day}",
+    "noOneInTeamCovers": "Walang miyembro ng {team} na naka-assign sa {day}",
+    "save": "I-save"
+  }
+}

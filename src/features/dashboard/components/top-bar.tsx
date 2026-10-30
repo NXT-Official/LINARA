@@ -8,6 +8,7 @@ import { HouseholdSwitcher } from "@/features/people/components/household-switch
 
 import { useAppStores } from "../app-store-context";
 import { MANAGER_NAV } from "../nav.constants";
+import { useT } from "@/lib/i18n/locale-context";
 // DISABLED 2026-08-15 (see use-sim-clock.ts / KNOWN_GAPS.md C28) -- time
 // simulation caused real testing confusion. Re-enable by restoring this
 // import and the <SimClock> render below.
@@ -20,6 +21,7 @@ import { MANAGER_NAV } from "../nav.constants";
  * (UX review 2026-10-07).
  */
 export function TopBar() {
+  const t = useT();
   const { session, isOnline, isOfflineSimulated, setOfflineSimulated } = useAppStores();
   const { status, logOut } = session;
   const navigate = useNavigate();
@@ -31,21 +33,24 @@ export function TopBar() {
         <Link
           to="/"
           className="flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-label="Linara — home"
+          aria-label={t("dashboard.linaraHome")}
         >
           <LogoMark className="h-9 w-9 shrink-0" />
           <span className="min-w-0">
             <span className="block font-wordmark text-2xl font-semibold leading-none tracking-tight text-primary">
-              linara
+              {t("dashboard.linara")}
             </span>
             <span className="mt-0.5 hidden truncate text-xs text-muted-foreground md:block lg:hidden xl:block">
-              Home, made clear.
+              {t("dashboard.homeMadeClear")}
             </span>
           </span>
         </Link>
 
         {status === "authed" && (
-          <nav aria-label="Primary" className="ml-4 hidden items-center gap-1 lg:flex">
+          <nav
+            aria-label={t("dashboard.primary")}
+            className="ml-4 hidden items-center gap-1 lg:flex"
+          >
             {MANAGER_NAV.map(({ to, label, Icon }) => (
               <Link
                 key={to}
@@ -72,29 +77,39 @@ export function TopBar() {
               className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
             >
               <WifiOff className="h-3.5 w-3.5" />
-              Offline
+              {t("dashboard.offline")}
             </span>
           )}
           {import.meta.env.DEV && (
             <button
               onClick={() => setOfflineSimulated(!isOfflineSimulated)}
-              aria-label={isOfflineSimulated ? "Simulate online" : "Simulate offline"}
+              aria-label={
+                isOfflineSimulated ? t("dashboard.simulateOnline") : t("dashboard.simulateOffline")
+              }
               className={`hidden shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition sm:inline-flex ${
                 isOfflineSimulated
                   ? "border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   : "border-border bg-card text-muted-foreground hover:bg-secondary/40"
               }`}
-              title={isOfflineSimulated ? "Simulate Online" : "Simulate Offline"}
+              title={
+                isOfflineSimulated
+                  ? t("dashboard.simulateOnlineTitle")
+                  : t("dashboard.simulateOfflineTitle")
+              }
             >
               {isOfflineSimulated ? (
                 <>
                   <WifiOff className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline lg:hidden xl:inline">Dev: offline</span>
+                  <span className="hidden sm:inline lg:hidden xl:inline">
+                    {t("dashboard.devOffline")}
+                  </span>
                 </>
               ) : (
                 <>
                   <Wifi className="h-3.5 w-3.5 text-status-done-ink" />
-                  <span className="hidden sm:inline lg:hidden xl:inline">Dev: online</span>
+                  <span className="hidden sm:inline lg:hidden xl:inline">
+                    {t("dashboard.devOnline")}
+                  </span>
                 </>
               )}
             </button>
@@ -105,12 +120,12 @@ export function TopBar() {
           {status === "authed" && (
             <button
               onClick={() => setConfirmingLogOut(true)}
-              title="Log out"
-              aria-label="Log out"
+              title={t("dashboard.logOut")}
+              aria-label={t("dashboard.logOut")}
               className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Log out</span>
+              <span className="hidden sm:inline">{t("dashboard.logOut")}</span>
             </button>
           )}
         </div>
@@ -120,16 +135,14 @@ export function TopBar() {
           full sign-in (QA LMM-A5). */}
       {confirmingLogOut && (
         <Modal onClose={() => setConfirmingLogOut(false)}>
-          <h3 className="font-display text-lg text-foreground">Log out?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            You'll need your email and password to sign back in.
-          </p>
+          <h3 className="font-display text-lg text-foreground">{t("dashboard.logOut2")}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t("dashboard.youLlNeedYourEmail")}</p>
           <div className="mt-5 flex justify-end gap-2">
             <button
               onClick={() => setConfirmingLogOut(false)}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("dashboard.cancel")}
             </button>
             <button
               onClick={() => {
@@ -138,7 +151,7 @@ export function TopBar() {
               }}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
             >
-              Log out
+              {t("dashboard.logOut")}
             </button>
           </div>
         </Modal>

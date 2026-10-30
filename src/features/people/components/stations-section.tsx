@@ -6,6 +6,8 @@ import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import { stationTone } from "../people.constants";
 import type { StationRow } from "../stations.actions";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * The household's stations, on People: add, rename, remove (KNOWN_GAPS O37,
@@ -15,6 +17,7 @@ import type { StationRow } from "../stations.actions";
  * applied, when it shows the five.
  */
 export function StationsSection({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const { stations } = useAppStores();
   const editable = canEdit && stations.available;
   const [adding, setAdding] = useState(false);
@@ -45,11 +48,8 @@ export function StationsSection({ canEdit }: { canEdit: boolean }) {
   return (
     <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6">
       <div className="mb-4">
-        <h2 className="font-display text-xl text-foreground">Stations</h2>
-        <p className="text-xs text-muted-foreground">
-          What each person does: their colour on the Pass and Schedule, and how tasks find the right
-          person. Add your own, like Gardener or Guard.
-        </p>
+        <h2 className="font-display text-xl text-foreground">{t("people.stations")}</h2>
+        <p className="text-xs text-muted-foreground">{t("people.whatEachPersonDoesTheir")}</p>
       </div>
 
       <ul className="divide-y divide-border/70">
@@ -78,8 +78,8 @@ export function StationsSection({ canEdit }: { canEdit: boolean }) {
                 if (e.key === "Escape") setAdding(false);
               }}
               maxLength={30}
-              placeholder="e.g. Gardener"
-              aria-label="New station's name"
+              placeholder={t("people.eGGardener")}
+              aria-label={t("people.newStationSName")}
               className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <button
@@ -88,14 +88,14 @@ export function StationsSection({ canEdit }: { canEdit: boolean }) {
               disabled={!draft.trim() || busy}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("people.add")}
             </button>
             <button
               type="button"
               onClick={() => setAdding(false)}
               className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("people.cancel")}
             </button>
           </div>
         ) : (
@@ -107,7 +107,7 @@ export function StationsSection({ canEdit }: { canEdit: boolean }) {
             }}
             className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
           >
-            <Plus className="h-3.5 w-3.5" /> New station
+            <Plus className="h-3.5 w-3.5" /> {t("people.newStation")}
           </button>
         ))}
     </section>
@@ -132,6 +132,7 @@ function StationItem({
   onRename: (name: string) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(station.name);
   const [confirming, setConfirming] = useState(false);
@@ -150,7 +151,7 @@ function StationItem({
         />
         <button
           type="button"
-          aria-label="Save name"
+          aria-label={t("people.saveName")}
           disabled={busy || !name.trim()}
           onClick={async () => {
             if (await onRename(name)) setEditing(false);
@@ -161,7 +162,7 @@ function StationItem({
         </button>
         <button
           type="button"
-          aria-label="Cancel"
+          aria-label={t("people.cancel")}
           onClick={() => {
             setName(station.name);
             setEditing(false);
@@ -190,7 +191,7 @@ function StationItem({
         {station.name}
       </span>
       <span className="min-w-0 flex-1 text-xs text-muted-foreground tabular-nums">
-        {count} {count === 1 ? "person" : "people"}
+        {t("people.peopleCount", { count })}
       </span>
       {canEdit &&
         (confirming ? (
@@ -208,21 +209,23 @@ function StationItem({
               </>
             ) : (
               <>
-                <span className="text-xs text-muted-foreground">Remove {station.name}?</span>
+                <span className="text-xs text-muted-foreground">
+                  {richText(t("people.remove2"), { name: station.name })}
+                </span>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={onDelete}
                   className="rounded-lg bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground disabled:opacity-50"
                 >
-                  Remove
+                  {t("people.remove")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirming(false)}
                   className="text-xs font-semibold text-muted-foreground"
                 >
-                  Keep
+                  {t("people.keep")}
                 </button>
               </>
             )}

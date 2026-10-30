@@ -29,6 +29,8 @@ import { XENDIT_PAYOUTS_ON } from "../payout-mode";
 import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** Where an outside-Linara payment stands with the helper. */
 export function AckChip({ payslip }: { payslip: Payslip }) {
@@ -78,6 +80,7 @@ function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
 
 /** The current cutoff's state: "Recorded" rather than "Paid" until an outside-Linara payment is confirmed. */
 function CutoffBadge({ payslip }: { payslip: Payslip }) {
+  const t = useT();
   const ack = manualAckState(payslip);
   if (!ack) return <StatusBadge status={payslip.payoutStatus} />;
   return (
@@ -88,11 +91,11 @@ function CutoffBadge({ payslip }: { payslip: Payslip }) {
     >
       {ack === "disputed" ? (
         <>
-          <XCircle className="h-3 w-3" /> Not received
+          <XCircle className="h-3 w-3" /> {t("pay.notReceived")}
         </>
       ) : (
         <>
-          <Clock className="h-3 w-3" /> Recorded
+          <Clock className="h-3 w-3" /> {t("pay.recorded")}
         </>
       )}
     </span>
@@ -144,6 +147,7 @@ export function PayslipHistory({
   /** Takes back an outside-Linara record she hasn't confirmed. */
   onWithdrawOffApp?: (payslipId: string) => Promise<void>;
 }) {
+  const t = useT();
   /** The channel whose confirm step is open; nothing is sent until it's confirmed. */
   const [paying, setPaying] = useState<PayoutChannelCode | null>(null);
   const [reconciling, setReconciling] = useState(false);
@@ -186,13 +190,13 @@ export function PayslipHistory({
     try {
       const result = await onReconcile(currentCutoffPayslip.id);
       if (!result.changed) {
-        toast.info("Walang pagbabago — ganoon pa rin ang sabi ng Xendit.");
+        toast.info("Walang pagbabago. Ganoon pa rin ang sabi ng Xendit.");
       } else if (result.status === "succeeded") {
         toast.success("Nakumpirma: natanggap na ang payout.");
       } else if (result.status === "failed" || result.status === "cancelled") {
         toast.warning("Hindi natuloy ang payout sa Xendit. Pwede nang subukan ulit.");
       } else {
-        toast.info("Nasa Xendit pa rin ang payout — hindi pa tapos.");
+        toast.info("Nasa Xendit pa rin ang payout, hindi pa tapos.");
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Hindi ma-check ang Xendit.");
@@ -211,19 +215,20 @@ export function PayslipHistory({
           </h3>
           {estimate !== undefined && !currentCutoffPayslip && (
             <span className="text-xs text-muted-foreground">
-              About <span className="font-semibold text-foreground">{fmtPeso(estimate)}</span> to
-              send
+              {richText(t("pay.aboutToSend"), {
+                span: <span className="font-semibold text-foreground">{fmtPeso(estimate)}</span>,
+              })}
             </span>
           )}
         </div>
         {!cutoff ? (
-          <span className="text-xs text-muted-foreground">Loading cutoff…</span>
+          <span className="text-xs text-muted-foreground">{t("pay.loadingCutoff")}</span>
         ) : currentCutoffPayslip ? (
           <div className="flex flex-col items-end gap-1">
             <CutoffBadge payslip={currentCutoffPayslip} />
             {currentCutoffPayslip.payoutStatus === "needs_review" && (
               <span className="text-xs text-terracotta-ink text-right max-w-[11rem]">
-                Reconcile against Xendit before retrying.
+                {t("pay.reconcileAgainstXenditBeforeRetrying")}
               </span>
             )}
             {/* A payout that has stopped moving looks exactly like one that is
@@ -234,7 +239,10 @@ export function PayslipHistory({
             {staleness.isStale && (
               <div className="flex flex-col items-end gap-1">
                 <span className="text-xs text-terracotta-ink text-right max-w-[13rem]">
-                  Stuck for {formatAge(staleness.ageMinutes)}. {staleness.advice}
+                  {richText(t("pay.stuckFor"), {
+                    value: formatAge(staleness.ageMinutes),
+                    advice: staleness.advice,
+                  })}
                 </span>
                 <button
                   onClick={reconcile}
@@ -242,7 +250,7 @@ export function PayslipHistory({
                   className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/50 bg-terracotta-soft/50 px-3 py-1 text-xs font-semibold text-accent-foreground transition hover:bg-terracotta-soft disabled:opacity-60"
                 >
                   <RefreshCw className={`h-3 w-3 ${reconciling ? "animate-spin" : ""}`} />
-                  {reconciling ? "Checking…" : "Check with Xendit"}
+                  {reconciling ? t("pay.checking") : t("pay.checkWithXendit")}
                 </button>
               </div>
             )}
@@ -255,7 +263,7 @@ export function PayslipHistory({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
               >
                 <Smartphone className="h-3.5 w-3.5" />
-                Pay by GCash or Maya
+                {t("pay.payByGcashOrMaya")}
               </button>
             )}
             {XENDIT_PAYOUTS_ON && (
@@ -266,7 +274,7 @@ export function PayslipHistory({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-60"
                 >
                   <Smartphone className="h-3.5 w-3.5" />
-                  Pay via GCash
+                  {t("pay.payViaGcash")}
                 </button>
                 <button
                   onClick={() => setPaying("PH_PAYMAYA")}
@@ -274,7 +282,7 @@ export function PayslipHistory({
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
                 >
                   <Smartphone className="h-3.5 w-3.5 text-accent" />
-                  Pay via Maya
+                  {t("pay.payViaMaya")}
                 </button>
               </>
             )}
@@ -284,7 +292,7 @@ export function PayslipHistory({
                 disabled={paying !== null}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-60"
               >
-                <Banknote className="h-3.5 w-3.5" /> Paid outside Linara
+                <Banknote className="h-3.5 w-3.5" /> {t("pay.paidOutsideLinara")}
               </button>
             )}
           </div>
@@ -341,7 +349,7 @@ export function PayslipHistory({
                         ? `13th-month pay ${p.cutoffEnd.slice(0, 4)}`
                         : formatCutoffRange(p.cutoffStart, p.cutoffEnd)}{" "}
                       · {METHOD_LABEL[p.payoutChannelCode] ?? p.payoutChannelCode}
-                      {manual ? " (outside Linara)" : ""}
+                      {manual ? t("pay.outsideLinaraSuffix") : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -352,15 +360,17 @@ export function PayslipHistory({
                         disabled={withdrawing === p.id}
                         className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-60"
                       >
-                        <Undo2 className="h-3 w-3" /> Withdraw
+                        <Undo2 className="h-3 w-3" /> {t("pay.withdraw")}
                       </button>
                     )}
                   </div>
                 </div>
                 {p.unpaidLeaveDeduction > 0 && (
                   <p className="mt-1 text-muted-foreground">
-                    After {fmtPeso(p.unpaidLeaveDeduction)} unpaid leave ({p.unpaidLeaveDays}{" "}
-                    {p.unpaidLeaveDays === 1 ? "day" : "days"})
+                    {t("pay.afterUnpaidLeave", {
+                      amount: fmtPeso(p.unpaidLeaveDeduction),
+                      count: p.unpaidLeaveDays,
+                    })}
                   </p>
                 )}
                 {manual && (p.manualNote || p.helperAckNote) && (

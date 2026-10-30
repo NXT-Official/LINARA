@@ -15,6 +15,8 @@ import {
 import { FEATURES } from "../plan.sample";
 import { usePlan } from "../plan.store";
 import type { FeatureKey } from "../plan.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Shows its children when the plan includes the feature, a quiet lock when it
@@ -23,6 +25,7 @@ import type { FeatureKey } from "../plan.types";
  * app, and for a co-manager, it only points at the plan.
  */
 export function PlanGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
+  const t = useT();
   const { subscription, owner } = usePlan();
   if (hasFeature(subscription, feature)) return <>{children}</>;
   const f = FEATURES.find((x) => x.key === feature);
@@ -36,17 +39,19 @@ export function PlanGate({ feature, children }: { feature: FeatureKey; children:
       <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">
-          {f?.name ?? "This feature"} isn't on your plan
+          {t("plan.isntOnYourPlan", { name: f?.name ?? t("plan.thisFeature") })}
         </p>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {from ? `It's included from ${from.name}. ` : ""}Anything saved before stays.
+          {from
+            ? t("plan.includedFromSavedStays", { plan: from.name })
+            : t("plan.anythingSavedStays")}
         </p>
         <Link
           to="/manager/plan"
           search={canUpgrade && from ? { upgrade: from.id } : undefined}
           className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {canUpgrade && from ? `Upgrade to ${from.name}` : "See your plan"}
+          {canUpgrade && from ? t("plan.upgradeTo", { plan: from.name }) : t("plan.seeYourPlan")}
         </Link>
       </div>
     </section>
@@ -59,6 +64,7 @@ export function PlanGate({ feature, children }: { feature: FeatureKey; children:
  * Renders nothing when it fits.
  */
 export function LimitNotice({ check, className = "" }: { check: AddCheck; className?: string }) {
+  const t = useT();
   const { subscription } = usePlan();
   if (check.ok) return null;
   const addon = check.reason === "limit" && check.limitKey ? addonFor(check.limitKey) : undefined;
@@ -73,11 +79,11 @@ export function LimitNotice({ check, className = "" }: { check: AddCheck; classN
       {check.message}{" "}
       {canBuy && addon ? (
         <Link to="/manager/plan" search={{ addon: addon.id }} className={link}>
-          Add one for {formatCentavos(addon.monthlyPrice)} a month
+          {richText(t("plan.addOneForAMonth"), { value: formatCentavos(addon.monthlyPrice) })}
         </Link>
       ) : (
         <Link to="/manager/plan" className={link}>
-          See your plan
+          {t("plan.seeYourPlan")}
         </Link>
       )}
     </p>

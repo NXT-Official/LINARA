@@ -1,0 +1,29 @@
+{
+  "pantry": {
+    "close": "Cerrar",
+    "name": "Nombre",
+    "eGToiletPaper": "p. ej., Papel higiénico",
+    "onHand": "Disponible",
+    "unit": "Unidad",
+    "pcsKgL": "uds, kg, L",
+    "keepAtLeast": "Mantener al menos",
+    "category": "Categoría",
+    "cancel": "Cancelar",
+    "remove": "Eliminar",
+    "keep": "Conservar",
+    "pantry": "Despensa",
+    "sharedWithYourStaffWhat": "Compartida con tu personal. Lo que se agota pasa a la lista de compras.",
+    "searchPantry": "Buscar en la despensa",
+    "nothingInThePantryYet": "Aún no hay nada en la despensa.",
+    "addWhatYourHomeKeeps": "Añade lo que guarda tu hogar, como arroz, aceite y jabón.",
+    "nothingMatches": "No hay coincidencias.",
+    "allStocked": "Todo abastecido",
+    "addItem": "Añadir artículo",
+    "keepAtLeast2": "Mantener al menos {par} {value}",
+    "runningLow": "{el1} {lowCount} por agotarse",
+    "editItem": "Editar {name}",
+    "addPantryItem": "Añadir artículo a la despensa",
+    "save": "Guardar",
+    "add": "Añadir"
+  }
+}

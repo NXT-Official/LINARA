@@ -1,0 +1,16 @@
+{
+  "common": {
+    "language": {
+      "current": "言語：{language}"
+    },
+    "primary": "主管理者",
+    "search": "検索…",
+    "clearSearch": "検索を消す",
+    "filter": "絞り込み",
+    "thisPageDidnTLoad": "このページを読み込めませんでした",
+    "somethingWentWrongHereThe": "ここで問題が発生しました。Linara の他の機能は問題ありません。もう一度試すか、別のタブを選んでください。",
+    "tryAgain": "もう一度試す",
+    "showFewer": "表示を減らす",
+    "showMore": "{noun}をあと {count} 件表示"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "pantry": {
+    "close": "閉じる",
+    "name": "品名",
+    "eGToiletPaper": "例：トイレットペーパー",
+    "onHand": "在庫数",
+    "unit": "単位",
+    "pcsKgL": "個、kg、L",
+    "keepAtLeast": "最低在庫数",
+    "category": "カテゴリー",
+    "cancel": "キャンセル",
+    "remove": "削除する",
+    "keep": "残す",
+    "pantry": "食品庫",
+    "sharedWithYourStaffWhat": "スタッフと共有されます。少なくなったものは買い物リストに入ります。",
+    "searchPantry": "食品庫を検索",
+    "nothingInThePantryYet": "食品庫にはまだ何もありません。",
+    "addWhatYourHomeKeeps": "お米、油、石けんなど、ご家庭に常備しているものを追加しましょう。",
+    "nothingMatches": "一致するものがありません。",
+    "allStocked": "在庫十分",
+    "addItem": "品目を追加",
+    "keepAtLeast2": "最低 {par} {value} を常備",
+    "runningLow": "{el1} 残りわずか {lowCount} 件",
+    "editItem": "{name}を編集",
+    "addPantryItem": "食品庫の品目を追加",
+    "save": "保存",
+    "add": "追加"
+  }
+}

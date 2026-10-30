@@ -1,0 +1,29 @@
+{
+  "pantry": {
+    "close": "Close",
+    "name": "Name",
+    "eGToiletPaper": "e.g. Toilet paper",
+    "onHand": "On hand",
+    "unit": "Unit",
+    "pcsKgL": "pcs, kg, L",
+    "keepAtLeast": "Keep at least",
+    "category": "Category",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "keep": "Keep",
+    "pantry": "Pantry",
+    "sharedWithYourStaffWhat": "Shared with your staff. What runs low goes on the grocery list.",
+    "searchPantry": "Search pantry",
+    "nothingInThePantryYet": "Nothing in the pantry yet.",
+    "addWhatYourHomeKeeps": "Add what your home keeps, like rice, oil and soap.",
+    "nothingMatches": "Nothing matches.",
+    "allStocked": "All stocked",
+    "addItem": "Add item",
+    "keepAtLeast2": "Keep at least {par} {value}",
+    "runningLow": "{el1} {lowCount} running low",
+    "editItem": "Edit {name}",
+    "addPantryItem": "Add pantry item",
+    "save": "Save",
+    "add": "Add"
+  }
+}

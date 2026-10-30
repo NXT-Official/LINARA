@@ -1,0 +1,24 @@
+{
+  "sharing": {
+    "places": "Lugares",
+    "whereATripCanStart": "Dónde puede empezar o terminar un traslado: tus casas y los lugares que guardes aquí.",
+    "noSavedPlacesYet": "Aún no hay lugares guardados.",
+    "eGSchoolOfficeLola": "p. ej., Escuela, Oficina, Casa de la abuela",
+    "newPlaceSName": "Nombre del nuevo lugar",
+    "cancel": "Cancelar",
+    "alsoWorkingHere": "También trabaja aquí",
+    "employedByAnotherOfYour": "Empleada por otro de tus hogares. Su pago y su registro permanecen allí.",
+    "from": "Desde",
+    "to": "Hasta",
+    "savePlacesLikeSchoolOr": "Guarda lugares como Escuela u Oficina en Lugares dentro de Personas.",
+    "newPlace": "Nuevo lugar",
+    "teamLabels": "Equipo y etiquetas",
+    "rest": "{shift} · Descanso: {restDay}",
+    "itSATrip": "{input}Es un traslado{value}",
+    "yourOtherHouses": "Tus otras casas: {houses}",
+    "add": "Añadir",
+    "employedBy": "Empleada por {house}",
+    "employedByTeamHere": "Empleada por {house} · {team} aquí",
+    "choose": "Elegir…"
+  }
+}

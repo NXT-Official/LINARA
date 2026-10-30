@@ -22,6 +22,8 @@ import type { Appointment } from "../appointment.types";
 import type { AppointmentStore } from "../hooks/use-appointments";
 import { EditAppointmentModal } from "./edit-appointment-modal";
 import { NewAppointmentModal } from "./new-appointment-modal";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** Upcoming fixed events, each with the prep tasks it schedules. */
 export function AppointmentsSection({
@@ -40,6 +42,7 @@ export function AppointmentsSection({
   /** The manager's session token, for the AI scheduler (LM-A6). */
   token: string | null;
 }) {
+  const t = useT();
   const { appointments: all, add: onAdd, remove: onRemove, update: onUpdate } = appointments;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
@@ -114,17 +117,19 @@ export function AppointmentsSection({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="whitespace-nowrap font-display text-xl text-foreground">
-            Appointments <span className="text-muted-foreground">· {upcoming.length}</span>
+            {richText(t("appointments.appointments"), {
+              span: <span className="text-muted-foreground">· {upcoming.length}</span>,
+            })}
           </h2>
           <p className="text-xs text-muted-foreground">
-            Fixed events. Prep tasks land on the board automatically.
+            {t("appointments.fixedEventsPrepTasksLand")}
           </p>
         </div>
         <button
           onClick={() => setOpen(true)}
           className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
         >
-          <Plus className="h-3.5 w-3.5" /> New appointment
+          <Plus className="h-3.5 w-3.5" /> {t("appointments.newAppointment")}
         </button>
       </div>
 
@@ -135,7 +140,7 @@ export function AppointmentsSection({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={isScheduling}
-              placeholder="e.g. Flight on Friday at 8am, pack bags 12h before"
+              placeholder={t("appointments.eGFlightOnFriday")}
               className="flex-1 bg-transparent px-3 py-2 text-xs outline-none text-foreground placeholder:text-muted-foreground/70"
             />
             <button
@@ -146,12 +151,12 @@ export function AppointmentsSection({
               {isScheduling ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Scheduling...
+                  {t("appointments.scheduling")}
                 </>
               ) : (
                 <>
                   <CalendarPlus className="h-3 w-3" />
-                  Schedule
+                  {t("appointments.schedule")}
                 </>
               )}
             </button>
@@ -161,7 +166,7 @@ export function AppointmentsSection({
 
       {upcoming.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          No upcoming appointments. Add one to schedule its prep automatically.
+          {t("appointments.noUpcomingAppointmentsAddOne")}
         </p>
       ) : (
         <ul className="divide-y divide-border/70">
@@ -188,12 +193,12 @@ export function AppointmentsSection({
                       onClick={() => setEditing(a)}
                       className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
                     >
-                      Edit
+                      {t("appointments.edit")}
                     </button>
                     <button
                       onClick={() => onRemove(a.id)}
                       className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      aria-label="Remove appointment"
+                      aria-label={t("appointments.removeAppointment")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

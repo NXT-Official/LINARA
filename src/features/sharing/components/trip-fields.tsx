@@ -5,6 +5,8 @@ import { AppStoreContext } from "@/features/dashboard/app-store-context";
 
 import type { PlaceRef } from "../sharing.types";
 import { placeFromKey, placeKey } from "../sharing.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const select =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
@@ -23,6 +25,7 @@ export function TripFields({
   to?: PlaceRef;
   onChange: (from: PlaceRef | undefined, to: PlaceRef | undefined) => void;
 }) {
+  const t = useT();
   const stores = useContext(AppStoreContext);
   const id = useId();
   const sharing = stores?.sharing;
@@ -44,7 +47,7 @@ export function TripFields({
     const places = sharing.places.filter((p) => `p:${p.id}` !== taken);
     return (
       <>
-        <option value="">Choose…</option>
+        <option value="">{t("sharing.choose")}</option>
         <optgroup label="Houses">
           {sharing.family
             .filter((h) => `h:${h.id}` !== taken)
@@ -70,23 +73,28 @@ export function TripFields({
   return (
     <div className="space-y-2">
       <label className="flex items-center gap-2 text-sm text-foreground">
-        <input
-          type="checkbox"
-          checked={isTrip}
-          onChange={(e) => (e.target.checked ? start() : onChange(undefined, undefined))}
-          className="h-4 w-4 accent-primary"
-        />
-        It's a trip
-        {!isTrip && thisHouse && (
-          <span className="text-xs text-muted-foreground">
-            (otherwise it's at {thisHouse.name})
-          </span>
-        )}
+        {richText(t("sharing.itSATrip"), {
+          input: (
+            <input
+              type="checkbox"
+              checked={isTrip}
+              onChange={(e) => (e.target.checked ? start() : onChange(undefined, undefined))}
+              className="h-4 w-4 accent-primary"
+            />
+          ),
+          value: !isTrip && thisHouse && (
+            <span className="text-xs text-muted-foreground">
+              (otherwise it's at {thisHouse.name})
+            </span>
+          ),
+        })}
       </label>
       {isTrip && (
         <div className="flex items-end gap-2">
           <label className="block min-w-0 flex-1" htmlFor={`${id}-from`}>
-            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">From</span>
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              {t("sharing.from")}
+            </span>
             <select
               id={`${id}-from`}
               value={placeKey(from)}
@@ -98,7 +106,9 @@ export function TripFields({
           </label>
           <ArrowRight className="mb-3 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
           <label className="block min-w-0 flex-1" htmlFor={`${id}-to`}>
-            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">To</span>
+            <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+              {t("sharing.to")}
+            </span>
             <select
               id={`${id}-to`}
               value={placeKey(to)}
@@ -111,9 +121,7 @@ export function TripFields({
         </div>
       )}
       {isTrip && sharing.places.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Save places like School or Office under Places on People.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("sharing.savePlacesLikeSchoolOr")}</p>
       )}
     </div>
   );

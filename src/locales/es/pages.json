@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "404": "404",
+    "text7xlFontBoldText": "text-7xl font-bold text-foreground",
+    "pantryGroceries": "Despensa y compras",
+    "pageNotFound": "Página no encontrada",
+    "thePageYouReLooking": "La página que buscas no existe o fue movida.",
+    "goHome": "Ir al inicio",
+    "thisPageDidnTLoad": "Esta página no cargó",
+    "somethingWentWrongOnOur": "Algo salió mal de nuestro lado. Puedes intentar recargar la página o volver al inicio.",
+    "tryAgain": "Intentar de nuevo",
+    "thisLinkHasExpired": "Este enlace ha caducado",
+    "emailConfirmed": "Correo electrónico confirmado",
+    "expiredHelper": "Este enlace ha caducado o ya fue utilizado. Vuelve a la aplicación de Linara y prueba tu código de invitación de nuevo; te enviaremos un enlace nuevo.",
+    "expiredManager": "Ya fue utilizado o es demasiado antiguo. Intenta iniciar sesión; si indica que tu correo no está confirmado, regístrate de nuevo con el mismo correo y te enviaremos un enlace nuevo.",
+    "confirmedHelper": "Tu correo electrónico ha sido confirmado. Vuelve a la aplicación de Linara para terminar de reclamar tu cuenta o iniciar sesión.",
+    "confirmedManager": "Todo listo. Inicia sesión para terminar de configurar tu hogar.",
+    "openAppHelper": "Abrir la aplicación de Linara",
+    "openAppManager": "Abrir la aplicación de Linara",
+    "continueInBrowser": "Continuar en el navegador",
+    "signIn": "Iniciar sesión"
+  }
+}

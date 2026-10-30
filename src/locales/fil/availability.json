@@ -1,0 +1,14 @@
+{
+  "availability": {
+    "sendAnywayAfterHours": "Ipadala pa rin · lampas sa oras ng trabaho",
+    "emergency": "Emergency / Agaran",
+    "crossesEvenQuietHoursAlways": "Pumapasok kahit sa quiet hours. Laging naka-log bilang after-hours. Gamitin lang kung talagang hindi makakapaghintay.",
+    "cancel": "Kanselahin",
+    "sending": "Ipinapadala ang {kindLabel}",
+    "overridesSOffStatusFlagged": "Ino-override ang Off status ni {helperName}. Naka-flag, naka-log, at bibilangin bilang utang na pahinga.",
+    "reachingOffHoursIsReserved": "Ang pag-contact kay {helperName} nang off-hours ay para lang sa mga on-site admin (Primary o Co-manager). Bilang remote admin, puwede mo itong i-queue para sa susunod na shift ni {helperName2}.",
+    "until": "· hanggang {value}",
+    "letItWait": "Ipagpaliban muna",
+    "queueForNextShift": "I-queue sa susunod na shift"
+  }
+}

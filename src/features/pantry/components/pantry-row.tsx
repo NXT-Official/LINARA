@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 import type { PantryItem } from "../pantry.types";
 import { STOCK_LABEL, stockState, unitFor } from "../pantry.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * One line of the pantry: a row in a hairline-divided list, never its own
@@ -22,6 +24,7 @@ export function PantryRow({
   onEdit: (item: PantryItem) => void;
   onRemove: (id: string) => void;
 }) {
+  const t = useT();
   const state = stockState(item);
   const [editing, setEditing] = useState(false);
   // Removing takes a second click (client feedback, 2026-10-02: deletes
@@ -64,7 +67,10 @@ export function PantryRow({
           )}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          Keep at least {item.par} {unitFor(item.par, item.unit)}
+          {richText(t("pantry.keepAtLeast2"), {
+            par: item.par,
+            value: unitFor(item.par, item.unit),
+          })}
         </div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -117,13 +123,13 @@ export function PantryRow({
               onClick={() => onRemove(item.id)}
               className="rounded-lg bg-destructive px-2 py-1 font-semibold text-destructive-foreground hover:bg-destructive/90"
             >
-              Remove
+              {t("pantry.remove")}
             </button>
             <button
               onClick={() => setConfirmingRemove(false)}
               className="rounded-lg px-2 py-1 font-semibold text-muted-foreground hover:text-foreground"
             >
-              Keep
+              {t("pantry.keep")}
             </button>
           </span>
         ) : (

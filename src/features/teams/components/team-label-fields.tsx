@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 
 import { Field } from "@/components/shared/field";
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { useT } from "@/lib/i18n/locale-context";
 
 const NEW_TEAM = "__new__";
 
@@ -23,6 +24,7 @@ export function TeamLabelFields({
   labelIds: string[];
   onLabels: (labelIds: string[]) => void;
 }) {
+  const t = useT();
   const { teams } = useAppStores();
   const [newTeam, setNewTeam] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export function TeamLabelFields({
 
   return (
     <>
-      <Field label="Team">
+      <Field label={t("teams.team")}>
         {newTeam === null ? (
           <select
             value={teamId ?? ""}
@@ -81,13 +83,13 @@ export function TeamLabelFields({
             }}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           >
-            <option value="">No team</option>
+            <option value="">{t("teams.noTeam")}</option>
             {teams.teams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
-            <option value={NEW_TEAM}>New team…</option>
+            <option value={NEW_TEAM}>{t("teams.newTeam")}</option>
           </select>
         ) : (
           <div className="flex items-center gap-2">
@@ -102,8 +104,8 @@ export function TeamLabelFields({
                 }
               }}
               maxLength={40}
-              placeholder="e.g. Kitchen, Grounds, Main house"
-              aria-label="New team's name"
+              placeholder={t("teams.eGKitchenGroundsMain")}
+              aria-label={t("teams.newTeamSName")}
               className={input}
             />
             <button
@@ -112,19 +114,19 @@ export function TeamLabelFields({
               disabled={!newTeam.trim() || busy !== null}
               className={addBtn}
             >
-              {busy === "team" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              {busy === "team" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("teams.add")}
             </button>
             <button
               type="button"
               onClick={() => setNewTeam(null)}
               className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("teams.cancel")}
             </button>
           </div>
         )}
         <span className="mt-1 block text-xs text-muted-foreground">
-          The part of the house they work in. The Pass, Schedule and Money group by it.
+          {t("teams.thePartOfTheHouse")}
         </span>
       </Field>
 
@@ -135,7 +137,7 @@ export function TeamLabelFields({
           id={labelsHeading}
           className="mb-1.5 block text-xs font-semibold text-muted-foreground"
         >
-          Labels
+          {t("teams.labels")}
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
           {teams.labels.map((l) => {
@@ -162,7 +164,7 @@ export function TeamLabelFields({
               onClick={() => setNewLabel("")}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
             >
-              <Plus className="h-3 w-3" /> New label
+              <Plus className="h-3 w-3" /> {t("teams.newLabel")}
             </button>
           )}
         </div>
@@ -179,8 +181,8 @@ export function TeamLabelFields({
                 }
               }}
               maxLength={30}
-              placeholder="e.g. Night shift, Trainee"
-              aria-label="New label's name"
+              placeholder={t("teams.eGNightShiftTrainee")}
+              aria-label={t("teams.newLabelSName")}
               className={input}
             />
             <button
@@ -189,19 +191,19 @@ export function TeamLabelFields({
               disabled={!newLabel.trim() || busy !== null}
               className={addBtn}
             >
-              {busy === "label" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              {busy === "label" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("teams.add")}
             </button>
             <button
               type="button"
               onClick={() => setNewLabel(null)}
               className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("teams.cancel")}
             </button>
           </div>
         )}
         <span className="mt-1 block text-xs text-muted-foreground">
-          Anything else worth filtering by. They see their team and labels on their Record.
+          {t("teams.anythingElseWorthFilteringBy")}
         </span>
       </div>
 

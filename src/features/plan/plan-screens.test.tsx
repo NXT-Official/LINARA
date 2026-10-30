@@ -83,7 +83,22 @@ describe("Your plan page", () => {
     expect(screen.getByText("2 of 3")).toBeTruthy();
     expect(screen.getByText("2, no limit")).toBeTruthy();
     expect(screen.getByText("1 of 3")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show what's included" }));
     expect(screen.getByText("Off for everyone")).toBeTruthy();
+  });
+
+  it("folds what's included to one line until asked, and folds it back", () => {
+    render(<MyPlanPage />);
+    expect(screen.getByText(/^\d+ of \d+ features are on your plan\.$/)).toBeTruthy();
+    expect(screen.queryByText("Off for everyone")).toBeNull();
+    const toggle = screen.getByRole("button", { name: "Show what's included" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(screen.getByText("Off for everyone")).toBeTruthy();
+    const hide = screen.getByRole("button", { name: "Hide the list" });
+    expect(hide.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(hide);
+    expect(screen.queryByText("Off for everyone")).toBeNull();
   });
 
   it("inside the Android app: no price and no way to buy", () => {
@@ -101,10 +116,11 @@ describe("Your plan page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
     fireEvent.click(dialog().getByRole("radio", { name: /Free/ }));
     expect(
-      dialog().getByText(/more than this plan allows \(households, kasambahay, co-managers\)/),
+      dialog().getByText(/more than this plan allows \(households, kasambahay, and co-managers\)/),
     ).toBeTruthy();
     fireEvent.click(dialog().getByRole("button", { name: "Change plan" }));
     expect(screen.getByRole("heading", { name: "Free" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show what's included" }));
     expect(screen.getAllByText("Not on your plan").length).toBeGreaterThan(0);
     // Households and kasambahay are both 2 of 1; the one co-manager is 1 of 0.
     expect(screen.getAllByText("2 of 1")).toHaveLength(2);

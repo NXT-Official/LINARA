@@ -44,7 +44,7 @@ export function useVales({ token, ready }: { token: string | null; ready: boolea
 
   const request = async (helperId: string, amount: number, reason: string) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in — hindi ma-send ang vale request.");
+      toast.error("Hindi ka naka-sign in, kaya hindi ma-send ang vale request.");
       return;
     }
     try {
@@ -58,7 +58,7 @@ export function useVales({ token, ready }: { token: string | null; ready: boolea
 
   const decide = async (id: string, decision: "approved" | "declined") => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in — hindi ma-update ang vale request.");
+      toast.error("Hindi ka naka-sign in, kaya hindi ma-update ang vale request.");
       return;
     }
     try {

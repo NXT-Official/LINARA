@@ -8,6 +8,7 @@ import type { Task } from "../task.types";
 import { byStart, isPastDue, taskWhen } from "../task.utils";
 import { BoardTaskCard } from "./board-task-card";
 import { NowMarker } from "./now-marker";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * The Board layout: today's tasks by status, in time order, with a 'now'
@@ -29,6 +30,7 @@ export function TheBoardStatusLists({
   onOpenPlan?: (dayIso: string) => void;
   nowTs: number;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<"todo" | "doing" | "done">("todo");
   const sorted = useMemo(() => [...tasks].sort(byStart), [tasks]);
   const later = useMemo(() => [...upcoming].sort(byStart), [upcoming]);
@@ -86,7 +88,7 @@ export function TheBoardStatusLists({
       <div className="space-y-2.5">
         {current.list.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            {tab === "todo" ? "Nothing left for today." : "Nothing here."}
+            {tab === "todo" ? t("tasks.nothingLeftForToday") : t("tasks.nothingHere")}
           </div>
         ) : (
           current.list.map((t, i) => (
@@ -109,7 +111,9 @@ export function TheBoardStatusLists({
         {tab === "todo" && later.length > 0 && (
           <>
             <div className="flex items-center gap-2 px-1 pt-2">
-              <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {t("tasks.comingUp")}
+              </span>
               <span className="h-px flex-1 bg-border" />
               {onOpenPlan && taskDayIso(later[0]) && (
                 <button
@@ -117,7 +121,7 @@ export function TheBoardStatusLists({
                   onClick={() => onOpenPlan(taskDayIso(later[0])!)}
                   className="text-xs font-semibold text-primary hover:underline"
                 >
-                  See in the planner
+                  {t("tasks.seeInThePlanner")}
                 </button>
               )}
             </div>

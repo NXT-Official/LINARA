@@ -1,0 +1,14 @@
+{
+  "availability": {
+    "sendAnywayAfterHours": "仍然发送 · 下班时间",
+    "emergency": "紧急",
+    "crossesEvenQuietHoursAlways": "甚至会跨越免打扰休息时段。系统始终将其记录为下班时间联系。请仅在确实无法等待时使用。",
+    "cancel": "取消",
+    "sending": "正在发送 {kindLabel}",
+    "overridesSOffStatusFlagged": "将越过 {helperName} 的“没空”状态。系统会标记、记录，并计入应补休时间。",
+    "reachingOffHoursIsReserved": "在下班时间联系 {helperName} 仅限在家管理人（主要管理人或共同管理人）操作。作为远程管理人，你可以将其排入 {helperName2} 的下一个班次。",
+    "until": "· 直至 {value}",
+    "letItWait": "稍后再说",
+    "queueForNextShift": "排入下一班次"
+  }
+}

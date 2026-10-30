@@ -1,14 +1,31 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, Clock, Receipt, Shield } from "lucide-react";
 import { useEffect } from "react";
 
 import { PlansComparison } from "@/features/plan/components/plans-comparison";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
+const KITCHEN = [
+  {
+    term: "House Standards (SOPs)",
+    body: "Define standards once, like laundry instructions or child allergy guidelines. The operating manual stays in the home, ending continuous retraining.",
+  },
+  {
+    term: "After-Hours Ledger",
+    body: "Off-shift tasks automatically register rest-owed minutes to the ledger. Work is balanced transparently without the need to calculate hourly OT.",
+  },
+  {
+    term: "Pantry-to-Palengke",
+    body: "Low pantry stocks automatically populate the grocery checklist. The buyer gets clear budgets, actual cost inputs, and silent receipt-photo uploads.",
+  },
+];
+
 function LandingPage() {
+  const t = useT();
   // Password-reset emails land here when the sender passed no redirect (the
   // Supabase Site URL default, e.g. from a LINARA_MOBILE build without
   // EXPO_PUBLIC_WEB_APP_URL). Hand the recovery fragment to the reset page.
@@ -26,33 +43,41 @@ function LandingPage() {
         className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6"
         role="banner"
       >
-        <Link to="/" aria-label="Linara home" className="flex items-center gap-1.5 select-none">
+        <Link
+          to="/"
+          aria-label={t("landing.linaraHome")}
+          className="flex min-h-11 items-center gap-1.5 select-none"
+        >
           {/* Logo combining text dot into soft check and roofline */}
           <span
             aria-hidden="true"
             className="font-wordmark text-2xl font-bold tracking-wider text-primary flex items-center gap-0.5"
           >
-            l
-            <span className="relative inline-block">
-              i<span className="absolute -top-1 left-0 h-1.5 w-1.5 rounded-full bg-accent"></span>
-            </span>
-            nara
+            {richText(t("landing.lNara"), {
+              span: (
+                // eslint-disable-next-line i18next/no-literal-string
+                <span className="relative inline-block">
+                  i
+                  <span className="absolute -top-1 left-0 h-1.5 w-1.5 rounded-full bg-accent"></span>
+                </span>
+              ),
+            })}
           </span>
         </Link>
         {/* One way in for an account that exists (a signed-in manager is sent
             straight on to the Pass), one for a new one. */}
-        <nav aria-label="Account" className="flex items-center gap-2 sm:gap-3">
+        <nav aria-label={t("landing.account")} className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/login"
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+            className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
           >
-            Log in
+            {t("landing.logIn")}
           </Link>
           <Link
             to="/signup"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
+            className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition-colors"
           >
-            Get started
+            {t("landing.getStarted")}
           </Link>
         </nav>
       </header>
@@ -62,21 +87,22 @@ function LandingPage() {
         className="mx-auto max-w-5xl px-6 py-16 text-center lg:py-24"
         aria-labelledby="hero-title"
       >
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-          <span>Home, made clear.</span>
-        </div>
-
         <h1
           id="hero-title"
-          className="mt-8 font-display text-5xl font-semibold tracking-tight text-primary sm:text-6xl lg:text-7xl leading-[1.1]"
+          className="font-display text-5xl font-semibold tracking-tight text-primary sm:text-6xl lg:text-7xl leading-[1.1]"
         >
-          Clarity over control. <br />
-          <span className="text-terracotta-ink font-medium">Dignity by design.</span>
+          {richText(t("landing.clarityOverControl"), {
+            br: <br />,
+            span: (
+              <span className="text-terracotta-ink font-medium">
+                {t("landing.dignityByDesign")}
+              </span>
+            ),
+          })}
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          An operating system for the Filipino household where a family and the people who help run
-          it manage work, pay, and care together, on fair terms.
+          {t("landing.anOperatingSystemForThe")}
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4">
@@ -86,88 +112,58 @@ function LandingPage() {
             search={{ step: "household" }}
             className="w-full rounded-lg bg-accent px-8 py-4 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition-all sm:w-auto text-center"
           >
-            Set up your household
+            {t("landing.setUpYourHousehold")}
           </Link>
           {/* The other two ways in: a co-manager with a code, and a kasambahay,
               whose Linara is the app. */}
-          <p className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-5">
+          <p className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:gap-5">
             <Link
               to="/signup"
               search={{ step: "join" }}
-              className="underline underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-foreground"
             >
-              Have a code from a household? Join it
+              {t("landing.haveACodeFromA")}
             </Link>
             <Link
               to="/signup"
               search={{ step: "kasambahay" }}
-              className="underline underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-foreground"
             >
-              Work in a household? Get the app
+              {t("landing.workInAHouseholdGet")}
             </Link>
           </p>
         </div>
       </section>
 
-      {/* 3. The Metaphor comparison cards */}
+      {/* 3. The kitchen metaphor: three ideas as one list, not three
+          identical icon cards (UI/UX audit 2026-10-29). */}
       <section
-        className="bg-white/50 py-16 border-y border-border/40"
+        className="border-y border-border/40 bg-card/60 py-16"
         aria-labelledby="kitchen-title"
       >
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center">
+        <div className="mx-auto grid max-w-5xl gap-10 px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16">
+          <div>
             <h2
               id="kitchen-title"
               className="font-display text-3xl font-semibold text-primary sm:text-4xl"
             >
-              A restaurant kitchen for the home
+              {t("landing.aRestaurantKitchenForThe")}
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-              We translate proven restaurant management structures into collaborative tools that
-              eliminate friction, ambiguity, and overwork.
+            <p className="mt-3 max-w-md text-sm text-muted-foreground">
+              {t("landing.weTranslateProvenRestaurantManagement")}
             </p>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <BookOpen className="h-5 w-5" aria-hidden="true" />
+          <dl className="divide-y divide-border/70 border-y border-border/70">
+            {KITCHEN.map(({ term, body }) => (
+              <div key={term} className="py-5 sm:grid sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
+                <dt className="font-display text-lg font-semibold text-primary">{term}</dt>
+                <dd className="mt-1 text-sm leading-relaxed text-muted-foreground sm:mt-0.5">
+                  {body}
+                </dd>
               </div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-primary">
-                House Standards (SOPs)
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Define standards once—like laundry instructions or child allergy guidelines. The
-                operating manual stays in the home, ending continuous retraining.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Clock className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-primary">
-                After-Hours Ledger
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Off-shift tasks automatically register rest-owed minutes to the ledger. Work is
-                balanced transparently without the need to calculate hourly OT.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-soft hover:border-primary/30 transition-all">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Receipt className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-primary">
-                Pantry-to-Palengke
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Low pantry stocks automatically populate the grocery checklist. The buyer gets clear
-                budgets, actual cost inputs, and silent receipt-photo uploads.
-              </p>
-            </div>
-          </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -179,11 +175,10 @@ function LandingPage() {
               id="lenses-title"
               className="font-display text-3xl font-semibold text-primary sm:text-4xl"
             >
-              One source of truth, two lenses
+              {t("landing.oneSourceOfTruthTwo")}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Our app provides different interfaces tailored specifically to each user’s job and
-              environment.
+              {t("landing.ourAppProvidesDifferentInterfaces")}
             </p>
 
             <div className="mt-8 space-y-6">
@@ -192,11 +187,10 @@ function LandingPage() {
                   1
                 </div>
                 <div>
-                  <h3 className="font-sans font-semibold text-primary">The Manager's Pass</h3>
-                  <p className="text-sm text-muted-foreground">
-                    A read-mostly, at-a-glance dashboard showing status bars, active boards, and
-                    money dials. Built for busy parents who can't watch the house all day.
-                  </p>
+                  <h3 className="font-sans font-semibold text-primary">
+                    {t("landing.theManagerSPass")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{t("landing.aReadMostlyAtA")}</p>
                 </div>
               </div>
 
@@ -205,40 +199,34 @@ function LandingPage() {
                   2
                 </div>
                 <div>
-                  <h3 className="font-sans font-semibold text-primary">The Worker's Station</h3>
+                  <h3 className="font-sans font-semibold text-primary">
+                    {t("landing.theWorkerSStation")}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    A high-contrast mobile screen displaying a single focal card. No open chat
-                    channels—instead, work is tracked as secure, silent tickets.
+                    {t("landing.aHighContrastMobileScreen")}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border/50 bg-card p-8 shadow-lift relative overflow-hidden">
-            <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-primary/5 -mr-16 -mt-16"></div>
-            <div className="relative">
-              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
-                The Helper&apos;s Own Account
-              </span>
-              <h3 className="mt-3 font-display text-xl font-semibold text-primary">
-                Their login, their pay record
+          <div className="rounded-3xl border border-border/50 bg-card p-8 shadow-soft">
+            <div>
+              <h3 className="font-display text-xl font-semibold text-primary">
+                {t("landing.theirLoginTheirPayRecord")}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                The helper sets their own password — the household never holds it. Their payslips,
-                vale balance, and rest owed live in their own app, showing the same numbers the
-                family sees.
+                {t("landing.theHelperSetsTheirOwn")}
               </p>
-              <div className="mt-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand-deep text-pine">
-                  <Shield className="h-5 w-5" />
-                </div>
+              <div className="mt-6 border-t border-border/70 pt-4">
                 <div className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">
-                    Built around Batas Kasambahay
-                  </span>{" "}
-                  · Wages checked against the regional minimum, with the SSS, PhilHealth, and
-                  Pag-IBIG split worked out on every payslip.
+                  {richText(t("landing.wagesCheckedAgainstTheRegional"), {
+                    span: (
+                      <span className="font-semibold text-foreground">
+                        {t("landing.builtAroundBatasKasambahay")}
+                      </span>
+                    ),
+                  })}
                 </div>
               </div>
             </div>
@@ -254,16 +242,22 @@ function LandingPage() {
         className="mx-auto max-w-7xl px-6 py-12 text-center text-xs text-muted-foreground border-t border-border/40"
         role="contentinfo"
       >
-        <p>© 2026 Linara Home. Built for dignity, clarity, and household harmony.</p>
-        <p className="mt-2 flex justify-center gap-4">
-          <Link to="/privacy" className="hover:text-foreground">
-            Privacy
+        <p>{t("landing.2026LinaraHomeBuiltFor")}</p>
+        <p className="mt-1 flex justify-center gap-2">
+          <Link
+            to="/privacy"
+            className="inline-flex min-h-11 items-center px-2 hover:text-foreground"
+          >
+            {t("landing.privacy")}
           </Link>
-          <Link to="/terms" className="hover:text-foreground">
-            Terms
+          <Link
+            to="/terms"
+            className="inline-flex min-h-11 items-center px-2 hover:text-foreground"
+          >
+            {t("landing.terms")}
           </Link>
-          <a href="#plans" className="hover:text-foreground">
-            Plans
+          <a href="#plans" className="inline-flex min-h-11 items-center px-2 hover:text-foreground">
+            {t("landing.plans")}
           </a>
         </p>
       </footer>

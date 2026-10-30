@@ -11,6 +11,7 @@ import { TripChip } from "@/features/sharing/components/trip-chip";
 import { CommentBadge } from "./comment-badge";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function BoardTaskCard({
   task,
@@ -29,6 +30,7 @@ export function BoardTaskCard({
   /** Opens the task (edit, assign, updates). Managers on site only. */
   onOpen?: () => void;
 }) {
+  const t = useT();
   const [showNote, setShowNote] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const helper = findHelper(task.helperId, helpers);
@@ -65,12 +67,12 @@ export function BoardTaskCard({
             <TripChip from={task.from} to={task.to} />
             {isDoing && (
               <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-xs font-bold text-accent-foreground">
-                Doing
+                {t("tasks.doing")}
               </span>
             )}
             {late && (
               <span className="rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
-                Late
+                {t("tasks.late")}
               </span>
             )}
           </div>
@@ -80,7 +82,7 @@ export function BoardTaskCard({
               style={{ backgroundColor: color.soft, color: "var(--pine-deep)" }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color.solid }} />
-              {task.helperId ? `${task.station} · ${helper.short}` : "Unassigned"}
+              {task.helperId ? `${task.station} · ${helper.short}` : t("tasks.unassigned")}
             </span>
             <RecurrenceBadge recurrence={task.recurrence} />
             {task.appointmentTitle && (
@@ -93,7 +95,8 @@ export function BoardTaskCard({
                 onClick={() => setShowNote((s) => !s)}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
-                <HelpCircle className="h-2.5 w-2.5" /> {showNote ? "Hide note" : "Note"}
+                <HelpCircle className="h-2.5 w-2.5" />{" "}
+                {showNote ? t("tasks.hideNote") : t("tasks.note")}
               </button>
             )}
             {isDone && task.photo && (
@@ -101,7 +104,8 @@ export function BoardTaskCard({
                 onClick={() => setShowPhoto((s) => !s)}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
-                <Camera className="h-2.5 w-2.5" /> {showPhoto ? "Hide photo" : "Photo"}
+                <Camera className="h-2.5 w-2.5" />{" "}
+                {showPhoto ? t("tasks.hidePhoto") : t("tasks.photo")}
               </button>
             )}
             <PalengkeChip task={task} />

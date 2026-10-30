@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import { NO_TEAM } from "../teams.constants";
+import { useT } from "@/lib/i18n/locale-context";
 
 const KEEP = "";
 
@@ -24,6 +25,7 @@ export function BulkStaffBar({
   onSelectAll: (ids: string[]) => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const { teams } = useAppStores();
   const [teamChoice, setTeamChoice] = useState(KEEP);
   const [labelChoice, setLabelChoice] = useState(KEEP);
@@ -57,7 +59,7 @@ export function BulkStaffBar({
     <div className="sticky bottom-20 z-10 space-y-2 rounded-2xl border border-primary/30 bg-card p-3 shadow-lift sm:bottom-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-semibold text-foreground">
-          {n === 0 ? "Choose who to change" : `${people} chosen`}
+          {n === 0 ? t("teams.chooseWhoToChange") : t("teams.peopleChosen", { people })}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -65,14 +67,14 @@ export function BulkStaffBar({
             onClick={() => onSelectAll(allShown ? [] : shownIds)}
             className="text-xs font-semibold text-primary hover:underline"
           >
-            {allShown ? "Clear" : `Choose all ${shownIds.length} shown`}
+            {allShown ? t("teams.clear") : t("teams.chooseAllShown", { count: shownIds.length })}
           </button>
           <button
             type="button"
             onClick={onDone}
             className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
           >
-            Done
+            {t("teams.done")}
           </button>
         </div>
       </div>
@@ -84,16 +86,16 @@ export function BulkStaffBar({
               <select
                 value={teamChoice}
                 onChange={(e) => setTeamChoice(e.target.value)}
-                aria-label="Move to team"
+                aria-label={t("teams.moveToTeam")}
                 className={select}
               >
-                <option value={KEEP}>Move to team…</option>
+                <option value={KEEP}>{t("teams.moveToTeam2")}</option>
                 {teams.teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
-                <option value={NO_TEAM}>No team</option>
+                <option value={NO_TEAM}>{t("teams.noTeam")}</option>
               </select>
               <button
                 type="button"
@@ -106,7 +108,7 @@ export function BulkStaffBar({
                 }
                 className={btn}
               >
-                Move
+                {t("teams.move")}
               </button>
             </div>
           )}
@@ -115,10 +117,10 @@ export function BulkStaffBar({
               <select
                 value={labelChoice}
                 onChange={(e) => setLabelChoice(e.target.value)}
-                aria-label="Label"
+                aria-label={t("teams.label")}
                 className={select}
               >
-                <option value={KEEP}>Label…</option>
+                <option value={KEEP}>{t("teams.label2")}</option>
                 {teams.labels.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
@@ -136,7 +138,7 @@ export function BulkStaffBar({
                 }
                 className={btn}
               >
-                Add
+                {t("teams.add")}
               </button>
               <button
                 type="button"
@@ -149,14 +151,12 @@ export function BulkStaffBar({
                 }
                 className={btn}
               >
-                Take off
+                {t("teams.takeOff")}
               </button>
             </div>
           )}
           {teams.teams.length === 0 && teams.labels.length === 0 && (
-            <span className="text-xs text-muted-foreground">
-              Make a team or label under Teams and labels first.
-            </span>
+            <span className="text-xs text-muted-foreground">{t("teams.makeATeamOrLabel")}</span>
           )}
         </div>
       )}

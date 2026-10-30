@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 
+import { Segmented } from "@/components/shared/segmented";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LeaveSection } from "@/features/leave/components/leave-section";
 import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
@@ -14,6 +15,7 @@ import { ManagersSection } from "../components/managers-section";
 import { PastStaffSection } from "../components/past-staff-section";
 import { PeopleSection } from "../components/people-section";
 import { StationsSection } from "../components/stations-section";
+import { useT } from "@/lib/i18n/locale-context";
 
 export const PEOPLE_TABS = [
   { key: "staff", label: "Staff" },
@@ -35,6 +37,7 @@ export function PeoplePage({
   tab: PeopleTab;
   onTabChange: (tab: PeopleTab) => void;
 }) {
+  const t = useT();
   const {
     session,
     invites,
@@ -62,29 +65,14 @@ export function PeoplePage({
 
   return (
     <>
-      <h1 className="sr-only">People</h1>
+      <h1 className="sr-only">{t("people.people")}</h1>
       <div className="-mx-1 overflow-x-auto px-1">
-        <div
-          className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
-          role="group"
-          aria-label="People section"
-        >
-          {tabs.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTabChange(key)}
-              aria-pressed={shown === key}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                shown === key
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={t("people.peopleSection")}
+          options={tabs}
+          value={shown}
+          onChange={onTabChange}
+        />
       </div>
 
       {shown === "staff" && (

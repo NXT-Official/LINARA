@@ -6,6 +6,8 @@ import { Modal } from "@/components/shared/modal";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 
 import { TeamLabelFields } from "./team-label-fields";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Where one helper works, from People: her team here, teams she also covers,
@@ -28,6 +30,7 @@ export function EditTeamLabelsModal({
   shared?: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const { teams, sharing } = useAppStores();
   const initialLabels = teams.labelIdsByHelper.get(helperId) ?? [];
   const initialCovers = (sharing.coversByHelper.get(helperId) ?? []).filter((id) =>
@@ -87,14 +90,14 @@ export function EditTeamLabelsModal({
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-display text-xl text-foreground">Where {name} works</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            They see their houses, teams and labels on their Record in the Linara app.
-          </p>
+          <h3 className="font-display text-xl text-foreground">
+            {richText(t("teams.whereWorks"), { name: name })}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("teams.theySeeTheirHousesTeams")}</p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("teams.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -109,9 +112,9 @@ export function EditTeamLabelsModal({
         />
 
         {sharing.available && otherTeams.length > 0 && (
-          <div role="group" aria-label="Also covers">
+          <div role="group" aria-label={t("teams.alsoCovers")}>
             <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Also covers
+              {t("teams.alsoCovers")}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {otherTeams.map((t) => (
@@ -127,15 +130,15 @@ export function EditTeamLabelsModal({
               ))}
             </div>
             <span className="mt-1 block text-xs text-muted-foreground">
-              They stay in their own team's group, and show when you look at these too.
+              {t("teams.theyStayInTheirOwn")}
             </span>
           </div>
         )}
 
         {sharing.available && !shared && sharing.shareTargets.length > 0 && (
-          <div role="group" aria-label="Also works at">
+          <div role="group" aria-label={t("teams.alsoWorksAt")}>
             <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Also works at
+              {t("teams.alsoWorksAt")}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {sharing.shareTargets.map((h) => (
@@ -151,8 +154,7 @@ export function EditTeamLabelsModal({
               ))}
             </div>
             <span className="mt-1 block text-xs text-muted-foreground">
-              They stay employed and paid here; those houses can give them tasks. Their managers see
-              their shift, not their pay.
+              {t("teams.theyStayEmployedAndPaid")}
             </span>
           </div>
         )}
@@ -163,14 +165,16 @@ export function EditTeamLabelsModal({
           disabled={saving}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("teams.cancel")}
         </button>
         <button
           onClick={save}
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+          {richText(t("teams.save"), {
+            value: saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+          })}
         </button>
       </div>
     </Modal>

@@ -1,0 +1,16 @@
+{
+  "common": {
+    "language": {
+      "current": "Wika: {language}"
+    },
+    "primary": "Pangunahin (Primary)",
+    "search": "Maghanap…",
+    "clearSearch": "I-clear ang hinahanap",
+    "filter": "Salain",
+    "thisPageDidnTLoad": "Hindi nag-load ang pahinang ito",
+    "somethingWentWrongHereThe": "May nangyaring problema rito. Maayos naman ang ibang bahagi ng Linara. Subukan ulit, o pumili ng ibang tab.",
+    "tryAgain": "Subukan ulit",
+    "showFewer": "Magpakita nang mas kaunti",
+    "showMore": "Magpakita pa ng {count} {noun}"
+  }
+}

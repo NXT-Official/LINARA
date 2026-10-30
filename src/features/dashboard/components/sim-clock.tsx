@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useMounted } from "@/hooks/use-mounted";
 import { formatClock, fromHouseholdClock, householdNow } from "@/lib/time";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function SimClock({
   nowTs,
@@ -13,6 +14,7 @@ export function SimClock({
   offsetMs: number | null;
   onChange: (v: number | null) => void;
 }) {
+  const t = useT();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const jumpTo = (opts: {
@@ -50,7 +52,7 @@ export function SimClock({
             ? "border-accent/50 bg-terracotta-soft/70 text-accent-foreground"
             : "border-border bg-card text-muted-foreground"
         }`}
-        title="Simulate the clock for demo"
+        title={t("dashboard.simulateTheClockForDemo")}
       >
         <CalendarClock className="h-3.5 w-3.5" />
         <span className="whitespace-nowrap tabular-nums" suppressHydrationWarning>
@@ -61,30 +63,30 @@ export function SimClock({
       {open && (
         <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-2xl border border-border bg-card p-2 shadow-lift">
           <div className="px-2 pb-1.5 pt-1 text-xs font-semibold text-muted-foreground">
-            Simulate time
+            {t("dashboard.simulateTime")}
           </div>
           {[
             {
-              label: "Real time",
-              desc: "Now, live",
+              label: t("dashboard.realTime"),
+              desc: t("dashboard.nowLive"),
               action: () => {
                 onChange(null);
                 setOpen(false);
               },
             },
             {
-              label: "After shift · 7:00 PM",
-              desc: "Off-shift auto-off",
+              label: t("dashboard.afterShift700Pm"),
+              desc: t("dashboard.offShiftAutoOff"),
               action: () => jumpTo({ hour: 19 }),
             },
             {
-              label: "Overnight · 11:00 PM",
-              desc: "Quiet hours hard-off",
+              label: t("dashboard.overnight1100Pm"),
+              desc: t("dashboard.quietHoursHardOff"),
               action: () => jumpTo({ hour: 23 }),
             },
             {
-              label: "Rest day · Sun 10 AM",
-              desc: "Off by default all day",
+              label: t("dashboard.restDaySun10Am"),
+              desc: t("dashboard.offByDefaultAllDay"),
               action: () => jumpTo({ toSunday: true, hour: 10 }),
             },
           ].map((opt) => (

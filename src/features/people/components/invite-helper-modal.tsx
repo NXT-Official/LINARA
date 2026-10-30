@@ -10,6 +10,8 @@ import { householdNow, toISODate } from "@/lib/time";
 import type { Employment, Invite, Station } from "../people.types";
 import { REGIONAL_MINIMUM_WAGE, WEEKLY_REST_DAY_NAMES } from "../people.constants";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type PaydayInterval = "semi_monthly" | "monthly";
 
@@ -25,6 +27,7 @@ export function InviteHelperModal({
     },
   ) => Promise<void>;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   // The household's own stations (add-household-stations.sql), first one picked.
   const { stations } = useAppStores();
@@ -79,10 +82,9 @@ export function InviteHelperModal({
     <Modal onClose={onClose} scroll="inner">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-display text-xl text-foreground">Invite a helper</h3>
+          <h3 className="font-display text-xl text-foreground">{t("people.inviteAHelper")}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're entering the household's record of the arrangement — not creating their account.
-            They'll claim it themselves with the invite code.
+            {t("people.youReEnteringTheHousehold")}
           </p>
         </div>
         <button
@@ -98,16 +100,16 @@ export function InviteHelperModal({
             scrollbar sit in the panel's padding instead of insetting the
             fields. */}
       <div className="-mr-1 mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        <Field label="Full name">
+        <Field label={t("people.fullName")}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Marites Santos"
+            placeholder={t("people.eGMaritesSantos")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Station / role">
+          <Field label={t("people.stationRole")}>
             <select
               value={station}
               onChange={(e) => setStation(e.target.value)}
@@ -120,14 +122,14 @@ export function InviteHelperModal({
               ))}
             </select>
           </Field>
-          <Field label="Employment">
+          <Field label={t("people.employment")}>
             <select
               value={employment}
               onChange={(e) => setEmployment(e.target.value as Employment)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             >
-              <option value="live-in">Live-in</option>
-              <option value="live-out">Live-out</option>
+              <option value="live-in">{t("people.liveIn")}</option>
+              <option value="live-out">{t("people.liveOut")}</option>
             </select>
           </Field>
         </div>
@@ -138,7 +140,7 @@ export function InviteHelperModal({
           onLabels={setLabelIds}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Shift start">
+          <Field label={t("people.shiftStart")}>
             <input
               type="time"
               value={shiftStart}
@@ -146,7 +148,7 @@ export function InviteHelperModal({
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-          <Field label="Shift end">
+          <Field label={t("people.shiftEnd")}>
             <input
               type="time"
               value={shiftEnd}
@@ -156,7 +158,7 @@ export function InviteHelperModal({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Rest day">
+          <Field label={t("people.restDay")}>
             <select
               value={restDay}
               onChange={(e) => setRestDay(e.target.value as (typeof WEEKLY_REST_DAY_NAMES)[number])}
@@ -169,7 +171,7 @@ export function InviteHelperModal({
               ))}
             </select>
           </Field>
-          <Field label="Monthly wage (₱)">
+          <Field label={t("people.monthlyWage")}>
             <input
               inputMode="numeric"
               value={wage}
@@ -178,7 +180,7 @@ export function InviteHelperModal({
             />
           </Field>
         </div>
-        <Field label="First day of work">
+        <Field label={t("people.firstDayOfWork")}>
           <input
             type="date"
             value={startedOn}
@@ -186,18 +188,17 @@ export function InviteHelperModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
           <span className="mt-1 block text-xs text-muted-foreground">
-            Their real first day, even if it was years ago; it goes on their record. Linara tracks
-            pay from today, and a first day later than that pro-rates their first cutoff.
+            {t("people.theirRealFirstDayEven")}
           </span>
         </Field>
-        <Field label="Payday interval">
+        <Field label={t("people.paydayInterval")}>
           <select
             value={paydayInterval}
             onChange={(e) => setPaydayInterval(e.target.value as PaydayInterval)}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           >
-            <option value="semi_monthly">Semi-monthly</option>
-            <option value="monthly">Monthly</option>
+            <option value="semi_monthly">{t("people.semiMonthly")}</option>
+            <option value="monthly">{t("people.monthly")}</option>
           </select>
         </Field>
 
@@ -205,22 +206,27 @@ export function InviteHelperModal({
           <div className="rounded-2xl bg-status-late-soft/60 border border-status-late/30 p-3.5 text-xs text-status-late-ink flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 shrink-0 text-status-late-ink mt-0.5" />
             <div>
-              <span className="font-semibold block mb-0.5">
-                Batas Kasambahay Compliance Warning
-              </span>
-              Ang sweldong ₱{wageNum.toLocaleString()} ay mababa sa regional minimum wage na{" "}
-              <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span> para
-              sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
+              {richText(t("people.angSweldongAyMababaSa"), {
+                span: (
+                  <span className="font-semibold block mb-0.5">
+                    {t("people.batasKasambahayComplianceWarning")}
+                  </span>
+                ),
+                value: wageNum.toLocaleString(),
+                span2: (
+                  <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>
+                ),
+              })}
             </div>
           </div>
         )}
 
         {wageNum > 0 && <LegalContributionSplitCard wagePHP={wageNum} />}
-        <Field label="Contact number">
+        <Field label={t("people.contactNumber")}>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. 0917 555 1234"
+            placeholder={t("people.eG09175551234")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
@@ -240,7 +246,7 @@ export function InviteHelperModal({
           disabled={submitting}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("people.cancel")}
         </button>
         <button
           onClick={submit}
@@ -249,10 +255,10 @@ export function InviteHelperModal({
         >
           {submitting ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("people.generating")}
             </>
           ) : (
-            "Generate invite code"
+            t("people.generateInviteCode")
           )}
         </button>
       </div>

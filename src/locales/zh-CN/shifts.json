@@ -1,0 +1,21 @@
+{
+  "shifts": {
+    "shifts": "班次安排",
+    "oneShiftWindowAndRest": "每位家政人员设有一个班次时段和固定休息日。轻触任一行即可编辑。",
+    "noActiveHelpersYet": "暂无在职家政人员。",
+    "shiftStart": "上班时间",
+    "shiftEnd": "下班时间",
+    "restDay": "休息日",
+    "breakStartOptional": "休息开始（可选）",
+    "breakEndOptional": "休息结束（可选）",
+    "cancel": "取消",
+    "saving": "保存中...",
+    "rest": "{station} · {value} · 休息日：{value2}",
+    "helpers": "{el1} {length} 位家政人员",
+    "close": "关闭",
+    "edit": "编辑",
+    "noOneCovers": "{day}无人当班",
+    "noOneInTeamCovers": "{team}在{day}无人当班",
+    "save": "保存"
+  }
+}

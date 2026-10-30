@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { fmtPeso, fmtQty } from "../grocery.utils";
 import type { GroceryItem } from "../grocery.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 type Patch = { name: string; qty: number; unit: string };
 
@@ -37,6 +38,7 @@ export function GroceryRow({
   unlist?: boolean;
   tone?: "light";
 }) {
+  const t = useT();
   const suggested = item.id.startsWith("sug-");
   const [editing, setEditing] = useState(false);
 
@@ -111,15 +113,18 @@ export function GroceryRow({
             </span>
           )}
           {item.pantryItemId && (
-            <span className="shrink-0 text-muted-foreground" title="Restocks the pantry">
+            <span
+              className="shrink-0 text-muted-foreground"
+              title={t("groceries.restocksThePantry")}
+            >
               <Package className="h-3.5 w-3.5" aria-hidden />
-              <span className="sr-only">, restocks the pantry</span>
+              <span className="sr-only">{t("groceries.restocksThePantry2")}</span>
             </span>
           )}
         </div>
         {suggested && !item.bought && (
           <span className="mt-0.5 inline-block rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold text-pine-deep">
-            Suggested, not on the list yet
+            {t("groceries.suggestedNotOnTheList")}
           </span>
         )}
       </div>
@@ -141,7 +146,7 @@ export function GroceryRow({
           onClick={onAddSuggestion}
           className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
         >
-          <Plus className="h-3 w-3" /> Add to list
+          <Plus className="h-3 w-3" /> {t("groceries.addToList")}
         </button>
       )}
       {onRemove && !item.bought && (
@@ -155,7 +160,7 @@ export function GroceryRow({
                 ? `Move ${item.name} back to Needed`
                 : `Remove ${item.name}`
           }
-          title={unlist ? "Back to Needed" : undefined}
+          title={unlist ? t("groceries.backToNeeded") : undefined}
         >
           {unlist ? <Undo2 className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
         </button>
@@ -166,6 +171,7 @@ export function GroceryRow({
 
 /** What a bought line cost; saved when the field is left. Keyed by the saved cost upstream. */
 function CostInput({ item, onCost }: { item: GroceryItem; onCost: (cost: number | null) => void }) {
+  const t = useT();
   const [draft, setDraft] = useState(item.costPHP != null ? String(item.costPHP) : "");
   const commit = () => {
     const t = draft.trim();
@@ -177,7 +183,7 @@ function CostInput({ item, onCost }: { item: GroceryItem; onCost: (cost: number 
   };
   return (
     <label className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-      ₱
+      {t("groceries.text")}
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -203,6 +209,7 @@ function GroceryEditRow({
   onSave: (patch: Patch) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(String(item.qty));
   const [unit, setUnit] = useState(item.unit);
@@ -222,20 +229,20 @@ function GroceryEditRow({
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
-        aria-label="Item"
+        aria-label={t("groceries.item")}
         className="min-w-0 flex-1 basis-40 rounded-lg border border-input bg-card px-2.5 py-1.5 text-sm outline-none focus:border-primary"
       />
       <input
         value={qty}
         onChange={(e) => setQty(e.target.value)}
         inputMode="decimal"
-        aria-label="Qty"
+        aria-label={t("groceries.qty")}
         className="w-16 rounded-lg border border-input bg-card px-2 py-1.5 text-center text-sm tabular-nums outline-none focus:border-primary"
       />
       <input
         value={unit}
         onChange={(e) => setUnit(e.target.value)}
-        aria-label="Unit"
+        aria-label={t("groceries.unit")}
         className="w-20 rounded-lg border border-input bg-card px-2 py-1.5 text-center text-sm outline-none focus:border-primary"
       />
       <button
@@ -243,13 +250,13 @@ function GroceryEditRow({
         disabled={!valid}
         className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-pine-deep disabled:opacity-50"
       >
-        Save
+        {t("groceries.save")}
       </button>
       <button
         onClick={onCancel}
         className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
       >
-        Cancel
+        {t("groceries.cancel")}
       </button>
     </div>
   );

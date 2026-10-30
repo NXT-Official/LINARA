@@ -6,6 +6,7 @@ import { isPalengke } from "@/features/tasks/task.utils";
 
 import { useGrocery } from "../grocery-context";
 import { fmtPeso, progress, spentOn } from "../grocery.utils";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * On a task that carries a grocery run (linked from the run, or a task
@@ -22,6 +23,7 @@ export function PalengkeChip({
   compact?: boolean;
   className?: string;
 }) {
+  const t = useT();
   const ctx = useGrocery();
   const run = ctx.runForTask(task.id);
   if (!run && !isPalengke(task)) return null;
@@ -38,7 +40,7 @@ export function PalengkeChip({
       className={`inline-flex max-w-full items-center gap-1 rounded-lg border border-terracotta/50 bg-terracotta-soft/60 font-semibold text-accent-foreground transition hover:bg-terracotta-soft ${
         compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"
       }`}
-      title={run ? "The grocery run on this task" : "Grocery list"}
+      title={run ? t("groceries.theGroceryRunOnThis") : t("groceries.groceryList")}
     >
       <ShoppingBasket className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{label}</span>

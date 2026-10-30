@@ -1,0 +1,29 @@
+{
+  "pantry": {
+    "close": "Isara",
+    "name": "Pangalan",
+    "eGToiletPaper": "hal. Tissue paper",
+    "onHand": "Nasa bahay",
+    "unit": "Yunit",
+    "pcsKgL": "piraso, kg, L",
+    "keepAtLeast": "Magtabi ng hindi bababa sa",
+    "category": "Kategorya",
+    "cancel": "Kanselahin",
+    "remove": "Alisin",
+    "keep": "Panatilihin",
+    "pantry": "Pantry",
+    "sharedWithYourStaffWhat": "Nakabahagi sa iyong staff. Ang nauubos ay napupunta sa listahan ng bibilhin.",
+    "searchPantry": "Maghanap sa pantry",
+    "nothingInThePantryYet": "Wala pang laman ang pantry.",
+    "addWhatYourHomeKeeps": "Ilagay ang mga laging mayroon sa bahay, tulad ng bigas, mantika at sabon.",
+    "nothingMatches": "Walang tumugma.",
+    "allStocked": "Kumpleto ang stock",
+    "addItem": "Magdagdag ng item",
+    "keepAtLeast2": "Magtabi ng hindi bababa sa {par} {value}",
+    "runningLow": "{el1} {lowCount} paubos na",
+    "editItem": "I-edit ang {name}",
+    "addPantryItem": "Magdagdag ng item sa pantry",
+    "save": "I-save",
+    "add": "Idagdag"
+  }
+}

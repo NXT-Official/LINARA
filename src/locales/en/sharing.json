@@ -1,0 +1,24 @@
+{
+  "sharing": {
+    "places": "Places",
+    "whereATripCanStart": "Where a trip can start or end: your houses, and the places you save here.",
+    "noSavedPlacesYet": "No saved places yet.",
+    "eGSchoolOfficeLola": "e.g. School, Office, Lola's",
+    "newPlaceSName": "New place's name",
+    "cancel": "Cancel",
+    "alsoWorkingHere": "Also working here",
+    "employedByAnotherOfYour": "Employed by another of your households. Their pay and record stay there.",
+    "from": "From",
+    "to": "To",
+    "savePlacesLikeSchoolOr": "Save places like School or Office under Places on People.",
+    "newPlace": "New place",
+    "teamLabels": "Team & labels",
+    "rest": "{shift} · Rest: {restDay}",
+    "itSATrip": "{input}It's a trip{value}",
+    "yourOtherHouses": "Your other houses: {houses}",
+    "add": "Add",
+    "employedBy": "Employed by {house}",
+    "employedByTeamHere": "Employed by {house} · {team} here",
+    "choose": "Choose…"
+  }
+}

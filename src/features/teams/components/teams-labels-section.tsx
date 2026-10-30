@@ -8,6 +8,7 @@ import { PlanGate } from "@/features/plan/components/plan-gate";
 import { LABEL_TONES, labelToneSwatch } from "../teams.constants";
 import type { Label, LabelTone, Team } from "../teams.types";
 import { LabelChip } from "./label-chip";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * The household's teams and labels, on People: add, rename, recolour,
@@ -16,6 +17,7 @@ import { LabelChip } from "./label-chip";
  * add-teams-and-labels.sql is applied; off the plan, the lock and the upgrade.
  */
 export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const { teams, invites } = useAppStores();
   const [adding, setAdding] = useState<"team" | "label" | null>(null);
   const [draft, setDraft] = useState("");
@@ -58,24 +60,19 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
     <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Teams and labels</h2>
-          <p className="text-xs text-muted-foreground">
-            A team is the part of the house someone works in; the Pass, Schedule and Money group by
-            it. Labels are anything else worth filtering by.
-          </p>
+          <h2 className="font-display text-xl text-foreground">{t("teams.teamsAndLabels")}</h2>
+          <p className="text-xs text-muted-foreground">{t("teams.aTeamIsThePart")}</p>
         </div>
         <Layers className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </div>
 
       {empty && (
-        <p className="mb-3 text-sm text-muted-foreground">
-          No teams or labels yet. With a large staff, start with one team per department.
-        </p>
+        <p className="mb-3 text-sm text-muted-foreground">{t("teams.noTeamsOrLabelsYet")}</p>
       )}
 
       {teams.teams.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-1 text-xs font-semibold text-muted-foreground">Teams</h3>
+          <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{t("teams.teams")}</h3>
           <ul className="divide-y divide-border/70">
             {teams.teams.map((t) => (
               <TeamRow
@@ -94,7 +91,7 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
 
       {teams.labels.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-1 text-xs font-semibold text-muted-foreground">Labels</h3>
+          <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{t("teams.labels")}</h3>
           <ul className="divide-y divide-border/70">
             {teams.labels.map((l) => (
               <LabelRow
@@ -123,8 +120,8 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
                 if (e.key === "Escape") setAdding(null);
               }}
               maxLength={adding === "team" ? 40 : 30}
-              placeholder={adding === "team" ? "e.g. Kitchen" : "e.g. Night shift"}
-              aria-label={adding === "team" ? "New team's name" : "New label's name"}
+              placeholder={adding === "team" ? t("teams.egKitchen") : t("teams.egNightShift")}
+              aria-label={adding === "team" ? t("teams.newTeamSName") : t("teams.newLabelSName")}
               className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <button
@@ -133,14 +130,14 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
               disabled={!draft.trim() || busy}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("teams.add")}
             </button>
             <button
               type="button"
               onClick={() => setAdding(null)}
               className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("teams.cancel")}
             </button>
           </div>
         ) : (
@@ -153,7 +150,7 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
             >
-              <Plus className="h-3.5 w-3.5" /> New team
+              <Plus className="h-3.5 w-3.5" /> {t("teams.newTeam2")}
             </button>
             <button
               type="button"
@@ -163,7 +160,7 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
             >
-              <Plus className="h-3.5 w-3.5" /> New label
+              <Plus className="h-3.5 w-3.5" /> {t("teams.newLabel")}
             </button>
           </div>
         ))}
@@ -189,6 +186,7 @@ function TeamRow({
   onRename: (name: string) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(team.name);
   const [confirming, setConfirming] = useState(false);
@@ -206,7 +204,7 @@ function TeamRow({
         />
         <button
           type="button"
-          aria-label="Save name"
+          aria-label={t("teams.saveName")}
           disabled={busy || !name.trim()}
           onClick={async () => {
             if (await onRename(name)) setEditing(false);
@@ -217,7 +215,7 @@ function TeamRow({
         </button>
         <button
           type="button"
-          aria-label="Cancel"
+          aria-label={t("teams.cancel")}
           onClick={() => {
             setName(team.name);
             setEditing(false);
@@ -236,13 +234,15 @@ function TeamRow({
         {team.name}
       </span>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-        {count} {count === 1 ? "helper" : "helpers"}
+        {t("teams.helperCount", { count })}
       </span>
       {canEdit &&
         (confirming ? (
           <span className="flex shrink-0 items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              Remove? {count > 0 ? `${count} go to no team.` : ""}
+              {t("teams.removeTeamConfirm", {
+                extra: count > 0 ? t("teams.goToNoTeam", { count }) : "",
+              })}
             </span>
             <button
               type="button"
@@ -250,14 +250,14 @@ function TeamRow({
               onClick={onDelete}
               className="rounded-lg bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground disabled:opacity-50"
             >
-              Remove
+              {t("teams.remove")}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="text-xs font-semibold text-muted-foreground"
             >
-              Keep
+              {t("teams.keep")}
             </button>
           </span>
         ) : (
@@ -299,6 +299,7 @@ function LabelRow({
   onSave: (name: string, tone: LabelTone) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(label.name);
   const [tone, setTone] = useState<LabelTone>(label.tone);
@@ -318,7 +319,7 @@ function LabelRow({
           />
           <button
             type="button"
-            aria-label="Save label"
+            aria-label={t("teams.saveLabel")}
             disabled={busy || !name.trim()}
             onClick={async () => {
               if (await onSave(name, tone)) setEditing(false);
@@ -329,7 +330,7 @@ function LabelRow({
           </button>
           <button
             type="button"
-            aria-label="Cancel"
+            aria-label={t("teams.cancel")}
             onClick={() => {
               setName(label.name);
               setTone(label.tone);
@@ -340,7 +341,7 @@ function LabelRow({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex items-center gap-2" role="radiogroup" aria-label="Colour">
+        <div className="flex items-center gap-2" role="radiogroup" aria-label={t("teams.colour")}>
           {LABEL_TONES.map((t) => (
             <button
               key={t}
@@ -366,26 +367,26 @@ function LabelRow({
         <LabelChip label={label} />
       </span>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-        {count} {count === 1 ? "helper" : "helpers"}
+        {t("teams.helperCount", { count })}
       </span>
       {canEdit &&
         (confirming ? (
           <span className="flex shrink-0 items-center gap-2">
-            <span className="text-xs text-muted-foreground">Remove from everyone?</span>
+            <span className="text-xs text-muted-foreground">{t("teams.removeFromEveryone")}</span>
             <button
               type="button"
               disabled={busy}
               onClick={onDelete}
               className="rounded-lg bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground disabled:opacity-50"
             >
-              Remove
+              {t("teams.remove")}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="text-xs font-semibold text-muted-foreground"
             >
-              Keep
+              {t("teams.keep")}
             </button>
           </span>
         ) : (

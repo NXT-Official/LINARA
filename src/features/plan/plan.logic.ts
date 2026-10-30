@@ -1,3 +1,5 @@
+import { tFor, type MessageKey, type Translate } from "@/lib/i18n/instance";
+
 import { ADDONS, CATALOG, FEATURES } from "./plan.sample";
 import type {
   ActiveSelection,
@@ -13,11 +15,19 @@ import type {
 export const GRACE_DAYS = 7;
 export const MAX_ADDON_QUANTITY = 10;
 
-export const LIMIT_LABEL: Record<LimitKey, { one: string; many: string; title: string }> = {
-  households: { one: "household", many: "households", title: "Households" },
-  kasambahay: { one: "kasambahay", many: "kasambahay", title: "Kasambahay" },
-  co_managers: { one: "co-manager", many: "co-managers", title: "Co-managers" },
-};
+// Plan words come from src/locales/<lang>/plan.json. Callers in a screen pass
+// their t(); without one (logic tests, server code) they're English.
+const EN = tFor("en");
+
+/** "households", "co-managers": what a limit counts, in t's language. */
+export function limitName(key: LimitKey, t: Translate = EN): string {
+  return t(`plan.limitName.${key}` as MessageKey);
+}
+
+/** "Households": a limit's heading. */
+export function limitTitle(key: LimitKey, t: Translate = EN): string {
+  return t(`plan.limitTitle.${key}` as MessageKey);
+}
 
 export const CYCLE_LABEL: Record<Cycle, { name: string; per: string }> = {
   monthly: { name: "Monthly", per: "a month" },
@@ -43,10 +53,9 @@ export function planById(id: string): CatalogPlan | undefined {
 }
 
 /** "1 household", "Unlimited kasambahay". */
-export function limitText(key: LimitKey, value: number | null): string {
-  const l = LIMIT_LABEL[key];
-  if (value === null) return `Unlimited ${l.many}`;
-  return `${value} ${value === 1 ? l.one : l.many}`;
+export function limitText(key: LimitKey, value: number | null, t: Translate = EN): string {
+  if (value === null) return t("plan.unlimitedLimit", { what: limitName(key, t) });
+  return t(`plan.limit.${key}` as MessageKey, { count: value });
 }
 
 /** The plan's limits plus what the add-ons raise them by. */
@@ -88,25 +97,30 @@ export type AddCheck =
  * Whether one more household, kasambahay or co-manager fits. A restricted
  * plan (grace over) adds nothing until it's paid.
  */
-export function canAdd(sub: MySubscription, usage: Usage, key: LimitKey): AddCheck {
+export function canAdd(
+  sub: MySubscription,
+  usage: Usage,
+  key: LimitKey,
+  t: Translate = EN,
+): AddCheck {
   if (sub.status === "restricted") {
     return {
       ok: false,
       reason: "restricted",
-      message: "Your plan's payment is overdue, so nothing new can be added until it's paid.",
+      message: t("plan.restrictedNoAdd"),
     };
   }
   const limit = limitsFor(sub)[key];
   if (limit === null || usage[key] + 1 <= limit) return { ok: true };
-  const plan = planById(sub.planId)?.name ?? "Your plan";
+  const plan = planById(sub.planId)?.name ?? t("plan.yourPlan");
   return {
     ok: false,
     reason: "limit",
     limitKey: key,
     message:
       limit === 0
-        ? `${plan} doesn't include ${LIMIT_LABEL[key].many}.`
-        : `${plan} allows ${limitText(key, limit)}, and you have ${usage[key]}.`,
+        ? t("plan.doesntInclude", { plan, what: limitName(key, t) })
+        : t("plan.allowsYouHave", { plan, limit: limitText(key, limit, t), count: usage[key] }),
   };
 }
 
@@ -137,23 +151,24 @@ export function checkSelection(
   sub: MySubscription,
   selection: ActiveSelection,
   available: { households: string[]; kasambahay: string[] },
+  t: Translate = EN,
 ): SelectionCheck {
   const limits = limitsFor(sub);
   for (const key of ["households", "kasambahay"] as const) {
     const picked = selection[key];
     if (new Set(picked).size !== picked.length) {
-      return { ok: false, message: "Something is picked twice." };
+      return { ok: false, message: t("plan.pickedTwice") };
     }
     if (picked.some((id) => !available[key].includes(id))) {
-      return { ok: false, message: "Something picked isn't there any more. Pick again." };
+      return { ok: false, message: t("plan.pickedGone") };
     }
     const limit = limits[key];
     if (limit !== null && picked.length > limit) {
-      return { ok: false, message: `Pick up to ${limitText(key, limit)}.` };
+      return { ok: false, message: t("plan.pickUpTo", { limit: limitText(key, limit, t) }) };
     }
   }
   if (selection.households.length === 0) {
-    return { ok: false, message: "Keep at least one household active." };
+    return { ok: false, message: t("plan.keepOneHousehold") };
   }
   return { ok: true };
 }

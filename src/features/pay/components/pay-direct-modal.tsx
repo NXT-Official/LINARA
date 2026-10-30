@@ -10,6 +10,8 @@ import { householdNow, toISODate } from "@/lib/time";
 import { previewPaymentFn } from "../pay.actions";
 import type { ManualPayment, PayoutChannelCode, PayslipKind } from "../pay.types";
 import { getPayoutAccountFn, type PayoutAccount } from "../payout-account.actions";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const WALLET: Record<PayoutChannelCode, string> = { PH_GCASH: "GCash", PH_PAYMAYA: "Maya" };
 
@@ -44,6 +46,7 @@ export function PayDirectModal({
   /** Records it; resolves with what the payslip says she was paid. */
   onSubmit: (payment: ManualPayment) => Promise<{ netPay: number } | unknown>;
 }) {
+  const t = useT();
   const { session } = useAppStores();
   const token = session.token;
   const today = toISODate(householdNow());
@@ -120,16 +123,15 @@ export function PayDirectModal({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-display text-xl text-foreground">
-            Pay {helperName} by {wallet}
+            {t("pay.payByWallet", { name: helperName, wallet })}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {periodLabel}. You send it from your own {wallet}; Linara keeps the record and asks{" "}
-            {helperName} to confirm it arrived.
+            {t("pay.sendFromOwn", { period: periodLabel, wallet, name: helperName })}
           </p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("pay.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -149,10 +151,10 @@ export function PayDirectModal({
 
       {account?.source === "none" && (
         <p className="mt-4 rounded-2xl bg-secondary/60 px-3 py-3 text-sm text-foreground">
-          There&apos;s no {wallet} number for {helperName} yet. Ask {helperName} to add one in the
-          Linara app (My Pay, then <span className="font-semibold">Where to send my pay</span>), or
-          record a cash or bank payment with{" "}
-          <span className="font-semibold">Paid outside Linara</span>.
+          {richText(t("pay.noWalletYet", { wallet, name: helperName }), {
+            whereToSend: <span className="font-semibold">{t("pay.whereToSendMyPay")}</span>,
+            paidOutside: <span className="font-semibold">{t("pay.paidOutsideLinara")}</span>,
+          })}
         </p>
       )}
 
@@ -162,11 +164,10 @@ export function PayDirectModal({
             <>
               <p className="flex items-start gap-2 rounded-2xl border border-terracotta/40 bg-terracotta-soft/50 px-3 py-2.5 text-xs text-accent-foreground">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                This number is from {helperName}&apos;s invite and isn&apos;t confirmed in their app
-                yet, so check it with them before you send.
+                {t("pay.numberFromInvite", { name: helperName })}
               </p>
               <fieldset className="flex gap-2">
-                <legend className="sr-only">{helperName}&apos;s wallet</legend>
+                <legend className="sr-only">{t("pay.helpersWallet", { name: helperName })}</legend>
                 {(["PH_GCASH", "PH_PAYMAYA"] as const).map((m) => (
                   <label
                     key={m}
@@ -193,7 +194,7 @@ export function PayDirectModal({
 
           <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4">
             <CopyRow
-              label="Amount"
+              label={t("pay.amount")}
               value={exactPeso(estimate)}
               copied={copied === "amount"}
               onCopy={() => copy("amount", amount)}
@@ -206,7 +207,7 @@ export function PayDirectModal({
               onCopy={() => copy("number", account.accountNumber)}
             />
             <div className="mt-2 text-xs text-muted-foreground">
-              Name on the account:{" "}
+              {t("pay.nameOnAccount")}{" "}
               <span className="font-semibold text-foreground">{account.accountName}</span>
             </div>
           </div>
@@ -215,32 +216,36 @@ export function PayDirectModal({
             <div className="flex items-center gap-3 rounded-2xl bg-background/60 p-3">
               <img
                 src={account.qrUrl}
-                alt={`${helperName}'s ${wallet} QR code`}
+                alt={t("pay.walletQrAlt", { name: helperName, wallet })}
                 className="h-24 w-24 shrink-0 rounded-lg border border-border bg-white object-contain"
               />
               <p className="text-xs text-muted-foreground">
-                Or scan the QR from another phone. On this phone,{" "}
-                <a
-                  href={account.qrUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold text-primary underline underline-offset-2"
-                >
-                  open it
-                </a>
-                , save it, and upload it in {wallet}&apos;s QR scanner.
+                {richText(t("pay.scanFromAnother", { wallet }), {
+                  openIt: (
+                    <a
+                      href={account.qrUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-primary underline underline-offset-2"
+                    >
+                      {t("pay.openIt")}
+                    </a>
+                  ),
+                })}
               </p>
             </div>
           )}
 
           <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
             <li>
-              Open {wallet} and send{" "}
-              <span className="font-semibold text-foreground">{exactPeso(estimate)}</span> to the
-              number above.
+              {richText(t("pay.openAndSend", { wallet }), {
+                amount: (
+                  <span className="font-semibold text-foreground">{exactPeso(estimate)}</span>
+                ),
+              })}
             </li>
-            <li>Check that {wallet} shows the name above before you confirm.</li>
-            <li>Come back and tap I&apos;ve sent it, with the reference number if you have it.</li>
+            <li>{t("pay.checkName", { wallet })}</li>
+            <li>{t("pay.comeBackAndTapI")}</li>
           </ol>
 
           <Field label={`${wallet} reference number (optional)`}>
@@ -249,11 +254,11 @@ export function PayDirectModal({
               onChange={(e) => setReference(e.target.value)}
               inputMode="numeric"
               maxLength={40}
-              placeholder="e.g. 1234 567 890123"
+              placeholder={t("pay.eG1234567890123")}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-          <Field label="Date sent">
+          <Field label={t("pay.dateSent")}>
             <input
               type="date"
               value={paidOn}
@@ -276,7 +281,7 @@ export function PayDirectModal({
           disabled={submitting}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("pay.cancel")}
         </button>
         {account && estimate !== null && account.source !== "none" && (
           <button
@@ -286,10 +291,10 @@ export function PayDirectModal({
           >
             {submitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Recording…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("pay.recording")}
               </>
             ) : (
-              "I've sent it"
+              t("pay.iveSentIt")
             )}
           </button>
         )}
@@ -311,6 +316,7 @@ function CopyRow({
   onCopy: () => void;
   big?: boolean;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <div className="min-w-0">
@@ -327,7 +333,7 @@ function CopyRow({
         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
       >
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-        {copied ? "Copied" : "Copy"}
+        {copied ? t("pay.copied") : t("pay.copy")}
       </button>
     </div>
   );

@@ -1,6 +1,8 @@
 import { Check, Images } from "lucide-react";
 
 import type { Task } from "@/features/tasks/task.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** The OFW view: what got done today, mostly as photos. Read-only by design. */
 export function RemoteGlance({
@@ -12,6 +14,7 @@ export function RemoteGlance({
   helperName: string;
   adminName: string;
 }) {
+  const t = useT();
   const doneToday = active.filter((t) => t.status === "done");
   const donePhotos = doneToday.filter((t) => t.photo).slice(0, 6);
   return (
@@ -21,15 +24,16 @@ export function RemoteGlance({
           <Images className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-pine-deep/80">Your OFW view · {adminName}</div>
+          <div className="text-xs font-semibold text-pine-deep/80">
+            {richText(t("dashboard.yourOfwView"), { adminName: adminName })}
+          </div>
           <h2 className="mt-0.5 font-display text-lg text-foreground">
             {active.length === 0
-              ? "Nothing on today's board yet."
-              : `${doneToday.length} of ${active.length} done today.`}
+              ? t("dashboard.nothingOnTodaySBoard")
+              : t("dashboard.ofDoneToday", { done: doneToday.length, total: active.length })}
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're watching from afar — schedules and off-hours reaches stay with the on-site
-            managers. What you see here is the day, the money, and anything waiting on your yes.
+            {t("dashboard.youReWatchingFromAfar")}
           </p>
         </div>
       </div>
@@ -37,7 +41,7 @@ export function RemoteGlance({
       <div className="mt-4 border-t border-border/70 pt-4">
         <div className="flex items-center justify-between">
           <div className="text-xs font-semibold text-muted-foreground">
-            Done today · {helperName} & team
+            {richText(t("dashboard.doneTodayTeam"), { helperName: helperName })}
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             <Check className="h-3 w-3" /> {doneToday.length}
@@ -58,7 +62,7 @@ export function RemoteGlance({
           </div>
         ) : (
           <p className="mt-2 text-xs italic text-muted-foreground">
-            Photos from finished tasks will show up here — a quiet way to see the day.
+            {t("dashboard.photosFromFinishedTasksWill")}
           </p>
         )}
         {doneToday.length > 0 && (

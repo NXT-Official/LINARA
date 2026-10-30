@@ -18,6 +18,8 @@ import {
 import type { LeaveBalance, LeavePolicy, LeaveRequest } from "../leave.types";
 import { LeaveRules } from "./leave-rules";
 import { RecordLeaveModal } from "./record-leave-modal";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const SHOWN = 5;
 
@@ -70,6 +72,7 @@ export function LeaveSection({
   onRecord: (input: RecordLeaveInput) => Promise<boolean>;
   onCancel: (id: string) => void;
 }) {
+  const t = useT();
   const [balances, setBalances] = useState<Record<string, LeaveBalance>>({});
   const [recordingFor, setRecordingFor] = useState<Helper | null>(null);
   // null until loaded, and stays null before add-leave-policy.sql is applied.
@@ -112,15 +115,12 @@ export function LeaveSection({
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Leave</h2>
-          <p className="text-xs text-muted-foreground">
-            What each helper has left, and recent leave. They ask from their app; you decide on the
-            Pass.
-          </p>
+          <h2 className="font-display text-xl text-foreground">{t("leave.leave")}</h2>
+          <p className="text-xs text-muted-foreground">{t("leave.whatEachHelperHasLeft")}</p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          <CalendarOff className="h-3 w-3" /> {leave.filter((l) => l.status === "pending").length}{" "}
-          waiting
+          <CalendarOff className="h-3 w-3" />{" "}
+          {t("leave.waitingCount", { count: leave.filter((l) => l.status === "pending").length })}
         </span>
       </div>
 
@@ -138,13 +138,19 @@ export function LeaveSection({
                   <div className="text-sm font-semibold text-foreground">{h.name}</div>
                   <div className="text-xs text-muted-foreground">
                     {!b
-                      ? "Loading…"
+                      ? t("leave.loading")
                       : b.silYearEnd
-                        ? `${b.silDays} of ${policy?.silDaysPerYear ?? 5} SIL days left until ${shortDate(b.silYearEnd)}`
+                        ? t("leave.silDaysLeftUntil", {
+                            days: b.silDays,
+                            total: policy?.silDaysPerYear ?? 5,
+                            date: shortDate(b.silYearEnd),
+                          })
                         : b.silEligibleFrom
-                          ? `SIL starts ${longDate(b.silEligibleFrom)}`
-                          : "SIL starts after a year of service"}
-                    {b ? ` · ${fmtHoursMinutes(b.restOwedMinutes)} rest owed` : ""}
+                          ? t("leave.silStartsOn", { date: longDate(b.silEligibleFrom) })
+                          : t("leave.silStartsAfterYear")}
+                    {b
+                      ? t("leave.restOwedSuffix", { time: fmtHoursMinutes(b.restOwedMinutes) })
+                      : ""}
                   </div>
                 </div>
                 {canManage && (
@@ -152,13 +158,13 @@ export function LeaveSection({
                     onClick={() => setRecordingFor(h)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Record leave
+                    <Plus className="h-3.5 w-3.5" /> {t("leave.recordLeave")}
                   </button>
                 )}
               </div>
 
               <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                Unpaid leave counts
+                {t("leave.unpaidLeaveCounts")}
                 <select
                   value={payDaysFor(h.id)}
                   disabled={!canManage}
@@ -171,7 +177,7 @@ export function LeaveSection({
                     </option>
                   ))}
                 </select>
-                <span>(a day is monthly pay × 12 ÷ {payDaysFor(h.id)})</span>
+                <span>{richText(t("leave.aDayIsMonthlyPay"), { value: payDaysFor(h.id) })}</span>
               </label>
 
               {hers.length > 0 && (
@@ -191,18 +197,22 @@ export function LeaveSection({
                             {LEAVE_KIND_LABEL[l.kind]}
                           </span>{" "}
                           <span className="text-muted-foreground">
-                            · {dates(l)} · {l.days} {l.days === 1 ? "day" : "days"} ·{" "}
+                            · {dates(l)} · {t("leave.daysCount", { count: l.days })} ·{" "}
                             {LEAVE_REASON_LABEL[l.reason]}
                           </span>
                           {l.helperAck === "disputed" && (
                             <span className="mt-0.5 block font-semibold text-terracotta-ink">
-                              {h.short} disputes this
-                              {l.helperAckNote ? `: "${l.helperAckNote}"` : "."}
+                              {l.helperAckNote
+                                ? t("leave.disputesThisWithNote", {
+                                    short: h.short,
+                                    note: l.helperAckNote,
+                                  })
+                                : t("leave.disputesThis", { short: h.short })}
                             </span>
                           )}
                           {l.helperAck === "pending" && (
                             <span className="mt-0.5 block text-muted-foreground">
-                              Waiting for {h.short} to confirm.
+                              {richText(t("leave.waitingForToConfirm"), { short: h.short })}
                             </span>
                           )}
                         </span>
@@ -215,7 +225,7 @@ export function LeaveSection({
                               onClick={() => onCancel(l.id)}
                               className="font-semibold text-primary hover:underline"
                             >
-                              Cancel
+                              {t("leave.cancel")}
                             </button>
                           )}
                         </span>

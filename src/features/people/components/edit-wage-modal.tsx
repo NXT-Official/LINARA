@@ -8,6 +8,8 @@ import { formatCutoffDay, formatCutoffRange } from "@/features/pay/pay.utils";
 
 import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const dayAfter = (ymd: string) => {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -34,6 +36,7 @@ export function EditWageModal({
   onClose: () => void;
   onSubmit: (wagePHP: number, effectiveFrom?: string) => Promise<void>;
 }) {
+  const t = useT();
   const [wage, setWage] = useState(String(initialWagePHP));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +66,11 @@ export function EditWageModal({
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-display text-xl text-foreground">Edit {name}'s wage</h3>
+          <h3 className="font-display text-xl text-foreground">
+            {richText(t("people.editSWage"), { name: name })}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pay periods that already closed keep the wage they had, paid or not.
+            {t("people.payPeriodsThatAlreadyClosed")}
           </p>
         </div>
         <button
@@ -76,7 +81,7 @@ export function EditWageModal({
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        <Field label="Monthly wage (₱)">
+        <Field label={t("people.monthlyWage")}>
           <input
             inputMode="numeric"
             value={wage}
@@ -88,14 +93,14 @@ export function EditWageModal({
         {currentPeriod && nextStart && (
           <fieldset>
             <legend className="mb-1.5 text-xs font-semibold text-muted-foreground">
-              Starts from
+              {t("people.startsFrom")}
             </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               <WhenOption
                 checked={!startsNext}
                 disabled={thisPaid}
                 onSelect={() => setStartsNext(false)}
-                title="This cutoff"
+                title={t("people.thisCutoff")}
                 body={
                   thisPaid
                     ? "Already paid"
@@ -105,7 +110,7 @@ export function EditWageModal({
               <WhenOption
                 checked={startsNext}
                 onSelect={() => setStartsNext(true)}
-                title="Next cutoff"
+                title={t("people.nextCutoff")}
                 body={`From ${formatCutoffDay(nextStart)}`}
               />
             </div>
@@ -116,13 +121,17 @@ export function EditWageModal({
           <div className="rounded-2xl bg-status-late-soft/60 border border-status-late/30 p-3.5 text-xs text-status-late-ink flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 shrink-0 text-status-late-ink mt-0.5" />
             <div>
-              <span className="font-semibold block mb-0.5">
-                Batas Kasambahay Compliance Warning
-              </span>
-              Ang sweldong ₱{(parseInt(wage, 10) || 0).toLocaleString()} ay mababa sa regional
-              minimum wage na{" "}
-              <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span> para
-              sa mga kasambahay. Mangyaring ayusin ito upang makatugon sa batas.
+              {richText(t("people.angSweldongAyMababaSa"), {
+                span: (
+                  <span className="font-semibold block mb-0.5">
+                    {t("people.batasKasambahayComplianceWarning")}
+                  </span>
+                ),
+                value: (parseInt(wage, 10) || 0).toLocaleString(),
+                span2: (
+                  <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>
+                ),
+              })}
             </div>
           </div>
         )}
@@ -142,7 +151,7 @@ export function EditWageModal({
           disabled={submitting}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("people.cancel")}
         </button>
         <button
           onClick={submit}
@@ -151,10 +160,10 @@ export function EditWageModal({
         >
           {submitting ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("people.saving")}
             </>
           ) : (
-            "Save wage"
+            t("people.saveWage")
           )}
         </button>
       </div>

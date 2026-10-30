@@ -11,6 +11,7 @@ import { WEEKDAYS, type Weekday } from "@/lib/time";
 import { generateSopFn, insertHouseSopFn, type HouseStandardSOP } from "../task.actions";
 
 import type { Recurrence, Routine } from "../task.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function NewRoutineModal({
   token,
@@ -23,6 +24,7 @@ export function NewRoutineModal({
   onClose: () => void;
   onAdd: (r: Omit<Routine, "id" | "station">) => void;
 }) {
+  const t = useT();
   const [title, setTitle] = useState("");
   const [helperId, setHelperId] = useState(activeHelpers[0]?.id ?? "");
   const [time, setTime] = useState("08:00");
@@ -129,10 +131,8 @@ export function NewRoutineModal({
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-display text-xl text-foreground">New routine</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Set it once. It'll appear on the Pass on matching days.
-          </p>
+          <h3 className="font-display text-xl text-foreground">{t("tasks.newRoutine")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("tasks.setItOnceItLl")}</p>
         </div>
         <button
           onClick={onClose}
@@ -142,7 +142,7 @@ export function NewRoutineModal({
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        <Field label="Title">
+        <Field label={t("tasks.title")}>
           <input
             value={title}
             onChange={(e) => {
@@ -150,12 +150,12 @@ export function NewRoutineModal({
               setGeneratedSop(null);
               setSavedSopId(null);
             }}
-            placeholder="e.g. Water the plants"
+            placeholder={t("tasks.eGWaterThePlants")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Assign to">
+          <Field label={t("tasks.assignTo")}>
             <HelperPicker
               helpers={activeHelpers}
               value={helperId}
@@ -164,7 +164,7 @@ export function NewRoutineModal({
               emptyLabel="No active helpers yet"
             />
           </Field>
-          <Field label="Time">
+          <Field label={t("tasks.time")}>
             <input
               type="time"
               value={time}
@@ -176,7 +176,7 @@ export function NewRoutineModal({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-muted-foreground">
-              House-standard note (optional)
+              {t("tasks.houseStandardNoteOptional")}
             </label>
             {AI_ENABLED && (
               <button
@@ -188,12 +188,12 @@ export function NewRoutineModal({
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Generating...
+                    {t("tasks.generating")}
                   </>
                 ) : (
                   <>
                     <BookOpen className="h-3.5 w-3.5" />
-                    Generate SOP with AI
+                    {t("tasks.generateSopWithAi")}
                   </>
                 )}
               </button>
@@ -207,17 +207,17 @@ export function NewRoutineModal({
               setSavedSopId(null);
             }}
             rows={5}
-            placeholder="e.g. Deep-water the fiddle leaf; light mist for the ferns."
+            placeholder={t("tasks.eGDeepWaterThe")}
             className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
           {generatedSop && (
             <div className="flex items-center justify-between rounded-xl border border-dashed border-border bg-secondary/40 px-3 py-2">
               <p className="text-xs text-muted-foreground">
                 {savedSopId
-                  ? "Saved to the House Standards Library."
+                  ? t("tasks.savedToLibrary")
                   : token
-                    ? "Structured steps, tools & safety protocol ready to save."
-                    : "Sign in as a manager to save this to the House Standards Library."}
+                    ? t("tasks.stepsReady")
+                    : t("tasks.signInToSave")}
               </p>
               <button
                 type="button"
@@ -228,29 +228,29 @@ export function NewRoutineModal({
                 {isSavingSop ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Saving...
+                    {t("tasks.saving")}
                   </>
                 ) : savedSopId ? (
                   <>
                     <Check className="h-3.5 w-3.5" />
-                    Saved
+                    {t("tasks.saved")}
                   </>
                 ) : (
                   <>
                     <BookmarkPlus className="h-3.5 w-3.5" />
-                    Save to library
+                    {t("tasks.saveToLibrary")}
                   </>
                 )}
               </button>
             </div>
           )}
         </div>
-        <Field label="Repeat">
+        <Field label={t("tasks.repeat")}>
           <div className="inline-flex w-full rounded-xl border border-input bg-background p-1">
             {(
               [
-                { key: "daily", label: "Every day" },
-                { key: "weekdays", label: "Specific days" },
+                { key: "daily", label: t("tasks.repeatDaily") },
+                { key: "weekdays", label: t("tasks.repeatWeekdays") },
               ] as const
             ).map((opt) => {
               const active = repeatKind === opt.key;
@@ -298,14 +298,14 @@ export function NewRoutineModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("tasks.cancel")}
         </button>
         <button
           onClick={submit}
           disabled={!canSubmit}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
-          Save routine
+          {t("tasks.saveRoutine")}
         </button>
       </div>
     </Modal>

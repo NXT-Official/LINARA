@@ -9,6 +9,8 @@ import { useOpenTaskCounts } from "../hooks/use-open-task-counts";
 
 import { LEAVE_KIND_HINT, LEAVE_KIND_LABEL, LEAVE_REASON_LABEL } from "../leave.constants";
 import type { LeaveKind, LeaveReason } from "../leave.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
@@ -42,6 +44,7 @@ export function RecordLeaveModal({
   /** Why SIL can't be used now, as a verb phrase ("starts August 15, 2027"); null when it can. */
   silUnavailable?: string | null;
 }) {
+  const t = useT();
   // SIL first when there is some. Otherwise nothing is picked for the manager:
   // the other kinds dock pay or use rest owed, which shouldn't happen by default.
   const [kind, setKind] = useState<LeaveKind | "">(silUnavailable ? "" : "sil");
@@ -76,20 +79,22 @@ export function RecordLeaveModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-xl text-foreground">Record leave for {helperName}</h3>
+        <h3 className="font-display text-xl text-foreground">
+          {richText(t("leave.recordLeaveFor"), { helperName: helperName })}
+        </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("leave.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Approved straight away. {helperName} is asked to confirm it in the app.
+        {richText(t("leave.approvedStraightAwayIsAsked"), { helperName: helperName })}
       </p>
       <div className="mt-4 space-y-3">
-        <Field label="Kind">
+        <Field label={t("leave.kind")}>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as LeaveKind)}
@@ -97,7 +102,7 @@ export function RecordLeaveModal({
           >
             {kind === "" && (
               <option value="" disabled>
-                Choose a kind
+                {t("leave.chooseAKind")}
               </option>
             )}
             {(Object.keys(LEAVE_KIND_LABEL) as LeaveKind[]).map((k) => (
@@ -115,7 +120,7 @@ export function RecordLeaveModal({
                 : LEAVE_KIND_HINT[kind]}
           </p>
         </Field>
-        <Field label="Reason">
+        <Field label={t("leave.reason")}>
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value as LeaveReason)}
@@ -129,7 +134,7 @@ export function RecordLeaveModal({
           </select>
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="First day">
+          <Field label={t("leave.firstDay")}>
             <input
               type="date"
               value={startDate}
@@ -140,7 +145,7 @@ export function RecordLeaveModal({
               className={inputCls}
             />
           </Field>
-          <Field label="Last day">
+          <Field label={t("leave.lastDay")}>
             <input
               type="date"
               value={endDate}
@@ -150,11 +155,11 @@ export function RecordLeaveModal({
             />
           </Field>
         </div>
-        <Field label="Note (optional)">
+        <Field label={t("leave.noteOptional")}>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. Fever, called in at 6 AM"
+            placeholder={t("leave.eGFeverCalledIn")}
             className={inputCls}
           />
         </Field>
@@ -168,11 +173,9 @@ export function RecordLeaveModal({
             />
             <span className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">
-                {taskCount} of {helperName}'s unfinished {taskCount === 1 ? "task is" : "tasks are"}{" "}
-                on these days.
+                {t("leave.unfinishedOnDays", { count: taskCount, name: helperName })}
               </span>{" "}
-              Move {taskCount === 1 ? "it" : "them"} to Unassigned so someone else can take{" "}
-              {taskCount === 1 ? "it" : "them"}.
+              {t("leave.moveSoOthers", { count: taskCount })}
             </span>
           </label>
         )}
@@ -182,14 +185,14 @@ export function RecordLeaveModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("leave.cancel")}
         </button>
         <button
           onClick={() => void submit()}
           disabled={!valid || saving}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
-          {saving ? "Saving…" : "Record leave"}
+          {saving ? t("leave.saving") : t("leave.recordLeave")}
         </button>
       </div>
     </Modal>

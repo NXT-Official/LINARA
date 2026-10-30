@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { toast } from "sonner";
 
 import { ListFilter } from "@/components/shared/list-filter";
+import { Segmented } from "@/components/shared/segmented";
 import type { Appointment } from "@/features/appointments/appointment.types";
 import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
@@ -52,6 +53,8 @@ import { TaskToneLegend } from "./planner-tone-legend";
 import { PlannerList } from "./planner-list";
 import { PlannerPeople, type PeopleRow } from "./planner-people";
 import { PlannerSearchResults } from "./planner-search-results";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const VIEW_KEY = "linara.planView";
 const VIEWS: { key: PlanView; label: string }[] = [
@@ -134,6 +137,7 @@ export function TaskPlanner({
   /** Where search results come from; tests pass their own. */
   useSearch?: typeof useTaskSearch;
 }) {
+  const t = useT();
   const todayIso = toISODate(toHouseholdClock(nowTs));
 
   const [view, setView] = useState<PlanView>("week");
@@ -395,12 +399,12 @@ export function TaskPlanner({
       <div className="flex flex-wrap items-end justify-between gap-3 px-1">
         <div>
           <h2 id="plan-heading" className="font-display text-xl text-foreground">
-            Plan ahead
+            {t("tasks.planAhead")}
           </h2>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground" aria-live="polite">
             {planLabel(view, anchor)}
             {tasks === null && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label="Loading" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={t("tasks.loading")} />
             )}
           </p>
         </div>
@@ -425,38 +429,23 @@ export function TaskPlanner({
               ]}
               after={[{ value: "unassigned", label: "Unassigned" }]}
               describe={(h) => h.short}
-              className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary"
+              className="h-11 w-full rounded-lg border border-input bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
 
-          <div
-            className="inline-flex rounded-lg border border-border bg-card p-0.5"
-            role="group"
-            aria-label="Plan view"
-          >
-            {VIEWS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => changeView(key)}
-                aria-pressed={view === key}
-                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  view === key
-                    ? "bg-primary text-primary-foreground shadow-soft"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label={t("tasks.planView")}
+            options={VIEWS}
+            value={view}
+            onChange={changeView}
+          />
 
           <div className="inline-flex items-center rounded-lg border border-border bg-card">
             <button
               type="button"
               onClick={() => setAnchor((a) => stepAnchor(view, a, -1))}
-              aria-label={view === "month" ? "Previous month" : "Previous week"}
-              className="grid h-9 w-9 place-items-center rounded-l-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+              aria-label={view === "month" ? t("tasks.previousMonth") : t("tasks.previousWeek")}
+              className="grid h-11 w-11 place-items-center rounded-l-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -464,15 +453,15 @@ export function TaskPlanner({
               type="button"
               onClick={() => setAnchor(parseISODate(todayIso))}
               disabled={showingThisPeriod}
-              className="h-9 border-x border-border px-3 text-xs font-semibold text-foreground hover:bg-secondary/60 disabled:text-muted-foreground disabled:hover:bg-transparent"
+              className="h-11 border-x border-border px-3 text-sm font-semibold text-foreground hover:bg-secondary/60 disabled:text-muted-foreground disabled:hover:bg-transparent"
             >
-              Today
+              {t("tasks.today")}
             </button>
             <button
               type="button"
               onClick={() => setAnchor((a) => stepAnchor(view, a, 1))}
-              aria-label={view === "month" ? "Next month" : "Next week"}
-              className="grid h-9 w-9 place-items-center rounded-r-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+              aria-label={view === "month" ? t("tasks.nextMonth") : t("tasks.nextWeek")}
+              className="grid h-11 w-11 place-items-center rounded-r-lg text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -483,14 +472,14 @@ export function TaskPlanner({
             onClick={() => setFiltersOpen((o) => !o)}
             aria-expanded={filtersOpen || filtering}
             aria-controls="plan-filters"
-            className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition lg:hidden ${
+            className={`inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold transition lg:hidden ${
               filtering
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-border bg-card text-muted-foreground hover:text-foreground"
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-            Filter{filtering ? " · on" : ""}
+            {filtering ? t("tasks.filterOn") : t("tasks.filter")}
           </button>
         </div>
       </div>
@@ -505,7 +494,7 @@ export function TaskPlanner({
           chips={STATUS_CHIPS}
           active={status}
           onChip={setStatus}
-          label="Search tasks on every date"
+          label={t("tasks.searchTasksOnEveryDate")}
         />
       </div>
 
@@ -527,9 +516,7 @@ export function TaskPlanner({
         <>
           {drag && (view === "week" || view === "people") && (
             <p className="hidden px-1 text-sm text-muted-foreground lg:block">
-              {view === "people"
-                ? "Drag a task to another day, or to someone else's row to hand it over. Tap one to change anything else."
-                : "Drag a task to another day to move it. Tap one to change anything else."}
+              {view === "people" ? t("tasks.dragTaskPeopleHint") : t("tasks.dragTaskWeekHint")}
             </p>
           )}
 
@@ -543,9 +530,11 @@ export function TaskPlanner({
                 <button
                   type="button"
                   onClick={() => setShowEarlier(true)}
-                  className="rounded-2xl border border-dashed border-border px-3 py-2.5 text-left text-sm font-semibold text-primary hover:bg-secondary/50 lg:hidden"
+                  className="min-h-11 rounded-2xl border border-dashed border-border px-3 py-2.5 text-left text-sm font-semibold text-primary hover:bg-secondary/50 lg:hidden"
                 >
-                  Show earlier days ({days.filter((d) => toISODate(d) < todayIso).length})
+                  {richText(t("tasks.showEarlierDays"), {
+                    length: days.filter((d) => toISODate(d) < todayIso).length,
+                  })}
                 </button>
               )}
               {days.map((day) => {

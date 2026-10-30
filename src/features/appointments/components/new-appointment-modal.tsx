@@ -8,6 +8,7 @@ import type { Helper } from "@/features/people/people.types";
 
 import { EVENT_TEMPLATES } from "../appointment.constants";
 import type { Appointment, EventTemplate, PrepDraft } from "../appointment.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type PrepRow = {
   title: string;
@@ -28,6 +29,7 @@ export function NewAppointmentModal({
   onAdd: (a: Omit<Appointment, "id">, preps: PrepDraft[]) => void;
   defaultDate: string;
 }) {
+  const t = useT();
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(defaultDate);
@@ -98,7 +100,7 @@ export function NewAppointmentModal({
   return (
     <Modal onClose={onClose} size="lg">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-xl text-foreground">New appointment</h3>
+        <h3 className="font-display text-xl text-foreground">{t("appointments.newAppointment")}</h3>
         <button
           onClick={onClose}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
@@ -110,7 +112,7 @@ export function NewAppointmentModal({
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              Start from a template
+              {t("appointments.startFromATemplate")}
             </span>
             {templateId && (
               <button
@@ -118,7 +120,7 @@ export function NewAppointmentModal({
                 onClick={clearTemplate}
                 className="text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
-                Clear
+                {t("appointments.clear")}
               </button>
             )}
           </div>
@@ -144,21 +146,20 @@ export function NewAppointmentModal({
           </div>
           {templateId && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Prep loaded from template. House-standard notes come along — tweak below if needed,
-              then set the date and time.
+              {t("appointments.prepLoadedFromTemplateHouse")}
             </p>
           )}
         </div>
-        <Field label="Title">
+        <Field label={t("appointments.title")}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Sir's flight"
+            placeholder={t("appointments.eGSirSFlight")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date">
+          <Field label={t("appointments.date")}>
             <input
               type="date"
               value={date}
@@ -166,7 +167,7 @@ export function NewAppointmentModal({
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-          <Field label="Time">
+          <Field label={t("appointments.time")}>
             <input
               type="time"
               value={time}
@@ -178,13 +179,15 @@ export function NewAppointmentModal({
 
         <div className="rounded-2xl ring-1 ring-border/20 bg-background/60 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Prep tasks</span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              {t("appointments.prepTasks")}
+            </span>
             <button
               type="button"
               onClick={addRow}
               className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
             >
-              <Plus className="h-3 w-3" /> Add prep
+              <Plus className="h-3 w-3" /> {t("appointments.addPrep")}
             </button>
           </div>
           <div className="space-y-3">
@@ -194,14 +197,14 @@ export function NewAppointmentModal({
                   <input
                     value={p.title}
                     onChange={(e) => updateRow(i, { title: e.target.value })}
-                    placeholder="Prep task title"
+                    placeholder={t("appointments.prepTaskTitle")}
                     className="flex-1 rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
                   />
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
                     className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    aria-label="Remove prep"
+                    aria-label={t("appointments.removePrep")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -209,7 +212,7 @@ export function NewAppointmentModal({
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className="block">
                     <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-                      How long before
+                      {t("appointments.howLongBefore")}
                     </span>
                     <div className="flex gap-1.5">
                       <input
@@ -226,14 +229,14 @@ export function NewAppointmentModal({
                         onChange={(e) => updateRow(i, { leadUnit: e.target.value as "m" | "h" })}
                         className="flex-1 rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
                       >
-                        <option value="m">minutes</option>
-                        <option value="h">hours</option>
+                        <option value="m">{t("appointments.minutes")}</option>
+                        <option value="h">{t("appointments.hours")}</option>
                       </select>
                     </div>
                   </label>
                   <label className="block">
                     <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-                      Assign to
+                      {t("appointments.assignTo")}
                     </span>
                     <HelperPicker
                       helpers={activeHelpers}
@@ -250,7 +253,7 @@ export function NewAppointmentModal({
                   value={p.note}
                   onChange={(e) => updateRow(i, { note: e.target.value })}
                   rows={2}
-                  placeholder="House-standard note (optional)"
+                  placeholder={t("appointments.houseStandardNoteOptional")}
                   className="mt-2 w-full resize-none rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
                 />
               </div>
@@ -263,13 +266,13 @@ export function NewAppointmentModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("appointments.cancel")}
         </button>
         <button
           onClick={submit}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
-          Save appointment
+          {t("appointments.saveAppointment")}
         </button>
       </div>
     </Modal>

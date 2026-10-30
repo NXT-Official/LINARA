@@ -1,0 +1,21 @@
+{
+  "shifts": {
+    "shifts": "Turnos",
+    "oneShiftWindowAndRest": "Un horario de turno y un día de descanso por empleada. Toca una fila para editar.",
+    "noActiveHelpersYet": "Aún no hay empleadas activas.",
+    "shiftStart": "Inicio de turno",
+    "shiftEnd": "Fin de turno",
+    "restDay": "Día de descanso",
+    "breakStartOptional": "Inicio de descanso (opcional)",
+    "breakEndOptional": "Fin de descanso (opcional)",
+    "cancel": "Cancelar",
+    "saving": "Guardando...",
+    "rest": "{station} · {value} · Descanso: {value2}",
+    "helpers": "{el1} {length} empleadas",
+    "close": "Cerrar",
+    "edit": "Editar",
+    "noOneCovers": "Nadie cubre el {day}",
+    "noOneInTeamCovers": "Nadie en {team} cubre el {day}",
+    "save": "Guardar"
+  }
+}

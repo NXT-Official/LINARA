@@ -558,7 +558,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           toast.info(
             "Bumagong araw habang wala ka" +
               (routinesRespawned > 0
-                ? ` — ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
+                ? `, ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
                 : "") +
               (utosCleared ? ", mga Quick Utos na-clear." : "."),
           );

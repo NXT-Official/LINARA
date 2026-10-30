@@ -1,0 +1,16 @@
+{
+  "common": {
+    "language": {
+      "current": "Idioma: {language}"
+    },
+    "primary": "Principal",
+    "search": "Buscar…",
+    "clearSearch": "Limpiar búsqueda",
+    "filter": "Filtrar",
+    "thisPageDidnTLoad": "Esta página no cargó",
+    "somethingWentWrongHereThe": "Algo salió mal aquí. El resto de Linara funciona bien. Inténtalo de nuevo o elige otra pestaña.",
+    "tryAgain": "Intentar de nuevo",
+    "showFewer": "Mostrar menos",
+    "showMore": "Mostrar {count} {noun} más"
+  }
+}

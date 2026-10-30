@@ -7,6 +7,8 @@ import { taskTone } from "../planner.utils";
 import type { Task } from "../task.types";
 import type { PlannerDrag } from "./planner-day-column";
 import { TONE_DOT } from "./planner-tone";
+import { richText } from "@/lib/i18n/rich-text";
+import { useT } from "@/lib/i18n/locale-context";
 
 const SHOWN_PER_DAY = 3;
 
@@ -35,6 +37,7 @@ export function PlannerMonth({
   drag?: PlannerDrag;
   onOpenDay: (day: Date) => void;
 }) {
+  const t = useT();
   return (
     <div className="overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border/20">
       <div className="grid grid-cols-7 border-b border-border/60" aria-hidden>
@@ -60,12 +63,14 @@ export function PlannerMonth({
           const summary = [
             day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
             tasks.length === 0
-              ? "nothing planned"
-              : `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}${open && open < tasks.length ? `, ${open} still to do` : ""}`,
+              ? t("tasks.monthNothingPlanned")
+              : open && open < tasks.length
+                ? t("tasks.monthTasksStillToDo", { count: tasks.length, open })
+                : t("tasks.monthTasks", { count: tasks.length }),
             late > 0 ? `${late} late` : null,
             held > 0 ? `${held} on hold` : null,
             cancelled > 0 ? `${cancelled} cancelled` : null,
-            appts.length > 0 ? `${appts.length} appointment${appts.length === 1 ? "" : "s"}` : null,
+            appts.length > 0 ? t("tasks.monthAppointments", { count: appts.length }) : null,
           ]
             .filter(Boolean)
             .join(", ");
@@ -145,7 +150,9 @@ export function PlannerMonth({
                   ) : null,
                 )}
                 {extra > 0 && (
-                  <span className="text-xs font-semibold text-muted-foreground">+{extra} more</span>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {richText(t("tasks.more"), { extra: extra })}
+                  </span>
                 )}
               </span>
             </button>

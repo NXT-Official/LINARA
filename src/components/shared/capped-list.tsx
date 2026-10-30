@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Children, useState, type ReactNode } from "react";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * Shows the first `limit` children and a "Show N more" toggle for the rest,
@@ -19,6 +20,7 @@ export function CappedList({
   noun: [string, string];
   className?: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const items = Children.toArray(children);
   const hidden = items.length - limit;
@@ -35,12 +37,12 @@ export function CappedList({
         >
           {open ? (
             <>
-              <ChevronUp className="h-3.5 w-3.5" /> Show fewer
+              <ChevronUp className="h-3.5 w-3.5" /> {t("common.showFewer")}
             </>
           ) : (
             <>
-              <ChevronDown className="h-3.5 w-3.5" /> Show {hidden} more{" "}
-              {hidden === 1 ? noun[0] : noun[1]}
+              <ChevronDown className="h-3.5 w-3.5" />{" "}
+              {t("common.showMore", { count: hidden, noun: hidden === 1 ? noun[0] : noun[1] })}
             </>
           )}
         </button>

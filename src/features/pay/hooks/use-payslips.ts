@@ -107,7 +107,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     target: PaymentTarget = {},
   ) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in — hindi ma-initiate ang payout.");
+      toast.error("Hindi ka naka-sign in, kaya hindi ma-initiate ang payout.");
       throw new Error("Not authenticated");
     }
     try {

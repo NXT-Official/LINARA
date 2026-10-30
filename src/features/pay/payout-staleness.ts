@@ -74,7 +74,7 @@ export function payoutStaleness(payslip: Payslip, nowMs: number): PayoutStalenes
     isStale: true,
     advice:
       payslip.payoutStatus === "pending_send"
-        ? "This never finished sending. It may or may not have reached Xendit — check before paying again."
+        ? "This never finished sending. It may or may not have reached Xendit. Check before paying again."
         : "Xendit accepted this but never confirmed it. Check whether it has settled.",
   };
 }

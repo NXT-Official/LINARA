@@ -12,6 +12,8 @@ import {
   requestAccountDeletionFn,
   type AccountDeletionRequest,
 } from "../people.actions";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const longDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" });
@@ -37,6 +39,7 @@ export function AccountSection({
   /** What they type to confirm. Empty falls back to "delete my account". */
   confirmName: string;
 }) {
+  const t = useT();
   const [request, setRequest] = useState<AccountDeletionRequest | null>(null);
   const [asking, setAsking] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -69,51 +72,57 @@ export function AccountSection({
 
   return (
     <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6">
-      <h2 className="font-display text-xl text-foreground">Your account</h2>
+      <h2 className="font-display text-xl text-foreground">{t("people.yourAccount")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        How Linara handles your household&rsquo;s data is in the{" "}
-        <Link to="/privacy" className="font-semibold text-primary underline">
-          privacy policy
-        </Link>{" "}
-        and{" "}
-        <Link to="/terms" className="font-semibold text-primary underline">
-          terms
-        </Link>
-        .
+        {richText(t("people.howLinaraHandlesYourHousehold"), {
+          el1: (
+            <Link to="/privacy" className="font-semibold text-primary underline">
+              {t("people.privacyPolicy")}
+            </Link>
+          ),
+          el2: (
+            <Link to="/terms" className="font-semibold text-primary underline">
+              {t("people.terms")}
+            </Link>
+          ),
+        })}
       </p>
 
       {request ? (
         <div className="mt-4 rounded-2xl border border-accent/40 bg-terracotta-soft/40 px-4 py-3 text-sm">
           <p className="text-foreground">
-            You asked for this account to be deleted on {longDate(request.requestedAt)}. It will be
-            done within {DELETION_WINDOW_DAYS} days of that. Until then everything works as usual.
+            {richText(t("people.youAskedForThisAccount"), {
+              value: longDate(request.requestedAt),
+              deletionWindowDays: DELETION_WINDOW_DAYS,
+            })}
           </p>
           <button
             onClick={cancel}
             disabled={cancelling}
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline disabled:opacity-60"
           >
-            {cancelling && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Keep my account
+            {richText(t("people.keepMyAccount"), {
+              value: cancelling && <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+            })}
           </button>
         </div>
       ) : (
         <details className="group mt-4">
           <summary className="cursor-pointer list-none text-sm font-semibold text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-            Account settings
-            <span className="ml-1 inline-block transition group-open:rotate-90">›</span>
+            {richText(t("people.accountSettings"), {
+              span: <span className="ml-1 inline-block transition group-open:rotate-90">›</span>,
+            })}
           </summary>
           <div className="mt-3 rounded-2xl border border-border px-4 py-3">
             <p className="text-sm text-muted-foreground">
-              Deleting your account removes your household&rsquo;s plans and lists. You&rsquo;ll be
-              asked to confirm.
+              {t("people.deletingYourAccountRemovesYour")}
             </p>
             <button
               onClick={() => setAsking(true)}
               disabled={!token}
-              className="mt-3 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
+              className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-destructive/40 px-3 text-sm font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
             >
-              Delete my account
+              {t("people.deleteMyAccount")}
             </button>
           </div>
         </details>
@@ -152,6 +161,7 @@ function DeleteAccountModal({
   onClose: () => void;
   onRequested: (request: AccountDeletionRequest) => void;
 }) {
+  const t = useT();
   const phrase = confirmName.trim() || "delete my account";
   const [typed, setTyped] = useState("");
   const confirmed = normalize(typed) === normalize(phrase);
@@ -175,10 +185,10 @@ function DeleteAccountModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">Delete your account?</h3>
+        <h3 className="font-display text-xl text-foreground">{t("people.deleteYourAccount")}</h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("people.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -187,28 +197,21 @@ function DeleteAccountModal({
 
       <div className="mt-3 space-y-3 text-sm text-foreground">
         <p>
-          We&rsquo;ll delete it within {DELETION_WINDOW_DAYS} days, and you can change your mind
-          until then. If you&rsquo;re the household&rsquo;s only manager, its appointments,
-          procedures, pantry and grocery lists go too.
+          {richText(t("people.weLlDeleteItWithin"), { deletionWindowDays: DELETION_WINDOW_DAYS })}
         </p>
-        <p className="text-muted-foreground">
-          The household&rsquo;s employment records (payslips, hours, leave and vales) stay for at
-          least three years, as labor law requires. Your helpers can still see and download theirs.
-        </p>
+        <p className="text-muted-foreground">{t("people.theHouseholdSEmploymentRecords")}</p>
         {activeHelperCount > 0 && (
           <p className="flex items-start gap-2 rounded-2xl border border-accent/40 bg-terracotta-soft/40 px-3 py-2.5">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            <span>
-              {activeHelperCount === 1
-                ? "Someone still works for this household."
-                : `${activeHelperCount} people still work for this household.`}{" "}
-              End each employment on People first, with final pay, or the deletion will wait until
-              you do.
-            </span>
+            <span>{t("people.stillWorksForHousehold", { count: activeHelperCount })}</span>
           </p>
         )}
         <Field
-          label={`Type ${confirmName.trim() ? "your full name" : "this"}, ${phrase}, to confirm`}
+          label={
+            confirmName.trim()
+              ? t("people.typeFullNameToConfirm", { phrase })
+              : t("people.typeThisToConfirm", { phrase })
+          }
         >
           <input
             value={typed}
@@ -219,7 +222,7 @@ function DeleteAccountModal({
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
-        <Field label="Anything we should know? (optional)">
+        <Field label={t("people.anythingWeShouldKnowOptional")}>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -240,15 +243,16 @@ function DeleteAccountModal({
           disabled={submitting}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("people.cancel")}
         </button>
         <button
           onClick={submit}
           disabled={submitting || !confirmed}
           className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90 disabled:opacity-50"
         >
-          {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Ask to delete my account
+          {richText(t("people.askToDeleteMyAccount"), {
+            value: submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+          })}
         </button>
       </div>
     </Modal>

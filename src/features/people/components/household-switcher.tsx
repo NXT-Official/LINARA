@@ -19,6 +19,8 @@ import { useCanAdd } from "@/features/plan/hooks/use-can-add";
 import { lookupManagerInviteFn } from "../household.actions";
 import { adminTypeLabel, managerRoleType } from "../people.constants";
 import { clearPendingCode, readPendingCode } from "../pending-invite";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const inputClass =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
@@ -34,6 +36,7 @@ const quietButton =
  * is applied.
  */
 export function HouseholdSwitcher() {
+  const t = useT();
   const { session } = useAppStores();
   const [dialog, setDialog] = useState<"new" | "join" | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -74,19 +77,21 @@ export function HouseholdSwitcher() {
       <DropdownMenu>
         <DropdownMenuTrigger
           className="inline-flex h-9 max-w-[9rem] items-center sm:max-w-[14rem] gap-1.5 rounded-lg border border-border/60 bg-card/80 px-2.5 text-xs font-semibold text-foreground shadow-soft transition hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`Household: ${current?.name ?? "choose one"}. Switch household`}
+          aria-label={t("people.householdSwitchAria", {
+            name: current?.name ?? t("people.chooseOne"),
+          })}
         >
           {switching ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
           ) : (
             <Home className="h-3.5 w-3.5 shrink-0 text-primary" />
           )}
-          <span className="truncate">{current?.name ?? "Household"}</span>
+          <span className="truncate">{current?.name ?? t("people.household")}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Your households
+            {t("people.yourHouseholds")}
           </DropdownMenuLabel>
           {session.households.map((h) => (
             <DropdownMenuItem
@@ -109,11 +114,11 @@ export function HouseholdSwitcher() {
           {/* Only a primary manager starts one (restrict-create-household.sql, O49). */}
           {canStartHousehold && (
             <DropdownMenuItem onSelect={() => setDialog("new")} className="gap-2">
-              <Plus className="h-4 w-4" /> New household
+              <Plus className="h-4 w-4" /> {t("people.newHousehold")}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => setDialog("join")} className="gap-2">
-            <KeyRound className="h-4 w-4" /> Join with a code
+            <KeyRound className="h-4 w-4" /> {t("people.joinWithACode")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -121,10 +126,8 @@ export function HouseholdSwitcher() {
       {dialog === "new" && <NewHouseholdModal onClose={() => setDialog(null)} />}
       {dialog === "join" && (
         <Modal onClose={closeJoin}>
-          <DialogHeader title="Join a household" onClose={closeJoin} />
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enter the code its primary manager gave you. You&apos;ll keep your other households.
-          </p>
+          <DialogHeader title={t("people.joinAHousehold")} onClose={closeJoin} />
+          <p className="mt-1 text-sm text-muted-foreground">{t("people.enterTheCodeItsPrimary")}</p>
           <JoinHouseholdForm
             token={session.token}
             onJoin={join}
@@ -138,12 +141,13 @@ export function HouseholdSwitcher() {
 }
 
 function DialogHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  const t = useT();
   return (
     <div className="flex items-start justify-between gap-3">
       <h3 className="font-display text-xl text-foreground">{title}</h3>
       <button
         onClick={onClose}
-        aria-label="Close"
+        aria-label={t("people.close")}
         className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
       >
         <X className="h-4 w-4" />
@@ -153,6 +157,7 @@ function DialogHeader({ title, onClose }: { title: string; onClose: () => void }
 }
 
 function NewHouseholdModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const { session } = useAppStores();
   const [name, setName] = useState("");
   const [tried, setTried] = useState(false);
@@ -173,19 +178,16 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal onClose={onClose}>
-      <DialogHeader title="New household" onClose={onClose} />
-      <p className="mt-1 text-sm text-muted-foreground">
-        A second home, or your parents&apos;. You&apos;ll be its primary manager, and you can switch
-        back any time.
-      </p>
+      <DialogHeader title={t("people.newHousehold")} onClose={onClose} />
+      <p className="mt-1 text-sm text-muted-foreground">{t("people.aSecondHomeOrYour")}</p>
       <LimitNotice check={householdCheck} className="mt-4" />
       <div className="mt-4">
-        <Field label="Household name" error={error}>
+        <Field label={t("people.householdName")} error={error}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
-            placeholder="e.g. Lola's house"
+            placeholder={t("people.eGLolaSHouse")}
             aria-invalid={!!error}
             className={inputClass}
           />
@@ -193,10 +195,12 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onClose} className={quietButton}>
-          Cancel
+          {t("people.cancel")}
         </button>
         <button onClick={create} disabled={busy || !householdCheck.ok} className={primaryButton}>
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create household
+          {richText(t("people.createHousehold2"), {
+            value: busy && <Loader2 className="h-4 w-4 animate-spin" />,
+          })}
         </button>
       </div>
     </Modal>
@@ -222,6 +226,7 @@ export function JoinHouseholdForm({
   initialCode?: string;
   onCancel?: () => void;
 }) {
+  const t = useT();
   const [code, setCode] = useState(initialCode);
   const [fullName, setFullName] = useState("");
   const [tried, setTried] = useState(false);
@@ -273,22 +278,22 @@ export function JoinHouseholdForm({
   return (
     <div className="mt-4 space-y-3">
       {askName && (
-        <Field label="Your name" error={errors.name}>
+        <Field label={t("people.yourName")} error={errors.name}>
           <input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Tina Reyes"
+            placeholder={t("people.eGTinaReyes")}
             aria-invalid={!!errors.name}
             className={inputClass}
           />
         </Field>
       )}
-      <Field label="Invite code" error={errors.code}>
+      <Field label={t("people.inviteCode")} error={errors.code}>
         <input
           value={code}
           onChange={(e) => setCode(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && join()}
-          placeholder="8 letters and numbers"
+          placeholder={t("people.8LettersAndNumbers")}
           autoCapitalize="characters"
           autoComplete="off"
           spellCheck={false}
@@ -298,23 +303,28 @@ export function JoinHouseholdForm({
       </Field>
       {preview === "invalid" && (
         <p role="status" className="text-xs font-semibold text-destructive">
-          That code isn&apos;t valid any more. Ask for a new one.
+          {t("people.thatCodeIsnTValid")}
         </p>
       )}
       {preview && preview !== "invalid" && (
         <p role="status" className="rounded-xl bg-secondary/60 px-3 py-2 text-sm text-foreground">
-          <span className="font-semibold">{preview.householdName}</span>, as {preview.role}
-          {preview.invitedBy ? `, from ${preview.invitedBy}` : ""}.
+          {richText(preview.invitedBy ? t("people.previewAsRoleFrom") : t("people.previewAsRole"), {
+            household: <span className="font-semibold">{preview.householdName}</span>,
+            role: preview.role,
+            invitedBy: preview.invitedBy,
+          })}
         </p>
       )}
       <div className="flex justify-end gap-2 pt-1">
         {onCancel && (
           <button onClick={onCancel} className={quietButton}>
-            Cancel
+            {t("people.cancel")}
           </button>
         )}
         <button onClick={join} disabled={busy} className={primaryButton}>
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />} Join household
+          {richText(t("people.joinHousehold2"), {
+            value: busy && <Loader2 className="h-4 w-4 animate-spin" />,
+          })}
         </button>
       </div>
     </div>

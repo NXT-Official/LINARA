@@ -4,8 +4,11 @@ import { useState } from "react";
 import type { Invite } from "../people.types";
 
 import { Modal } from "@/components/shared/modal";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose: () => void }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -20,9 +23,11 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-muted-foreground">Invite created</div>
+          <div className="text-xs font-semibold text-muted-foreground">
+            {t("people.inviteCreated")}
+          </div>
           <h3 className="mt-1 font-display text-2xl text-foreground">
-            Share this code with {invite.name}
+            {richText(t("people.shareThisCodeWith"), { name: invite.name })}
           </h3>
         </div>
         <button
@@ -43,11 +48,11 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3" /> Copied
+              <Check className="h-3 w-3" /> {t("people.copied")}
             </>
           ) : (
             <>
-              <Link2 className="h-3 w-3" /> Copy code
+              <Link2 className="h-3 w-3" /> {t("people.copyCode")}
             </>
           )}
         </button>
@@ -56,19 +61,18 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
       <div className="mt-5 space-y-2 rounded-2xl bg-background/60 p-4 text-xs text-muted-foreground">
         <div>
           <span className="font-semibold text-foreground">{invite.station}</span> ·{" "}
-          {invite.employment === "live-in" ? "Live-in" : "Live-out"}
+          {invite.employment === "live-in" ? t("people.liveIn") : t("people.liveOut")}
         </div>
-        <div>Shift: {invite.shift}</div>
-        <div>Rest day: {invite.restDay}</div>
-        <div>Wage: ₱{invite.wagePHP.toLocaleString()} / month</div>
-        {invite.phone && <div>Contact: {invite.phone}</div>}
+        <div>{richText(t("people.shift"), { shift: invite.shift })}</div>
+        <div>{richText(t("people.restDay2"), { restDay: invite.restDay })}</div>
+        <div>{richText(t("people.wageMonth"), { value: invite.wagePHP.toLocaleString() })}</div>
+        {invite.phone && <div>{richText(t("people.contact"), { phone: invite.phone })}</div>}
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        They'll set up and control their own account with this code — their record stays theirs.
-        Until then they'll appear as{" "}
-        <span className="font-semibold text-foreground">Invited — pending</span> in your People
-        list.
+        {richText(t("people.theyLlSetUpAnd"), {
+          span: <span className="font-semibold text-foreground">{t("people.invitedPending")}</span>,
+        })}
       </p>
 
       <div className="mt-5 flex justify-end">
@@ -76,7 +80,7 @@ export function InviteCodeScreen({ invite, onClose }: { invite: Invite; onClose:
           onClick={onClose}
           className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
         >
-          Done
+          {t("people.done")}
         </button>
       </div>
     </Modal>

@@ -20,6 +20,7 @@ import {
   type SubStatus,
   type Usage,
 } from "./plan.types";
+import type { Translate } from "@/lib/i18n/instance";
 
 export const PAYMENT_METHODS = ["gcash", "maya", "card", "qrph", "otc", "card_decline"] as const;
 /** Xendit's channels for the Philippines, plus a test card that always declines. */
@@ -642,9 +643,10 @@ export function previewStatus(status: SubStatus) {
 export function saveSelection(
   selection: ActiveSelection,
   available: { households: string[]; kasambahay: string[] },
+  t?: Translate,
 ): SelectionCheck {
   if (state.live) return { ok: false, message: NOT_SAMPLE };
-  const check = checkSelection(state.subscription, selection, available);
+  const check = checkSelection(state.subscription, selection, available, t);
   if (check.ok) set({ ...state, selection });
   return check;
 }

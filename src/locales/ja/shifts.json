@@ -1,0 +1,21 @@
+{
+  "shifts": {
+    "shifts": "シフト",
+    "oneShiftWindowAndRest": "スタッフごとに1つのシフト時間と休日を設定します。行をタップして編集してください。",
+    "noActiveHelpersYet": "稼働中のスタッフはまだいません。",
+    "shiftStart": "シフト開始",
+    "shiftEnd": "シフト終了",
+    "restDay": "休日",
+    "breakStartOptional": "休憩開始（任意）",
+    "breakEndOptional": "休憩終了（任意）",
+    "cancel": "キャンセル",
+    "saving": "保存中...",
+    "rest": "{station} · {value} · 休日：{value2}",
+    "helpers": "{el1} スタッフ {length} 名",
+    "close": "閉じる",
+    "edit": "編集",
+    "noOneCovers": "{day}は担当者がいません",
+    "noOneInTeamCovers": "{team}では{day}の担当者がいません",
+    "save": "保存"
+  }
+}

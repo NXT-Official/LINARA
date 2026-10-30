@@ -10,6 +10,8 @@ import { usePlanUsage } from "../hooks/use-plan-usage";
 import { limitText, limitsFor, overLimits, planById } from "../plan.logic";
 import { getPlanState, saveSelection, saveSelectionLive, usePlan } from "../plan.store";
 import type { ActiveSelection } from "../plan.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type Item = { id: string; name: string };
 
@@ -42,13 +44,14 @@ function Picker({
   limit: number | null;
   onChange: (ids: string[]) => void;
 }) {
+  const t = useT();
   const full = limit !== null && picked.length >= limit;
   return (
     <fieldset className="mt-4">
       <legend className="flex w-full items-baseline justify-between gap-3 text-sm font-semibold text-foreground">
         <span>{title}</span>
         <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-          {picked.length} of {limit ?? "any"} chosen
+          {t("plan.ofAnyChosen", { picked: picked.length, limit: limit ?? t("plan.any") })}
         </span>
       </legend>
       <ul className="mt-1.5 divide-y divide-border rounded-2xl border border-border">
@@ -73,7 +76,7 @@ function Picker({
                 />
                 <span className="min-w-0 flex-1 text-sm text-foreground">{item.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {checked ? "Stays active" : "Paused"}
+                  {checked ? t("plan.staysActive") : t("plan.paused")}
                 </span>
               </label>
             </li>
@@ -85,6 +88,7 @@ function Picker({
 }
 
 function ChooseModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const { subscription: sub, selection } = usePlan();
   const choices = useChoices();
   const limits = limitsFor(sub);
@@ -100,31 +104,31 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">Choose what stays active</h3>
+        <h3 className="font-display text-xl text-foreground">{t("plan.chooseWhatStaysActive")}</h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("plan.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        {planById(sub.planId)?.name ?? "Your plan"} allows{" "}
-        {limitText("households", limits.households)} and{" "}
-        {limitText("kasambahay", limits.kasambahay)}. For the rest, new tasks and schedule changes
-        pause; nothing is deleted, and you can change this any time. A kasambahay not chosen keeps
-        her own app: her record, leave and rest days.
+        {t("plan.allowsRest", {
+          plan: planById(sub.planId)?.name ?? t("plan.yourPlan"),
+          households: limitText("households", limits.households, t),
+          kasambahay: limitText("kasambahay", limits.kasambahay, t),
+        })}
       </p>
       <Picker
-        title="Households"
+        title={t("plan.households")}
         items={choices.households}
         picked={picked.households}
         limit={limits.households}
         onChange={(households) => setPicked({ ...picked, households })}
       />
       <Picker
-        title="Kasambahay in this household"
+        title={t("plan.kasambahayInThisHousehold")}
         items={choices.kasambahay}
         picked={picked.kasambahay}
         limit={limits.kasambahay}
@@ -143,7 +147,7 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="min-h-11 rounded-lg px-4 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("plan.cancel")}
         </button>
         <button
           onClick={async () => {
@@ -153,7 +157,9 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
             };
             const live = getPlanState().live;
             // Live: the database checks the same rules against everything you own.
-            const res = live ? await saveSelectionLive(picked) : saveSelection(picked, available);
+            const res = live
+              ? await saveSelectionLive(picked)
+              : saveSelection(picked, available, t);
             if (!res.ok) {
               setError(res.message);
               return;
@@ -167,7 +173,7 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
           }}
           className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-pine-deep"
         >
-          Save
+          {t("plan.save")}
         </button>
       </div>
     </Modal>
@@ -180,6 +186,7 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
  * period. Says what happens and opens the choice.
  */
 export function OverLimitBanner() {
+  const t = useT();
   const { subscription: sub, selection } = usePlan();
   const usage = usePlanUsage();
   const [choosing, setChoosing] = useState(false);
@@ -197,13 +204,14 @@ export function OverLimitBanner() {
       className={`rounded-3xl p-5 sm:p-6 ${restricted ? "bg-status-late-soft" : "bg-terracotta-soft"}`}
     >
       <p className={`text-sm ${restricted ? "text-status-late-ink" : "text-hearth-ink"}`}>
-        {text} Nothing is deleted.
+        {richText(t("plan.nothingIsDeleted"), { text: text })}
       </p>
       {selection ? (
         <p className={`mt-1 text-xs ${restricted ? "text-status-late-ink" : "text-hearth-ink"}`}>
-          You've chosen {selection.households.length} household
-          {selection.households.length === 1 ? "" : "s"} and {selection.kasambahay.length}{" "}
-          kasambahay to stay active.
+          {t("plan.youveChosen", {
+            count: selection.households.length,
+            kasambahay: selection.kasambahay.length,
+          })}
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -211,13 +219,13 @@ export function OverLimitBanner() {
           onClick={() => setChoosing(true)}
           className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-pine-deep"
         >
-          {selection ? "Change what stays active" : "Choose what stays active"}
+          {selection ? t("plan.changeWhatStays") : t("plan.chooseWhatStays")}
         </button>
         <Link
           to="/manager/plan"
           className="inline-flex min-h-11 items-center rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
         >
-          See your plan
+          {t("plan.seeYourPlan")}
         </Link>
       </div>
       {choosing ? <ChooseModal onClose={() => setChoosing(false)} /> : null}

@@ -25,6 +25,8 @@ import {
 import type { Recurrence, Task } from "../task.types";
 import { defaultTaskTime, taskFormErrors } from "../task.utils";
 import { DurationField } from "./duration-field";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 export function NewTaskModal({
   activeHelpers,
@@ -49,6 +51,7 @@ export function NewTaskModal({
   /** Approved time off warns like an out-of-shift time does (KNOWN_GAPS O19). */
   timeOff?: TimeOff[];
 }) {
+  const t = useT();
   const [title, setTitle] = useState("");
   // "" = Unassigned: a task can wait on the board until someone is picked.
   const [helperId, setHelperId] = useState(defaultHelperId ?? activeHelpers[0]?.id ?? "");
@@ -122,32 +125,30 @@ export function NewTaskModal({
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
         <h3 className="font-display text-xl text-foreground">
-          {isRemote ? "Suggest a task" : "New task"}
+          {isRemote ? t("tasks.suggestATask") : t("tasks.newTask")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("tasks.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       {isRemote && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          From afar you can propose things — an on-site manager approves them onto the board.
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("tasks.fromAfarYouCanPropose")}</p>
       )}
       <div className="mt-4 space-y-3">
-        <Field label="Title" error={errors.title}>
+        <Field label={t("tasks.title")} error={errors.title}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Fold laundry"
+            placeholder={t("tasks.eGFoldLaundry")}
             aria-invalid={!!errors.title}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
           />
         </Field>
-        <Field label="Assign to">
+        <Field label={t("tasks.assignTo")}>
           <HelperPicker
             helpers={activeHelpers}
             value={helperId}
@@ -158,7 +159,7 @@ export function NewTaskModal({
         </Field>
         <TripFields from={trip.from} to={trip.to} onChange={(from, to) => setTrip({ from, to })} />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date" error={errors.date}>
+          <Field label={t("tasks.date")} error={errors.date}>
             <input
               type="date"
               value={date}
@@ -168,7 +169,7 @@ export function NewTaskModal({
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive"
             />
           </Field>
-          <Field label="Time" error={errors.time}>
+          <Field label={t("tasks.time")} error={errors.time}>
             <input
               type="time"
               value={time}
@@ -187,33 +188,37 @@ export function NewTaskModal({
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
             {inTimeOff
-              ? `That's in ${assignee?.short ?? "the helper"}'s approved time off.`
-              : `That's outside ${assignee?.short ?? "the helper"}'s shift.`}{" "}
-            Doing it then counts as after-hours work and adds to rest owed.
+              ? t("tasks.inApprovedTimeOff", { name: assignee?.short ?? t("tasks.theHelper") })
+              : t("tasks.outsideShift", { name: assignee?.short ?? t("tasks.theHelper") })}{" "}
+            {t("tasks.countsAsAfterHours")}
           </p>
         )}
         {elsewhere && (
           <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-            {assignee?.short ?? "The helper"} is at {elsewhere.householdName} {slotTime(elsewhere)}.
+            {t("tasks.isAtElsewhere", {
+              name: assignee?.short ?? t("tasks.theHelperCap"),
+              place: elsewhere.householdName,
+              time: slotTime(elsewhere),
+            })}
           </p>
         )}
-        <Field label="House-standard note (optional)">
+        <Field label={t("tasks.houseStandardNoteOptional")}>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="e.g. Warm water only, fold in thirds."
+            placeholder={t("tasks.eGWarmWaterOnly")}
             className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
         </Field>
-        <Field label="Repeat">
+        <Field label={t("tasks.repeat")}>
           <div className="inline-flex w-full rounded-xl border border-input bg-background p-1">
             {(
               [
-                { key: "none", label: "None" },
-                { key: "daily", label: "Every day" },
-                { key: "weekdays", label: "Specific days" },
+                { key: "none", label: t("tasks.repeatNone") },
+                { key: "daily", label: t("tasks.repeatDaily") },
+                { key: "weekdays", label: t("tasks.repeatWeekdays") },
               ] as const
             ).map((opt) => {
               const active = repeatKind === opt.key;
@@ -265,8 +270,11 @@ export function NewTaskModal({
             className="mt-0.5 h-4 w-4 accent-primary"
           />
           <span className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Send live · urgent</span>: straight to
-            the helper if they're on shift. If they're off, it goes to the on-site managers instead.
+            {richText(t("tasks.straightToTheHelperIf"), {
+              span: (
+                <span className="font-semibold text-foreground">{t("tasks.sendLiveUrgent")}</span>
+              ),
+            })}
           </span>
         </label>
       )}
@@ -275,13 +283,17 @@ export function NewTaskModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("tasks.cancel")}
         </button>
         <button
           onClick={submit}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
-          {isRemote ? (sendLive ? "Send live" : "Send to on-site manager") : "Add to board"}
+          {isRemote
+            ? sendLive
+              ? t("tasks.sendLive")
+              : t("tasks.sendToOnSite")
+            : t("tasks.addToBoard")}
         </button>
       </div>
     </Modal>

@@ -17,8 +17,11 @@ import {
 } from "../household.actions";
 import { adminPermSummary, adminTypeLabel, managerRoleType } from "../people.constants";
 import type { Admin, ManagerInvite, ManagerRole } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type InviteRole = Exclude<ManagerRole, "primary_manager">;
+const MANAGER_ROLES: readonly InviteRole[] = ["co_manager", "remote_admin"] as const;
 
 const roleBadge: Record<Admin["type"], string> = {
   primary: "bg-primary/10 text-primary",
@@ -36,6 +39,7 @@ const whenExpires = (iso: string) =>
  * all of it (add-household-managers.sql); this only offers what's allowed.
  */
 export function ManagersSection() {
+  const t = useT();
   const { session } = useAppStores();
   const { admins, currentAdmin, multiManager, token } = session;
   const isPrimary = session.adminType === "primary";
@@ -78,8 +82,8 @@ export function ManagersSection() {
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Managers</h2>
-          <p className="text-xs text-muted-foreground">The grown-ups who run the house.</p>
+          <h2 className="font-display text-xl text-foreground">{t("people.managers")}</h2>
+          <p className="text-xs text-muted-foreground">{t("people.theGrownUpsWhoRun")}</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           <Users className="h-3 w-3" /> {admins.length}
@@ -101,7 +105,7 @@ export function ManagersSection() {
                   <span className="text-sm font-semibold text-foreground">{a.name}</span>
                   {isYou && (
                     <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
-                      You
+                      {t("people.you")}
                     </span>
                   )}
                   <span
@@ -146,7 +150,7 @@ export function ManagersSection() {
                     ) : (
                       <>
                         <label className="sr-only" htmlFor={`role-${a.id}`}>
-                          {a.name}&apos;s role
+                          {richText(t("people.sRole"), { name: a.name })}
                         </label>
                         <select
                           id={`role-${a.id}`}
@@ -155,20 +159,20 @@ export function ManagersSection() {
                           onChange={(e) => changeRole(a, e.target.value as InviteRole)}
                           className="rounded-lg border border-input bg-background px-2 py-1 text-xs font-semibold text-foreground outline-none focus:border-primary"
                         >
-                          <option value="co_manager">Co-manager</option>
-                          <option value="remote_admin">Remote admin</option>
+                          <option value="co_manager">{t("people.coManager")}</option>
+                          <option value="remote_admin">{t("people.remoteAdmin")}</option>
                         </select>
                         <button
                           onClick={() => setConfirm({ kind: "primary", admin: a })}
                           className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
                         >
-                          Make primary
+                          {t("people.makePrimary")}
                         </button>
                         <button
                           onClick={() => setConfirm({ kind: "remove", admin: a })}
                           className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-destructive"
                         >
-                          Remove
+                          {t("people.remove")}
                         </button>
                       </>
                     )}
@@ -190,7 +194,7 @@ export function ManagersSection() {
                         onClick={() => setConfirm({ kind: "leave", admin: a })}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-destructive"
                       >
-                        <LogOut className="h-3.5 w-3.5" /> Leave household
+                        <LogOut className="h-3.5 w-3.5" /> {t("people.leaveHousehold")}
                       </button>
                     )}
                   </div>
@@ -205,7 +209,9 @@ export function ManagersSection() {
         <div className="mt-4 border-t border-border/70 pt-4">
           {invites.length > 0 && (
             <div className="mb-3 space-y-2">
-              <div className="text-xs font-semibold text-muted-foreground">Codes not used yet</div>
+              <div className="text-xs font-semibold text-muted-foreground">
+                {t("people.codesNotUsedYet")}
+              </div>
               {invites.map((inv) => (
                 <div
                   key={inv.id}
@@ -216,7 +222,10 @@ export function ManagersSection() {
                     {inv.code}
                   </span>
                   <span className="text-muted-foreground">
-                    {adminTypeLabel[managerRoleType[inv.role]]} · until {whenExpires(inv.expiresAt)}
+                    {richText(t("people.until"), {
+                      value: adminTypeLabel[managerRoleType[inv.role]],
+                      value2: whenExpires(inv.expiresAt),
+                    })}
                   </span>
                   <button
                     onClick={() =>
@@ -233,7 +242,7 @@ export function ManagersSection() {
                     disabled={busy === `revoke-${inv.id}`}
                     className="ml-auto rounded-lg px-2 py-0.5 font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
                   >
-                    Cancel code
+                    {t("people.cancelCode")}
                   </button>
                 </div>
               ))}
@@ -242,9 +251,9 @@ export function ManagersSection() {
           <button
             onClick={() => setInviting(true)}
             disabled={!managerCheck.ok}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-soft hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="h-3.5 w-3.5" /> Invite a manager
+            <Plus className="h-3.5 w-3.5" /> {t("people.inviteAManager")}
           </button>
           <LimitNotice check={managerCheck} className="mt-2" />
         </div>
@@ -276,6 +285,7 @@ function ConfirmInline({
   onYes: () => void;
   onNo: () => void;
 }) {
+  const t = useT();
   return (
     <span className="inline-flex flex-wrap items-center gap-2 text-xs text-foreground">
       {question}
@@ -287,13 +297,14 @@ function ConfirmInline({
         {busy && <Loader2 className="h-3 w-3 animate-spin" />} {yes}
       </button>
       <button onClick={onNo} className="font-semibold text-muted-foreground hover:text-foreground">
-        Keep
+        {t("people.keep")}
       </button>
     </span>
   );
 }
 
 function InviteManagerModal({ token, onClose }: { token: string | null; onClose: () => void }) {
+  const t = useT();
   const [role, setRole] = useState<InviteRole>("co_manager");
   const { subscription } = usePlan();
   const remoteAllowed = hasFeature(subscription, "remote_admin");
@@ -325,11 +336,11 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-xl text-foreground">
-          {made ? "Share this code" : "Invite a manager"}
+          {made ? t("people.shareThisCode") : t("people.inviteAManager")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("people.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -348,35 +359,38 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
             >
               {copied ? (
                 <>
-                  <Check className="h-3 w-3" /> Copied
+                  <Check className="h-3 w-3" /> {t("people.copied")}
                 </>
               ) : (
                 <>
-                  <Link2 className="h-3 w-3" /> Copy code
+                  <Link2 className="h-3 w-3" /> {t("people.copyCode")}
                 </>
               )}
             </button>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
-            {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
-            <span className="font-semibold text-foreground">Join with a code</span>. Someone who
-            already manages another household keeps it.
+            {richText(t("people.forAItWorksOnce"), {
+              value: adminTypeLabel[managerRoleType[made.role]].toLowerCase(),
+              value2: whenExpires(made.expiresAt),
+              span: (
+                <span className="font-semibold text-foreground">{t("people.joinWithACode")}</span>
+              ),
+            })}
           </p>
           <div className="mt-5 flex justify-end">
             <button
               onClick={onClose}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
             >
-              Done
+              {t("people.done")}
             </button>
           </div>
         </>
       ) : (
         <>
           <fieldset className="mt-4 space-y-2">
-            <legend className="sr-only">Their role</legend>
-            {(["co_manager", "remote_admin"] as const).map((r) => {
+            <legend className="sr-only">{t("people.theirRole")}</legend>
+            {MANAGER_ROLES.map((r) => {
               const type = managerRoleType[r];
               const locked = r === "remote_admin" && !remoteAllowed;
               return (
@@ -402,7 +416,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
                       {adminTypeLabel[type]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {locked ? "Not on your plan." : adminPermSummary[type]}
+                      {locked ? t("people.notOnYourPlan") : adminPermSummary[type]}
                     </span>
                   </span>
                 </label>
@@ -414,14 +428,16 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("people.cancel")}
             </button>
             <button
               onClick={create}
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
             >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
+              {richText(t("people.makeACode"), {
+                value: busy && <Loader2 className="h-4 w-4 animate-spin" />,
+              })}
             </button>
           </div>
         </>

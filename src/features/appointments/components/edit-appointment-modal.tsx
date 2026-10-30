@@ -6,6 +6,7 @@ import { Field } from "@/components/shared/field";
 import { displayTimeTo24h } from "@/lib/time";
 
 import type { Appointment } from "../appointment.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function EditAppointmentModal({
   appointment,
@@ -16,6 +17,7 @@ export function EditAppointmentModal({
   onClose: () => void;
   onSave: (patch: { title: string; date: string; time: string }) => void;
 }) {
+  const t = useT();
   const [title, setTitle] = useState(appointment.title);
   const [date, setDate] = useState(appointment.date);
   const [time, setTime] = useState(displayTimeTo24h(appointment.time));
@@ -32,7 +34,9 @@ export function EditAppointmentModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-xl text-foreground">Edit appointment</h3>
+        <h3 className="font-display text-xl text-foreground">
+          {t("appointments.editAppointment")}
+        </h3>
         <button
           onClick={onClose}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
@@ -41,10 +45,10 @@ export function EditAppointmentModal({
         </button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Prep tasks will move automatically to keep their lead offsets.
+        {t("appointments.prepTasksWillMoveAutomatically")}
       </p>
       <div className="mt-4 space-y-3">
-        <Field label="Title">
+        <Field label={t("appointments.title")}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -52,7 +56,7 @@ export function EditAppointmentModal({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date">
+          <Field label={t("appointments.date")}>
             <input
               type="date"
               value={date}
@@ -60,7 +64,7 @@ export function EditAppointmentModal({
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-          <Field label="Time">
+          <Field label={t("appointments.time")}>
             <input
               type="time"
               value={time}
@@ -75,13 +79,13 @@ export function EditAppointmentModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("appointments.cancel")}
         </button>
         <button
           onClick={submit}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
-          Save changes
+          {t("appointments.saveChanges")}
         </button>
       </div>
     </Modal>

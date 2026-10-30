@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { PantryRole } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const OPTIONS: { role: PantryRole; label: string; hint: string }[] = [
   {
@@ -37,13 +39,16 @@ export function PantryRolePicker({
   canChange: boolean;
   onChange: (role: PantryRole) => Promise<void>;
 }) {
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const current = OPTIONS.find((o) => o.role === role) ?? OPTIONS[1];
 
   if (!canChange) {
     return (
       <div className="mt-1 text-xs text-muted-foreground">
-        Pantry: <span className="font-semibold text-foreground">{current.label}</span>
+        {richText(t("people.pantry2"), {
+          span: <span className="font-semibold text-foreground">{current.label}</span>,
+        })}
       </div>
     );
   }
@@ -63,7 +68,7 @@ export function PantryRolePicker({
   return (
     <div className="mt-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-foreground">Pantry</span>
+        <span className="text-xs font-semibold text-foreground">{t("people.pantry")}</span>
         <div
           role="radiogroup"
           aria-label={`Pantry access for ${name}`}

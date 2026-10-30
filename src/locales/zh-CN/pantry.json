@@ -1,0 +1,29 @@
+{
+  "pantry": {
+    "close": "关闭",
+    "name": "名称",
+    "eGToiletPaper": "例如：卫生纸",
+    "onHand": "现有数量",
+    "unit": "单位",
+    "pcsKgL": "个、千克、升",
+    "keepAtLeast": "最低常备量",
+    "category": "分类",
+    "cancel": "取消",
+    "remove": "移除",
+    "keep": "保留",
+    "pantry": "储藏室",
+    "sharedWithYourStaffWhat": "与家政人员共享。库存不足的物品会自动加入采购清单。",
+    "searchPantry": "搜索储藏室",
+    "nothingInThePantryYet": "储藏室中还没有物品。",
+    "addWhatYourHomeKeeps": "添加家中常备物品，例如大米、食用油和肥皂。",
+    "nothingMatches": "没有匹配项。",
+    "allStocked": "库存充足",
+    "addItem": "添加物品",
+    "keepAtLeast2": "至少常备 {par} {value}",
+    "runningLow": "{el1} {lowCount} 项库存不足",
+    "editItem": "编辑 {name}",
+    "addPantryItem": "添加储藏室物品",
+    "save": "保存",
+    "add": "添加"
+  }
+}

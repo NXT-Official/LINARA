@@ -1,0 +1,14 @@
+{
+  "availability": {
+    "sendAnywayAfterHours": "Send anyway · after-hours",
+    "emergency": "Emergency",
+    "crossesEvenQuietHoursAlways": "Crosses even quiet hours. Always logged as after-hours. Use only if it truly can't wait.",
+    "cancel": "Cancel",
+    "sending": "Sending {kindLabel}",
+    "overridesSOffStatusFlagged": "Overrides {helperName}'s Off status. Flagged, logged, and counted as rest owed.",
+    "reachingOffHoursIsReserved": "Reaching {helperName} off-hours is reserved for on-site admins (Primary or Co-manager). As a remote admin you can queue this for {helperName2}'s next shift.",
+    "until": "· until {value}",
+    "letItWait": "Let it wait",
+    "queueForNextShift": "Queue for next shift"
+  }
+}

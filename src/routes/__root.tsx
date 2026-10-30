@@ -11,24 +11,26 @@ import {
 import { type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { readLocale } from "@/lib/i18n/locale-cookie";
+import { LocaleProvider } from "@/lib/i18n/locale-context";
 
 import appCss from "../styles.css?url";
+import { useT } from "@/lib/i18n/locale-context";
 
 function NotFoundComponent() {
+  const t = useT();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
+        <h1 className={t("pages.text7xlFontBoldText")}>{t("pages.404")}</h1>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">{t("pages.pageNotFound")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("pages.thePageYouReLooking")}</p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            {t("pages.goHome")}
           </Link>
         </div>
       </div>
@@ -37,6 +39,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const t = useT();
   console.error(error);
   const router = useRouter();
 
@@ -44,11 +47,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          {t("pages.thisPageDidnTLoad")}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("pages.somethingWentWrongOnOur")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -57,13 +58,13 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {t("pages.tryAgain")}
           </button>
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            {t("pages.goHome")}
           </Link>
         </div>
       </div>
@@ -79,13 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Linara — Home, made clear." },
+      { title: "Linara · Home, made clear." },
       {
         name: "description",
         content:
           "Linara helps families and household helpers coordinate the day with calm, shared clarity.",
       },
-      { property: "og:title", content: "Linara — Home, made clear." },
+      { property: "og:title", content: "Linara · Home, made clear." },
       {
         property: "og:description",
         content: "A calm, shared home management app for families and helpers.",
@@ -114,6 +115,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
+  // The language cookie, read on the server too, so the first paint is in
+  // the manager's language (lib/i18n/locale-cookie.ts).
+  beforeLoad: () => ({ locale: readLocale() }),
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -121,8 +125,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const locale = Route.useRouteContext({ select: (c) => c.locale });
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <HeadContent />
       </head>
@@ -135,16 +140,18 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, locale } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      {/* Every toast.* call in the app renders here -- none showed before this
+    <LocaleProvider initial={locale}>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        {/* Every toast.* call in the app renders here -- none showed before this
           was mounted. Top-centre so it never collides with the bottom nav;
           sonner's own layer sits above modals. */}
-      <Toaster position="top-center" richColors closeButton />
-    </QueryClientProvider>
+        <Toaster position="top-center" richColors closeButton />
+      </QueryClientProvider>
+    </LocaleProvider>
   );
 }

@@ -19,6 +19,7 @@ import { useAppStores } from "../app-store-context";
 import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
 import { StaleDayNotice } from "../components/stale-day";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** Today at a glance: what needs a decision, then the day itself. */
 export function ManagerPassPage({
@@ -28,6 +29,7 @@ export function ManagerPassPage({
   view: PassMode | undefined;
   onViewChange: (mode: PassMode) => void;
 }) {
+  const t = useT();
   const {
     session,
     board,
@@ -162,7 +164,7 @@ export function ManagerPassPage({
 
   return (
     <>
-      <h1 className="sr-only">The Pass</h1>
+      <h1 className="sr-only">{t("dashboard.thePass")}</h1>
       <div className="mb-6 empty:hidden">
         <OverLimitBanner />
       </div>

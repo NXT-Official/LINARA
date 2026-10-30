@@ -1,0 +1,14 @@
+{
+  "availability": {
+    "sendAnywayAfterHours": "そのまま送る · 勤務時間外",
+    "emergency": "緊急",
+    "crossesEvenQuietHoursAlways": "深夜の休息時間にも届きます。常に勤務時間外として記録されます。本当に待てないときだけ使ってください。",
+    "cancel": "キャンセル",
+    "sending": "{kindLabel}を送信中",
+    "overridesSOffStatusFlagged": "{helperName} の「対応できない」状態を上書きします。フラグが付き、記録され、たまった休息時間に加算されます。",
+    "reachingOffHoursIsReserved": "勤務時間外に {helperName} へ連絡できるのは在宅の管理者（主管理者または共同管理者）のみです。リモート管理者として、これを {helperName2} の次のシフトに予約できます。",
+    "until": "· {value} まで",
+    "letItWait": "後回しにする",
+    "queueForNextShift": "次のシフトに予約する"
+  }
+}

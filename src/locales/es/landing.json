@@ -1,0 +1,31 @@
+{
+  "landing": {
+    "linaraHome": "Inicio de Linara",
+    "account": "Cuenta",
+    "logIn": "Iniciar sesión",
+    "getStarted": "Comenzar",
+    "dignityByDesign": "Dignidad por diseño.",
+    "anOperatingSystemForThe": "Un sistema operativo para el hogar filipino donde la familia y las personas que ayudan a llevarlo gestionan juntos el trabajo, los pagos y el cuidado, en condiciones justas.",
+    "setUpYourHousehold": "Configura tu hogar",
+    "haveACodeFromA": "¿Tienes el código de un hogar? Únete",
+    "workInAHouseholdGet": "¿Trabajas en un hogar? Descarga la aplicación",
+    "aRestaurantKitchenForThe": "Una cocina de restaurante para el hogar",
+    "weTranslateProvenRestaurantManagement": "Traducimos estructuras probadas de gestión de restaurantes en herramientas colaborativas que eliminan la fricción, la ambigüedad y la sobrecarga de trabajo.",
+    "oneSourceOfTruthTwo": "Una sola fuente de verdad, dos perspectivas",
+    "ourAppProvidesDifferentInterfaces": "Nuestra aplicación ofrece interfaces distintas adaptadas específicamente al trabajo y entorno de cada usuario.",
+    "theManagerSPass": "El Pase del Administrador",
+    "aReadMostlyAtA": "Un panel de lectura rápida que muestra de un vistazo barras de estado, tableros activos e indicadores financieros. Diseñado para padres ocupados que no pueden supervisar la casa todo el día.",
+    "theWorkerSStation": "La Estación del Personal",
+    "aHighContrastMobileScreen": "Una pantalla móvil de alto contraste que muestra una sola tarjeta principal. Sin canales de chat abiertos; el trabajo se gestiona mediante órdenes seguras y silenciosas.",
+    "theirLoginTheirPayRecord": "Su propio acceso, su propio historial de pagos",
+    "theHelperSetsTheirOwn": "Cada miembro del personal define su propia contraseña; el hogar nunca la tiene. Sus recibos de nómina, saldo de anticipos (vale) y descanso adeudado viven en su propia aplicación, mostrando las mismas cifras que ve la familia.",
+    "builtAroundBatasKasambahay": "Diseñado conforme a la ley Batas Kasambahay",
+    "2026LinaraHomeBuiltFor": "© 2026 Linara Home. Creado para la dignidad, la claridad y la armonía en el hogar.",
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "plans": "Planes",
+    "lNara": "l{span}nara",
+    "clarityOverControl": "Claridad antes que control. {br}{span}",
+    "wagesCheckedAgainstTheRegional": "{span} · Salarios verificados frente al mínimo regional, con el desglose de SSS, PhilHealth y Pag-IBIG calculado en cada recibo de nómina."
+  }
+}

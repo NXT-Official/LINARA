@@ -6,6 +6,7 @@ import { CATEGORY_LABEL, pantryItemErrors, parseAmount } from "../pantry.utils";
 
 import { Field } from "@/components/shared/field";
 import { Modal } from "@/components/shared/modal";
+import { useT } from "@/lib/i18n/locale-context";
 
 const INPUT =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary aria-[invalid=true]:border-destructive";
@@ -25,6 +26,7 @@ export function PantryItemModal({
   onClose: () => void;
   onSave: (item: Omit<PantryItem, "id">) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(initial?.name ?? "");
   const [qty, setQty] = useState(String(initial?.qty ?? 1));
   const [unit, setUnit] = useState(initial?.unit ?? "pcs");
@@ -50,29 +52,29 @@ export function PantryItemModal({
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between">
         <h3 className="font-display text-xl text-foreground">
-          {initial ? `Edit ${initial.name}` : "Add pantry item"}
+          {initial ? t("pantry.editItem", { name: initial.name }) : t("pantry.addPantryItem")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("pantry.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        <Field label="Name" error={errors.name}>
+        <Field label={t("pantry.name")} error={errors.name}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Toilet paper"
+            placeholder={t("pantry.eGToiletPaper")}
             aria-invalid={!!errors.name}
             className={INPUT}
           />
         </Field>
         <div className={`grid gap-2 ${initial ? "grid-cols-2" : "grid-cols-3"}`}>
           {!initial && (
-            <Field label="On hand" error={errors.qty}>
+            <Field label={t("pantry.onHand")} error={errors.qty}>
               <input
                 type="number"
                 min={0}
@@ -85,15 +87,15 @@ export function PantryItemModal({
               />
             </Field>
           )}
-          <Field label="Unit">
+          <Field label={t("pantry.unit")}>
             <input
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
-              placeholder="pcs, kg, L"
+              placeholder={t("pantry.pcsKgL")}
               className={INPUT}
             />
           </Field>
-          <Field label="Keep at least" error={errors.par}>
+          <Field label={t("pantry.keepAtLeast")} error={errors.par}>
             <input
               type="number"
               min={0}
@@ -106,7 +108,7 @@ export function PantryItemModal({
             />
           </Field>
         </div>
-        <Field label="Category">
+        <Field label={t("pantry.category")}>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as PantryCategory)}
@@ -125,13 +127,13 @@ export function PantryItemModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          {t("pantry.cancel")}
         </button>
         <button
           onClick={save}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
         >
-          {initial ? "Save" : "Add"}
+          {initial ? t("pantry.save") : t("pantry.add")}
         </button>
       </div>
     </Modal>

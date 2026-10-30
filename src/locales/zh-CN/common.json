@@ -1,0 +1,16 @@
+{
+  "common": {
+    "language": {
+      "current": "语言：{language}"
+    },
+    "primary": "主要管理人",
+    "search": "搜索…",
+    "clearSearch": "清除搜索",
+    "filter": "筛选",
+    "thisPageDidnTLoad": "此页面未能加载",
+    "somethingWentWrongHereThe": "这里出了点问题，但 Linara 的其他功能正常。请重试，或切换到其他标签页。",
+    "tryAgain": "重试",
+    "showFewer": "收起部分",
+    "showMore": "再显示 {count} 个{noun}"
+  }
+}

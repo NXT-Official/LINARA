@@ -1,0 +1,14 @@
+{
+  "availability": {
+    "sendAnywayAfterHours": "Enviar de todos modos · fuera de horario",
+    "emergency": "Emergencia",
+    "crossesEvenQuietHoursAlways": "Cruza incluso el horario de silencio. Siempre se registra como fuera de horario. Úsalo solo si realmente no puede esperar.",
+    "cancel": "Cancelar",
+    "sending": "Enviando {kindLabel}",
+    "overridesSOffStatusFlagged": "Anula el estado Fuera de turno de {helperName}. Se marca, se registra y se cuenta como descanso adeudado.",
+    "reachingOffHoursIsReserved": "Contactar a {helperName} fuera de horario está reservado para administradores en casa (Principal o Coadministrador). Como administrador remoto, puedes poner esto en cola para el próximo turno de {helperName2}.",
+    "until": "· hasta {value}",
+    "letItWait": "Dejar que espere",
+    "queueForNextShift": "Poner en cola para el próximo turno"
+  }
+}

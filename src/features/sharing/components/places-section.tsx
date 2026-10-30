@@ -3,6 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Where trips go, besides the family's houses: School, Office, Lola's. A
@@ -10,6 +12,7 @@ import { useAppStores } from "@/features/dashboard/app-store-context";
  * that went there, without that end.
  */
 export function PlacesSection({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const { sharing, session } = useAppStores();
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,25 +37,26 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
     <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Places</h2>
-          <p className="text-xs text-muted-foreground">
-            Where a trip can start or end: your houses, and the places you save here.
-          </p>
+          <h2 className="font-display text-xl text-foreground">{t("sharing.places")}</h2>
+          <p className="text-xs text-muted-foreground">{t("sharing.whereATripCanStart")}</p>
         </div>
         <MapPin className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </div>
 
       {houses.length > 0 && (
         <p className="mb-3 text-xs text-muted-foreground">
-          Your other houses:{" "}
-          <span className="font-semibold text-foreground">
-            {houses.map((h) => h.name).join(", ")}
-          </span>
+          {richText(t("sharing.yourOtherHouses"), {
+            houses: (
+              <span className="font-semibold text-foreground">
+                {houses.map((h) => h.name).join(", ")}
+              </span>
+            ),
+          })}
         </p>
       )}
 
       {sharing.places.length === 0 ? (
-        <p className="mb-3 text-sm text-muted-foreground">No saved places yet.</p>
+        <p className="mb-3 text-sm text-muted-foreground">{t("sharing.noSavedPlacesYet")}</p>
       ) : (
         <ul className="mb-3 divide-y divide-border/70">
           {sharing.places.map((p) => (
@@ -88,7 +92,7 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
             onClick={() => setDraft("")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft hover:bg-primary/5"
           >
-            <Plus className="h-3.5 w-3.5" /> New place
+            <Plus className="h-3.5 w-3.5" /> {t("sharing.newPlace")}
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -101,8 +105,8 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
                 if (e.key === "Escape") setDraft(null);
               }}
               maxLength={40}
-              placeholder="e.g. School, Office, Lola's"
-              aria-label="New place's name"
+              placeholder={t("sharing.eGSchoolOfficeLola")}
+              aria-label={t("sharing.newPlaceSName")}
               className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <button
@@ -111,14 +115,14 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
               disabled={!draft.trim() || busy}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("sharing.add")}
             </button>
             <button
               type="button"
               onClick={() => setDraft(null)}
               className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("sharing.cancel")}
             </button>
           </div>
         ))}

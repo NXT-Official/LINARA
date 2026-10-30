@@ -6,6 +6,8 @@ import { parseISODate } from "@/lib/time";
 import { TASK_SEARCH_LIMIT, taskDayIso } from "../planner.utils";
 import type { Task } from "../task.types";
 import { PlannerTaskRow } from "./planner-day-column";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const dayHeading = (iso: string) =>
   parseISODate(iso).toLocaleDateString("en-US", {
@@ -36,10 +38,11 @@ export function PlannerSearchResults({
   onOpenTask?: (task: Task) => void;
   onShowDay: (dayIso: string) => void;
 }) {
+  const t = useT();
   if (tasks === null) {
     return (
       <p className="flex items-center gap-2 px-1 py-6 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Searching every date…
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t("tasks.searchingEveryDate")}
       </p>
     );
   }
@@ -47,7 +50,7 @@ export function PlannerSearchResults({
   if (tasks.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-        No task on any date matches “{query.trim()}”.
+        {richText(t("tasks.noTaskOnAnyDate"), { value: query.trim() })}
       </p>
     );
   }
@@ -65,8 +68,8 @@ export function PlannerSearchResults({
     <div className="space-y-3">
       <p className="px-1 text-sm text-muted-foreground" aria-live="polite">
         {tasks.length === TASK_SEARCH_LIMIT
-          ? `The ${TASK_SEARCH_LIMIT} most recent tasks matching “${query.trim()}”. Add a word to narrow it.`
-          : `${tasks.length} ${tasks.length === 1 ? "task matches" : "tasks match"} “${query.trim()}”, on any date.`}
+          ? t("tasks.mostRecentMatching", { limit: TASK_SEARCH_LIMIT, query: query.trim() })
+          : t("tasks.tasksMatchAnyDate", { count: tasks.length, query: query.trim() })}
       </p>
       {days.map((day) => (
         <section
@@ -81,7 +84,7 @@ export function PlannerSearchResults({
               onClick={() => onShowDay(day)}
               className="text-xs font-semibold text-primary hover:underline"
             >
-              Show in week
+              {t("tasks.showInWeek")}
             </button>
           </div>
           <ul className="divide-y divide-border/60">

@@ -1,0 +1,31 @@
+{
+  "landing": {
+    "linaraHome": "Linara ホーム",
+    "account": "アカウント",
+    "logIn": "ログイン",
+    "getStarted": "はじめる",
+    "dignityByDesign": "尊厳を守るデザイン。",
+    "anOperatingSystemForThe": "家族と家を支えるスタッフが、公正な条件のもとで仕事・給料・暮らしのケアを一緒に管理するための、フィリピンの家庭向けオペレーティングシステムです。",
+    "setUpYourHousehold": "家庭を設定する",
+    "haveACodeFromA": "家庭からの招待コードをお持ちですか？参加する",
+    "workInAHouseholdGet": "家庭で働いていますか？アプリを入手",
+    "aRestaurantKitchenForThe": "家庭のためのレストランキッチン方式",
+    "weTranslateProvenRestaurantManagement": "実績あるレストランの運営体制を共同作業ツールへと応用し、すれ違いや曖昧さ、働きすぎをなくします。",
+    "oneSourceOfTruthTwo": "ひとつの正確な記録を、2つの視点で",
+    "ourAppProvidesDifferentInterfaces": "それぞれの役割や環境に合わせて最適化された画面を提供します。",
+    "theManagerSPass": "管理者の Pass（パス）",
+    "aReadMostlyAtA": "ステータスバー、進行中のボード、お金の状況がひと目でわかる確認中心のダッシュボード。一日中家を見守ることができない忙しいご家庭のために作られました。",
+    "theWorkerSStation": "スタッフのステーション",
+    "aHighContrastMobileScreen": "今やるべき1枚のカードに集中できる高コントラストなモバイル画面。オープンなチャット欄はなく、仕事は安心・静かなチケットとして管理されます。",
+    "theirLoginTheirPayRecord": "自分のログイン、自分の給与記録",
+    "theHelperSetsTheirOwn": "パスワードはスタッフ自身が設定し、家庭側が管理することはありません。給与明細、前借りの残高、たまった休息時間はスタッフ自身のアプリに保存され、家族が見るものと同じ数字が表示されます。",
+    "builtAroundBatasKasambahay": "Batas Kasambahay（家事労働者法）に準拠した設計",
+    "2026LinaraHomeBuiltFor": "© 2026 Linara Home. 尊厳、透明性、そして家庭の調和のために。",
+    "privacy": "プライバシー",
+    "terms": "利用規約",
+    "plans": "プラン",
+    "lNara": "l{span}nara",
+    "clarityOverControl": "管理ではなく、透明性を。{br}{span}",
+    "wagesCheckedAgainstTheRegional": "{span} · 地域別最低賃金と照合し、すべての給与明細で SSS、PhilHealth、Pag-IBIG の負担割合を自動計算します。"
+  }
+}

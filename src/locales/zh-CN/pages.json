@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "404": "404",
+    "text7xlFontBoldText": "text-7xl font-bold text-foreground",
+    "pantryGroceries": "储藏室与日常采购",
+    "pageNotFound": "找不到页面",
+    "thePageYouReLooking": "你访问的页面不存在或已被移动。",
+    "goHome": "返回首页",
+    "thisPageDidnTLoad": "此页面未能加载",
+    "somethingWentWrongOnOur": "我们这边出了点问题。你可以尝试刷新页面，或返回首页。",
+    "tryAgain": "重试",
+    "thisLinkHasExpired": "此链接已过期",
+    "emailConfirmed": "邮箱已确认",
+    "expiredHelper": "此链接已过期或已被使用。请返回 Linara 应用重新输入你的邀请码，我们会发送新的链接。",
+    "expiredManager": "此链接已被使用或已过期。请尝试登录；如果提示邮箱尚未确认，请使用同一邮箱重新注册，我们会发送新的链接。",
+    "confirmedHelper": "你的邮箱已确认。请返回 Linara 应用完成账号绑定或直接登录。",
+    "confirmedManager": "一切就绪。请登录以完成你的家庭设置。",
+    "openAppHelper": "打开 Linara 应用",
+    "openAppManager": "打开 Linara 应用",
+    "continueInBrowser": "在浏览器中继续",
+    "signIn": "登录"
+  }
+}

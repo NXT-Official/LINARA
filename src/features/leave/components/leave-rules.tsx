@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { LeavePolicy } from "../leave.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * The household's service incentive leave rule (client feedback, 2026-10-02:
@@ -17,6 +18,7 @@ export function LeaveRules({
   canChange: boolean;
   onChange: (next: LeavePolicy) => Promise<void>;
 }) {
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const [daysDraft, setDaysDraft] = useState(String(policy.silDaysPerYear));
 
@@ -44,7 +46,7 @@ export function LeaveRules({
 
   return (
     <div className="mb-4 rounded-2xl bg-secondary/40 p-3">
-      <div className="text-xs font-semibold text-foreground">Leave rules</div>
+      <div className="text-xs font-semibold text-foreground">{t("leave.leaveRules")}</div>
       <label className="mt-2 flex cursor-pointer items-start gap-2.5 text-xs text-foreground">
         <input
           type="checkbox"
@@ -54,11 +56,11 @@ export function LeaveRules({
           className="mt-0.5 h-4 w-4 accent-primary"
         />
         <span>
-          Service incentive leave starts after the first year
+          {t("leave.silStartsAfterFirstYear")}
           <span className="block text-muted-foreground">
             {policy.silWaitsFirstYear
-              ? "As RA 10361 has it. Untick to give it from day one."
-              : "Your household gives it from day one, sooner than the law asks."}
+              ? t("leave.asRa10361HasIt")
+              : t("leave.yourHouseholdGivesItFrom")}
           </span>
         </span>
       </label>
@@ -76,11 +78,11 @@ export function LeaveRules({
           onKeyDown={(e) => {
             if (e.key === "Enter") commitDays();
           }}
-          aria-label="Service incentive leave days a year"
+          aria-label={t("leave.serviceIncentiveLeaveDaysA")}
           className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-center text-xs tabular-nums outline-none focus:border-primary disabled:opacity-70"
         />
-        <span>days a service year</span>
-        <span className="text-muted-foreground">(5 is the law&apos;s minimum)</span>
+        <span>{t("leave.daysAServiceYear")}</span>
+        <span className="text-muted-foreground">{t("leave.5IsTheLawS")}</span>
       </label>
     </div>
   );

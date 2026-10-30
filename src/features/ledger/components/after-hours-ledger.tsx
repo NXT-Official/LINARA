@@ -5,6 +5,7 @@ import { formatTimeOfDay } from "@/lib/time";
 
 import type { LedgerEntry, LedgerResolution } from "../ledger.types";
 import { fmtHoursMinutes, ledgerEntryMinutes, reasonLabel } from "../ledger.utils";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function AfterHoursLedger({
   entries,
@@ -34,6 +35,7 @@ export function AfterHoursLedger({
   audience: "manager" | "helper";
   helperName?: string;
 }) {
+  const t = useT();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [savingDefault, setSavingDefault] = useState(false);
@@ -81,20 +83,22 @@ export function AfterHoursLedger({
               {fmtHoursMinutes(restMin)}
             </span>
             <span className="text-sm text-muted-foreground">
-              time off in lieu
-              {premiumMin > 0 && <> · {fmtHoursMinutes(premiumMin)} at rest-day premium</>}
+              {t("ledger.timeOffInLieu")}
+              {premiumMin > 0 &&
+                t("ledger.atRestDayPremium", { time: fmtHoursMinutes(premiumMin) })}
             </span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            The same numbers show on both sides. Only work done off shift adds rest here.
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("ledger.theSameNumbersShowOn")}</p>
         </div>
         {audience === "manager" && onSetDefault && (
           <div className="shrink-0 sm:text-right">
             <div className="text-xs font-semibold text-muted-foreground">
-              {helperName ? `${helperName}'s default` : "Default"}
+              {helperName
+                ? t("ledger.helpersDefault", { name: helperName })
+                : t("ledger.defaultLabel")}
             </div>
             <div className="mt-1 inline-flex rounded-xl border border-border bg-background p-0.5">
+              {/* eslint-disable-next-line i18next/no-literal-string -- values, not words */}
               {(["rest", "premium"] as const).map((k) => (
                 <button
                   key={k}
@@ -117,7 +121,7 @@ export function AfterHoursLedger({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {k === "rest" ? "Banked rest" : "Rest-day premium"}
+                  {k === "rest" ? t("ledger.bankedRest") : t("ledger.restDayPremium")}
                 </button>
               ))}
             </div>
@@ -128,9 +132,7 @@ export function AfterHoursLedger({
                 a helper should only carry the premium tag because a manager
                 decided it. Tapping the selected option clears it back to here. */}
             <p className="mt-1 text-xs text-muted-foreground">
-              {isExplicitDefault
-                ? "Set for this helper · tap again to clear"
-                : "Not set · defaults to banked rest"}
+              {isExplicitDefault ? t("ledger.setForHelper") : t("ledger.notSetDefaults")}
             </p>
           </div>
         )}
@@ -138,8 +140,8 @@ export function AfterHoursLedger({
 
       {monthEntries.length === 0 ? (
         <p className="mt-4 text-xs text-muted-foreground">
-          No after-hours yet this month.{" "}
-          {audience === "helper" ? "Rest well." : "Nothing to reconcile."}
+          {t("ledger.noAfterHoursYet")}{" "}
+          {audience === "helper" ? t("ledger.restWell") : t("ledger.nothingToReconcile")}
         </p>
       ) : (
         <>
@@ -148,8 +150,8 @@ export function AfterHoursLedger({
             className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft transition hover:border-primary/40"
           >
             {open
-              ? "Hide entries"
-              : `Show ${monthEntries.length} ${monthEntries.length === 1 ? "entry" : "entries"}`}
+              ? t("ledger.hideEntries")
+              : t("ledger.showEntries", { count: monthEntries.length })}
           </button>
           {open && (
             <ul className="mt-3 divide-y divide-border/70">
@@ -174,7 +176,7 @@ export function AfterHoursLedger({
                           </span>
                           {e.kind === "utos" && (
                             <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs font-semibold text-pine-deep">
-                              utos
+                              {t("ledger.utos")}
                             </span>
                           )}
                         </div>
@@ -184,13 +186,15 @@ export function AfterHoursLedger({
                           {fmtHoursMinutes(mins)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {e.resolution === "premium" ? "rest-day premium" : "banked rest"}
+                          {e.resolution === "premium"
+                            ? t("ledger.restDayPremiumLower")
+                            : t("ledger.bankedRestLower")}
                         </div>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        Adjust
+                        {t("ledger.adjust")}
                         <input
                           type="number"
                           value={e.adjustMinutes}
@@ -199,9 +203,10 @@ export function AfterHoursLedger({
                           }
                           className="w-16 rounded-lg border border-border bg-card px-2 py-1 text-right text-xs font-semibold text-foreground focus:border-primary/50 focus:outline-none"
                         />
-                        <span>min</span>
+                        <span>{t("ledger.min")}</span>
                       </label>
                       <div className="inline-flex rounded-xl border border-border bg-card p-0.5">
+                        {/* eslint-disable-next-line i18next/no-literal-string -- values, not words */}
                         {(["rest", "premium"] as const).map((k) => (
                           <button
                             key={k}
@@ -213,7 +218,7 @@ export function AfterHoursLedger({
                                 : "text-muted-foreground hover:text-foreground"
                             }`}
                           >
-                            {k === "rest" ? "Banked rest" : "Rest-day premium"}
+                            {k === "rest" ? t("ledger.bankedRest") : t("ledger.restDayPremium")}
                           </button>
                         ))}
                       </div>
@@ -226,10 +231,7 @@ export function AfterHoursLedger({
         </>
       )}
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        Work off shift still counts as rest owed, even when marked Available. Rest-day premium rates
-        follow local law.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("ledger.workOffShiftStillCounts")}</p>
     </section>
   );
 }

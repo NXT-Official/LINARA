@@ -1,0 +1,31 @@
+{
+  "landing": {
+    "linaraHome": "Linara home",
+    "account": "Account",
+    "logIn": "Log in",
+    "getStarted": "Get started",
+    "dignityByDesign": "Dignity by design.",
+    "anOperatingSystemForThe": "An operating system for the Filipino household where a family and the people who help run it manage work, pay, and care together, on fair terms.",
+    "setUpYourHousehold": "Set up your household",
+    "haveACodeFromA": "Have a code from a household? Join it",
+    "workInAHouseholdGet": "Work in a household? Get the app",
+    "aRestaurantKitchenForThe": "A restaurant kitchen for the home",
+    "weTranslateProvenRestaurantManagement": "We translate proven restaurant management structures into collaborative tools that eliminate friction, ambiguity, and overwork.",
+    "oneSourceOfTruthTwo": "One source of truth, two lenses",
+    "ourAppProvidesDifferentInterfaces": "Our app provides different interfaces tailored specifically to each user’s job and environment.",
+    "theManagerSPass": "The Manager's Pass",
+    "aReadMostlyAtA": "A read-mostly, at-a-glance dashboard showing status bars, active boards, and money dials. Built for busy parents who can't watch the house all day.",
+    "theWorkerSStation": "The Worker's Station",
+    "aHighContrastMobileScreen": "A high-contrast mobile screen displaying a single focal card. No open chat channels; work is tracked as secure, silent tickets.",
+    "theirLoginTheirPayRecord": "Their login, their pay record",
+    "theHelperSetsTheirOwn": "The helper sets their own password; the household never holds it. Their payslips, vale balance, and rest owed live in their own app, showing the same numbers the family sees.",
+    "builtAroundBatasKasambahay": "Built around Batas Kasambahay",
+    "2026LinaraHomeBuiltFor": "© 2026 Linara Home. Built for dignity, clarity, and household harmony.",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "plans": "Plans",
+    "lNara": "l{span}nara",
+    "clarityOverControl": "Clarity over control. {br}{span}",
+    "wagesCheckedAgainstTheRegional": "{span} · Wages checked against the regional minimum, with the SSS, PhilHealth, and Pag-IBIG split worked out on every payslip."
+  }
+}

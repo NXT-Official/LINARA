@@ -1,0 +1,10 @@
+{
+  "utos": {
+    "sendASmallAskTo": "ちょっとした頼みごとを送る：",
+    "typeAQuickUtos": "ちょっとした頼みごと（Utos）を入力…",
+    "needItTrackedTimedOr": "進捗の記録や時間指定、手順の指定が必要ですか？代わりに「新しいタスク」を使ってください。",
+    "quickUtos": "クイック Utos",
+    "send": "送信",
+    "sendASmallAskTo2": "{helperName} にちょっとした頼みごとを送る"
+  }
+}

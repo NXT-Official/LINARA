@@ -1,0 +1,31 @@
+{
+  "landing": {
+    "linaraHome": "Linara 首页",
+    "account": "账户",
+    "logIn": "登录",
+    "getStarted": "立即开始",
+    "dignityByDesign": "尊严，源于设计。",
+    "anOperatingSystemForThe": "专为菲律宾家庭打造的操作系统，让家庭成员与家政人员在公平透明的基础上，共同管理日常家务、薪资与关怀。",
+    "setUpYourHousehold": "设置你的家庭",
+    "haveACodeFromA": "有家庭邀请码？加入家庭",
+    "workInAHouseholdGet": "在家庭中工作？获取应用",
+    "aRestaurantKitchenForThe": "把星级餐厅后厨的秩序带回家",
+    "weTranslateProvenRestaurantManagement": "我们将成熟高效的餐厅后厨管理体系转化为协作工具，消除沟通摩擦、职责不清与过度劳累。",
+    "oneSourceOfTruthTwo": "同一套真实数据，两种专属视角",
+    "ourAppProvidesDifferentInterfaces": "我们的应用根据不同用户的职责与使用场景，量身定制了截然不同的操作界面。",
+    "theManagerSPass": "管理人的总览台（The Pass）",
+    "aReadMostlyAtA": "以浏览为主的一目了然仪表盘，集中展示状态栏、当前任务板和财务概览。专为工作繁忙、无法时刻盯着家务的家长打造。",
+    "theWorkerSStation": "家政人员的工作台（The Station）",
+    "aHighContrastMobileScreen": "高对比度的手机界面，每次聚焦展示一张核心任务卡。没有嘈杂的群聊刷屏，所有工作都作为安全、安静的工单有序跟进。",
+    "theirLoginTheirPayRecord": "独立的登录账号，自主掌握的薪资记录",
+    "theHelperSetsTheirOwn": "家政人员自行设置密码，雇主家庭无权代管。他们的工资单、预支余额和应补休时间都保存在自己的应用中，与雇主家庭看到的数据完全一致。",
+    "builtAroundBatasKasambahay": "严格遵循《菲律宾家政工人法》（Batas Kasambahay）打造",
+    "2026LinaraHomeBuiltFor": "© 2026 Linara Home。为尊严、清晰与家庭和谐而生。",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "plans": "套餐方案",
+    "lNara": "l{span}nara",
+    "clarityOverControl": "清晰胜于控制。{br}{span}",
+    "wagesCheckedAgainstTheRegional": "{span} · 薪资对照地区最低工资标准核验，每张工资单自动算清 SSS、PhilHealth 和 Pag-IBIG 分摊明细。"
+  }
+}

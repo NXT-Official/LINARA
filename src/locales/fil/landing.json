@@ -1,0 +1,31 @@
+{
+  "landing": {
+    "linaraHome": "Tahanan ng Linara",
+    "account": "Account / Profile",
+    "logIn": "Mag-log in",
+    "getStarted": "Magsimula na",
+    "dignityByDesign": "Disenyong may dignidad.",
+    "anOperatingSystemForThe": "Isang operating system para sa pamilyang Pilipino kung saan ang pamilya at ang mga katuwang sa bahay ay magkasamang nagtutulungan sa gawain, pasahod, at malasakit nang patas at malinaw.",
+    "setUpYourHousehold": "I-set up ang iyong sambahayan",
+    "haveACodeFromA": "May code ka mula sa isang sambahayan? Sumali rito",
+    "workInAHouseholdGet": "Nagtatrabaho sa isang sambahayan? Kunin ang app",
+    "aRestaurantKitchenForThe": "Parang maayos na kusina ng restaurant para sa tahanan",
+    "weTranslateProvenRestaurantManagement": "Isinasalin namin ang subok nang sistema ng pamamahala sa restaurant tungo sa mga collaborative tool na nag-aalis ng kalituhan, alitan, at sobrang trabaho.",
+    "oneSourceOfTruthTwo": "Iisang batayan ng katotohanan, dalawang pananaw",
+    "ourAppProvidesDifferentInterfaces": "Nagbibigay ang aming app ng magkaibang interface na akma sa partikular na tungkulin at kapaligiran ng bawat gumagamit.",
+    "theManagerSPass": "Ang Pass ng Manager",
+    "aReadMostlyAtA": "Isang dashboard na madaling basahin sa isang tingin na nagpapakita ng mga status bar, aktibong board, at lagay ng pera. Ginawa para sa mga abalang magulang na hindi kayang bantayan ang bahay buong araw.",
+    "theWorkerSStation": "Ang Station ng Kasambahay",
+    "aHighContrastMobileScreen": "Isang malinaw at high-contrast na mobile screen na nagpapakita ng paisa-isang card. Walang magulong chat channel; ang trabaho ay naka-track bilang ligtas at tahimik na mga ticket.",
+    "theirLoginTheirPayRecord": "Sarili nilang login, sarili nilang record ng sahod",
+    "theHelperSetsTheirOwn": "Ang helper mismo ang nagtatakda ng sarili niyang password; hindi ito kailanman hinahawakan ng sambahayan. Ang kanilang mga payslip, balanse sa vale, at utang na pahinga ay nasa sarili nilang app, na nagpapakita ng parehong numero na nakikita ng pamilya.",
+    "builtAroundBatasKasambahay": "Binubuo alinsunod sa Batas Kasambahay (RA 10361)",
+    "2026LinaraHomeBuiltFor": "© 2026 Linara Home. Ginawa para sa dignidad, kalinawan, at pagkakasundo sa tahanan.",
+    "privacy": "Pagkapribado",
+    "terms": "Mga Tuntunin",
+    "plans": "Mga Plano",
+    "lNara": "l{span}nara",
+    "clarityOverControl": "Kalinawan sa halip na kontrol. {br}{span}",
+    "wagesCheckedAgainstTheRegional": "{span} · Sinusuri ang sahod laban sa regional minimum wage, kasama ang awtomatikong kuwenta ng hatian sa SSS, PhilHealth, at Pag-IBIG sa bawat payslip."
+  }
+}

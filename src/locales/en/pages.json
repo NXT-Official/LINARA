@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "404": "404",
+    "text7xlFontBoldText": "text-7xl font-bold text-foreground",
+    "pantryGroceries": "Pantry & groceries",
+    "pageNotFound": "Page not found",
+    "thePageYouReLooking": "The page you're looking for doesn't exist or has been moved.",
+    "goHome": "Go home",
+    "thisPageDidnTLoad": "This page didn't load",
+    "somethingWentWrongOnOur": "Something went wrong on our end. You can try refreshing or head back home.",
+    "tryAgain": "Try again",
+    "thisLinkHasExpired": "This link has expired",
+    "emailConfirmed": "Email confirmed",
+    "expiredHelper": "Luma na o nagamit na ang link na ito. Bumalik sa Linara app at subukan ulit ang invite code mo; magpapadala kami ng bagong link.",
+    "expiredManager": "It was already used, or it's too old. Try signing in; if it says your email isn't confirmed, sign up again with the same email and we'll send a new link.",
+    "confirmedHelper": "Na-confirm na ang email mo. Bumalik sa Linara app para tapusin ang pag-claim o mag-sign in.",
+    "confirmedManager": "You're all set. Sign in to finish setting up your household.",
+    "openAppHelper": "Buksan ang Linara app",
+    "openAppManager": "Open the Linara app",
+    "continueInBrowser": "Continue in the browser",
+    "signIn": "Sign in"
+  }
+}

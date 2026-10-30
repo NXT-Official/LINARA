@@ -1,0 +1,10 @@
+{
+  "utos": {
+    "sendASmallAskTo": "Send a small ask to",
+    "typeAQuickUtos": "Type a quick utos…",
+    "needItTrackedTimedOr": "Need it tracked, timed, or done a certain way? Use New task instead.",
+    "quickUtos": "Quick utos",
+    "send": "Send",
+    "sendASmallAskTo2": "Send a small ask to {helperName}"
+  }
+}

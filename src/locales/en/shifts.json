@@ -1,0 +1,21 @@
+{
+  "shifts": {
+    "shifts": "Shifts",
+    "oneShiftWindowAndRest": "One shift window and rest day per helper. Tap a row to edit.",
+    "noActiveHelpersYet": "No active helpers yet.",
+    "shiftStart": "Shift start",
+    "shiftEnd": "Shift end",
+    "restDay": "Rest day",
+    "breakStartOptional": "Break start (optional)",
+    "breakEndOptional": "Break end (optional)",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "rest": "{station} · {value} · Rest: {value2}",
+    "helpers": "{el1} {length} helpers",
+    "close": "Close",
+    "edit": "Edit",
+    "noOneCovers": "No one covers {day}",
+    "noOneInTeamCovers": "No one in {team} covers {day}",
+    "save": "Save"
+  }
+}

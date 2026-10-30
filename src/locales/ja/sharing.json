@@ -1,0 +1,24 @@
+{
+  "sharing": {
+    "places": "場所",
+    "whereATripCanStart": "移動の出発地・目的地になる場所：ご自宅や、ここに保存した場所です。",
+    "noSavedPlacesYet": "保存された場所はまだありません。",
+    "eGSchoolOfficeLola": "例：学校、オフィス、おばあちゃんの家",
+    "newPlaceSName": "新しい場所の名前",
+    "cancel": "キャンセル",
+    "alsoWorkingHere": "ここでも勤務中",
+    "employedByAnotherOfYour": "あなたが管理する別のご家庭で雇用されています。給与と記録はそのご家庭に残ります。",
+    "from": "出発地",
+    "to": "目的地",
+    "savePlacesLikeSchoolOr": "「メンバー」の「場所」で、学校やオフィスなどの場所を保存できます。",
+    "newPlace": "新しい場所",
+    "teamLabels": "チームとラベル",
+    "rest": "{shift} · 休日：{restDay}",
+    "itSATrip": "{input}移動タスクにする{value}",
+    "yourOtherHouses": "あなたの他の家：{houses}",
+    "add": "追加",
+    "employedBy": "{house}で雇用",
+    "employedByTeamHere": "{house}で雇用 · ここでは{team}",
+    "choose": "選択…"
+  }
+}

@@ -7,6 +7,8 @@ import { Field } from "@/components/shared/field";
 
 import { completePasswordResetFn } from "../people.actions";
 import { requestPasswordResetFromSupabase } from "../people.auth";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type Recovery = { accessToken: string; refreshToken: string };
 type Mode = "loading" | "request" | "sent" | "set" | "done" | "expired";
@@ -40,6 +42,7 @@ function readRecoveryFromHash(): Recovery | { error: string } | null {
  * back to the mobile app to sign in -- this page never signs anyone in.
  */
 export function PasswordResetFlow() {
+  const t = useT();
   const [mode, setMode] = useState<Mode>("loading");
   const [recovery, setRecovery] = useState<Recovery | null>(null);
   const [email, setEmail] = useState("");
@@ -147,19 +150,20 @@ export function PasswordResetFlow() {
 
         {mode === "request" && (
           <>
-            <h1 className="mt-4 font-display text-2xl text-foreground">Reset your password</h1>
+            <h1 className="mt-4 font-display text-2xl text-foreground">
+              {t("people.resetYourPassword")}
+            </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Ilagay ang email ng account mo — manager man o helper — at padadalhan ka namin ng
-              link.
+              {t("people.ilagayAngEmailNgAccount")}
             </p>
             <div className="mt-4">
-              <Field label="Email">
+              <Field label={t("people.email")}>
                 <input
                   disabled={loading}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. ben@gmail.com"
+                  placeholder={t("people.eGBenGmailCom")}
                   className={inputClass}
                 />
               </Field>
@@ -169,26 +173,29 @@ export function PasswordResetFlow() {
               disabled={loading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("people.sendResetLink")}
             </button>
           </>
         )}
 
         {mode === "sent" && (
           <>
-            <h1 className="mt-4 font-display text-2xl text-foreground">Check your email</h1>
+            <h1 className="mt-4 font-display text-2xl text-foreground">
+              {t("people.checkYourEmail")}
+            </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Kung may account ang {email.trim()}, may reset link na papunta roon. Buksan mo iyon sa
-              device na ito o sa phone mo.
+              {richText(t("people.kungMayAccountAngMay"), { value: email.trim() })}
             </p>
           </>
         )}
 
         {mode === "set" && (
           <>
-            <h1 className="mt-4 font-display text-2xl text-foreground">Choose a new password</h1>
+            <h1 className="mt-4 font-display text-2xl text-foreground">
+              {t("people.chooseANewPassword")}
+            </h1>
             <div className="mt-4 space-y-3">
-              <Field label="New password">
+              <Field label={t("people.newPassword")}>
                 <input
                   disabled={loading}
                   type="password"
@@ -197,11 +204,11 @@ export function PasswordResetFlow() {
                     setPassword(e.target.value);
                     setFormError(null);
                   }}
-                  placeholder="At least 6 characters"
+                  placeholder={t("people.atLeast6Characters")}
                   className={inputClass}
                 />
               </Field>
-              <Field label="Confirm new password">
+              <Field label={t("people.confirmNewPassword")}>
                 <input
                   disabled={loading}
                   type="password"
@@ -227,7 +234,7 @@ export function PasswordResetFlow() {
               disabled={loading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save new password"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("people.saveNewPassword")}
             </button>
           </>
         )}
@@ -235,19 +242,17 @@ export function PasswordResetFlow() {
         {mode === "done" && (
           <>
             <h1 className="mt-4 font-display text-2xl text-foreground">
-              Password reset successfully!
+              {t("people.passwordResetSuccessfully")}
             </h1>
-            <p className="mt-1.5 text-sm text-foreground">
-              Napalitan na ang password mo. Mag-sign in gamit ang bagong password.
-            </p>
+            <p className="mt-1.5 text-sm text-foreground">{t("people.napalitanNaAngPasswordMo")}</p>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Kasambahay ka? Buksan ang Linara app sa phone mo at doon mag-sign in.
+              {t("people.kasambahayKaBuksanAngLinara")}
             </p>
             <a
               href="linaramobile://sign-in"
               className="mt-5 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
             >
-              Buksan ang Linara app
+              {t("people.buksanAngLinaraApp")}
             </a>
           </>
         )}
@@ -255,17 +260,14 @@ export function PasswordResetFlow() {
         {mode === "expired" && (
           <>
             <h1 className="mt-4 font-display text-2xl text-foreground">
-              This reset link has expired
+              {t("people.thisResetLinkHasExpired")}
             </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Luma na o nagamit na ang link na ito, kaya hindi napalitan ang password mo. Humingi ng
-              bagong link.
-            </p>
+            <p className="mt-1.5 text-sm text-muted-foreground">{t("people.lumaNaONagamitNa")}</p>
             <button
               onClick={() => setMode("request")}
               className="mt-5 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
             >
-              Send a new link
+              {t("people.sendANewLink")}
             </button>
           </>
         )}
@@ -273,9 +275,9 @@ export function PasswordResetFlow() {
         {mode !== "loading" && (
           <Link
             to="/login"
-            className="mt-4 block text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+            className="mt-2 flex min-h-11 items-center justify-center text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
           >
-            {mode === "done" ? "Or sign in here" : "Manager? Go to log in"}
+            {mode === "done" ? t("people.orSignInHere") : t("people.managerGoToLogIn")}
           </Link>
         )}
       </div>

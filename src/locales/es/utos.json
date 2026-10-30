@@ -1,0 +1,10 @@
+{
+  "utos": {
+    "sendASmallAskTo": "Enviar un encargo rápido a",
+    "typeAQuickUtos": "Escribe un encargo rápido (utos)…",
+    "needItTrackedTimedOr": "¿Necesitas seguimiento, horario o instrucciones específicas? Usa Nueva tarea en su lugar.",
+    "quickUtos": "Encargo rápido (utos)",
+    "send": "Enviar",
+    "sendASmallAskTo2": "Enviar un encargo rápido a {helperName}"
+  }
+}

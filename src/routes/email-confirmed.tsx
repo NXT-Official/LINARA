@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LogoMark } from "@/components/shared/logo";
+import { useT } from "@/lib/i18n/locale-context";
 
 type Who = "helper" | "manager";
 type ConfirmedSearch = { for?: Who };
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/email-confirmed")({
 const APP_SIGN_IN = "linaramobile://sign-in";
 
 function EmailConfirmed() {
+  const t = useT();
   const { for: who = "manager" } = Route.useSearch();
   const [expired, setExpired] = useState(false);
   const [onPhone, setOnPhone] = useState(false);
@@ -44,23 +46,20 @@ function EmailConfirmed() {
         {expired ? (
           <>
             <h1 className="mt-4 flex items-center gap-2 font-display text-2xl text-foreground">
-              <AlertCircle className="h-6 w-6 text-terracotta-ink" /> This link has expired
+              <AlertCircle className="h-6 w-6 text-terracotta-ink" />{" "}
+              {t("pages.thisLinkHasExpired")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {who === "helper"
-                ? "Luma na o nagamit na ang link na ito. Bumalik sa Linara app at subukan ulit ang invite code mo; magpapadala kami ng bagong link."
-                : "It was already used, or it's too old. Try signing in; if it says your email isn't confirmed, sign up again with the same email and we'll send a new link."}
+              {who === "helper" ? t("pages.expiredHelper") : t("pages.expiredManager")}
             </p>
           </>
         ) : (
           <>
             <h1 className="mt-4 flex items-center gap-2 font-display text-2xl text-foreground">
-              <CheckCircle2 className="h-6 w-6 text-primary" /> Email confirmed
+              <CheckCircle2 className="h-6 w-6 text-primary" /> {t("pages.emailConfirmed")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {who === "helper"
-                ? "Na-confirm na ang email mo. Bumalik sa Linara app para tapusin ang pag-claim o mag-sign in."
-                : "You're all set. Sign in to finish setting up your household."}
+              {who === "helper" ? t("pages.confirmedHelper") : t("pages.confirmedManager")}
             </p>
           </>
         )}
@@ -71,7 +70,7 @@ function EmailConfirmed() {
               href={APP_SIGN_IN}
               className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
             >
-              {who === "helper" ? "Buksan ang Linara app" : "Open the Linara app"}
+              {who === "helper" ? t("pages.openAppHelper") : t("pages.openAppManager")}
             </a>
           )}
           {who === "manager" && (
@@ -83,7 +82,7 @@ function EmailConfirmed() {
                   : "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
               }`}
             >
-              {onPhone ? "Continue in the browser" : "Sign in"}
+              {onPhone ? t("pages.continueInBrowser") : t("pages.signIn")}
             </Link>
           )}
         </div>

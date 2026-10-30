@@ -1,0 +1,24 @@
+{
+  "sharing": {
+    "places": "Mga lugar",
+    "whereATripCanStart": "Kung saan puwedeng magsimula o magtapos ang lakad: ang mga bahay mo, at ang mga lugar na ise-save mo rito.",
+    "noSavedPlacesYet": "Wala pang naka-save na lugar.",
+    "eGSchoolOfficeLola": "hal. Paaralan, Opisina, Bahay ni Lola",
+    "newPlaceSName": "Pangalan ng bagong lugar",
+    "cancel": "Kanselahin",
+    "alsoWorkingHere": "Nagtatrabaho rin dito",
+    "employedByAnotherOfYour": "Naka-employ sa isa pa sa mga sambahayan mo. Nandoon pa rin ang sahod at record nila.",
+    "from": "Mula sa",
+    "to": "Papunta sa",
+    "savePlacesLikeSchoolOr": "Mag-save ng mga lugar tulad ng Paaralan o Opisina sa ilalim ng Mga lugar sa People.",
+    "newPlace": "Bagong lugar",
+    "teamLabels": "Team at mga label",
+    "rest": "{shift} · Pahinga: {restDay}",
+    "itSATrip": "{input}Isa itong lakad{value}",
+    "yourOtherHouses": "Iba mo pang bahay: {houses}",
+    "add": "Idagdag",
+    "employedBy": "Naka-employ sa {house}",
+    "employedByTeamHere": "Naka-employ sa {house} · {team} dito",
+    "choose": "Pumili…"
+  }
+}

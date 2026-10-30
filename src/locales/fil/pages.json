@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "404": "404",
+    "text7xlFontBoldText": "text-7xl font-bold text-foreground",
+    "pantryGroceries": "Pantry at pamamalengke",
+    "pageNotFound": "Hindi nahanap ang pahina",
+    "thePageYouReLooking": "Ang pahinang hinahanap mo ay wala na o nailipat na sa ibang lokasyon.",
+    "goHome": "Bumalik sa home",
+    "thisPageDidnTLoad": "Hindi nag-load ang pahinang ito",
+    "somethingWentWrongOnOur": "Nagkaproblema sa aming sistema. Puwede mong subukang mag-refresh o bumalik sa home.",
+    "tryAgain": "Subukan ulit",
+    "thisLinkHasExpired": "Nag-expire na ang link na ito",
+    "emailConfirmed": "Nakumpirma na ang email",
+    "expiredHelper": "Nag-expire na o nagamit na ang link na ito. Bumalik sa Linara app at subukan ulit ang iyong invite code; magpapadala kami ng panibagong link.",
+    "expiredManager": "Nagamit na ito, o masyado nang luma. Subukang mag-sign in; kung sasabihing hindi pa nakumpirma ang iyong email, mag-sign up ulit gamit ang parehong email at magpapadala kami ng bagong link.",
+    "confirmedHelper": "Nakumpirma na ang iyong email. Bumalik sa Linara app para tapusin ang pag-claim o mag-sign in.",
+    "confirmedManager": "Handa na ang lahat. Mag-sign in para tapusin ang pag-set up ng iyong sambahayan.",
+    "openAppHelper": "Buksan na ang Linara app",
+    "openAppManager": "Buksan ang Linara app",
+    "continueInBrowser": "Magpatuloy sa browser",
+    "signIn": "Mag-sign in"
+  }
+}

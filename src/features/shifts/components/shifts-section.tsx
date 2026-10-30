@@ -13,6 +13,8 @@ import { groupByTeam } from "@/features/teams/teams.utils";
 import type { ScheduleStore } from "../hooks/use-schedules";
 import type { HelperSchedule } from "../shift.types";
 import { summarizeSchedule, uncoveredRestDay } from "../shift.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** One shift window + one rest day per helper, matching helper_profiles. */
 export function ShiftsSection({
@@ -24,6 +26,7 @@ export function ShiftsSection({
   helpers: Invite[];
   readOnly?: boolean;
 }) {
+  const t = useT();
   const { byHelper, update } = schedules;
   const [editingId, setEditingId] = useState<string | null>(null);
   const { teams } = useTeamView();
@@ -61,8 +64,11 @@ export function ShiftsSection({
             <div className="min-w-0">
               <div className="text-sm font-semibold text-foreground">{h.name}</div>
               <div className="truncate text-xs text-muted-foreground">
-                {h.station} · {summarizeSchedule(sched)} · Rest:{" "}
-                {WEEKLY_REST_DAY_NAMES[sched.weeklyRestDay]}
+                {richText(t("shifts.rest"), {
+                  station: h.station,
+                  value: summarizeSchedule(sched),
+                  value2: WEEKLY_REST_DAY_NAMES[sched.weeklyRestDay],
+                })}
               </div>
             </div>
           </div>
@@ -71,7 +77,7 @@ export function ShiftsSection({
               onClick={() => setEditingId(isEditing ? null : h.id)}
               className="shrink-0 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
             >
-              {isEditing ? "Close" : "Edit"}
+              {isEditing ? t("shifts.close") : t("shifts.edit")}
             </button>
           )}
         </div>
@@ -93,13 +99,14 @@ export function ShiftsSection({
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Shifts</h2>
-          <p className="text-xs text-muted-foreground">
-            One shift window and rest day per helper. Tap a row to edit.
-          </p>
+          <h2 className="font-display text-xl text-foreground">{t("shifts.shifts")}</h2>
+          <p className="text-xs text-muted-foreground">{t("shifts.oneShiftWindowAndRest")}</p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-          <CalendarClock className="h-3 w-3" /> {helpers.length} helpers
+          {richText(t("shifts.helpers"), {
+            el1: <CalendarClock className="h-3 w-3" />,
+            length: helpers.length,
+          })}
         </span>
       </div>
 
@@ -113,9 +120,11 @@ export function ShiftsSection({
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 <span className="font-semibold">
-                  No one {team ? `in ${team} ` : ""}covers {WEEKLY_REST_DAY_NAMES[day]}
+                  {team
+                    ? t("shifts.noOneInTeamCovers", { team, day: WEEKLY_REST_DAY_NAMES[day] })
+                    : t("shifts.noOneCovers", { day: WEEKLY_REST_DAY_NAMES[day] })}
                 </span>{" "}
-                —{" "}
+                :{" "}
                 {names.length === 2
                   ? `${names.join(" & ")} both rest that day.`
                   : `all ${names.length} rest that day.`}
@@ -144,7 +153,7 @@ export function ShiftsSection({
         <div className="divide-y divide-border/70">{shown.map(row)}</div>
       )}
       {helpers.length === 0 && (
-        <p className="text-xs text-muted-foreground">No active helpers yet.</p>
+        <p className="text-xs text-muted-foreground">{t("shifts.noActiveHelpersYet")}</p>
       )}
     </section>
   );
@@ -163,6 +172,7 @@ function ScheduleEditor({
   ) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [shiftStart, setShiftStart] = useState(schedule.shiftStart);
   const [shiftEnd, setShiftEnd] = useState(schedule.shiftEnd);
   const [weeklyRestDay, setWeeklyRestDay] = useState(schedule.weeklyRestDay);
@@ -193,7 +203,9 @@ function ScheduleEditor({
     <div className="mt-3 space-y-2.5 rounded-xl border border-border/60 bg-card p-3">
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs">
-          <span className="mb-1 block font-semibold text-muted-foreground">Shift start</span>
+          <span className="mb-1 block font-semibold text-muted-foreground">
+            {t("shifts.shiftStart")}
+          </span>
           <input
             type="time"
             value={shiftStart}
@@ -203,7 +215,9 @@ function ScheduleEditor({
           />
         </label>
         <label className="block text-xs">
-          <span className="mb-1 block font-semibold text-muted-foreground">Shift end</span>
+          <span className="mb-1 block font-semibold text-muted-foreground">
+            {t("shifts.shiftEnd")}
+          </span>
           <input
             type="time"
             value={shiftEnd}
@@ -214,7 +228,9 @@ function ScheduleEditor({
         </label>
       </div>
       <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-muted-foreground">Rest day</span>
+        <span className="mb-1 block font-semibold text-muted-foreground">
+          {t("shifts.restDay")}
+        </span>
         <select
           value={weeklyRestDay}
           onChange={(e) => setWeeklyRestDay(Number(e.target.value))}
@@ -231,7 +247,7 @@ function ScheduleEditor({
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs">
           <span className="mb-1 block font-semibold text-muted-foreground">
-            Break start (optional)
+            {t("shifts.breakStartOptional")}
           </span>
           <input
             type="time"
@@ -243,7 +259,7 @@ function ScheduleEditor({
         </label>
         <label className="block text-xs">
           <span className="mb-1 block font-semibold text-muted-foreground">
-            Break end (optional)
+            {t("shifts.breakEndOptional")}
           </span>
           <input
             type="time"
@@ -261,7 +277,7 @@ function ScheduleEditor({
           disabled={saving}
           className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("shifts.cancel")}
         </button>
         <button
           onClick={save}
@@ -270,10 +286,10 @@ function ScheduleEditor({
         >
           {saving ? (
             <>
-              <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+              <Loader2 className="h-3 w-3 animate-spin" /> {t("shifts.saving")}
             </>
           ) : (
-            "Save"
+            t("shifts.save")
           )}
         </button>
       </div>

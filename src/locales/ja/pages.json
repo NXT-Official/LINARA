@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "404": "404",
+    "text7xlFontBoldText": "text-7xl font-bold text-foreground",
+    "pantryGroceries": "食料庫と買い出し",
+    "pageNotFound": "ページが見つかりません",
+    "thePageYouReLooking": "お探しのページは存在しないか、移動しました。",
+    "goHome": "ホームへ戻る",
+    "thisPageDidnTLoad": "このページを読み込めませんでした",
+    "somethingWentWrongOnOur": "問題が発生しました。ページを再読み込みするか、ホームへ戻ってください。",
+    "tryAgain": "もう一度試す",
+    "thisLinkHasExpired": "このリンクは有効期限切れです",
+    "emailConfirmed": "メールアドレスを確認しました",
+    "expiredHelper": "このリンクは古いか、すでに使われています。Linara アプリに戻って招待コードをもう一度試してください。新しいリンクをお送りします。",
+    "expiredManager": "すでに使われたか、期限が切れています。ログインをお試しください。メールアドレスが未確認と表示される場合は、同じメールアドレスでもう一度登録すると新しいリンクをお送りします。",
+    "confirmedHelper": "メールアドレスが確認されました。Linara アプリに戻って登録を完了するか、ログインしてください。",
+    "confirmedManager": "準備が整いました。ログインして家庭の設定を完了してください。",
+    "openAppHelper": "Linara アプリを開く",
+    "openAppManager": "Linara アプリを開く",
+    "continueInBrowser": "ブラウザで続ける",
+    "signIn": "ログイン"
+  }
+}

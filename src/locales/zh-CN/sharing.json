@@ -1,0 +1,24 @@
+{
+  "sharing": {
+    "places": "常用地点",
+    "whereATripCanStart": "行程的起点或终点：您的各个住所，以及在此保存的地点。",
+    "noSavedPlacesYet": "暂无已保存的地点。",
+    "eGSchoolOfficeLola": "例如：学校、办公室、外婆家",
+    "newPlaceSName": "新地点名称",
+    "cancel": "取消",
+    "alsoWorkingHere": "同时在此工作的人员",
+    "employedByAnotherOfYour": "受雇于您名下的另一个家庭，其薪资与档案仍保留在原家庭。",
+    "from": "出发地",
+    "to": "目的地",
+    "savePlacesLikeSchoolOr": "可在“人员”页面的“常用地点”下保存学校、办公室等地点。",
+    "newPlace": "新增地点",
+    "teamLabels": "团队与标签",
+    "rest": "{shift} · 休息日：{restDay}",
+    "itSATrip": "{input}这是一次外出行程{value}",
+    "yourOtherHouses": "您的其他住所：{houses}",
+    "add": "添加",
+    "employedBy": "受雇于 {house}",
+    "employedByTeamHere": "受雇于 {house} · 在此属于{team}",
+    "choose": "选择…"
+  }
+}

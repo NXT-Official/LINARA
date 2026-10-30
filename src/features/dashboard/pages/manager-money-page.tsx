@@ -16,9 +16,11 @@ import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) {
+  const t = useT();
   const {
     ledger,
     helper,
@@ -94,7 +96,7 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Money</h1>
+      <h1 className="sr-only">{t("dashboard.money")}</h1>
       {PAY_HR_ENABLED ? (
         <PayrollSummary
           selectedId={selectedHelper?.id ?? null}
@@ -121,7 +123,7 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
             control, names the person, and carries the avatar. */}
         {activeHelpers.length > 1 && (
           <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
-            <span className="text-xs font-bold text-primary">Showing</span>
+            <span className="text-xs font-bold text-primary">{t("dashboard.showing")}</span>
             <Avatar initials={selectedHelper?.initials ?? "??"} />
             <HelperPicker
               helpers={activeHelpers}
@@ -182,15 +184,15 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
       {!selectedHelper ? (
         // Nobody employed yet: rest owed is per helper, so there is nothing to show.
         <section className="rounded-3xl border border-dashed border-border p-6 text-center">
-          <p className="text-sm font-semibold text-foreground">No helpers yet</p>
+          <p className="text-sm font-semibold text-foreground">{t("dashboard.noHelpersYet")}</p>
           <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-            Rest owed and pay show up here once a helper joins.
+            {t("dashboard.restOwedAndPayShow")}
           </p>
           <Link
             to="/manager/people"
             className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
           >
-            Invite a helper
+            {t("dashboard.inviteAHelper")}
           </Link>
         </section>
       ) : (

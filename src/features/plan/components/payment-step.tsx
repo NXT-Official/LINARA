@@ -23,6 +23,8 @@ import {
   type SamplePayment,
 } from "../plan.store";
 import type { AddonLine, Cycle, MySubscription } from "../plan.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:translate-y-0";
@@ -63,6 +65,7 @@ function XenditStep({
   open: () => Promise<CheckoutResult>;
   testMode: boolean;
 }) {
+  const t = useT();
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const go = async () => {
@@ -82,14 +85,9 @@ function XenditStep({
         <p className="text-sm font-semibold text-foreground">{title}</p>
         {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">
-        You'll pay on Xendit's secure page: GCash, Maya, a card, QR Ph or over the counter. Then you
-        come back here.
-      </p>
+      <p className="mt-4 text-sm text-muted-foreground">{t("plan.youLlPayOnXendit")}</p>
       {testMode ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Test mode: Xendit's test page lets you finish the payment without paying anything real.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t("plan.testModeXenditSTest")}</p>
       ) : null}
       {error ? (
         <p
@@ -102,14 +100,14 @@ function XenditStep({
       <div className="mt-5 flex justify-end gap-2">
         {onBack ? (
           <button type="button" onClick={onBack} disabled={opening} className={secondaryBtn}>
-            Back
+            {t("plan.back")}
           </button>
         ) : null}
         <button type="button" onClick={go} disabled={opening} className={primaryBtn}>
           {opening ? (
             <>
               <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
-              Opening Xendit…
+              {t("plan.openingXendit")}
             </>
           ) : (
             `Pay ${formatCentavos(amount)} on Xendit`
@@ -141,6 +139,7 @@ function PaymentStep({
   pay: (method: PaymentMethod) => Promise<PayResult>;
   open: () => Promise<CheckoutResult>;
 }) {
+  const t = useT();
   const { live, testMode } = usePlan();
   const [method, setMethod] = useState<PaymentMethod>("gcash");
   const [paying, setPaying] = useState(false);
@@ -178,7 +177,7 @@ function PaymentStep({
       </div>
 
       <fieldset className="mt-4" disabled={paying}>
-        <legend className="text-xs font-semibold text-muted-foreground">Pay with</legend>
+        <legend className="text-xs font-semibold text-muted-foreground">{t("plan.payWith")}</legend>
         <div className="mt-1.5 divide-y divide-border rounded-2xl border border-border">
           {(Object.keys(METHOD_LABEL) as PaymentMethod[]).map((m) => (
             <label
@@ -207,9 +206,7 @@ function PaymentStep({
         </div>
       </fieldset>
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        This is a sample payment: nothing is charged, and it goes through without paying.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("plan.thisIsASamplePayment")}</p>
 
       {error ? (
         <p
@@ -223,14 +220,14 @@ function PaymentStep({
       <div className="mt-5 flex justify-end gap-2">
         {onBack ? (
           <button type="button" onClick={onBack} disabled={paying} className={secondaryBtn}>
-            Back
+            {t("plan.back")}
           </button>
         ) : null}
         <button type="button" onClick={pay} disabled={paying} className={primaryBtn}>
           {paying ? (
             <>
               <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
-              Paying…
+              {t("plan.paying")}
             </>
           ) : (
             `Pay ${formatCentavos(amount)}`
@@ -282,6 +279,7 @@ export function AddonPaymentStep({
   lines,
   ...step
 }: StepProps & { sub: MySubscription; lines: AddonLine[] }) {
+  const t = useT();
   // The same change the store charges.
   const change = addonChange(sub, lines);
   const dueNow = change.ok ? change.dueNow : 0;
@@ -289,7 +287,7 @@ export function AddonPaymentStep({
     <PaymentStep
       {...step}
       amount={dueNow}
-      title={`Add-ons: ${addonsText(lines) || "none"}`}
+      title={t("plan.addOnsLine", { items: addonsText(lines) || t("plan.noneLower") })}
       detail={
         change.ok
           ? `${formatCentavos(dueNow)} now, for the period that's running. Then ${priceText(change.newAmount, sub.cycle)} with your plan.`
@@ -303,19 +301,23 @@ export function AddonPaymentStep({
 
 /** What a sample payment shows once it has gone through. */
 export function PaymentDone({ payment, onDone }: { payment: SamplePayment; onDone: () => void }) {
+  const t = useT();
   return (
     <div className="text-center">
       <CheckCircle2
         className="mx-auto size-10 text-status-done-ink duration-200 ease-out animate-in fade-in-0 zoom-in-90 motion-reduce:animate-none"
         aria-hidden
       />
-      <p className="mt-3 font-display text-lg text-foreground">Payment received</p>
+      <p className="mt-3 font-display text-lg text-foreground">{t("plan.paymentReceived")}</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {formatCentavos(payment.amount)} by {METHOD_LABEL[payment.method].name}, reference{" "}
-        <span className="tabular-nums">{payment.reference}</span>. A sample: nothing was charged.
+        {richText(t("plan.byReferenceASampleNothing"), {
+          value: formatCentavos(payment.amount),
+          name: METHOD_LABEL[payment.method].name,
+          span: <span className="tabular-nums">{payment.reference}</span>,
+        })}
       </p>
       <button type="button" onClick={onDone} className={`${primaryBtn} mt-5`}>
-        Done
+        {t("plan.done")}
       </button>
     </div>
   );

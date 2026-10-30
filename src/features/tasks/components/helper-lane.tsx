@@ -12,6 +12,15 @@ import { toHouseholdClock, toISODate } from "@/lib/time";
 import { byStart, taskWhen } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { LaneNowRow } from "./lane-now-row";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
+
+function laneDotClass(status: Task["status"], isLate: boolean): string {
+  if (status === "done") return "bg-status-done";
+  if (status === "in_progress") return "bg-accent";
+  if (isLate) return "bg-status-late";
+  return "bg-muted-foreground/40";
+}
 
 export function HelperLane({
   helper,
@@ -35,6 +44,7 @@ export function HelperLane({
   upcoming: Task[];
   nowTs: number;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const color = unassigned ? UNASSIGNED_HEX : stationHex(helper.station);
   const summary = useMemo(() => laneSummary(tasks, nowTs), [tasks, nowTs]);
@@ -76,7 +86,7 @@ export function HelperLane({
           <div className="flex items-baseline gap-2">
             <span className="font-display text-base text-foreground">{helper.short}</span>
             <span className="text-xs font-semibold text-muted-foreground">
-              {unassigned ? "On no one's phone yet" : helper.station}
+              {unassigned ? t("tasks.onNoOnesPhoneYet") : helper.station}
             </span>
           </div>
           {!unassigned && (
@@ -92,7 +102,7 @@ export function HelperLane({
                 />
               </div>
               <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
-                {doneCount} of {sorted.length}
+                {richText(t("tasks.of"), { doneCount: doneCount, length: sorted.length })}
               </span>
             </div>
           )}
@@ -124,51 +134,44 @@ export function HelperLane({
       {open && (
         <div className="border-t border-border/60 px-2 py-2">
           {sorted.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">No tasks today.</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">{t("tasks.noTasksToday")}</div>
           ) : (
-            sorted.map((t) => {
-              const isLate = overdueSet.has(t.id);
-              const dotCls =
-                t.status === "done"
-                  ? "bg-status-done"
-                  : t.status === "in_progress"
-                    ? "bg-accent"
-                    : isLate
-                      ? "bg-status-late"
-                      : "bg-muted-foreground/40";
+            sorted.map((task) => {
+              const isLate = overdueSet.has(task.id);
+              const dotCls = laneDotClass(task.status, isLate);
               return (
-                <div key={t.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
+                <div key={task.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2">
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotCls}`} />
                   <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
-                    {taskWhen(t, nowTs)}
+                    {taskWhen(task, nowTs)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div
-                      className={`text-sm ${t.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}
+                      className={`text-sm ${task.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}
                     >
                       {onOpenTask ? (
                         <button
                           type="button"
-                          onClick={() => onOpenTask(t)}
+                          onClick={() => onOpenTask(task)}
                           className="text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
                         >
-                          {t.title}
+                          {task.title}
                         </button>
                       ) : (
-                        t.title
+                        task.title
                       )}
                     </div>
-                    <TripChip from={t.from} to={t.to} />
-                    {t.note && (
+                    <TripChip from={task.from} to={task.to} />
+                    {task.note && (
                       <div className="mt-0.5 line-clamp-2 text-xs italic text-muted-foreground">
-                        "{t.note}"
+                        "{task.note}"
                       </div>
                     )}
                   </div>
-                  <CommentBadge taskId={t.id} />
+                  <CommentBadge taskId={task.id} />
                   {isLate && (
                     <span className="shrink-0 rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
-                      Late
+                      {t("tasks.late")}
                     </span>
                   )}
                 </div>
@@ -178,14 +181,16 @@ export function HelperLane({
           {later.length > 0 && (
             <>
               <div className="flex items-baseline justify-between gap-2 px-3 pb-1 pt-3">
-                <span className="text-xs font-semibold text-muted-foreground">Coming up</span>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {t("tasks.comingUp")}
+                </span>
                 {onOpenPlan && taskDayIso(later[0]) && (
                   <button
                     type="button"
                     onClick={() => onOpenPlan(taskDayIso(later[0])!)}
                     className="text-xs font-semibold text-primary hover:underline"
                   >
-                    See in the planner
+                    {t("tasks.seeInThePlanner")}
                   </button>
                 )}
               </div>

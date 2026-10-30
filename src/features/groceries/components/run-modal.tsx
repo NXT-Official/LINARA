@@ -29,6 +29,7 @@ import { GroceryRow } from "./grocery-row";
 import { PoolPicker } from "./pool-picker";
 import { ReceiptSlot } from "./receipt-slot";
 import { RunStatusPill } from "./run-status-pill";
+import { useT } from "@/lib/i18n/locale-context";
 
 const FIELD =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
@@ -70,6 +71,7 @@ export function RunModal({
   closedReceipts?: GroceryReceipt[];
   onClose: () => void;
 }) {
+  const t = useT();
   const ctx = useGrocery();
   const { activeHelpers, teams, board } = useAppStores();
   const status: RunStatus = run?.status ?? "draft";
@@ -318,15 +320,19 @@ export function RunModal({
 
   const detailsSection = closed ? (
     <div className="divide-y divide-border/40">
-      {draft.teamId && readOnlyRow("Team", teams.teamById.get(draft.teamId)?.name ?? "A team")}
+      {draft.teamId &&
+        readOnlyRow(
+          t("groceries.rowTeam"),
+          teams.teamById.get(draft.teamId)?.name ?? t("groceries.aTeam"),
+        )}
       {draft.shopperIds.length > 0 &&
-        readOnlyRow("Went", draft.shopperIds.map(helperName).join(", "))}
-      {draft.note && readOnlyRow("Note", draft.note)}
+        readOnlyRow(t("groceries.rowWent"), draft.shopperIds.map(helperName).join(", "))}
+      {draft.note && readOnlyRow(t("groceries.rowNote"), draft.note)}
     </div>
   ) : (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <Field label="Name">
+        <Field label={t("groceries.name")}>
           <input
             value={draft.title}
             onChange={(e) => set("title", e.target.value)}
@@ -336,7 +342,7 @@ export function RunModal({
           />
         </Field>
       </div>
-      <Field label="Day">
+      <Field label={t("groceries.day")}>
         <input
           type="date"
           value={draft.shopOn ?? ""}
@@ -345,13 +351,13 @@ export function RunModal({
         />
       </Field>
       {teams.available && teams.teams.length > 0 && (
-        <Field label="For team">
+        <Field label={t("groceries.forTeam")}>
           <select
             value={draft.teamId ?? ""}
             onChange={(e) => set("teamId", e.target.value || null)}
             className={FIELD}
           >
-            <option value="">No team</option>
+            <option value="">{t("groceries.noTeam")}</option>
             {teams.teams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -360,8 +366,10 @@ export function RunModal({
           </select>
         </Field>
       )}
-      <div className="sm:col-span-2" role="group" aria-label="Who goes">
-        <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Who goes</span>
+      <div className="sm:col-span-2" role="group" aria-label={t("groceries.whoGoes")}>
+        <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+          {t("groceries.whoGoes")}
+        </span>
         {draft.shopperIds.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {draft.shopperIds.map((id) => (
@@ -390,19 +398,22 @@ export function RunModal({
           before={[{ value: "", label: "Add someone…" }]}
         />
         <span className="mt-1 block text-xs text-muted-foreground">
-          They see it in the Linara app once it&apos;s ready
-          {draft.teamId ? ", and so does everyone on its team" : ""}.
+          {t("groceries.seenInApp", {
+            team: draft.teamId ? t("groceries.seenInAppTeam") : "",
+          })}
         </span>
       </div>
       {/* Once it's ready to shop, the cash sits with the spend and change in
           the petty-cash box below, so it's entered in one place. */}
       {status !== "ready" && (
-        <Field label="Cash given (₱)">
+        <Field label={t("groceries.cashGiven")}>
           <input
             value={cash}
             onChange={(e) => setCash(e.target.value)}
             inputMode="decimal"
-            placeholder={status === "pending" ? "Set when approving" : "None yet"}
+            placeholder={
+              status === "pending" ? t("groceries.setWhenApproving") : t("groceries.noneYet")
+            }
             aria-invalid={cashN === "bad"}
             className={FIELD}
           />
@@ -415,18 +426,18 @@ export function RunModal({
       >
         <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-lg py-1 text-xs font-semibold text-primary [&::-webkit-details-marker]:hidden">
           <ChevronRight className="h-3.5 w-3.5 transition group-open:rotate-90" aria-hidden />
-          Task and note
+          {t("groceries.taskAndNote")}
         </summary>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <Field label="Task it rides on">
+          <Field label={t("groceries.taskItRidesOn")}>
             <select
               value={draft.ticketId ?? NO_TASK}
               onChange={(e) => set("ticketId", e.target.value || null)}
               className={FIELD}
             >
-              <option value={NO_TASK}>None</option>
+              <option value={NO_TASK}>{t("groceries.none")}</option>
               {draft.ticketId && !taskOptions.some((t) => t.id === draft.ticketId) && (
-                <option value={draft.ticketId}>A task on another day</option>
+                <option value={draft.ticketId}>{t("groceries.aTaskOnAnotherDay")}</option>
               )}
               {taskOptions.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -435,12 +446,12 @@ export function RunModal({
               ))}
             </select>
           </Field>
-          <Field label="Note">
+          <Field label={t("groceries.note")}>
             <input
               value={draft.note}
               onChange={(e) => set("note", e.target.value)}
               maxLength={300}
-              placeholder="e.g. Buy the fish at Suki Mang Ben"
+              placeholder={t("groceries.eGBuyTheFish")}
               className={FIELD}
             />
           </Field>
@@ -453,7 +464,7 @@ export function RunModal({
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-muted-foreground">
-          {run ? `On this run · ${items.length}` : "What to buy"}
+          {run ? t("groceries.onThisRun", { count: items.length }) : t("groceries.whatToBuy")}
         </span>
         {run && !closed && !pickingFromPool && (
           <button
@@ -461,7 +472,7 @@ export function RunModal({
             onClick={() => setPickingFromPool(true)}
             className="rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
           >
-            Add from Needed
+            {t("groceries.addFromNeeded")}
           </button>
         )}
       </div>
@@ -478,7 +489,7 @@ export function RunModal({
                 }}
                 className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
-                Cancel
+                {t("groceries.cancel")}
               </button>
               <button
                 type="button"
@@ -486,7 +497,10 @@ export function RunModal({
                 onClick={() => void addPicked()}
                 className={btn()}
               >
-                {spin("add")} Add {picked.size || ""} to this run
+                {spin("add")}{" "}
+                {picked.size
+                  ? t("groceries.addPickedToRun", { count: picked.size })
+                  : t("groceries.addToRun")}
               </button>
             </div>
           )}
@@ -506,7 +520,9 @@ export function RunModal({
             />
           ))}
           {items.length === 0 && (
-            <p className="py-3 text-xs text-muted-foreground">Nothing on this run yet.</p>
+            <p className="py-3 text-xs text-muted-foreground">
+              {t("groceries.nothingOnThisRunYet")}
+            </p>
           )}
         </div>
       )}
@@ -514,18 +530,20 @@ export function RunModal({
         <div className="mt-2 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
           <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-              Add a line
+              {t("groceries.addALine")}
             </span>
             <input
               value={lineName}
               onChange={(e) => setLineName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addLine()}
-              placeholder="e.g. ulam for Sunday"
+              placeholder={t("groceries.eGUlamForSunday")}
               className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </label>
           <label className="w-16">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              {t("groceries.qty")}
+            </span>
             <input
               value={lineQty}
               onChange={(e) => setLineQty(e.target.value)}
@@ -534,7 +552,9 @@ export function RunModal({
             />
           </label>
           <label className="w-20">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              {t("groceries.unit")}
+            </span>
             <input
               value={lineUnit}
               onChange={(e) => setLineUnit(e.target.value)}
@@ -542,7 +562,7 @@ export function RunModal({
             />
           </label>
           <button type="button" onClick={addLine} className={btn()}>
-            <Plus className="h-3.5 w-3.5" /> Add
+            <Plus className="h-3.5 w-3.5" /> {t("groceries.add")}
           </button>
         </div>
       )}
@@ -554,24 +574,26 @@ export function RunModal({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-display text-xl text-foreground">{run ? run.title : "New run"}</h3>
+            <h3 className="font-display text-xl text-foreground">
+              {run ? run.title : t("groceries.newRun")}
+            </h3>
             {run && <RunStatusPill status={status} />}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {run
               ? [
-                  run.createdByName && `Made by ${run.createdByName}`,
-                  run.approvedByName && `approved by ${run.approvedByName}`,
-                  run.closedByName && `closed by ${run.closedByName}`,
+                  run.createdByName && t("groceries.madeBy", { name: run.createdByName }),
+                  run.approvedByName && t("groceries.approvedBy", { name: run.approvedByName }),
+                  run.closedByName && t("groceries.closedBy", { name: run.closedByName }),
                 ]
                   .filter(Boolean)
                   .join(", ")
-              : "Choose what's needed, who goes, and the cash they take."}
+              : t("groceries.chooseWhatsNeeded")}
           </p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("groceries.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -588,34 +610,36 @@ export function RunModal({
       {/* Money */}
       {run && (status === "ready" || closed) && (
         <div className="mt-5 rounded-2xl bg-background/60 p-3">
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">Petty cash</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("groceries.pettyCash")}
+          </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-xs text-muted-foreground">Cash given</div>
+              <div className="text-xs text-muted-foreground">{t("groceries.cashGiven2")}</div>
               <input
                 value={cash}
                 onChange={(e) => setCash(e.target.value)}
                 inputMode="decimal"
-                placeholder="₱"
-                aria-label="Cash given"
+                placeholder={t("groceries.text")}
+                aria-label={t("groceries.cashGiven2")}
                 aria-invalid={cashN === "bad"}
                 className="mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
               />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Spent</div>
+              <div className="text-xs text-muted-foreground">{t("groceries.spent")}</div>
               <div className="font-display text-lg tabular-nums text-foreground">
                 {fmtPeso(spent)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Change back</div>
+              <div className="text-xs text-muted-foreground">{t("groceries.changeBack")}</div>
               <input
                 value={change}
                 onChange={(e) => setChange(e.target.value)}
                 inputMode="decimal"
-                placeholder="₱"
-                aria-label="Change returned"
+                placeholder={t("groceries.text")}
+                aria-label={t("groceries.changeReturned")}
                 className="mt-1 w-full rounded-lg border border-input bg-card px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-primary"
               />
             </div>
@@ -626,7 +650,7 @@ export function RunModal({
           {change.trim() === "" && expected !== null && unpriced === 0 && (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span>
-                Expected back:{" "}
+                {t("groceries.expectedBack")}{" "}
                 <span className="font-semibold tabular-nums text-foreground">
                   {fmtPeso(expected)}
                 </span>
@@ -636,7 +660,7 @@ export function RunModal({
                 onClick={() => setChange(String(expected))}
                 className="rounded-lg px-2 py-1 font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
               >
-                Use {fmtPeso(expected)}
+                {t("groceries.useAmount", { amount: fmtPeso(expected) })}
               </button>
             </p>
           )}
@@ -644,8 +668,7 @@ export function RunModal({
               missing cash. Say which, rather than "not accounted for". */}
           {unpriced > 0 ? (
             <p className="mt-2 text-xs font-semibold text-terracotta-ink">
-              {unpriced} bought {unpriced === 1 ? "line has" : "lines have"} no cost yet. Add{" "}
-              {unpriced === 1 ? "its cost" : "their costs"} above to check the change.
+              {t("groceries.unpricedLines", { count: unpriced })}
             </p>
           ) : (
             recon.gap !== null && (
@@ -653,17 +676,16 @@ export function RunModal({
                 className={`mt-2 text-xs font-semibold ${recon.gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
               >
                 {recon.gap === 0
-                  ? "It balances."
+                  ? t("groceries.itBalances")
                   : recon.gap > 0
-                    ? `${fmtPeso(recon.gap)} not accounted for.`
-                    : `${fmtPeso(-recon.gap)} more came back than expected; check the costs.`}
+                    ? t("groceries.notAccountedFor", { amount: fmtPeso(recon.gap) })
+                    : t("groceries.moreCameBack", { amount: fmtPeso(-recon.gap) })}
               </p>
             )
           )}
           {status === "ready" && unbought > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Closing puts the {unbought} {unbought === 1 ? "line" : "lines"} not bought back in
-              Needed.
+              {t("groceries.unboughtBack", { count: unbought })}
             </p>
           )}
         </div>
@@ -672,7 +694,9 @@ export function RunModal({
       {/* Receipts */}
       {run && (status === "ready" || closed) && (
         <div className="mt-5">
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">Receipts</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("groceries.receipts")}
+          </div>
           {closed ? (
             <ReceiptSlot receipts={closedReceipts ?? []} />
           ) : (
@@ -702,7 +726,7 @@ export function RunModal({
             }
             className="mr-auto rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
           >
-            {spin("delete")} Delete
+            {spin("delete")} {t("groceries.delete")}
           </button>
         )}
         {run && status === "ready" && !anyBought && (
@@ -716,7 +740,7 @@ export function RunModal({
             }
             className="mr-auto rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
           >
-            {spin("cancel")} Cancel run
+            {spin("cancel")} {t("groceries.cancelRun")}
           </button>
         )}
         {ctx.runsAvailable && (items.length > 0 || picked.size > 0) && (
@@ -726,7 +750,7 @@ export function RunModal({
             onClick={saveAsRepeat}
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
-            {spin("repeat") ?? <Repeat className="h-3.5 w-3.5" />} Save as repeat
+            {spin("repeat") ?? <Repeat className="h-3.5 w-3.5" />} {t("groceries.saveAsRepeat")}
           </button>
         )}
 
@@ -738,7 +762,7 @@ export function RunModal({
               onClick={() => void save("draft")}
               className={btn()}
             >
-              {spin("draft")} Save draft
+              {spin("draft")} {t("groceries.saveDraft")}
             </button>
             <button
               type="button"
@@ -746,7 +770,7 @@ export function RunModal({
               onClick={() => void save("send", { send: true })}
               className={btn(true)}
             >
-              {spin("send")} Send to shop
+              {spin("send")} {t("groceries.sendToShop")}
             </button>
           </>
         )}
@@ -758,7 +782,7 @@ export function RunModal({
               onClick={() => void save("save")}
               className={btn()}
             >
-              {spin("save")} Save
+              {spin("save")} {t("groceries.save")}
             </button>
             <button
               type="button"
@@ -766,7 +790,7 @@ export function RunModal({
               onClick={() => void save("send", { then: "ready" })}
               className={btn(true)}
             >
-              {spin("send")} Send to shop
+              {spin("send")} {t("groceries.sendToShop")}
             </button>
           </>
         )}
@@ -784,7 +808,7 @@ export function RunModal({
               }
               className={btn()}
             >
-              {spin("back")} Send back
+              {spin("back")} {t("groceries.sendBack")}
             </button>
             <button
               type="button"
@@ -792,7 +816,7 @@ export function RunModal({
               onClick={() => void save("approve", { then: "ready" })}
               className={btn(true)}
             >
-              {spin("approve")} Approve
+              {spin("approve")} {t("groceries.approve")}
             </button>
           </>
         )}
@@ -804,16 +828,16 @@ export function RunModal({
               onClick={() => void save("save")}
               className={btn()}
             >
-              {spin("save")} Save
+              {spin("save")} {t("groceries.save")}
             </button>
             <button type="button" disabled={busy !== null} onClick={closeRun} className={btn(true)}>
-              {spin("close")} Close run
+              {spin("close")} {t("groceries.closeRun")}
             </button>
           </>
         )}
         {run && closed && (
           <button type="button" disabled={busy !== null} onClick={fixFigures} className={btn(true)}>
-            {spin("fix")} Save figures
+            {spin("fix")} {t("groceries.saveFigures")}
           </button>
         )}
       </div>

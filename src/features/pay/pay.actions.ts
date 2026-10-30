@@ -718,7 +718,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
         if (resolved === "accepted" || resolved === "succeeded") {
           return { payslipId, netPay, status: "processing" as const };
         }
-        throw new Error(`Hindi natuloy ang payout — Xendit reports ${found?.status}.`);
+        throw new Error(`Hindi natuloy ang payout. Xendit reports ${found?.status}.`);
       }
 
       // Lookup failed too. Only NOW is it genuinely ambiguous.
@@ -726,7 +726,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
         failureReason: `Couldn't confirm the payout reached Xendit (${detail}), and the reference lookup also failed. Reconcile in the Xendit dashboard before retrying.`,
       });
       throw new Error(
-        "Hindi makumpirma kung natanggap ng Xendit ang payout. Naka-hold para i-review — tignan sa Xendit bago ulitin.",
+        "Hindi makumpirma kung natanggap ng Xendit ang payout. Naka-hold para i-review. Tignan sa Xendit bago ulitin.",
       );
     }
 
@@ -762,7 +762,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
         };
       }
       // 2xx carrying a terminal FAILED/CANCELLED -- possible only on a replay.
-      throw new Error(`Hindi natuloy ang payout — Xendit reports ${body.status}.`);
+      throw new Error(`Hindi natuloy ang payout. Xendit reports ${body.status}.`);
     }
 
     // (3) Xendit replied with an error. A duplicate here means this attempt's

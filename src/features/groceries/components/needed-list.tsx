@@ -9,6 +9,7 @@ import { groupByPantryCategory, parseAmount } from "@/features/pantry/pantry.uti
 
 import { useGrocery } from "../grocery-context";
 import { GroceryRow } from "./grocery-row";
+import { useT } from "@/lib/i18n/locale-context";
 
 type GroceryFilter = "all" | "to_buy" | "bought";
 
@@ -20,6 +21,7 @@ type GroceryFilter = "all" | "to_buy" | "bought";
  * list, as it always was.
  */
 export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
+  const t = useT();
   const ctx = useGrocery();
   const { pantry } = useAppStores();
   const [query, setQuery] = useState("");
@@ -64,7 +66,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
             onClick={onPlanRun}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep sm:w-auto sm:py-2"
           >
-            <ShoppingCart className="h-3.5 w-3.5" /> Plan a run
+            <ShoppingCart className="h-3.5 w-3.5" /> {t("groceries.planARun")}
           </button>
         </div>
       )}
@@ -76,7 +78,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
           chips={chips}
           active={filter}
           onChip={setFilter}
-          label="Search grocery list"
+          label={t("groceries.searchGroceryList")}
         />
       )}
 
@@ -84,10 +86,10 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
         {toBuy.length === 0 && bought.length === 0 && (
           <div className="py-4 text-center text-sm text-muted-foreground">
             {filtering
-              ? "Nothing matches."
+              ? t("groceries.nothingMatches")
               : pantry.items.length === 0
-                ? "Set up the pantry above, and anything running low will show up here."
-                : "Nothing is running low. Add anything else you need below."}
+                ? t("groceries.setUpThePantryAbove")
+                : t("groceries.nothingIsRunningLowAdd")}
           </div>
         )}
         {toBuyGroups.map(({ section, items }) => (
@@ -117,7 +119,8 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
       {bought.length > 0 && (
         <div className="mt-4">
           <div className="mb-2 px-1 text-xs font-semibold text-muted-foreground">
-            {ctx.runsAvailable ? "Bought today" : "Bought"} · {bought.length}
+            {ctx.runsAvailable ? t("groceries.boughtToday") : t("groceries.bought")} ·{" "}
+            {bought.length}
           </div>
           <div className="divide-y divide-border/70">
             {bought.map((g) => (
@@ -134,19 +137,23 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
 
       <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-border/60 pt-4">
         <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Add item</span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+            {t("groceries.addItem")}
+          </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
-            placeholder="e.g. bangus"
+            placeholder={t("groceries.eGBangus")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
         </label>
         <label className="w-16">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+            {t("groceries.qty")}
+          </span>
           <input
             value={qty}
             onChange={(e) => setQty(e.target.value)}
@@ -155,7 +162,9 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
           />
         </label>
         <label className="w-20">
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+            {t("groceries.unit")}
+          </span>
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
@@ -166,7 +175,7 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
           onClick={submit}
           className="inline-flex items-center gap-1 rounded-lg bg-card px-3.5 py-2 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
         >
-          <Plus className="h-3.5 w-3.5" /> Add
+          <Plus className="h-3.5 w-3.5" /> {t("groceries.add")}
         </button>
         {addError && (
           <p role="alert" className="basis-full text-xs font-semibold text-destructive">

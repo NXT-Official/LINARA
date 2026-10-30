@@ -1,4 +1,5 @@
 import { Search, X } from "lucide-react";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * Search box plus filter chips over a list. Pantry and the grocery list use
@@ -21,6 +22,7 @@ export function ListFilter<K extends string>({
   /** What's being searched, for screen readers: "Search pantry". */
   label: string;
 }) {
+  const t = useT();
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 rounded-xl border border-input bg-background px-3 focus-within:border-primary">
@@ -29,7 +31,7 @@ export function ListFilter<K extends string>({
           type="search"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Search…"
+          placeholder={t("common.search")}
           aria-label={label}
           className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
         />
@@ -37,14 +39,14 @@ export function ListFilter<K extends string>({
           <button
             type="button"
             onClick={() => onQuery("")}
-            aria-label="Clear search"
+            aria-label={t("common.clearSearch")}
             className="rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("common.filter")}>
         {chips.map((chip) => (
           <button
             key={chip.key}

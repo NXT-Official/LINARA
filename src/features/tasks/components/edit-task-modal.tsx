@@ -30,6 +30,8 @@ import type { Task } from "../task.types";
 import { recurrenceLabel, taskFormErrors } from "../task.utils";
 import { DurationField } from "./duration-field";
 import { TaskUpdates } from "./task-updates";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 export type TaskEdit = {
   title: string;
@@ -85,6 +87,8 @@ export function EditTaskModal({
   /** For a repeating task: no more after the ones already there (KNOWN_GAPS O43). */
   onStopRepeating?: () => void;
 }) {
+  const t = useT();
+  const intl = useIntlLocale();
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const repeats = recurrenceLabel(task.recurrence);
@@ -148,11 +152,15 @@ export function EditTaskModal({
     <Modal onClose={onClose}>
       <div className="flex items-center justify-between">
         <h3 className="font-display text-xl text-foreground">
-          {cancelled ? "Cancelled task" : task.status === "done" ? "Done task" : "Edit task"}
+          {cancelled
+            ? t("tasks.cancelledTask")
+            : task.status === "done"
+              ? t("tasks.doneTask")
+              : t("tasks.editTask")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("tasks.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -164,13 +172,12 @@ export function EditTaskModal({
         <div className="mt-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm text-foreground">
           <p className="flex items-center gap-1.5 font-semibold">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-            Done
             {(() => {
               const by = helpers.find((h) => h.id === task.helperId)?.short;
-              return by ? ` by ${by}` : "";
+              return by ? t("tasks.doneBy", { name: by }) : t("tasks.doneLabel");
             })()}
             {task.finishedAt
-              ? ` · ${new Date(task.finishedAt).toLocaleString("en-US", {
+              ? ` · ${new Date(task.finishedAt).toLocaleString(intl, {
                   timeZone: householdTimeZone(),
                   month: "short",
                   day: "numeric",
@@ -190,7 +197,7 @@ export function EditTaskModal({
               >
                 <img
                   src={task.photo}
-                  alt="Photo from finishing this task"
+                  alt={t("tasks.photoFromFinishingThisTask")}
                   className="max-h-64 w-full object-cover"
                 />
               </a>
@@ -199,14 +206,15 @@ export function EditTaskModal({
                   photo is its receipt, kept as long as receipts are. */}
               <p className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>
-                  Photos are kept{" "}
-                  {task.photo.includes("/receipts/") ? "2 months" : `${TASK_PHOTO_DAYS} days`}.
+                  {task.photo.includes("/receipts/")
+                    ? t("tasks.photosKept2Months")
+                    : t("tasks.photosKeptDays", { days: TASK_PHOTO_DAYS })}
                 </span>
                 <a
                   href={savePhotoUrl(task.photo, photoFilename("task", task.finishedAt))}
                   className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
                 >
-                  <Download className="h-3.5 w-3.5" /> Save photo
+                  <Download className="h-3.5 w-3.5" /> {t("tasks.savePhoto")}
                 </a>
               </p>
             </>
@@ -214,8 +222,8 @@ export function EditTaskModal({
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Camera className="h-3.5 w-3.5" />
               {task.finishedAt && Date.now() - task.finishedAt > TASK_PHOTO_DAYS * DAY_MS
-                ? `No photo now. Photos are kept ${TASK_PHOTO_DAYS} days.`
-                : "No photo with this one."}
+                ? t("tasks.noPhotoNow", { days: TASK_PHOTO_DAYS })
+                : t("tasks.noPhotoWithThis")}
             </p>
           )}
         </div>
@@ -223,19 +231,24 @@ export function EditTaskModal({
       {cancelled && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
           <span>
-            Cancelled
-            {task.cancelledBy ? ` by ${task.cancelledBy}` : ""}
-            {task.cancelledAt
-              ? ` on ${new Date(task.cancelledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-              : ""}
-            . It's off the board and the helper's phone.
+            {t("tasks.cancelledLine", {
+              by: task.cancelledBy ? t("tasks.cancelledBy", { name: task.cancelledBy }) : "",
+              on: task.cancelledAt
+                ? t("tasks.cancelledOn", {
+                    date: new Date(task.cancelledAt).toLocaleDateString(intl, {
+                      month: "short",
+                      day: "numeric",
+                    }),
+                  })
+                : "",
+            })}
           </span>
           {onRestore && (
             <button
               onClick={onRestore}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Restore
+              <RotateCcw className="h-3.5 w-3.5" /> {t("tasks.restore")}
             </button>
           )}
         </div>
@@ -243,33 +256,40 @@ export function EditTaskModal({
       {repeats && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
           <span>
-            Repeats {repeats === "Daily" ? "every day" : `on ${repeats}`}.
-            {" Each next day copies its latest task."}
-            {canCancel && " Cancel task skips this day only."}
+            {repeats === "Daily"
+              ? t("tasks.repeatsEveryDay")
+              : t("tasks.repeatsOn", { days: repeats })}
+            {t("tasks.eachNextDayCopies")}
+            {canCancel && t("tasks.cancelSkipsThisDay")}
           </span>
           {onStopRepeating &&
             (confirmingStop ? (
               <span className="inline-flex items-center gap-2 text-xs">
-                No more after this one?
-                <button
-                  onClick={onStopRepeating}
-                  className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
-                >
-                  Stop repeating
-                </button>
-                <button
-                  onClick={() => setConfirmingStop(false)}
-                  className="font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Keep
-                </button>
+                {richText(t("tasks.noMoreAfterThisOne"), {
+                  button: (
+                    <button
+                      onClick={onStopRepeating}
+                      className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+                    >
+                      {t("tasks.stopRepeating")}
+                    </button>
+                  ),
+                  button2: (
+                    <button
+                      onClick={() => setConfirmingStop(false)}
+                      className="font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      {t("tasks.keep")}
+                    </button>
+                  ),
+                })}
               </span>
             ) : (
               <button
                 onClick={() => setConfirmingStop(true)}
                 className="text-xs font-semibold text-primary hover:underline"
               >
-                Stop repeating
+                {t("tasks.stopRepeating")}
               </button>
             ))}
         </div>
@@ -277,13 +297,16 @@ export function EditTaskModal({
       {locked ? (
         <dl className="mt-4 divide-y divide-border/70 text-sm">
           {[
-            ["Title", task.title],
-            ["Assigned to", assignee ? `${assignee.short} · ${assignee.station}` : "Unassigned"],
+            [t("tasks.termTitle"), task.title],
             [
-              "When",
-              `${parseISODate(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · ${task.time}`,
+              t("tasks.termAssignedTo"),
+              assignee ? `${assignee.short} · ${assignee.station}` : t("tasks.unassigned"),
             ],
-            ...(task.note ? [["House-standard note", task.note]] : []),
+            [
+              t("tasks.termWhen"),
+              `${parseISODate(date).toLocaleDateString(intl, { weekday: "short", month: "short", day: "numeric" })} · ${task.time}`,
+            ],
+            ...(task.note ? [[t("tasks.termHouseNote"), task.note]] : []),
           ].map(([term, value]) => (
             <div key={term} className="flex items-baseline justify-between gap-4 py-2">
               <dt className="shrink-0 text-muted-foreground">{term}</dt>
@@ -293,7 +316,7 @@ export function EditTaskModal({
         </dl>
       ) : (
         <div className="mt-4 space-y-3">
-          <Field label="Title" error={errors.title}>
+          <Field label={t("tasks.title")} error={errors.title}>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -301,7 +324,7 @@ export function EditTaskModal({
               className={inputCls}
             />
           </Field>
-          <Field label="Assigned to">
+          <Field label={t("tasks.assignedTo")}>
             <HelperPicker
               helpers={helpers}
               value={helperId ?? ""}
@@ -318,12 +341,10 @@ export function EditTaskModal({
             onChange={(from, to) => setTrip({ from, to })}
           />
           {helperId === null && (
-            <p className="text-sm text-muted-foreground">
-              Stays on your board only. Nobody sees it on their phone until you assign it.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("tasks.staysOnYourBoardOnly")}</p>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Date" error={errors.date}>
+            <Field label={t("tasks.date")} error={errors.date}>
               <input
                 type="date"
                 value={date}
@@ -332,7 +353,7 @@ export function EditTaskModal({
                 className={inputCls}
               />
             </Field>
-            <Field label="Time" error={errors.time}>
+            <Field label={t("tasks.time")} error={errors.time}>
               <input
                 type="time"
                 value={time}
@@ -347,18 +368,22 @@ export function EditTaskModal({
             <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
               {inTimeOff
-                ? `That's in ${helperName}'s approved time off.`
-                : `That's outside ${helperName}'s shift.`}{" "}
-              Doing it then counts as after-hours work and adds to rest owed.
+                ? t("tasks.inApprovedTimeOff", { name: helperName })
+                : t("tasks.outsideShift", { name: helperName })}{" "}
+              {t("tasks.countsAsAfterHours")}
             </p>
           )}
           {elsewhere && (
             <p className="flex items-start gap-2 rounded-xl bg-terracotta-soft/50 px-3 py-2 text-sm text-foreground">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
-              {helperName} is at {elsewhere.householdName} {slotTime(elsewhere)}.
+              {richText(t("tasks.isAt"), {
+                el1: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />,
+                helperName: helperName,
+                householdName: elsewhere.householdName,
+                value: slotTime(elsewhere),
+              })}
             </p>
           )}
-          <Field label="House-standard note (optional)">
+          <Field label={t("tasks.houseStandardNoteOptional")}>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -377,40 +402,45 @@ export function EditTaskModal({
         {canCancel &&
           (confirmingCancel ? (
             <span className="mr-auto inline-flex items-center gap-2 text-xs text-foreground">
-              Cancel this task?
-              <button
-                onClick={onCancelTask}
-                className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
-              >
-                Yes, cancel it
-              </button>
-              <button
-                onClick={() => setConfirmingCancel(false)}
-                className="font-semibold text-muted-foreground hover:text-foreground"
-              >
-                Keep it
-              </button>
+              {richText(t("tasks.cancelThisTask"), {
+                button: (
+                  <button
+                    onClick={onCancelTask}
+                    className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
+                  >
+                    {t("tasks.yesCancelIt")}
+                  </button>
+                ),
+                button2: (
+                  <button
+                    onClick={() => setConfirmingCancel(false)}
+                    className="font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    {t("tasks.keepIt")}
+                  </button>
+                ),
+              })}
             </span>
           ) : (
             <button
               onClick={() => setConfirmingCancel(true)}
               className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold text-muted-foreground hover:text-destructive"
             >
-              <Ban className="h-4 w-4" /> Cancel task
+              <Ban className="h-4 w-4" /> {t("tasks.cancelTask")}
             </button>
           ))}
         <button
           onClick={onClose}
           className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
-          Close
+          {t("tasks.close")}
         </button>
         {!locked && (
           <button
             onClick={submit}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
           >
-            Save
+            {t("tasks.save")}
           </button>
         )}
       </div>

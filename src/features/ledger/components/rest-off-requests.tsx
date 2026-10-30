@@ -12,6 +12,8 @@ import {
   type RestOffRequestRow,
 } from "../rest-off.actions";
 import { fmtHoursMinutes } from "../ledger.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const STATUS_TONE: Record<RestOffRequestRow["status"], string> = {
   pending: "bg-accent/10 text-terracotta-ink",
@@ -42,6 +44,7 @@ export function RestOffRequests({
   /** After an approve or decline, so the calendars and availability catch up. */
   onDecided?: () => void;
 }) {
+  const t = useT();
   const [requests, setRequests] = useState<RestOffRequestRow[]>([]);
   const [balanceMin, setBalanceMin] = useState<number | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
@@ -94,20 +97,22 @@ export function RestOffRequests({
     <div className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-muted-foreground block">Rest off requests</span>
+          <span className="text-xs font-bold text-muted-foreground block">
+            {t("ledger.restOffRequests")}
+          </span>
           <h3 className="font-display text-lg text-foreground">
-            {balanceMin === null ? "…" : fmtHoursMinutes(balanceMin)} rest owed
+            {t("ledger.restOwed", {
+              time: balanceMin === null ? "…" : fmtHoursMinutes(balanceMin),
+            })}
           </h3>
-          <p className="text-xs text-muted-foreground">
-            Time-off in lieu accrued from off-shift work — redeemed, not paid out.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("ledger.timeOffInLieuAccrued")}</p>
         </div>
         <CalendarDays className="h-5 w-5 shrink-0 text-accent" />
       </div>
 
       {pending.length === 0 && decided.length === 0 && (
         <p className="mt-4 border-t border-border/40 pt-3.5 text-xs text-muted-foreground">
-          Walang rest-off request. {helper.short} can ask for time off from their own app.
+          {richText(t("ledger.walangRestOffRequestCan"), { short: helper.short })}
         </p>
       )}
 
@@ -132,14 +137,14 @@ export function RestOffRequests({
                     disabled={deciding !== null}
                     className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-pine-deep disabled:opacity-60"
                   >
-                    <Check className="h-3 w-3" /> Approve
+                    <Check className="h-3 w-3" /> {t("ledger.approve")}
                   </button>
                   <button
                     onClick={() => decide(r.id, "declined")}
                     disabled={deciding !== null}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
                   >
-                    <X className="h-3 w-3" /> Decline
+                    <X className="h-3 w-3" /> {t("ledger.decline")}
                   </button>
                 </div>
               </div>

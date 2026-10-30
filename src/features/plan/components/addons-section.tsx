@@ -8,7 +8,6 @@ import {
   addonChange,
   addonsBlocked,
   formatCentavos,
-  LIMIT_LABEL,
   limitText,
   limitsFor,
   MAX_ADDON_QUANTITY,
@@ -18,6 +17,8 @@ import { ADDONS } from "../plan.sample";
 import { getPlanState, removeAddons, removeAddonsLive, type SamplePayment } from "../plan.store";
 import type { AddonLine, MySubscription } from "../plan.types";
 import { AddonPaymentStep, PaymentDone } from "./payment-step";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const card = "rounded-3xl bg-card p-5 shadow-soft sm:p-7";
 const primaryBtn =
@@ -76,6 +77,7 @@ function AddonsModal({
   preset?: string;
   onClose: () => void;
 }) {
+  const t = useT();
   // How many more of each to buy, on top of what's owned. Removing is on the
   // section's rows, so this can't take any away.
   const [buy, setBuy] = useState<Record<string, number>>(() =>
@@ -109,7 +111,7 @@ function AddonsModal({
   if (step === "pay") {
     return (
       <Modal onClose={close}>
-        <h3 className="font-display text-xl text-foreground">Pay for add-ons</h3>
+        <h3 className="font-display text-xl text-foreground">{t("plan.payForAddOns")}</h3>
         <div className="mt-4">
           <AddonPaymentStep
             sub={sub}
@@ -133,20 +135,18 @@ function AddonsModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">Buy add-ons</h3>
+        <h3 className="font-display text-xl text-foreground">{t("plan.buyAddOns")}</h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("plan.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Added ones are charged now for the period that's running, then billed with your plan.
-        {live
-          ? " You pay on Xendit's secure page."
-          : " Payments here are a sample: nothing is charged."}
+        {t("plan.addedChargedNow")}
+        {live ? t("plan.payOnXendit") : t("plan.paymentsSample")}
       </p>
       <ul className="mt-4 divide-y divide-border">
         {ADDONS.map((a) => {
@@ -156,12 +156,16 @@ function AddonsModal({
               <span className="min-w-0 text-sm text-foreground">
                 {a.name}
                 <span className="block text-xs text-muted-foreground">
-                  Adds {limitText(a.limitKey, a.step)}, {formatCentavos(a.monthlyPrice)} a month
-                  each
-                  {sub.cycle === "annual" ? " (twelve months on your yearly plan)" : ""}
+                  {t("plan.addsEach", {
+                    what: limitText(a.limitKey, a.step, t),
+                    price: formatCentavos(a.monthlyPrice),
+                    yearly: sub.cycle === "annual" ? t("plan.twelveMonths") : "",
+                  })}
                 </span>
                 {have > 0 ? (
-                  <span className="block text-xs text-muted-foreground">You have {have}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {richText(t("plan.youHave"), { have: have })}
+                  </span>
                 ) : null}
               </span>
               <Stepper
@@ -175,8 +179,10 @@ function AddonsModal({
         })}
       </ul>
       <p className="mt-3 text-xs text-muted-foreground">
-        After this, your plan allows {limitText("households", after.households)} and{" "}
-        {limitText("kasambahay", after.kasambahay)}.
+        {t("plan.afterThisAllows", {
+          households: limitText("households", after.households, t),
+          kasambahay: limitText("kasambahay", after.kasambahay, t),
+        })}
       </p>
       {/* The price gets its own line so the buttons never squeeze into wrapped text. */}
       <div className="mt-5 flex flex-col gap-3">
@@ -188,7 +194,7 @@ function AddonsModal({
         </p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={secondaryBtn}>
-            Cancel
+            {t("plan.cancel")}
           </button>
           <button
             type="button"
@@ -198,7 +204,7 @@ function AddonsModal({
             }}
             className={primaryBtn}
           >
-            Continue to payment
+            {t("plan.continueToPayment")}
           </button>
         </div>
       </div>
@@ -216,6 +222,7 @@ function RemoveAddonModal({
   addonId: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const addon = ADDONS.find((a) => a.id === addonId);
@@ -231,11 +238,13 @@ function RemoveAddonModal({
 
   return (
     <Modal onClose={close}>
-      <h3 className="font-display text-xl text-foreground">Remove 1 {addon.name.toLowerCase()}?</h3>
+      <h3 className="font-display text-xl text-foreground">
+        {richText(t("plan.remove1"), { value: addon.name.toLowerCase() })}
+      </h3>
       <p className="mt-2 text-sm text-muted-foreground">
-        Your plan will allow {limitText(addon.limitKey, after[addon.limitKey])}. If you have more
-        than that, you'll choose which stay active. It takes effect now. No refund for the period
-        that's running.
+        {richText(t("plan.yourPlanWillAllowIf"), {
+          value: limitText(addon.limitKey, after[addon.limitKey], t),
+        })}
       </p>
       {error ? (
         <p
@@ -247,7 +256,7 @@ function RemoveAddonModal({
       ) : null}
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={close} disabled={busy} className={secondaryBtn}>
-          Cancel
+          {t("plan.cancel")}
         </button>
         <button
           type="button"
@@ -266,7 +275,7 @@ function RemoveAddonModal({
           }}
           className={primaryBtn}
         >
-          Remove
+          {t("plan.remove")}
         </button>
       </div>
     </Modal>
@@ -295,6 +304,7 @@ export function AddonsSection({
   /** A payment is being confirmed: nothing new until it is. */
   waiting?: boolean;
 }) {
+  const t = useT();
   const blocked = owner ? addonsBlocked(sub) : "Only the household's primary manager buys add-ons.";
   const [open, setOpen] = useState<{ preset?: string } | null>(() =>
     preset && !inApp && !blocked ? { preset } : null,
@@ -310,11 +320,9 @@ export function AddonsSection({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="addons-heading" className="font-display text-xl text-foreground">
-            Add-ons
+            {t("plan.addOns")}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Extra room on top of your plan, billed with it.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("plan.extraRoomOnTopOf")}</p>
         </div>
         {!inApp && !blocked ? (
           <button
@@ -323,7 +331,7 @@ export function AddonsSection({
             onClick={() => setOpen({})}
             className={primaryBtn}
           >
-            Buy add-ons
+            {t("plan.buyAddOns")}
           </button>
         ) : null}
       </div>
@@ -338,15 +346,13 @@ export function AddonsSection({
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-foreground">{a.name}</span>
                 <span className="block text-xs text-muted-foreground">
-                  Adds {limitText(a.limitKey, a.step)}
-                  {inApp ? "" : `, ${formatCentavos(a.monthlyPrice)} a month`}
+                  {t("plan.adds", { what: limitText(a.limitKey, a.step, t) })}
+                  {inApp ? "" : t("plan.aMonthSuffix", { price: formatCentavos(a.monthlyPrice) })}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
                 <span className="text-sm tabular-nums text-foreground">
-                  {n === 0
-                    ? "None"
-                    : `${n} ${n === 1 ? LIMIT_LABEL[a.limitKey].one : LIMIT_LABEL[a.limitKey].many}`}
+                  {n === 0 ? t("plan.none") : limitText(a.limitKey, n, t)}
                 </span>
                 {n > 0 && !inApp && !blocked ? (
                   <button
@@ -356,7 +362,7 @@ export function AddonsSection({
                     onClick={() => setRemoving(a.id)}
                     className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
                   >
-                    Remove…
+                    {t("plan.remove2")}
                   </button>
                 ) : null}
               </span>
@@ -366,7 +372,7 @@ export function AddonsSection({
       </ul>
       {blocked && !inApp ? <p className="mt-3 text-sm text-muted-foreground">{blocked}</p> : null}
       {inApp ? (
-        <p className="mt-3 text-sm text-muted-foreground">Add-ons can't be bought in the app.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t("plan.addOnsCanTBe")}</p>
       ) : null}
       {open ? <AddonsModal sub={sub} preset={open.preset} onClose={() => setOpen(null)} /> : null}
       {removing ? (

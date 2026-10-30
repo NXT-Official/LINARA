@@ -16,6 +16,8 @@ import {
   spentOn,
 } from "../grocery.utils";
 import { RunStatusPill } from "./run-status-pill";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const GROUPS: { status: RunStatus; label: string }[] = [
   { status: "pending", label: "Waiting for your approval" },
@@ -35,6 +37,7 @@ export function RunsList({
   onOpen: (runId: string) => void;
   onNew: () => void;
 }) {
+  const t = useT();
   const ctx = useGrocery();
   const { teams } = useAppStores();
   const [team, setTeam] = useState("all");
@@ -43,7 +46,7 @@ export function RunsList({
 
   const due = ctx.templates.flatMap((t) => {
     const d = nextDue(t, new Date());
-    return d && d.daysAway <= 2 ? [{ t, d }] : [];
+    return d && d.daysAway <= 2 ? [{ template: t, d }] : [];
   });
   const runs = sortOpenRuns(ctx.runs).filter(
     (r) => team === "all" || (team === "none" ? r.teamId === null : r.teamId === team),
@@ -67,16 +70,16 @@ export function RunsList({
           <select
             value={team}
             onChange={(e) => setTeam(e.target.value)}
-            aria-label="Show runs for"
+            aria-label={t("groceries.showRunsFor")}
             className="min-w-0 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           >
-            <option value="all">Every team</option>
+            <option value="all">{t("groceries.everyTeam")}</option>
             {teams.teams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
-            <option value="none">No team</option>
+            <option value="none">{t("groceries.noTeam")}</option>
           </select>
         ) : (
           <span />
@@ -86,30 +89,37 @@ export function RunsList({
           onClick={onNew}
           className="inline-flex items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
         >
-          <Plus className="h-3.5 w-3.5" /> New run
+          <Plus className="h-3.5 w-3.5" /> {t("groceries.newRun")}
         </button>
       </div>
 
       {due.length > 0 && (
         <ul className="divide-y divide-border/60 rounded-2xl bg-terracotta-soft/40 px-3">
-          {due.map(({ t, d }) => (
-            <li key={t.id} className="flex items-center gap-3 py-2.5">
+          {due.map(({ template, d }) => (
+            <li key={template.id} className="flex items-center gap-3 py-2.5">
               <CalendarClock className="h-4 w-4 shrink-0 text-terracotta-ink" />
               <span className="min-w-0 flex-1 text-sm text-foreground">
-                <span className="font-semibold">{t.title}</span> is due{" "}
-                {d.daysAway === 0
-                  ? "today"
-                  : d.daysAway === 1
-                    ? "tomorrow"
-                    : WEEKDAYS[t.weekday ?? 0]}
+                {richText(t("groceries.isDueWhen"), {
+                  title: <span className="font-semibold">{template.title}</span>,
+                  when:
+                    d.daysAway === 0
+                      ? t("groceries.today")
+                      : d.daysAway === 1
+                        ? t("groceries.tomorrow")
+                        : WEEKDAYS[template.weekday ?? 0],
+                })}
               </span>
               <button
                 type="button"
                 disabled={starting !== null}
-                onClick={() => void start(t.id, d.date)}
+                onClick={() => void start(template.id, d.date)}
                 className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5 disabled:opacity-50"
               >
-                {starting === t.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Start
+                {richText(t("groceries.start"), {
+                  value: starting === template.id && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ),
+                })}
               </button>
             </li>
           ))}
@@ -119,8 +129,8 @@ export function RunsList({
       {runs.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
           {ctx.runs.length === 0
-            ? "No runs open. Make one from what's in Needed, or start a repeat."
-            : "No open runs for that team."}
+            ? t("groceries.noRunsOpenMakeOne")
+            : t("groceries.noOpenRunsForThat")}
         </p>
       ) : (
         GROUPS.map(({ status, label }) => {
@@ -148,6 +158,7 @@ export function RunsList({
 
 /** One run: what, when, who, how far along and what it cost against the cash. */
 export function RunRow({ run, onOpen }: { run: GroceryRun; onOpen: () => void }) {
+  const t = useT();
   const ctx = useGrocery();
   const { teams, activeHelpers, board } = useAppStores();
   const items = ctx.itemsByRun.get(run.id) ?? [];
@@ -186,7 +197,7 @@ export function RunRow({ run, onOpen }: { run: GroceryRun; onOpen: () => void })
         {run.status === "ready" ? (
           <>
             <span className="block">
-              {p.bought} of {p.total} bought
+              {richText(t("groceries.ofBought"), { bought: p.bought, total: p.total })}
             </span>
             <span className="block">
               {fmtPeso(spent)}
@@ -195,10 +206,12 @@ export function RunRow({ run, onOpen }: { run: GroceryRun; onOpen: () => void })
           </>
         ) : (
           <>
-            <span className="block">
-              {p.total} {p.total === 1 ? "item" : "items"}
-            </span>
-            {run.cashGiven !== null && <span className="block">{fmtPeso(run.cashGiven)} cash</span>}
+            <span className="block">{t("groceries.itemCount", { count: p.total })}</span>
+            {run.cashGiven !== null && (
+              <span className="block">
+                {richText(t("groceries.cash"), { value: fmtPeso(run.cashGiven) })}
+              </span>
+            )}
           </>
         )}
       </span>

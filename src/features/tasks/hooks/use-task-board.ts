@@ -344,7 +344,7 @@ export function useTaskBoard({
 
   const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in — hindi ma-add ang task.");
+      toast.error("Hindi ka naka-sign in, kaya hindi ma-add ang task.");
       return;
     }
     // A task can be planned for a later day (the planner, or New task's

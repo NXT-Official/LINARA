@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { Segmented } from "@/components/shared/segmented";
 import type { RosaStatus } from "@/features/availability/availability.types";
 import { RosaStatusChip } from "@/features/availability/components/rosa-status-chip";
 import type { LeaveRequest } from "@/features/leave/leave.types";
@@ -37,6 +38,7 @@ import { formatSimDate } from "@/lib/time";
 import { NeedsYou } from "./needs-you";
 import { RemoteGlance } from "./remote-glance";
 import { SpendAndPayday } from "./spend-and-payday";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type PassMode = "line" | "board" | "roll";
 const PASS_MODE_KEY = "linara.passMode";
@@ -147,6 +149,7 @@ export function ManagerPassTab({
   view,
   onViewChange,
 }: ManagerPassTabProps) {
+  const t = useT();
   // The URL wins when it says which layout to show; otherwise fall back to what
   // this device chose last time.
   const [stored, setStored] = useState<PassMode | null>(null);
@@ -250,41 +253,23 @@ export function ManagerPassTab({
             ? "Everything on today's board is done."
             : null;
   const dayBtn =
-    "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground";
+    "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 
   return (
     <>
       <div className="flex items-center justify-end gap-3">
-        <div
-          className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
-          role="group"
-          aria-label="Pass layout"
-        >
-          {[
-            { key: "line" as const, label: "The Line", Icon: Users },
-            { key: "roll" as const, label: "Roll call", Icon: Rows3 },
-            { key: "board" as const, label: "The Board", Icon: Columns3 },
-          ].map(({ key, label, Icon }) => {
-            const active = passMode === key;
-            return (
-              <button
-                key={key}
-                onClick={() => updatePassMode(key)}
-                aria-pressed={active}
-                // Named, not icons alone: three pictograms didn't say what
-                // they switched between (UX review 2026-10-07).
-                className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition ${
-                  active
-                    ? "bg-primary text-primary-foreground shadow-soft"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" aria-hidden />
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Named, not icons alone: three pictograms didn't say what they
+            switched between (UX review 2026-10-07). */}
+        <Segmented
+          label={t("dashboard.passLayout")}
+          options={[
+            { key: "line", label: "The Line", Icon: Users },
+            { key: "roll", label: "Roll call", Icon: Rows3 },
+            { key: "board", label: "The Board", Icon: Columns3 },
+          ]}
+          value={passMode}
+          onChange={updatePassMode}
+        />
       </div>
 
       {/* Status line */}
@@ -296,7 +281,7 @@ export function ManagerPassTab({
             <button
               type="button"
               onClick={() => onShiftDay(-1)}
-              aria-label="Previous day"
+              aria-label={t("dashboard.previousDay")}
               className={dayBtn}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -311,7 +296,7 @@ export function ManagerPassTab({
             <button
               type="button"
               onClick={() => onShiftDay(1)}
-              aria-label="Next day"
+              aria-label={t("dashboard.nextDay")}
               className={dayBtn}
             >
               <ChevronRight className="h-4 w-4" />
@@ -322,23 +307,23 @@ export function ManagerPassTab({
               <button
                 type="button"
                 onClick={onToday}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 text-xs font-semibold text-primary shadow-soft transition hover:bg-primary/5"
               >
-                Back to today
+                {t("dashboard.backToToday")}
               </button>
             )}
             {isToday && boardClosed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                <Moon className="h-3 w-3" /> Day ended
+                <Moon className="h-3 w-3" /> {t("dashboard.dayEnded")}
               </span>
             )}
             {isToday && canEndDay && (
               <button
                 type="button"
                 onClick={boardClosed ? onReopenDay : onEndDay}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                className="inline-flex min-h-11 items-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground"
               >
-                {boardClosed ? "Reopen today" : "End the day"}
+                {boardClosed ? t("dashboard.reopenToday") : t("dashboard.endTheDay2")}
               </button>
             )}
           </div>
@@ -347,17 +332,17 @@ export function ManagerPassTab({
           <span className="inline-flex items-center gap-1.5 text-sm">
             <span className="h-2 w-2 rounded-full bg-status-done" />
             <span className="font-semibold text-foreground tabular-nums">{counts.done}</span>
-            <span className="text-muted-foreground">done</span>
+            <span className="text-muted-foreground">{t("dashboard.done")}</span>
           </span>
           <span className="inline-flex items-center gap-1.5 text-sm">
             <span className="h-2 w-2 rounded-full bg-accent" />
             <span className="font-semibold text-foreground tabular-nums">{counts.inProg}</span>
-            <span className="text-muted-foreground">doing</span>
+            <span className="text-muted-foreground">{t("dashboard.doing")}</span>
           </span>
           <span className="inline-flex items-center gap-1.5 text-sm">
             <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />
             <span className="font-semibold text-foreground tabular-nums">{counts.todo}</span>
-            <span className="text-muted-foreground">to do</span>
+            <span className="text-muted-foreground">{t("dashboard.toDo")}</span>
           </span>
           <span className="ml-auto">
             {onShift ? (
@@ -371,7 +356,7 @@ export function ManagerPassTab({
                 <span className="tabular-nums">
                   {mounted ? `${onShift.on} of ${onShift.total}` : "—"}
                 </span>{" "}
-                on shift
+                {t("dashboard.onShift")}
               </span>
             ) : activeHelpers.length > 0 ? (
               <RosaStatusChip status={rosaStatus} helperName={helperName} />
@@ -428,29 +413,33 @@ export function ManagerPassTab({
         <div className="flex items-center justify-between gap-3 px-1">
           <div>
             <h2 className="font-display text-xl text-foreground">
-              {passMode === "line" ? "The Line" : passMode === "roll" ? "Roll call" : "The Board"}
+              {passMode === "line"
+                ? t("dashboard.theLine")
+                : passMode === "roll"
+                  ? t("dashboard.rollCall")
+                  : t("dashboard.theBoard")}
             </h2>
             <p className="text-xs text-muted-foreground">
               {passMode === "line"
-                ? "Tap a lane to see the full day."
+                ? t("dashboard.tapALaneToSee")
                 : passMode === "roll"
-                  ? "A line each. Tap someone to see their day."
-                  : "By status, in time order."}
+                  ? t("dashboard.aLineEachTapSomeone")
+                  : t("dashboard.byStatusInTimeOrder")}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {/* The Pass is today; planning the week or month happens on Schedule. */}
             <Link
               to="/manager/schedule"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-primary shadow-soft transition hover:bg-secondary/60"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-primary shadow-soft transition hover:bg-secondary/60"
             >
-              <CalendarDays className="h-3.5 w-3.5" /> Plan ahead
+              <CalendarDays className="h-3.5 w-3.5" /> {t("dashboard.planAhead")}
             </Link>
             <button
               onClick={onNewTask}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep"
             >
-              <Plus className="h-3.5 w-3.5" /> New task
+              <Plus className="h-3.5 w-3.5" /> {t("dashboard.newTask")}
             </button>
           </div>
         </div>
@@ -474,22 +463,24 @@ export function ManagerPassTab({
             {activeHelpers.length === 0 ? (
               // A new household's one next step, not an empty lane.
               <div className="rounded-2xl border border-dashed border-border p-6 text-center">
-                <p className="text-sm font-semibold text-foreground">No helpers yet</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {t("dashboard.noHelpersYet")}
+                </p>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-                  Invite your first helper. Their day shows up here as they work.
+                  {t("dashboard.inviteYourFirstHelperTheir")}
                 </p>
                 {isRemote ? null : (
                   <Link
                     to="/manager/people"
                     className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
                   >
-                    Invite a helper
+                    {t("dashboard.inviteAHelper")}
                   </Link>
                 )}
               </div>
             ) : shownHelpers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                Nobody matches. Try another name, team or label.
+                {t("dashboard.nobodyMatchesTryAnotherName")}
               </div>
             ) : groups ? (
               groups.map((g) => {

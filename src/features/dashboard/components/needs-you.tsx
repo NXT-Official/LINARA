@@ -26,6 +26,7 @@ import { findHelper, initialsOf } from "@/features/people/people.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { householdTimeZone, parseISODate } from "@/lib/time";
 import { taskWhen } from "@/features/tasks/task.utils";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 
 /** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
 const FLAG_LABEL: Record<string, string> = {
@@ -87,6 +88,8 @@ export function NeedsYou({
     opts: { unassignTasks: boolean },
   ) => void;
 }) {
+  const t = useT();
+  const intl = useIntlLocale();
   const [replyId, setReplyId] = useState<string | null>(null);
   // Leave ids whose tasks the manager chose to leave with her.
   const [keepTasks, setKeepTasks] = useState<Record<string, boolean>>({});
@@ -113,8 +116,8 @@ export function NeedsYou({
             <Check className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-foreground">Needs you</div>
-            <div className="text-xs text-muted-foreground">All clear. No one is stuck.</div>
+            <div className="text-sm font-semibold text-foreground">{t("dashboard.needsYou")}</div>
+            <div className="text-xs text-muted-foreground">{t("dashboard.allClearNoOneIs")}</div>
           </div>
         </div>
       </section>
@@ -128,20 +131,25 @@ export function NeedsYou({
           <AlertCircle className="h-4 w-4" />
         </div>
         <div>
-          <div className="text-sm font-semibold text-foreground">Needs you · {total}</div>
-          <div className="text-xs text-muted-foreground">
-            Stuck or past-due tasks, requests, flagged details, pay owed, and notice.
+          <div className="text-sm font-semibold text-foreground">
+            {t("dashboard.needsYouCount", { count: total })}
           </div>
+          <div className="text-xs text-muted-foreground">{t("dashboard.stuckOrPastDueTasks")}</div>
         </div>
       </div>
       <div className="space-y-3">
         {taskCount > 0 && (
-          <NeedsYouGroup id="tasks" label="Tasks" count={taskCount} noun={["task", "tasks"]}>
-            {blocked.map((t) => {
-              const helper = findHelper(t.helperId, helpers);
-              const isReplying = replyId === t.id;
+          <NeedsYouGroup
+            id="tasks"
+            label={t("dashboard.tasks")}
+            count={taskCount}
+            noun={["task", "tasks"]}
+          >
+            {blocked.map((task) => {
+              const helper = findHelper(task.helperId, helpers);
+              const isReplying = replyId === task.id;
               return (
-                <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
+                <div key={task.id} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -150,53 +158,55 @@ export function NeedsYou({
                           {helper.short}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          · {taskWhen(t, nowTs)}
+                          · {taskWhen(task, nowTs)}
                         </span>
                       </div>
-                      <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
+                      <h4 className="mt-1.5 text-sm font-semibold text-foreground">{task.title}</h4>
                       <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
-                        "{t.blockReason}"
+                        "{task.blockReason}"
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone(t.station) : "bg-secondary text-muted-foreground"}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${task.helperId ? stationTone(task.station) : "bg-secondary text-muted-foreground"}`}
                     >
-                      {t.helperId ? t.station : "Unassigned"}
+                      {task.helperId ? task.station : t("dashboard.unassigned")}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => setReplyId(isReplying ? null : t.id)}
+                      onClick={() => setReplyId(isReplying ? null : task.id)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
                     >
-                      <MessageCircle className="h-3.5 w-3.5" /> Reply
+                      <MessageCircle className="h-3.5 w-3.5" /> {t("dashboard.reply")}
                     </button>
                     <button
                       onClick={() => {
-                        onReschedule(t.id);
+                        onReschedule(task.id);
                         setReplyId(null);
                       }}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      <RotateCcw className="h-3.5 w-3.5" /> Reschedule
+                      <RotateCcw className="h-3.5 w-3.5" /> {t("dashboard.reschedule")}
                     </button>
                   </div>
                   {isReplying && (
                     <div className="mt-3 rounded-xl border border-border bg-background p-2">
                       <textarea
-                        value={drafts[t.id] ?? ""}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                        value={drafts[task.id] ?? ""}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [task.id]: e.target.value }))}
                         rows={2}
                         placeholder={`Message ${helper.short}…`}
                         className="w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-muted-foreground"
                       />
                       <div className="mt-1 flex items-center justify-between px-1">
-                        <span className="text-xs text-muted-foreground">Mock only · not sent</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t("dashboard.mockOnlyNotSent")}
+                        </span>
                         <button
                           onClick={() => setReplyId(null)}
                           className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
                         >
-                          Close
+                          {t("dashboard.close")}
                         </button>
                       </div>
                     </div>
@@ -204,10 +214,10 @@ export function NeedsYou({
                 </div>
               );
             })}
-            {pastDue.map((t) => {
-              const helper = findHelper(t.helperId, helpers);
+            {pastDue.map((task) => {
+              const helper = findHelper(task.helperId, helpers);
               return (
-                <div key={t.id} className="py-3.5 first:pt-0 last:pb-0">
+                <div key={task.id} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -216,58 +226,58 @@ export function NeedsYou({
                           {helper.short}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          · planned {taskWhen(t, nowTs)}
+                          {t("dashboard.plannedAt", { when: taskWhen(task, nowTs) })}
                         </span>
                       </div>
-                      <h4 className="mt-1.5 text-sm font-semibold text-foreground">{t.title}</h4>
+                      <h4 className="mt-1.5 text-sm font-semibold text-foreground">{task.title}</h4>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {t.routineId
-                          ? "Not started. Part of a routine, so cancelling skips just this one."
-                          : "Not started yet. Change it, or cancel it if it's no longer needed."}
+                        {task.routineId
+                          ? t("dashboard.notStartedRoutine")
+                          : t("dashboard.notStartedYet")}
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${t.helperId ? stationTone(t.station) : "bg-secondary text-muted-foreground"}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${task.helperId ? stationTone(task.station) : "bg-secondary text-muted-foreground"}`}
                     >
-                      {t.helperId ? t.station : "Unassigned"}
+                      {task.helperId ? task.station : t("dashboard.unassigned")}
                     </span>
                   </div>
                   {onEditTask && onCancelTask && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {confirmCancelId === t.id ? (
+                      {confirmCancelId === task.id ? (
                         <>
                           <span className="text-xs text-foreground">
-                            Cancel it? It stays on the Schedule, crossed out.
+                            {t("dashboard.cancelItItStaysOn")}
                           </span>
                           <button
                             onClick={() => setConfirmCancelId(null)}
                             className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                           >
-                            Keep it
+                            {t("dashboard.keepIt")}
                           </button>
                           <button
                             onClick={() => {
-                              onCancelTask(t.id);
+                              onCancelTask(task.id);
                               setConfirmCancelId(null);
                             }}
                             className="rounded-lg bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90"
                           >
-                            Yes, cancel it
+                            {t("dashboard.yesCancelIt")}
                           </button>
                         </>
                       ) : (
                         <>
                           <button
-                            onClick={() => onEditTask(t)}
+                            onClick={() => onEditTask(task)}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                           >
-                            <Pencil className="h-3.5 w-3.5" /> Edit
+                            <Pencil className="h-3.5 w-3.5" /> {t("dashboard.edit")}
                           </button>
                           <button
-                            onClick={() => setConfirmCancelId(t.id)}
+                            onClick={() => setConfirmCancelId(task.id)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
                           >
-                            <Ban className="h-3.5 w-3.5" /> Cancel task
+                            <Ban className="h-3.5 w-3.5" /> {t("dashboard.cancelTask")}
                           </button>
                         </>
                       )}
@@ -281,7 +291,7 @@ export function NeedsYou({
         {requestCount > 0 && (
           <NeedsYouGroup
             id="requests"
-            label="Requests and pay"
+            label={t("dashboard.requestsAndPay")}
             count={requestCount}
             noun={["item", "items"]}
           >
@@ -291,14 +301,17 @@ export function NeedsYou({
                   <Avatar initials={initialsOf(name)} />
                   <span className="text-xs font-semibold text-foreground">{name}</span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                    <AlertCircle className="h-3 w-3" /> Says it didn't arrive
+                    <AlertCircle className="h-3 w-3" /> {t("dashboard.saysItDidnTArrive")}
                   </span>
                 </div>
                 <h4 className="mt-1.5 text-sm font-semibold text-foreground">
                   {payslip.kind === "thirteenth_month"
-                    ? `13th-month pay ${payslip.cutoffEnd.slice(0, 4)}`
-                    : `Pay for ${payslip.cutoffStart.slice(5)} – ${payslip.cutoffEnd.slice(5)}`}
-                  , recorded as paid outside Linara
+                    ? t("dashboard.thirteenthMonthYear", { year: payslip.cutoffEnd.slice(0, 4) })
+                    : t("dashboard.payForRange", {
+                        from: payslip.cutoffStart.slice(5),
+                        to: payslip.cutoffEnd.slice(5),
+                      })}
+                  {t("dashboard.recordedOutside")}
                 </h4>
                 {payslip.helperAckNote && (
                   <p className="mt-1 rounded-xl bg-secondary/70 px-2.5 py-1.5 text-xs italic text-pine-deep">
@@ -312,11 +325,10 @@ export function NeedsYou({
                       : { to: "/manager/money" as const, search: { helper: payslip.helperId } })}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                   >
-                    Review the payment
+                    {t("dashboard.reviewThePayment")}
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    Talk it through with {name}, then withdraw the record and pay it again if it
-                    didn't arrive.
+                    {t("dashboard.talkItThrough", { name })}
                   </span>
                 </div>
               </div>
@@ -329,13 +341,13 @@ export function NeedsYou({
                     <Avatar initials={initialsOf(displayName)} />
                     <span className="text-xs font-semibold text-foreground">{displayName}</span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
-                      Gave notice
+                      {t("dashboard.gaveNotice")}
                     </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                    Last day:{" "}
+                    {t("dashboard.lastDay")}{" "}
                     {inv.noticeLastDay
-                      ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-US", {
+                      ? new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString(intl, {
                           weekday: "short",
                           month: "short",
                           day: "numeric",
@@ -352,10 +364,10 @@ export function NeedsYou({
                       to="/manager/people"
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      End employment on that day
+                      {t("dashboard.endEmploymentOnThatDay")}
                     </Link>
                     <span className="text-xs text-muted-foreground">
-                      In People. Final pay and open tasks are settled there.
+                      {t("dashboard.inPeopleFinalPayAnd")}
                     </span>
                   </div>
                 </div>
@@ -371,12 +383,11 @@ export function NeedsYou({
                     <span className="text-xs font-semibold text-foreground">{displayName}</span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                       <Coins className="h-3 w-3" />{" "}
-                      {left ? "Left · still owed" : "Unpaid pay period"}
+                      {left ? t("dashboard.leftStillOwed") : t("dashboard.unpaidPeriod")}
                     </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                    {count === 1 ? "One pay period has" : `${count} pay periods have`} no payment on
-                    record.
+                    {t("dashboard.periodsNoPayment", { count })}
                   </h4>
                   <div className="mt-3">
                     {/* Opens Money on HER, at her unpaid periods: GCash or Maya,
@@ -387,7 +398,7 @@ export function NeedsYou({
                         : { to: "/manager/money" as const, search: { helper: inv.id } })}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      <Smartphone className="h-3.5 w-3.5" /> Pay by GCash or Maya
+                      <Smartphone className="h-3.5 w-3.5" /> {t("dashboard.payByGcashOrMaya")}
                     </Link>
                   </div>
                 </div>
@@ -405,7 +416,7 @@ export function NeedsYou({
                           {helper.short}
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-                          <Coins className="h-3 w-3" /> Vale request
+                          <Coins className="h-3 w-3" /> {t("dashboard.valeRequest")}
                         </span>
                       </div>
                       <h4 className="mt-1.5 font-display text-lg text-foreground">
@@ -421,13 +432,13 @@ export function NeedsYou({
                       onClick={() => onDecideVale(v.id, "approved")}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                     >
-                      <Check className="h-3.5 w-3.5" /> Approve
+                      <Check className="h-3.5 w-3.5" /> {t("dashboard.approve")}
                     </button>
                     <button
                       onClick={() => onDecideVale(v.id, "declined")}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                     >
-                      <X className="h-3.5 w-3.5" /> Decline
+                      <X className="h-3.5 w-3.5" /> {t("dashboard.decline")}
                     </button>
                   </div>
                 </div>
@@ -447,7 +458,7 @@ export function NeedsYou({
                     </span>
                   </div>
                   <h4 className="mt-1.5 text-sm font-semibold text-foreground">
-                    {leaveDates(l)} · {l.days} {l.days === 1 ? "day" : "days"}
+                    {t("dashboard.leaveDays", { dates: leaveDates(l), count: l.days })}
                   </h4>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {LEAVE_REASON_LABEL[l.reason]}
@@ -465,10 +476,12 @@ export function NeedsYou({
                       />
                       <span>
                         <span className="font-semibold text-foreground">
-                          {taskCount} of {helper.short}'s{" "}
-                          {taskCount === 1 ? "task is" : "tasks are"} on those days.
+                          {t("dashboard.tasksOnThoseDays", {
+                            count: taskCount,
+                            name: helper.short,
+                          })}
                         </span>{" "}
-                        Move {taskCount === 1 ? "it" : "them"} to Unassigned when you approve.
+                        {t("dashboard.moveToUnassigned", { count: taskCount })}
                       </span>
                     </label>
                   )}
@@ -478,13 +491,13 @@ export function NeedsYou({
                         onClick={() => onDecideLeave(l.id, "approved", { unassignTasks })}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
-                        <Check className="h-3.5 w-3.5" /> Approve
+                        <Check className="h-3.5 w-3.5" /> {t("dashboard.approve")}
                       </button>
                       <button
                         onClick={() => onDecideLeave(l.id, "declined", { unassignTasks: false })}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
-                        <X className="h-3.5 w-3.5" /> Decline
+                        <X className="h-3.5 w-3.5" /> {t("dashboard.decline")}
                       </button>
                     </div>
                   )}
@@ -507,7 +520,9 @@ export function NeedsYou({
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                             <AlertCircle className="h-3 w-3" />{" "}
-                            {isSystemCheck ? "Compliance check" : "Flagged a detail"}
+                            {isSystemCheck
+                              ? t("dashboard.complianceCheck")
+                              : t("dashboard.flaggedDetail")}
                           </span>
                         </div>
                         <h4 className="mt-1.5 text-sm font-semibold text-foreground">
@@ -520,10 +535,10 @@ export function NeedsYou({
                         )}
                         <p className="mt-1 text-xs text-muted-foreground">
                           {isSystemCheck
-                            ? "Checked when the invite was created"
-                            : `Raised by ${displayName}`}{" "}
+                            ? t("dashboard.checkedAtInvite")
+                            : t("dashboard.raisedBy", { name: displayName })}{" "}
                           ·{" "}
-                          {new Date(f.at).toLocaleDateString("en-US", {
+                          {new Date(f.at).toLocaleDateString(intl, {
                             month: "short",
                             day: "numeric",
                             timeZone: householdTimeZone(),
@@ -536,10 +551,10 @@ export function NeedsYou({
                         onClick={() => onResolveFlag(inv.id, f.id)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
                       >
-                        <Check className="h-3.5 w-3.5" /> Mark resolved
+                        <Check className="h-3.5 w-3.5" /> {t("dashboard.markResolved")}
                       </button>
                       <span className="text-xs text-muted-foreground">
-                        Update the household record in People → invite.
+                        {t("dashboard.updateTheHouseholdRecordIn")}
                       </span>
                     </div>
                   </div>

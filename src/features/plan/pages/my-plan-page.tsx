@@ -15,7 +15,8 @@ import {
   formatCentavos,
   graceEndsAt,
   hasFeature,
-  LIMIT_LABEL,
+  limitName,
+  limitTitle,
   limitText,
   limitsFor,
   MAX_ADDON_QUANTITY,
@@ -48,6 +49,7 @@ import {
   type SamplePayment,
 } from "../plan.store";
 import type { Cycle, LimitKey, MySubscription, SubStatus, Usage } from "../plan.types";
+import { useListText, useT } from "@/lib/i18n/locale-context";
 
 const dateFmt = new Intl.DateTimeFormat("en-PH", {
   month: "short",
@@ -106,12 +108,13 @@ function UsageRow({
   /** Add-ons can be bought on this plan (not on Free). */
   canAddOn: boolean;
 }) {
+  const t = useT();
   const over = limit !== null && used > limit;
   const pct = limit === null || limit === 0 ? 0 : Math.min(100, (used / limit) * 100);
   return (
     <li className="py-3.5 first:pt-0 last:pb-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-semibold text-foreground">{LIMIT_LABEL[k].title}</span>
+        <span className="text-sm font-semibold text-foreground">{limitTitle(k, t)}</span>
         <span
           className={`text-sm tabular-nums ${over ? "font-semibold text-status-late-ink" : "text-foreground"}`}
         >
@@ -128,8 +131,8 @@ function UsageRow({
       ) : null}
       {over ? (
         <p className="mt-1.5 text-xs text-status-late-ink">
-          {used - limit} over.{" "}
-          {canAddOn ? "Add more with an add-on, or choose a bigger plan." : "Choose a bigger plan."}
+          {t("plan.overBy", { count: used - limit })}{" "}
+          {canAddOn ? t("plan.addMoreOrBigger") : t("plan.chooseBigger")}
         </p>
       ) : null}
     </li>
@@ -184,6 +187,8 @@ function ChangePlanModal({
   initialPlanId?: string;
   onClose: () => void;
 }) {
+  const t = useT();
+  const listText = useListText();
   const [planId, setPlanId] = useState(initialPlanId ?? sub.planId);
   const plan = planById(planId) ?? CATALOG[0];
   const cycles = cyclesOf(plan);
@@ -253,7 +258,9 @@ function ChangePlanModal({
   if (step === "pay") {
     return (
       <Modal onClose={close}>
-        <h3 className="font-display text-xl text-foreground">Pay for {plan.name}</h3>
+        <h3 className="font-display text-xl text-foreground">
+          {t("plan.payForPlan", { plan: plan.name })}
+        </h3>
         <div className="mt-4">
           <PlanPaymentStep
             planId={planId}
@@ -271,10 +278,10 @@ function ChangePlanModal({
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl text-foreground">Change plan</h3>
+        <h3 className="font-display text-xl text-foreground">{t("plan.changePlan")}</h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("plan.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -282,15 +289,13 @@ function ChangePlanModal({
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         {running && sub.periodEnd
-          ? `You can move up any time. To move to a lower plan, cancel this one: you keep it until ${dayText(sub.periodEnd)}.`
-          : "The new plan starts once it's paid."}
-        {live
-          ? " You pay on Xendit's secure page."
-          : " Payments here are a sample: nothing is charged."}
+          ? t("plan.moveUpAnyTime", { date: dayText(sub.periodEnd) })
+          : t("plan.startsOncePaid")}
+        {live ? t("plan.payOnXendit") : t("plan.paymentsSample")}
       </p>
 
       <fieldset className="mt-4">
-        <legend className="text-xs font-semibold text-muted-foreground">Plan</legend>
+        <legend className="text-xs font-semibold text-muted-foreground">{t("plan.plan")}</legend>
         <div className="mt-1.5 divide-y divide-border rounded-2xl border border-border">
           {CATALOG.map((p) => {
             const chosen = p.id === planId;
@@ -320,13 +325,13 @@ function ChangePlanModal({
                     </span>
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {limitText("households", p.limits.households)},{" "}
-                    {limitText("kasambahay", p.limits.kasambahay)},{" "}
-                    {limitText("co_managers", p.limits.co_managers)}
+                    {limitText("households", p.limits.households, t)},{" "}
+                    {limitText("kasambahay", p.limits.kasambahay, t)},{" "}
+                    {limitText("co_managers", p.limits.co_managers, t)}
                   </span>
                   {lower ? (
                     <span className="block text-xs text-muted-foreground">
-                      Lower than your plan: cancel first.
+                      {t("plan.lowerThanYourPlanCancel")}
                     </span>
                   ) : null}
                 </span>
@@ -338,7 +343,9 @@ function ChangePlanModal({
 
       {cycles.length > 1 ? (
         <fieldset className="mt-4">
-          <legend className="text-xs font-semibold text-muted-foreground">Billed</legend>
+          <legend className="text-xs font-semibold text-muted-foreground">
+            {t("plan.billed")}
+          </legend>
           <div
             className="mt-1.5 inline-flex rounded-xl border border-border bg-card p-1"
             role="group"
@@ -362,14 +369,16 @@ function ChangePlanModal({
 
       {paid ? (
         <fieldset className="mt-4">
-          <legend className="text-xs font-semibold text-muted-foreground">Add-ons</legend>
+          <legend className="text-xs font-semibold text-muted-foreground">
+            {t("plan.addOns")}
+          </legend>
           <ul className="mt-1 divide-y divide-border">
             {ADDONS.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-3 py-1.5">
                 <span className="min-w-0 text-sm text-foreground">
                   {a.name}
                   <span className="block text-xs text-muted-foreground">
-                    {formatCentavos(a.monthlyPrice)} a month each
+                    {t("plan.aMonthEach", { price: formatCentavos(a.monthlyPrice) })}
                   </span>
                 </span>
                 <Stepper
@@ -385,15 +394,15 @@ function ChangePlanModal({
 
       {dropped.length && !current ? (
         <p className="mt-4 rounded-xl bg-terracotta-soft px-3 py-2 text-sm text-hearth-ink">
-          This drops {dropped.join(" and ")} you've paid for this period. It isn't refunded.
+          {t("plan.dropsPaid", { items: listText(dropped) })}
         </p>
       ) : null}
 
       {after.length ? (
         <p className="mt-4 rounded-xl bg-terracotta-soft px-3 py-2 text-sm text-hearth-ink">
-          You'd have more than this plan allows ({after.map((k) => LIMIT_LABEL[k].many).join(", ")}
-          ). You'll choose which stay active; for the rest, new tasks and changes pause. Nothing is
-          deleted, and every kasambahay keeps her own record, leave and rest days.
+          {t("plan.overAfterChange", {
+            items: listText(after.map((k) => limitName(k, t))),
+          })}
         </p>
       ) : null}
 
@@ -415,7 +424,7 @@ function ChangePlanModal({
         </p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={secondaryBtn}>
-            Cancel
+            {t("plan.cancel")}
           </button>
           <button
             type="button"
@@ -443,7 +452,9 @@ function ChangePlanModal({
             className={primaryBtn}
           >
             {/* A paid plan goes to payment; moving to Free with nothing running doesn't. */}
-            {needsPayment || (q.ok && q.amount > 0) ? "Continue to payment" : "Change plan"}
+            {needsPayment || (q.ok && q.amount > 0)
+              ? t("plan.continueToPayment")
+              : t("plan.changePlan")}
           </button>
         </div>
       </div>
@@ -453,6 +464,7 @@ function ChangePlanModal({
 
 /** Cancelling: asks first. The plan stays until its renewal date, then it's Free. */
 function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () => void }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const name = planById(sub.planId)?.name ?? "your plan";
@@ -461,11 +473,14 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
   };
   return (
     <Modal onClose={close}>
-      <h3 className="font-display text-xl text-foreground">Cancel {name}?</h3>
+      <h3 className="font-display text-xl text-foreground">
+        {t("plan.cancelPlanTitle", { plan: name })}
+      </h3>
       <p className="mt-2 text-sm text-muted-foreground">
-        You keep everything on {name} until {sub.periodEnd ? dayText(sub.periodEnd) : "it ends"}.
-        Then you're on Free, and you can choose any plan. Changed your mind before then? Keep it
-        from Your plan.
+        {t("plan.keepUntil", {
+          plan: name,
+          date: sub.periodEnd ? dayText(sub.periodEnd) : t("plan.itEnds"),
+        })}
       </p>
       {error ? (
         <p
@@ -477,7 +492,7 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
       ) : null}
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         <button type="button" onClick={close} disabled={busy} className={secondaryBtn}>
-          Keep {name}
+          {t("plan.keepPlan", { plan: name })}
         </button>
         <button
           type="button"
@@ -501,7 +516,7 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
           {busy ? (
             <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
           ) : null}
-          Cancel plan
+          {t("plan.cancelPlan")}
         </button>
       </div>
     </Modal>
@@ -509,6 +524,7 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
 }
 
 function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => void }) {
+  const t = useT();
   const [paid, setPaid] = useState<SamplePayment | null>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -517,10 +533,8 @@ function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => voi
         <PaymentDone payment={paid} onDone={onClose} />
       ) : (
         <>
-          <h3 className="font-display text-xl text-foreground">Pay now</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pays what's owed and keeps everything working.
-          </p>
+          <h3 className="font-display text-xl text-foreground">{t("plan.payNow")}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t("plan.paysWhatSOwedAnd")}</p>
           <div className="mt-4">
             <PlanPaymentStep
               planId={sub.planId}
@@ -557,6 +571,7 @@ function methodName(method: string | null): string | null {
 }
 
 function PaymentRow({ p }: { p: PlanPayment }) {
+  const t = useT();
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
       <span className="min-w-0 text-sm">
@@ -565,7 +580,7 @@ function PaymentRow({ p }: { p: PlanPayment }) {
         </span>{" "}
         <span className="text-muted-foreground">
           {[
-            p.kind === "addons" ? "Add-ons" : (planById(p.planId)?.name ?? p.planId),
+            p.kind === "addons" ? t("plan.addOns") : (planById(p.planId)?.name ?? p.planId),
             methodName(p.method),
             fmtDate(p.at),
           ]
@@ -578,7 +593,7 @@ function PaymentRow({ p }: { p: PlanPayment }) {
         {/* For support and receipts, on its own quiet line. */}
         {p.reference ? (
           <span className="block text-xs text-muted-foreground tabular-nums">
-            Ref. {p.reference}
+            {t("plan.ref", { reference: p.reference })}
           </span>
         ) : null}
       </span>
@@ -588,7 +603,7 @@ function PaymentRow({ p }: { p: PlanPayment }) {
             href={p.invoiceUrl}
             className="inline-flex min-h-11 items-center text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Finish paying
+            {t("plan.finishPaying")}
           </a>
         ) : null}
         <span
@@ -606,17 +621,18 @@ function PaymentRow({ p }: { p: PlanPayment }) {
  * nothing and charged nothing, so they wait behind "Show N replaced".
  */
 function PaymentHistory({ payments, live }: { payments: PlanPayment[]; live: boolean }) {
+  const t = useT();
   const [showReplaced, setShowReplaced] = useState(false);
   const shown = payments.filter((p) => p.status !== "cancelled");
   const replaced = payments.filter((p) => p.status === "cancelled");
   return (
     <section className={card} aria-labelledby="payments-heading">
       <h2 id="payments-heading" className="mb-3 font-display text-xl text-foreground">
-        Payments
+        {t("plan.payments")}
       </h2>
       {payments.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {live ? "No payments yet." : "No payments in this preview yet."}
+          {live ? t("plan.noPaymentsYet") : t("plan.noPaymentsPreview")}
         </p>
       ) : (
         <>
@@ -636,8 +652,8 @@ function PaymentHistory({ payments, live }: { payments: PlanPayment[]; live: boo
                 className="mt-2 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-semibold text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
               >
                 {showReplaced
-                  ? "Hide replaced pages"
-                  : `Show ${replaced.length} replaced ${replaced.length === 1 ? "page" : "pages"}`}
+                  ? t("plan.hideReplaced")
+                  : t("plan.showReplaced", { count: replaced.length })}
               </button>
               {showReplaced ? (
                 <ul className="divide-y divide-border border-t border-border">
@@ -686,6 +702,7 @@ function ReturnNotice({
   result?: "paid" | "failed";
   onDismiss?: () => void;
 }) {
+  const t = useT();
   const { payments, live } = usePlan();
   const payment = payments.find((p) => p.id === paymentId);
   const status = payment?.status ?? "pending";
@@ -756,7 +773,7 @@ function ReturnNotice({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label={t("plan.dismiss")}
           className="rounded-lg p-1 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-4" aria-hidden />
@@ -788,6 +805,8 @@ export function MyPlanPage({
   paymentResult?: "paid" | "failed";
   onPaymentSeen?: () => void;
 } = {}) {
+  const t = useT();
+  const listText = useListText();
   const { subscription: sub, payments, live, testMode, owner } = usePlan();
   const usage = usePlanUsage();
   // A lock's "Upgrade to" lands here: open Change plan with that plan picked,
@@ -829,20 +848,20 @@ export function MyPlanPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl text-foreground">Your plan</h1>
+          <h1 className="font-display text-2xl text-foreground">{t("plan.yourPlan")}</h1>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
             {!live
-              ? "A preview: billing isn't live yet, so nothing here charges you."
+              ? t("plan.previewNotLive")
               : testMode
-                ? "Test mode: payments go through Xendit's test page, so nothing real is charged."
+                ? t("plan.testModeNote")
                 : owner
-                  ? "Your plan covers every household you own."
-                  : "This household's plan belongs to its primary manager."}
+                  ? t("plan.coversEveryHousehold")
+                  : t("plan.belongsToPrimary")}
           </p>
         </div>
         {!live || testMode ? (
           <span className="inline-flex rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-hearth-ink">
-            {live ? "Test mode" : "Preview"}
+            {live ? t("plan.testMode") : t("plan.preview")}
           </span>
         ) : null}
       </div>
@@ -855,7 +874,7 @@ export function MyPlanPage({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 id="plan-heading" className="font-display text-xl text-foreground">
-              {plan?.name ?? "Unknown plan"}
+              {plan?.name ?? t("plan.unknownPlan")}
             </h2>
             <p className="text-sm text-muted-foreground">{plan?.description}</p>
             {!inApp && amount.ok ? (
@@ -863,7 +882,7 @@ export function MyPlanPage({
                 {priceText(amount.amount, sub.cycle)}
                 {plan?.pricePlaceholder ? (
                   <span className="ml-1.5 font-normal text-muted-foreground">
-                    (placeholder price)
+                    {t("plan.placeholderPrice")}
                   </span>
                 ) : null}
               </p>
@@ -878,7 +897,7 @@ export function MyPlanPage({
                   onClick={() => setPayingNow(true)}
                   className={primaryBtn}
                 >
-                  Pay {formatCentavos(amount.amount)} now
+                  {t("plan.payAmountNow", { amount: formatCentavos(amount.amount) })}
                 </button>
               ) : null}
               <button
@@ -887,7 +906,7 @@ export function MyPlanPage({
                 onClick={() => setChanging({})}
                 className={owes ? secondaryBtn : primaryBtn}
               >
-                Change plan
+                {t("plan.changePlan")}
               </button>
             </div>
           ) : null}
@@ -925,7 +944,7 @@ export function MyPlanPage({
                 {keeping ? (
                   <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
                 ) : null}
-                Keep my plan
+                {t("plan.keepMyPlan")}
               </button>
             ) : (
               <button
@@ -934,14 +953,14 @@ export function MyPlanPage({
                 onClick={() => setCancelling(true)}
                 className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
               >
-                Cancel plan
+                {t("plan.cancelPlan")}
               </button>
             )
           ) : null}
         </div>
         {confirming ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            Waiting for Xendit to confirm your last payment. Changes open again once it's in.
+            {t("plan.waitingForXenditToConfirm")}
           </p>
         ) : null}
         {keepError ? (
@@ -952,7 +971,7 @@ export function MyPlanPage({
         {inApp ? (
           <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Plan changes aren't available in the app.
+            {t("plan.planChangesArenTAvailable")}
           </p>
         ) : null}
       </section>
@@ -960,12 +979,10 @@ export function MyPlanPage({
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <section className={card} aria-labelledby="usage-heading">
           <h2 id="usage-heading" className="font-display text-xl text-foreground">
-            What you're using
+            {t("plan.whatYouReUsing")}
           </h2>
           <p className="mb-4 text-xs text-muted-foreground">
-            {live && owner
-              ? "Across every household you own. A kasambahay working in two of them counts once."
-              : "Kasambahay counts this household for now; across all your households once billing is live."}
+            {live && owner ? t("plan.acrossHouseholds") : t("plan.countsThisHousehold")}
           </p>
           <ul className="divide-y divide-border">
             {(Object.keys(limits) as LimitKey[]).map((k) => (
@@ -980,56 +997,21 @@ export function MyPlanPage({
           </ul>
           {addonLines.length ? (
             <p className="mt-4 text-sm text-foreground">
-              Add-ons:{" "}
-              {addonLines
-                .map(
-                  (l) =>
-                    `${ADDONS.find((a) => a.id === l.addonId)?.name ?? l.addonId} × ${l.quantity}`,
-                )
-                .join(", ")}
+              {t("plan.addOnsLine", {
+                items: listText(
+                  addonLines.map((l) =>
+                    t("plan.addonQty", {
+                      name: ADDONS.find((a) => a.id === l.addonId)?.name ?? l.addonId,
+                      count: l.quantity,
+                    }),
+                  ),
+                ),
+              })}
             </p>
           ) : null}
         </section>
 
-        <section className={card} aria-labelledby="features-heading">
-          <h2 id="features-heading" className="mb-3 font-display text-xl text-foreground">
-            Included
-          </h2>
-          <ul className="divide-y divide-border">
-            {FEATURES.map((f) => {
-              const has = hasFeature(sub, f.key);
-              return (
-                <li key={f.key} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-                  {has ? (
-                    <Check className="mt-0.5 size-4 shrink-0 text-status-done-ink" aria-hidden />
-                  ) : (
-                    <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={`text-sm font-semibold ${has ? "text-foreground" : "text-muted-foreground"}`}
-                    >
-                      {f.name}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">{f.description}</span>
-                  </span>
-                  {!has ? (
-                    <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-pine-deep">
-                      {f.offForEveryone ? "Off for everyone" : "Not on your plan"}
-                    </span>
-                  ) : f.everyPlan ? (
-                    <span
-                      title={f.everyPlan}
-                      className="shrink-0 rounded-full bg-status-done-soft px-2.5 py-0.5 text-xs font-semibold text-status-done-ink"
-                    >
-                      Every plan
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <IncludedSection sub={sub} className={card} />
       </div>
 
       <AddonsSection
@@ -1049,17 +1031,14 @@ export function MyPlanPage({
           aria-labelledby="preview-heading"
         >
           <h2 id="preview-heading" className="font-display text-lg text-foreground">
-            Preview controls
+            {t("plan.previewControls")}
           </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            See how the app looks on another payment status. Only this tab changes, until it's
-            reloaded.
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("plan.seeHowTheAppLooks")}</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <div
               className="inline-flex flex-wrap rounded-xl border border-border bg-card p-1"
               role="group"
-              aria-label="Payment status"
+              aria-label={t("plan.paymentStatus")}
             >
               {PREVIEW.map((p) => (
                 <button
@@ -1074,7 +1053,7 @@ export function MyPlanPage({
               ))}
             </div>
             <button type="button" onClick={resetPlan} className={secondaryBtn}>
-              Reset preview
+              {t("plan.resetPreview")}
             </button>
           </div>
         </section>
@@ -1091,5 +1070,70 @@ export function MyPlanPage({
       {payingNow ? <PayNowModal sub={sub} onClose={() => setPayingNow(false)} /> : null}
       {cancelling ? <CancelPlanModal sub={sub} onClose={() => setCancelling(false)} /> : null}
     </div>
+  );
+}
+
+/**
+ * What the plan includes, folded to one line until asked for: ten rows on
+ * every visit made Your plan three screens tall (UI/UX audit 2026-10-29).
+ */
+function IncludedSection({ sub, className }: { sub: MySubscription; className: string }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const onPlan = FEATURES.filter((f) => hasFeature(sub, f.key)).length;
+  return (
+    <section className={className} aria-labelledby="features-heading">
+      <h2 id="features-heading" className="font-display text-xl text-foreground">
+        {t("plan.included")}
+      </h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {t("plan.featuresOnPlan", { onPlan, total: FEATURES.length })}
+      </p>
+      {open && (
+        <ul id="features-list" className="mt-3 divide-y divide-border">
+          {FEATURES.map((f) => {
+            const has = hasFeature(sub, f.key);
+            return (
+              <li key={f.key} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                {has ? (
+                  <Check className="mt-0.5 size-4 shrink-0 text-status-done-ink" aria-hidden />
+                ) : (
+                  <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`text-sm font-semibold ${has ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {f.name}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">{f.description}</span>
+                </span>
+                {!has ? (
+                  <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-pine-deep">
+                    {f.offForEveryone ? t("plan.offForEveryone") : t("plan.notOnYourPlan")}
+                  </span>
+                ) : f.everyPlan ? (
+                  <span
+                    title={f.everyPlan}
+                    className="shrink-0 rounded-full bg-status-done-soft px-2.5 py-0.5 text-xs font-semibold text-status-done-ink"
+                  >
+                    {t("plan.everyPlan")}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="features-list"
+        className="mt-2 -ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {open ? t("plan.hideTheList") : t("plan.showWhatsIncluded")}
+      </button>
+    </section>
   );
 }
