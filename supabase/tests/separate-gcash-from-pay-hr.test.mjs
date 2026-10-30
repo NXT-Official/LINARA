@@ -36,10 +36,6 @@ const expectError = async (label, fn, pattern) => {
   }
 };
 const changes = async (sql, params) => (await q(`${sql} RETURNING 1`, params)).length;
-const setSwitch = async (on) => {
-  await as(null);
-  await q(`UPDATE app_switches SET enabled = $1 WHERE key = 'staff_pay_hr'`, [on]);
-};
 const OFF = /temporarily disabled/;
 
 await db.exec(readFileSync(resolve(HERE, "base-schema.sql"), "utf8"));
