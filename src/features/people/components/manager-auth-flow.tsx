@@ -13,6 +13,7 @@ import { clearPendingCode, readPendingCode, savePendingCode } from "../pending-i
 import { JoinHouseholdForm } from "./household-switcher";
 import { useT } from "@/lib/i18n/locale-context";
 import { textParts } from "@/lib/i18n/instance";
+import { LanguageMenu } from "@/components/shared/language-menu";
 
 /** The steps of /signup after "Which one are you?", each its own `?step=`. */
 export const SIGNUP_STEPS = ["household", "join", "kasambahay"] as const;
@@ -98,21 +99,21 @@ export function ManagerAuthFlow({
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) {
-      toast.error("Kumpletuhin muna ang email at password.");
+      toast.error(t("people.kumpletuhinMunaAngEmailAt"));
       return;
     }
     if (mode === "signup") {
       // eslint-disable-next-line security/detect-possible-timing-attacks -- Client-side double-entry check.
       if (password !== confirmPassword) {
-        toast.error("Hindi magkatugma ang passwords.");
+        toast.error(t("people.hindiMagkatugmaAngPasswords"));
         return;
       }
       if (password.length < 6) {
-        toast.error("Dapat may kahit anim (6) na characters ang password.");
+        toast.error(t("people.dapatMayKahitAnim6"));
         return;
       }
       if (withCode && inviteCode.replace(/\s/g, "").length !== 8) {
-        toast.error("The invite code is 8 letters and numbers.");
+        toast.error(t("people.theInviteCodeIs8"));
         return;
       }
     }
@@ -132,27 +133,23 @@ export function ManagerAuthFlow({
         }
         const result = await session.signUp({ email: email.trim(), password });
         if (result === "confirmation_pending") {
-          toast.info(
-            "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos mag-log in.",
-          );
+          toast.info(t("people.nagpadalaKamiNgConfirmationLink2"));
           if (!openAppScreen("sign-in", "confirm-email")) {
             navigate({ to: "/login", search: { sent: true } });
           }
           return;
         }
         if (result === "helper") {
-          toast.info("Kasambahay account ang email na ito. Sa Linara app ito ginagamit.");
+          toast.info(t("people.kasambahayAccountAngEmailNa"));
           goToStep("kasambahay");
           return;
         }
-        if (result === "authed") toast.success("Welcome back!");
+        if (result === "authed") toast.success(t("people.welcomeBack2"));
       } else {
         const result = await session.logIn({ email: email.trim(), password });
         if (result === "confirmation_pending") {
           setConfirmationPending(true);
-          toast.info(
-            "Hindi pa na-confirm ang email mo. I-click muna ang link, tapos subukan ulit.",
-          );
+          toast.info(t("people.hindiPaNaConfirmAng"));
           return;
         }
         if (result === "helper") {
@@ -160,10 +157,10 @@ export function ManagerAuthFlow({
           return;
         }
         if (result === "needs_bootstrap") {
-          toast.success("Naka-confirm na! Kumpletuhin na lang ang household setup.");
+          toast.success(t("people.nakaConfirmNaKumpletuhinNa"));
           return;
         }
-        toast.success("Welcome back!");
+        toast.success(t("people.welcomeBack2"));
       }
     } catch (err) {
       if (err instanceof ExistingAccountError) {
@@ -180,7 +177,7 @@ export function ManagerAuthFlow({
 
   const submitBootstrap = async () => {
     if (!fullName.trim()) {
-      toast.error("Ilagay ang iyong pangalan.");
+      toast.error(t("people.ilagayAngIyongPangalan"));
       return;
     }
     setLoading(true);
@@ -189,7 +186,7 @@ export function ManagerAuthFlow({
         fullName: fullName.trim(),
         householdName: householdName.trim() || undefined,
       });
-      toast.success("Tapos na! Nagawa na ang household mo.");
+      toast.success(t("people.taposNaNagawaNaAng"));
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "May error na naganap.";
@@ -560,6 +557,9 @@ function AuthCard({ children }: { children: ReactNode }) {
             <LogoMark className="h-10 w-10" />
           )}
           {children}
+        </div>
+        <div className="mt-3 flex justify-center">
+          <LanguageMenu />
         </div>
       </div>
     </div>

@@ -67,10 +67,10 @@ export function EditTeamLabelsModal({
         ...h.added.map((id) => sharing.setHousehold(helperId, id, true)),
         ...h.removed.map((id) => sharing.setHousehold(helperId, id, false)),
       ]);
-      toast.success(`Saved where ${name} works.`);
+      toast.success(t("teams.savedWhereWorks", { name }));
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save that.");
+      toast.error(err instanceof Error ? err.message : t("common.couldntSaveThat"));
     } finally {
       setSaving(false);
     }

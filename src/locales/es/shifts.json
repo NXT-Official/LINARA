@@ -16,6 +16,12 @@
     "edit": "Editar",
     "noOneCovers": "Nadie cubre el {day}",
     "noOneInTeamCovers": "Nadie en {team} cubre el {day}",
-    "save": "Guardar"
+    "save": "Guardar",
+    "tasksHere_one": "{count} tarea aquí",
+    "tasksHere_other": "{count} tareas aquí",
+    "tasksAt_one": "{count} tarea en {name}",
+    "tasksAt_other": "{count} tareas en {name}",
+    "movedToUnassigned": "{list}: movidas a Sin asignar.",
+    "leaveSavedTasksStuck": "Licencia guardada, pero las tareas de esos días no se pudieron mover. Muévelas en Horario."
   }
 }

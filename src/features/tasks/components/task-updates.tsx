@@ -76,7 +76,7 @@ export function TaskUpdates({
       setDraft("");
       refreshActivity();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't post the update.");
+      toast.error(err instanceof Error ? err.message : t("tasks.couldntPostUpdate"));
     } finally {
       setPosting(false);
     }
@@ -88,7 +88,7 @@ export function TaskUpdates({
       setComments((prev) => (prev ?? []).filter((c) => c.id !== id));
       refreshActivity();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't delete it.");
+      toast.error(err instanceof Error ? err.message : t("tasks.couldntDeleteIt"));
     }
   };
 

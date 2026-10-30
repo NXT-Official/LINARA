@@ -36,7 +36,7 @@ export function TeamsLabelsSection({ canEdit }: { canEdit: boolean }) {
       await fn();
       return true;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save that.");
+      toast.error(err instanceof Error ? err.message : t("common.couldntSaveThat"));
       return false;
     } finally {
       setBusy(false);

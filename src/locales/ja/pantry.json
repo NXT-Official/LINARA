@@ -24,6 +24,9 @@
     "editItem": "{name}を編集",
     "addPantryItem": "食品庫の品目を追加",
     "save": "保存",
-    "add": "追加"
+    "add": "追加",
+    "hindiNaSaveAngPantry": "食品庫の品目を保存できませんでした。",
+    "hindiNaAddAngPantry": "食品庫の品目を追加できませんでした。",
+    "hindiNaRemoveAngPantry": "食品庫の品目を削除できませんでした。"
   }
 }

@@ -29,6 +29,11 @@
     "scheduling": "Programando...",
     "schedule": "Programar",
     "addPrep": "Agregar preparación",
-    "appointments": "Citas {span}"
+    "appointments": "Citas {span}",
+    "successfullyScheduledAppointmentAndAll": "Cita y todas sus tareas de preparación programadas.",
+    "failedToParseAndSchedule": "No se pudo leer ni programar. Inténtalo de nuevo.",
+    "hindiNaSaveAngAppointment": "La cita no se guardó.",
+    "hindiNaDeleteAngAppointment": "La cita no se eliminó.",
+    "hindiNaRescheduleAngAppointment": "La cita no se reprogramó."
   }
 }

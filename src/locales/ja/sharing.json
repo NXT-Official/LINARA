@@ -19,6 +19,7 @@
     "add": "追加",
     "employedBy": "{house}で雇用",
     "employedByTeamHere": "{house}で雇用 · ここでは{team}",
-    "choose": "選択…"
+    "choose": "選択…",
+    "couldntAddPlace": "場所を追加できませんでした。"
   }
 }

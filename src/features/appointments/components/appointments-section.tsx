@@ -91,11 +91,11 @@ export function AppointmentsSection({
         );
 
         setPrompt("");
-        toast.success("Successfully scheduled appointment and all prep tasks with AI!");
+        toast.success(t("appointments.successfullyScheduledAppointmentAndAll"));
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to parse and schedule with AI. Please try again.");
+      toast.error(t("appointments.failedToParseAndSchedule"));
     } finally {
       setIsScheduling(false);
     }

@@ -270,7 +270,7 @@ function RemoveAddonModal({
               setError(res.message);
               return;
             }
-            toast.success("Add-on removed.", { description: "Nothing was charged." });
+            toast.success(t("plan.addOnRemoved"), { description: t("common.nothingWasCharged") });
             onClose();
           }}
           className={primaryBtn}

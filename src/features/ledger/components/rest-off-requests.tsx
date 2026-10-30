@@ -77,13 +77,13 @@ export function RestOffRequests({
       onDecided?.();
       toast.success(
         decision === "approved"
-          ? `Approved. ${fmtHoursMinutes(res.balanceAfter)} rest owed na lang ang natitira.`
-          : "Na-decline ang request.",
+          ? t("ledger.approvedRestLeft", { left: fmtHoursMinutes(res.balanceAfter) })
+          : t("ledger.requestDeclined"),
       );
     } catch (err) {
       // The guard can legitimately refuse here -- e.g. another manager approved
       // something else first and the balance no longer covers this.
-      toast.error(err instanceof Error ? err.message : "Hindi na-update ang request.");
+      toast.error(err instanceof Error ? err.message : t("ledger.requestNotUpdated"));
       await refresh().catch(() => {});
     } finally {
       setDeciding(null);

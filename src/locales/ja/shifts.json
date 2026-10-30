@@ -16,6 +16,12 @@
     "edit": "編集",
     "noOneCovers": "{day}は担当者がいません",
     "noOneInTeamCovers": "{team}では{day}の担当者がいません",
-    "save": "保存"
+    "save": "保存",
+    "tasksHere_one": "この家のタスク{count}件",
+    "tasksHere_other": "この家のタスク{count}件",
+    "tasksAt_one": "{name}のタスク{count}件",
+    "tasksAt_other": "{name}のタスク{count}件",
+    "movedToUnassigned": "{list}を未割り当てに移しました。",
+    "leaveSavedTasksStuck": "休暇は保存しましたが、その日のタスクを移せませんでした。スケジュールで移してください。"
   }
 }

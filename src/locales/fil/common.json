@@ -1,7 +1,8 @@
 {
   "common": {
     "language": {
-      "current": "Wika: {language}"
+      "current": "Wika: {language}",
+      "label": "Wika"
     },
     "primary": "Pangunahin (Primary)",
     "search": "Maghanap…",
@@ -11,6 +12,11 @@
     "somethingWentWrongHereThe": "May nangyaring problema rito. Maayos naman ang ibang bahagi ng Linara. Subukan ulit, o pumili ng ibang tab.",
     "tryAgain": "Subukan ulit",
     "showFewer": "Magpakita nang mas kaunti",
-    "showMore": "Magpakita pa ng {count} {noun}"
+    "showMore": "Magpakita pa ng {count} {noun}",
+    "couldntSaveThat": "Hindi iyon na-save.",
+    "couldntRemoveIt": "Hindi ito natanggal.",
+    "somethingWentWrong": "May nangyaring mali.",
+    "undo": "I-undo",
+    "nothingWasCharged": "Walang siningil."
   }
 }

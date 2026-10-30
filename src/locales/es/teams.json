@@ -64,6 +64,8 @@
     "helperCount_one": "{count} empleada",
     "helperCount_other": "{count} empleadas",
     "removeTeamConfirm": "¿Eliminar? {extra}",
-    "goToNoTeam": "{count} quedarán sin equipo."
+    "goToNoTeam": "{count} quedarán sin equipo.",
+    "savedWhereWorks": "Se guardó dónde trabaja {name}.",
+    "couldntChangeThat": "No se pudo cambiar."
   }
 }

@@ -36,6 +36,7 @@ import {
 import { firstRoutineDay, routinesDueOn, routinesFromTickets } from "../routine.utils";
 import type { Routine, Status, Task } from "../task.types";
 import { decodeRecurrence, encodeRecurrence, movedFromLabel } from "../task.utils";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type AddTaskFlags = {
   afterHours?: boolean;
@@ -172,6 +173,7 @@ export function useTaskBoard({
    * person because they weren't known yet. */
   staffReady?: boolean;
 }) {
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [boardClosed, setBoardClosed] = useState(false);
@@ -342,39 +344,39 @@ export function useTaskBoard({
    * device clock that set the flag was wrong. */
   const dismissRollover = () => setRolloverNeededFor(null);
 
-  const addTask = (t: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
+  const addTask = (task: Omit<Task, "id" | "status" | "station">, flags: AddTaskFlags = {}) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in, kaya hindi ma-add ang task.");
+      toast.error(t("tasks.hindiKaNakaSignIn"));
       return;
     }
     // A task can be planned for a later day (the planner, or New task's
     // Date). A closed board only holds back tonight's new tasks, not those.
-    const dateIso = t.scheduledDate ?? toISODate(simDate);
+    const dateIso = task.scheduledDate ?? toISODate(simDate);
     const shouldQueue = (boardClosed && dateIso <= toISODate(simDate)) || !!flags.queuedForShift;
     insertTicketFn({
       data: {
         token,
-        title: t.title,
-        notes: t.note,
-        helperId: t.helperId,
-        scheduledStartIso: combineDateAndTime(dateIso, t.time),
-        photoEvidenceUrl: t.photo,
+        title: task.title,
+        notes: task.note,
+        helperId: task.helperId,
+        scheduledStartIso: combineDateAndTime(dateIso, task.time),
+        photoEvidenceUrl: task.photo,
         isAfterHours: !!flags.afterHours,
         emergency: !!flags.emergency,
         suggested: !!flags.suggested,
         queued: shouldQueue,
         queuedForShift: !!flags.queuedForShift,
-        recurrence: encodeRecurrence(t.recurrence),
-        routineId: t.routineId,
-        from: t.from,
-        to: t.to,
-        durationMinutes: t.durationMinutes,
+        recurrence: encodeRecurrence(task.recurrence),
+        routineId: task.routineId,
+        from: task.from,
+        to: task.to,
+        durationMinutes: task.durationMinutes,
       },
     })
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to add task:", err);
-        toast.error("Hindi na-save ang bagong task.");
+        toast.error(t("tasks.hindiNaSaveAngBagong"));
       });
   };
 
@@ -419,7 +421,7 @@ export function useTaskBoard({
       // Save to IndexedDB offline queue
       addToQueue("update_status", { id, status }, photo)
         .then(() => {
-          toast.info("Naka-save offline! Aayusin natin pag may internet na ulit.");
+          toast.info(t("tasks.nakaSaveOfflineAayusinNatin"));
         })
         .catch((err) => {
           console.error("Failed to add to offline queue:", err);
@@ -464,7 +466,7 @@ export function useTaskBoard({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to update task status:", err);
-        toast.error("Hindi na-save ang status ng task.");
+        toast.error(t("tasks.hindiNaSaveAngStatus"));
       });
   };
 
@@ -476,7 +478,7 @@ export function useTaskBoard({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to block task:", err);
-        toast.error("Hindi na-save ang block reason.");
+        toast.error(t("tasks.hindiNaSaveAngBlock"));
       });
   };
 
@@ -492,7 +494,7 @@ export function useTaskBoard({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to reschedule task:", err);
-        toast.error("Hindi na-reschedule ang task.");
+        toast.error(t("tasks.hindiNaRescheduleAngTask"));
       });
   };
 
@@ -535,7 +537,7 @@ export function useTaskBoard({
       })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to edit task:", err);
-        toast.error("Hindi na-save ang pagbabago sa task.");
+        toast.error(t("tasks.hindiNaSaveAngPagbabago"));
         return false;
       });
   };
@@ -561,8 +563,8 @@ export function useTaskBoard({
       },
     })
       .then(() => {
-        toast.success("Task cancelled. It stays on the Schedule.", {
-          action: { label: "Undo", onClick: () => restoreTask(id) },
+        toast.success(t("tasks.taskCancelledItStaysOn"), {
+          action: { label: t("common.undo"), onClick: () => restoreTask(id) },
         });
         return refresh();
       })
@@ -574,7 +576,7 @@ export function useTaskBoard({
       })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to cancel task:", err);
-        toast.error("Hindi na-cancel ang task.");
+        toast.error(t("tasks.hindiNaCancelAngTask"));
       });
   };
 
@@ -583,12 +585,12 @@ export function useTaskBoard({
     if (!token) return;
     updateTicketFn({ data: { token, ticketId: id, patch: { status: "todo", blockReason: null } } })
       .then(() => {
-        toast.success("Task restored.");
+        toast.success(t("tasks.taskRestored"));
         return refresh();
       })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to restore task:", err);
-        toast.error("Hindi na-restore ang task.");
+        toast.error(t("tasks.hindiNaRestoreAngTask"));
       });
   };
 
@@ -598,7 +600,7 @@ export function useTaskBoard({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to approve suggestion:", err);
-        toast.error("Hindi na-approve ang suggestion.");
+        toast.error(t("tasks.hindiNaApproveAngSuggestion"));
       });
   };
 
@@ -608,7 +610,7 @@ export function useTaskBoard({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useTaskBoard] Failed to dismiss suggestion:", err);
-        toast.error("Hindi na-dismiss ang suggestion.");
+        toast.error(t("tasks.hindiNaDismissAngSuggestion"));
       });
   };
 
@@ -617,7 +619,7 @@ export function useTaskBoard({
     if (token) {
       setBoardClosedFn({ data: { token, closed } }).catch((err) => {
         console.error("[useTaskBoard] Failed to persist board-closed state:", err);
-        toast.error("Hindi na-save ang board status.");
+        toast.error(t("tasks.hindiNaSaveAngBoard"));
       });
     }
     if (!closed && token) {
@@ -626,7 +628,7 @@ export function useTaskBoard({
         .then(() => refresh())
         .catch((err) => {
           console.error("[useTaskBoard] Failed to reopen the board:", err);
-          toast.error("Hindi na-open nang maayos ang board.");
+          toast.error(t("tasks.hindiNaOpenNangMaayos"));
         });
     }
   };
@@ -638,7 +640,7 @@ export function useTaskBoard({
    */
   const addRoutine = (r: Omit<Routine, "id" | "station">) => {
     if (!token) {
-      toast.error("Sign in to add a routine.");
+      toast.error(t("tasks.signInToAddA"));
       return;
     }
     const now = householdNow();
@@ -668,12 +670,12 @@ export function useTaskBoard({
           month: "short",
           day: "numeric",
         });
-        toast.success(`Routine saved. The first one is ${first}.`);
+        toast.success(t("tasks.routineSavedTheFirstOne", { first }));
         return refresh();
       })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to add routine:", err);
-        toast.error("The routine wasn't saved.");
+        toast.error(t("tasks.theRoutineWasnTSaved"));
       });
   };
 
@@ -687,13 +689,13 @@ export function useTaskBoard({
     return stopRepeatFn({ data: { token, routineId } })
       .then(async (changed) => {
         if (changed === 0) throw new Error("No task of this routine could be changed.");
-        toast.success("It won't repeat any more. Tasks already planned stay.");
+        toast.success(t("tasks.itWonTRepeatAny"));
         await refresh();
         return true;
       })
       .catch((err) => {
         console.error("[useTaskBoard] Failed to stop the repeat:", err);
-        toast.error("It's still repeating. Try again.");
+        toast.error(t("tasks.itSStillRepeatingTry"));
         return false;
       });
   };
@@ -729,7 +731,7 @@ export function useTaskBoard({
       await refresh(targetDate);
     } catch (err) {
       console.error("[useTaskBoard] Failed to roll over to the next day:", err);
-      toast.error("Hindi na-simulan ang bagong araw nang maayos.");
+      toast.error(t("tasks.hindiNaSimulanAngBagong"));
     }
     return { routinesRespawned: made };
   };

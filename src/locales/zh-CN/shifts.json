@@ -16,6 +16,12 @@
     "edit": "编辑",
     "noOneCovers": "{day}无人当班",
     "noOneInTeamCovers": "{team}在{day}无人当班",
-    "save": "保存"
+    "save": "保存",
+    "tasksHere_one": "此处 {count} 项任务",
+    "tasksHere_other": "此处 {count} 项任务",
+    "tasksAt_one": "{name} 的 {count} 项任务",
+    "tasksAt_other": "{name} 的 {count} 项任务",
+    "movedToUnassigned": "{list}已移至未指派。",
+    "leaveSavedTasksStuck": "休假已保存，但那几天的任务未能移走。请在日程中移动它们。"
   }
 }

@@ -155,6 +155,14 @@
     "today": "今天",
     "tomorrow": "明天",
     "noRunsOpenMakeOne": "当前没有进行中的采购。你可以从“需要的”列表中新建一次采购，或启动固定周期采购。",
-    "noOpenRunsForThat": "该团队当前没有进行中的采购。"
+    "noOpenRunsForThat": "该团队当前没有进行中的采购。",
+    "budgetsSaved": "预算已保存。",
+    "receiptAdded": "已添加收据",
+    "repeatSaved": "重复设置已保存。",
+    "repeatDeletedRunsMadeFrom": "重复设置已删除。由它生成的采购保留。",
+    "couldntAddReceipt": "无法添加收据。请重试。",
+    "readyToShop": "{title} 可以去采购了。",
+    "runSaved": "采购已保存。",
+    "draftSaved": "草稿已保存。"
   }
 }

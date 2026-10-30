@@ -155,6 +155,14 @@
     "today": "今日",
     "tomorrow": "明日",
     "noRunsOpenMakeOne": "進行中の買い出しはありません。「必要なもの」から作成するか、定期の買い出しを開始してください。",
-    "noOpenRunsForThat": "そのチームの進行中の買い出しはありません。"
+    "noOpenRunsForThat": "そのチームの進行中の買い出しはありません。",
+    "budgetsSaved": "予算を保存しました。",
+    "receiptAdded": "レシートを追加しました",
+    "repeatSaved": "繰り返しを保存しました。",
+    "repeatDeletedRunsMadeFrom": "繰り返しを削除しました。そこから作られた買い出しは残ります。",
+    "couldntAddReceipt": "レシートを追加できませんでした。もう一度お試しください。",
+    "readyToShop": "{title}の買い物の準備ができました。",
+    "runSaved": "買い出しを保存しました。",
+    "draftSaved": "下書きを保存しました。"
   }
 }

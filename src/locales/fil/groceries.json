@@ -155,6 +155,14 @@
     "today": "ngayong araw",
     "tomorrow": "bukas",
     "noRunsOpenMakeOne": "Walang bukas na lakad. Gumawa mula sa nasa Kailangan, o magsimula ng repeat.",
-    "noOpenRunsForThat": "Walang bukas na lakad para sa team na iyon."
+    "noOpenRunsForThat": "Walang bukas na lakad para sa team na iyon.",
+    "budgetsSaved": "Na-save ang mga budget.",
+    "receiptAdded": "Naidagdag ang resibo",
+    "repeatSaved": "Na-save ang ulit.",
+    "repeatDeletedRunsMadeFrom": "Na-delete ang ulit. Mananatili ang mga run na nagawa mula rito.",
+    "couldntAddReceipt": "Hindi naidagdag ang resibo. Subukan ulit.",
+    "readyToShop": "Handa nang mamili para sa {title}.",
+    "runSaved": "Na-save ang run.",
+    "draftSaved": "Na-save ang draft."
   }
 }

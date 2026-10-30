@@ -38,6 +38,8 @@
     "daysCount_one": "{count} día",
     "daysCount_other": "{count} días",
     "disputesThis": "{short} cuestiona esto.",
-    "disputesThisWithNote": "{short} cuestiona esto: \"{note}\""
+    "disputesThisWithNote": "{short} cuestiona esto: \"{note}\"",
+    "serviceIncentiveLeaveIs5": "La licencia de incentivo por servicio es de 5 a 30 días al año. El mínimo legal es 5.",
+    "couldntSaveRules": "No se pudieron guardar las reglas de licencia."
   }
 }

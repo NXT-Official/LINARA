@@ -144,6 +144,14 @@
     "simulateOnline": "Simular en línea",
     "simulateOffline": "Simular sin conexión",
     "simulateOnlineTitle": "Simular en línea",
-    "simulateOfflineTitle": "Simular sin conexión"
+    "simulateOfflineTitle": "Simular sin conexión",
+    "nakaConnectNaUlitNa": "Conectado de nuevo. Tus cambios están sincronizados.",
+    "theBoardIsOnToday": "El tablero ya está en hoy.",
+    "newDayRoutines_one": "Empezó un nuevo día mientras no estabas. Se volvió a crear {count} rutina.",
+    "newDayRoutines_other": "Empezó un nuevo día mientras no estabas. Se volvieron a crear {count} rutinas.",
+    "newDayRoutinesUtos_one": "Empezó un nuevo día mientras no estabas. Se volvió a crear {count} rutina y se borraron las Quick Utos.",
+    "newDayRoutinesUtos_other": "Empezó un nuevo día mientras no estabas. Se volvieron a crear {count} rutinas y se borraron las Quick Utos.",
+    "newDay": "Empezó un nuevo día mientras no estabas.",
+    "newDayUtos": "Empezó un nuevo día mientras no estabas. Se borraron las Quick Utos."
   }
 }

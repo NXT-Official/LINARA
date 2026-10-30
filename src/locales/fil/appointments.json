@@ -29,6 +29,11 @@
     "scheduling": "Ini-schedule...",
     "schedule": "I-schedule",
     "addPrep": "Magdagdag ng prep",
-    "appointments": "Mga Appointment {span}"
+    "appointments": "Mga Appointment {span}",
+    "successfullyScheduledAppointmentAndAll": "Naka-schedule na ang appointment at lahat ng prep task nito.",
+    "failedToParseAndSchedule": "Hindi ito nabasa at na-schedule. Subukan ulit.",
+    "hindiNaSaveAngAppointment": "Hindi na-save ang appointment.",
+    "hindiNaDeleteAngAppointment": "Hindi na-delete ang appointment.",
+    "hindiNaRescheduleAngAppointment": "Hindi na-reschedule ang appointment."
   }
 }

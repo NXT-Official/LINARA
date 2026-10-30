@@ -16,6 +16,12 @@
     "edit": "I-edit",
     "noOneCovers": "Walang naka-assign sa {day}",
     "noOneInTeamCovers": "Walang miyembro ng {team} na naka-assign sa {day}",
-    "save": "I-save"
+    "save": "I-save",
+    "tasksHere_one": "{count} task dito",
+    "tasksHere_other": "{count} task dito",
+    "tasksAt_one": "{count} task sa {name}",
+    "tasksAt_other": "{count} task sa {name}",
+    "movedToUnassigned": "Inilipat sa Unassigned ang {list}.",
+    "leaveSavedTasksStuck": "Na-save ang leave, pero hindi nailipat ang mga task sa mga araw na iyon. Ilipat sila sa Schedule."
   }
 }

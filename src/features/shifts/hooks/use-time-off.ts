@@ -15,6 +15,7 @@ import { unassignForLeaveFn, unassignOpenTasksBetweenFn } from "@/features/tasks
 
 import { timeOffFromLeave, timeOffFromRestOff, timeOffFromShared, type TimeOff } from "../time-off";
 import { householdNow, toISODate } from "@/lib/time";
+import { useListText, useT } from "@/lib/i18n/locale-context";
 
 export type RecordLeaveInput = {
   helperId: string;
@@ -58,6 +59,8 @@ export function useTimeOff({
   token: string | null;
   ready: boolean;
 }): TimeOffStore {
+  const t = useT();
+  const listText = useListText();
   const [restOff, setRestOff] = useState<RestOffRequestRow[]>([]);
   const [leave, setLeave] = useState<LeaveRequest[]>([]);
   // Staff shared in from another house: their approved time off, dates only.
@@ -142,7 +145,6 @@ export function useTimeOff({
   const unassignDuring = useCallback(
     async (helperId: string, startDate: string, endDate: string) => {
       if (!token) return;
-      const tasks = (n: number) => `${n} ${n === 1 ? "task" : "tasks"}`;
       try {
         // Every house she works in; this house only before that SQL is applied.
         const all = await unassignForLeaveFn({ data: { token, helperId, startDate, endDate } });
@@ -151,23 +153,20 @@ export function useTimeOff({
           (await unassignOpenTasksBetweenFn({
             data: { token, helperId, ...leaveRangeIso(startDate, endDate) },
           }));
-        const elsewhere = (all?.elsewhere ?? [])
-          .map((h) => `${tasks(h.moved)} at ${h.name}`)
-          .join(", ");
-        if (here > 0 || elsewhere) {
-          toast.success(
-            [here > 0 && `${tasks(here)} here`, elsewhere].filter(Boolean).join(" and ") +
-              " moved to Unassigned.",
-          );
+        const elsewhere = (all?.elsewhere ?? []).map((h) =>
+          t("shifts.tasksAt", { count: h.moved, name: h.name }),
+        );
+        if (here > 0 || elsewhere.length > 0) {
+          const parts =
+            here > 0 ? [t("shifts.tasksHere", { count: here }), ...elsewhere] : elsewhere;
+          toast.success(t("shifts.movedToUnassigned", { list: listText(parts) }));
         }
       } catch (err) {
         console.error("[useTimeOff] Failed to move tasks off leave days:", err);
-        toast.error(
-          "Leave saved, but the tasks on those days couldn't be moved. Move them on Schedule.",
-        );
+        toast.error(t("shifts.leaveSavedTasksStuck"));
       }
     },
-    [token],
+    [token, t, listText],
   );
 
   const decideLeave = useCallback(

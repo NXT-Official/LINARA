@@ -29,6 +29,11 @@
     "scheduling": "Scheduling...",
     "schedule": "Schedule",
     "addPrep": "Add prep",
-    "appointments": "Appointments {span}"
+    "appointments": "Appointments {span}",
+    "successfullyScheduledAppointmentAndAll": "Appointment and all its prep tasks scheduled.",
+    "failedToParseAndSchedule": "Couldn't read and schedule that. Please try again.",
+    "hindiNaSaveAngAppointment": "The appointment wasn't saved.",
+    "hindiNaDeleteAngAppointment": "The appointment wasn't deleted.",
+    "hindiNaRescheduleAngAppointment": "The appointment wasn't rescheduled."
   }
 }

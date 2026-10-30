@@ -24,6 +24,9 @@
     "editItem": "Editar {name}",
     "addPantryItem": "Añadir artículo a la despensa",
     "save": "Guardar",
-    "add": "Añadir"
+    "add": "Añadir",
+    "hindiNaSaveAngPantry": "El artículo de despensa no se guardó.",
+    "hindiNaAddAngPantry": "El artículo de despensa no se agregó.",
+    "hindiNaRemoveAngPantry": "El artículo de despensa no se quitó."
   }
 }

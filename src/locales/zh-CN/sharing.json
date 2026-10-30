@@ -19,6 +19,7 @@
     "add": "添加",
     "employedBy": "受雇于 {house}",
     "employedByTeamHere": "受雇于 {house} · 在此属于{team}",
-    "choose": "选择…"
+    "choose": "选择…",
+    "couldntAddPlace": "无法添加地点。"
   }
 }

@@ -106,7 +106,7 @@ export function PayDirectModal({
       // Something changed in between (a vale approved, say): say so.
       if (recorded !== undefined && estimate !== null && Math.abs(recorded - estimate) >= 0.01) {
         toast.warning(
-          `Recorded as ${exactPeso(recorded)}, not the ${exactPeso(estimate)} shown: something changed while you paid. Check the payslip, and send or ask for the difference.`,
+          t("pay.recordedDifferent", { recorded: exactPeso(recorded), shown: exactPeso(estimate) }),
           { duration: 20_000 },
         );
       }

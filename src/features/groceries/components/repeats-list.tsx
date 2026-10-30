@@ -172,7 +172,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
     setBusy("save");
     try {
       await ctx.saveTemplate({ ...draft, shopperIds: shoppers, cashDefault: c }, template?.id);
-      toast.success("Repeat saved.");
+      toast.success(t("groceries.repeatSaved"));
       onClose();
     } catch {
       // useGroceryList already said what went wrong.
@@ -186,7 +186,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
     setBusy("delete");
     try {
       await ctx.deleteTemplate(template.id);
-      toast.success("Repeat deleted. Runs made from it stay.");
+      toast.success(t("groceries.repeatDeletedRunsMadeFrom"));
       onClose();
     } catch {
       // useGroceryList already said what went wrong.

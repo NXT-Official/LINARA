@@ -144,6 +144,14 @@
     "simulateOnline": "オンラインをシミュレート",
     "simulateOffline": "オフラインをシミュレート",
     "simulateOnlineTitle": "オンラインをシミュレート",
-    "simulateOfflineTitle": "オフラインをシミュレート"
+    "simulateOfflineTitle": "オフラインをシミュレート",
+    "nakaConnectNaUlitNa": "再接続しました。変更は同期済みです。",
+    "theBoardIsOnToday": "ボードを今日に切り替えました。",
+    "newDayRoutines_one": "不在の間に新しい日になりました。ルーティンを{count}件作り直しました。",
+    "newDayRoutines_other": "不在の間に新しい日になりました。ルーティンを{count}件作り直しました。",
+    "newDayRoutinesUtos_one": "不在の間に新しい日になりました。ルーティンを{count}件作り直し、Quick Utosをクリアしました。",
+    "newDayRoutinesUtos_other": "不在の間に新しい日になりました。ルーティンを{count}件作り直し、Quick Utosをクリアしました。",
+    "newDay": "不在の間に新しい日になりました。",
+    "newDayUtos": "不在の間に新しい日になりました。Quick Utosをクリアしました。"
   }
 }

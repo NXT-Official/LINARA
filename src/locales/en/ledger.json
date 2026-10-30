@@ -40,6 +40,16 @@
     "readOnlyTapToReview": "Read-only. Tap to review any time.",
     "hide": "Hide",
     "review": "Review",
-    "restOwed": "{time} rest owed"
+    "restOwed": "{time} rest owed",
+    "hindiNaSaveAngLedger": "The ledger entry wasn't saved.",
+    "hindiNaSaveAngPagbabago": "The change to the ledger entry wasn't saved.",
+    "hindiNaSaveAngDefault": "The default for this helper wasn't saved.",
+    "hindiKaNakaSignIn": "You're not signed in, so the vale request can't be sent.",
+    "hindiNaSendAngVale": "The vale request wasn't sent. Try again.",
+    "hindiKaNakaSignIn2": "You're not signed in, so the vale request can't be updated.",
+    "hindiNaSaveAngDesisyon": "The decision on the vale request wasn't saved.",
+    "approvedRestLeft": "Approved. {left} rest owed is left.",
+    "requestDeclined": "Request declined.",
+    "requestNotUpdated": "The request wasn't updated."
   }
 }

@@ -59,7 +59,7 @@ export function PantryRolePicker({
     try {
       await onChange(next);
     } catch {
-      toast.error(`Couldn't change ${name}'s pantry access. Try again.`);
+      toast.error(t("people.couldnTChangeSPantry", { name }));
     } finally {
       setSaving(false);
     }

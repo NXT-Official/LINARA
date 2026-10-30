@@ -17,6 +17,7 @@ import {
   type LedgerEntryRow,
 } from "../ledger.actions";
 import type { LedgerEntry, LedgerReason, LedgerResolution } from "../ledger.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type LedgerStore = ReturnType<typeof useLedger>;
 
@@ -63,6 +64,7 @@ export function useLedger({
   token: string | null;
   ready: boolean;
 }) {
+  const t = useT();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
 
   const refresh = useCallback(async () => {
@@ -120,7 +122,7 @@ export function useLedger({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useLedger] Failed to record ledger entry:", err);
-        toast.error("Hindi na-save ang ledger entry.");
+        toast.error(t("ledger.hindiNaSaveAngLedger"));
       });
   };
 
@@ -140,7 +142,7 @@ export function useLedger({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useLedger] Failed to update ledger entry:", err);
-        toast.error("Hindi na-save ang pagbabago sa ledger entry.");
+        toast.error(t("ledger.hindiNaSaveAngPagbabago"));
       });
   };
 
@@ -155,7 +157,7 @@ export function useLedger({
       return await setHelperDefaultResolutionFn({ data: { token, helperId, resolution } });
     } catch (err) {
       console.error("[useLedger] Failed to set the helper's resolution default:", err);
-      toast.error("Hindi na-save ang default para sa helper na ito.");
+      toast.error(t("ledger.hindiNaSaveAngDefault"));
       return null;
     }
   };

@@ -1,7 +1,8 @@
 {
   "common": {
     "language": {
-      "current": "言語：{language}"
+      "current": "言語：{language}",
+      "label": "言語"
     },
     "primary": "主管理者",
     "search": "検索…",
@@ -11,6 +12,11 @@
     "somethingWentWrongHereThe": "ここで問題が発生しました。Linara の他の機能は問題ありません。もう一度試すか、別のタブを選んでください。",
     "tryAgain": "もう一度試す",
     "showFewer": "表示を減らす",
-    "showMore": "{noun}をあと {count} 件表示"
+    "showMore": "{noun}をあと {count} 件表示",
+    "couldntSaveThat": "保存できませんでした。",
+    "couldntRemoveIt": "削除できませんでした。",
+    "somethingWentWrong": "問題が発生しました。",
+    "undo": "元に戻す",
+    "nothingWasCharged": "料金は発生していません。"
   }
 }

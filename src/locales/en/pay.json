@@ -81,6 +81,28 @@
     "outsideLinaraSuffix": " (outside Linara)",
     "afterUnpaidLeave_one": "After {amount} unpaid leave ({count} day)",
     "afterUnpaidLeave_other": "After {amount} unpaid leave ({count} days)",
-    "recordPayment": "Record payment"
+    "recordPayment": "Record payment",
+    "recordedWillBeAskedTo": "Recorded. {short} will be asked to confirm it arrived.",
+    "recordedWillBeAskedTo2": "Recorded. {short} will be asked to confirm it.",
+    "recordWithdrawnThePeriodIs": "Record withdrawn. The period is unpaid again.",
+    "walangPagbabagoGanoonPaRin": "No change. Xendit still says the same.",
+    "nakumpirmaNatanggapNaAngPayout": "Confirmed: the payout was received.",
+    "hindiNatuloyAngPayoutSa": "The payout didn't go through at Xendit. You can try again now.",
+    "nasaXenditPaRinAng": "The payout is still with Xendit, not finished yet.",
+    "hindiKaNakaSignIn": "You're not signed in, so the payout can't start.",
+    "hindiKaNakaSignIn2": "You're not signed in.",
+    "recordedDifferent": "Recorded as {recorded}, not the {shown} shown: something changed while you paid. Check the payslip, and send or ask for the difference.",
+    "couldntWithdraw": "Couldn't withdraw it.",
+    "couldntCheckXendit": "Couldn't check with Xendit.",
+    "wallet": {
+      "title": "Where to send {name}'s pay",
+      "lead": "The account {name} saved in their Linara app. Send pay from your own GCash or Maya; Linara doesn't move money.",
+      "loadFailed": "Couldn't load the account. Refresh the page or try again later.",
+      "loading": "Loading the account",
+      "none": "{name} hasn't added a GCash or Maya account yet. Ask them to add one in their Linara app.",
+      "number": "{wallet} number",
+      "numberUnconfirmed": "Number from the invite",
+      "copyNumber": "Copy the account number"
+    }
   }
 }

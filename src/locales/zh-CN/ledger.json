@@ -40,6 +40,16 @@
     "readOnlyTapToReview": "只读。随时轻触即可查看。",
     "hide": "隐藏",
     "review": "查看",
-    "restOwed": "待补休 {time}"
+    "restOwed": "待补休 {time}",
+    "hindiNaSaveAngLedger": "账目记录未保存。",
+    "hindiNaSaveAngPagbabago": "对账目记录的更改未保存。",
+    "hindiNaSaveAngDefault": "此帮工的默认设置未保存。",
+    "hindiKaNakaSignIn": "你尚未登录，因此无法发送预支申请。",
+    "hindiNaSendAngVale": "预支申请未发送。请重试。",
+    "hindiKaNakaSignIn2": "你尚未登录，因此无法更新预支申请。",
+    "hindiNaSaveAngDesisyon": "对预支申请的决定未保存。",
+    "approvedRestLeft": "已批准。剩余应休时间 {left}。",
+    "requestDeclined": "申请已拒绝。",
+    "requestNotUpdated": "申请未更新。"
   }
 }

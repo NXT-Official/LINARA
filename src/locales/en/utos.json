@@ -5,6 +5,8 @@
     "needItTrackedTimedOr": "Need it tracked, timed, or done a certain way? Use New task instead.",
     "quickUtos": "Quick utos",
     "send": "Send",
-    "sendASmallAskTo2": "Send a small ask to {helperName}"
+    "sendASmallAskTo2": "Send a small ask to {helperName}",
+    "hindiNaSendAngUtos": "The utos wasn't sent.",
+    "hindiNaSaveAngPag": "The update to the utos wasn't saved."
   }
 }

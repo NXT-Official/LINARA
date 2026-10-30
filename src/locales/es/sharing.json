@@ -19,6 +19,7 @@
     "add": "Añadir",
     "employedBy": "Empleada por {house}",
     "employedByTeamHere": "Empleada por {house} · {team} aquí",
-    "choose": "Elegir…"
+    "choose": "Elegir…",
+    "couldntAddPlace": "No se pudo agregar el lugar."
   }
 }

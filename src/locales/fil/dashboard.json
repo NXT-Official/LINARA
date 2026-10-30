@@ -144,6 +144,14 @@
     "simulateOnline": "I-simulate na online",
     "simulateOffline": "I-simulate na offline",
     "simulateOnlineTitle": "I-simulate na Online",
-    "simulateOfflineTitle": "I-simulate na Offline"
+    "simulateOfflineTitle": "I-simulate na Offline",
+    "nakaConnectNaUlitNa": "Naka-connect na ulit! Na-sync na ang iyong mga ginawa.",
+    "theBoardIsOnToday": "Nasa araw na ito na ang board.",
+    "newDayRoutines_one": "Nagsimula ang bagong araw habang wala ka. {count} routine ang ginawa ulit.",
+    "newDayRoutines_other": "Nagsimula ang bagong araw habang wala ka. {count} routine ang ginawa ulit.",
+    "newDayRoutinesUtos_one": "Nagsimula ang bagong araw habang wala ka. {count} routine ang ginawa ulit, at na-clear ang mga Quick Utos.",
+    "newDayRoutinesUtos_other": "Nagsimula ang bagong araw habang wala ka. {count} routine ang ginawa ulit, at na-clear ang mga Quick Utos.",
+    "newDay": "Nagsimula ang bagong araw habang wala ka.",
+    "newDayUtos": "Nagsimula ang bagong araw habang wala ka. Na-clear ang mga Quick Utos."
   }
 }

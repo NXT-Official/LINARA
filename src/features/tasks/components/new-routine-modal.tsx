@@ -38,7 +38,7 @@ export function NewRoutineModal({
 
   const handleAIGenerate = async () => {
     if (!title.trim()) {
-      toast.error("Mangyaring maglagay muna ng title para maging batayan ng AI SOP.");
+      toast.error(t("tasks.mangyaringMaglagayMunaNgTitle"));
       return;
     }
 
@@ -69,11 +69,11 @@ export function NewRoutineModal({
         ].join("\n");
 
         setNote(formattedNote);
-        toast.success("Standard SOP successfully generated & populated!");
+        toast.success(t("tasks.standardSopSuccessfullyGeneratedPopulated"));
       }
     } catch (err) {
       console.error(err);
-      toast.error("Hindi nagtagumpay ang pag-generate ng SOP gamit ang AI.");
+      toast.error(t("tasks.hindiNagtagumpayAngPagGenerate"));
     } finally {
       setIsGenerating(false);
     }
@@ -95,10 +95,10 @@ export function NewRoutineModal({
         },
       });
       setSavedSopId(id);
-      toast.success("Saved to the House Standards Library!");
+      toast.success(t("tasks.savedToTheHouseStandards"));
     } catch (err) {
       console.error(err);
-      toast.error("Hindi na-save ang SOP sa House Standards Library.");
+      toast.error(t("tasks.hindiNaSaveAngSop"));
     } finally {
       setIsSavingSop(false);
     }

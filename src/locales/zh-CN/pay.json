@@ -81,6 +81,28 @@
     "outsideLinaraSuffix": "（Linara 之外）",
     "afterUnpaidLeave_one": "已扣除无薪假 {amount}（{count} 天）",
     "afterUnpaidLeave_other": "已扣除无薪假 {amount}（{count} 天）",
-    "recordPayment": "记录付款"
+    "recordPayment": "记录付款",
+    "recordedWillBeAskedTo": "已记录。将请 {short} 确认已收到。",
+    "recordedWillBeAskedTo2": "已记录。将请 {short} 确认。",
+    "recordWithdrawnThePeriodIs": "记录已撤回。该期间重新变为未付。",
+    "walangPagbabagoGanoonPaRin": "没有变化。Xendit 的状态仍然相同。",
+    "nakumpirmaNatanggapNaAngPayout": "已确认：付款已收到。",
+    "hindiNatuloyAngPayoutSa": "付款在 Xendit 未完成。现在可以重试。",
+    "nasaXenditPaRinAng": "付款仍在 Xendit 处理中，尚未完成。",
+    "hindiKaNakaSignIn": "你尚未登录，因此无法发起付款。",
+    "hindiKaNakaSignIn2": "你尚未登录。",
+    "recordedDifferent": "记录金额为 {recorded}，而不是显示的 {shown}：付款期间有变动。请查看工资单，并补发或要回差额。",
+    "couldntWithdraw": "无法撤回。",
+    "couldntCheckXendit": "无法向 Xendit 查询。",
+    "wallet": {
+      "title": "{name} 的工资发到哪里",
+      "lead": "{name} 在 Linara 应用中保存的账户。请用你自己的 GCash 或 Maya 转账；Linara 不经手任何款项。",
+      "loadFailed": "无法加载账户。请刷新或稍后再试。",
+      "loading": "正在加载账户",
+      "none": "{name} 还没有添加 GCash 或 Maya 账户。请让他们在自己的 Linara 应用中添加。",
+      "number": "{wallet} 号码",
+      "numberUnconfirmed": "邀请时填写的号码",
+      "copyNumber": "复制账号"
+    }
   }
 }

@@ -5,6 +5,8 @@
     "needItTrackedTimedOr": "¿Necesitas seguimiento, horario o instrucciones específicas? Usa Nueva tarea en su lugar.",
     "quickUtos": "Encargo rápido (utos)",
     "send": "Enviar",
-    "sendASmallAskTo2": "Enviar un encargo rápido a {helperName}"
+    "sendASmallAskTo2": "Enviar un encargo rápido a {helperName}",
+    "hindiNaSendAngUtos": "El utos no se envió.",
+    "hindiNaSaveAngPag": "La actualización del utos no se guardó."
   }
 }

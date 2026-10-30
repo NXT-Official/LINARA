@@ -29,6 +29,11 @@
     "scheduling": "正在安排...",
     "schedule": "日程安排",
     "addPrep": "添加准备项",
-    "appointments": "日程预约 {span}"
+    "appointments": "日程预约 {span}",
+    "successfullyScheduledAppointmentAndAll": "已安排预约及其所有准备任务。",
+    "failedToParseAndSchedule": "无法识别并安排。请重试。",
+    "hindiNaSaveAngAppointment": "预约未保存。",
+    "hindiNaDeleteAngAppointment": "预约未删除。",
+    "hindiNaRescheduleAngAppointment": "预约未改期。"
   }
 }

@@ -248,7 +248,7 @@ export function MissedPeriodsCard({
           onClose={() => setPayingDirect(null)}
           onSubmit={async (payment) => {
             const result = await onRecordOffApp(helper.id, payment, payingDirect.target);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it arrived.`);
+            toast.success(t("pay.recordedWillBeAskedTo", { short: helper.short }));
             return result;
           }}
         />
@@ -261,7 +261,7 @@ export function MissedPeriodsCard({
           onClose={() => setRecording(null)}
           onSubmit={async (payment) => {
             await onRecordOffApp(helper.id, payment, recording.target);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it.`);
+            toast.success(t("pay.recordedWillBeAskedTo2", { short: helper.short }));
           }}
         />
       )}

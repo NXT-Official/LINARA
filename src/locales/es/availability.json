@@ -9,6 +9,12 @@
     "reachingOffHoursIsReserved": "Contactar a {helperName} fuera de horario está reservado para administradores en casa (Principal o Coadministrador). Como administrador remoto, puedes poner esto en cola para el próximo turno de {helperName2}.",
     "until": "· hasta {value}",
     "letItWait": "Dejar que espere",
-    "queueForNextShift": "Poner en cola para el próximo turno"
+    "queueForNextShift": "Poner en cola para el próximo turno",
+    "offShiftSuggest": "{name} está fuera de turno. Agrégalo como sugerencia de tarea y un encargado en casa decidirá.",
+    "classifiedRoutine": "Clasificado como rutina: \"{text}\"",
+    "classifiedTask": "Clasificado como tarea: \"{text}\"",
+    "usuallyGoesTo": "Esto suele ir a {station}. Se envía a {name} ({current}) de todos modos. Elige a {other} en la lista si es a quien te referías.",
+    "wentAsSuggestion": "{name} está fuera de turno, así que se envió a los encargados en casa como sugerencia.",
+    "nobodyAssignedSuggestion": "No hay nadie asignado, así que se envió a los encargados en casa como sugerencia."
   }
 }

@@ -16,6 +16,7 @@ import {
 } from "../people.actions";
 import { WEEKLY_REST_DAY_NAMES } from "../people.constants";
 import type { Invite, InviteFlag, PantryRole, Station } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type InviteStore = ReturnType<typeof useInvites>;
 
@@ -105,6 +106,7 @@ function toInvite(row: HelperProfileRow, flags: InviteFlag[] = []): Invite {
  * hook talked to Supabase.
  */
 export function useInvites({ token, ready }: { token: string | null; ready: boolean }) {
+  const t = useT();
   const [invites, setInvites] = useState<Invite[]>([]);
   // Raw rows alongside the display-mapped `invites` above, so other stores
   // (Shifts) can derive from this same fetch instead of re-querying
@@ -260,7 +262,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
       resolveInviteFlagFn({ data: { token, flagId } }).catch((err) => {
         console.error("[useInvites] Failed to resolve flag:", err);
         patch(inviteId, (i) => ({ ...i, flags: before }));
-        toast.error("Hindi na-resolve ang flag.");
+        toast.error(t("people.hindiNaResolveAngFlag"));
       });
     },
   };

@@ -40,6 +40,16 @@
     "readOnlyTapToReview": "閲覧専用です。いつでもタップして確認できます。",
     "hide": "隠す",
     "review": "確認する",
-    "restOwed": "たまった休息時間 {time}"
+    "restOwed": "たまった休息時間 {time}",
+    "hindiNaSaveAngLedger": "帳簿の記録を保存できませんでした。",
+    "hindiNaSaveAngPagbabago": "帳簿の記録の変更を保存できませんでした。",
+    "hindiNaSaveAngDefault": "このヘルパーの既定値を保存できませんでした。",
+    "hindiKaNakaSignIn": "サインインしていないため、前借り申請を送れません。",
+    "hindiNaSendAngVale": "前借り申請を送れませんでした。もう一度お試しください。",
+    "hindiKaNakaSignIn2": "サインインしていないため、前借り申請を更新できません。",
+    "hindiNaSaveAngDesisyon": "前借り申請への判断を保存できませんでした。",
+    "approvedRestLeft": "承認しました。未消化の休息は残り{left}です。",
+    "requestDeclined": "申請を却下しました。",
+    "requestNotUpdated": "申請を更新できませんでした。"
   }
 }

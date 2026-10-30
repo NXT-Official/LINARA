@@ -149,6 +149,18 @@
     "upgradeTo": "Mag-upgrade sa {plan}",
     "pricesLimitsIncluded": "Mga presyo, limitasyon at mga kasama.",
     "rightsNote": "{rights}. Ang lingguhang araw ng pahinga at taunang leave ng kasambahay ay karapatan niya sa batas (RA 10361), at nananatiling kanya ang record niya.",
-    "needMoreRoom": "Kailangan ng kaunti pang espasyo sa Normal o Premium? Magdagdag ng {addons} sa iyong plan anumang oras. Naka-off muna ang Staff pay & HR habang inaayon ito sa batas."
+    "needMoreRoom": "Kailangan ng kaunti pang espasyo sa Normal o Premium? Magdagdag ng {addons} sa iyong plan anumang oras. Naka-off muna ang Staff pay & HR habang inaayon ito sa batas.",
+    "addOnRemoved": "Natanggal ang add-on.",
+    "saved": "Na-save.",
+    "youReOn": "Naka-{name} ka na.",
+    "ends": "Matatapos ang {name} sa {day}.",
+    "youReKeeping": "Itutuloy mo ang {name}.",
+    "savedToPlan": "Na-save sa plan mo.",
+    "billingNotLiveStaff": "Hindi pa live ang billing, kaya walang nagbago para sa staff mo.",
+    "billingNotLiveCharged": "Hindi pa live ang billing, kaya walang siningil.",
+    "endsSoon": "Malapit nang matapos ang {name}.",
+    "nothingChangesUntilThen": "Walang magbabago hanggang doon.",
+    "keepingYourPlan": "Itutuloy mo ang plan mo.",
+    "renewsOn": "Magre-renew ito sa {day}."
   }
 }

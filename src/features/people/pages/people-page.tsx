@@ -167,7 +167,7 @@ export function PeoplePage({
                 .then(() => invites.refresh())
                 .catch((err) => {
                   console.error("[PeoplePage] Failed to save pay days:", err);
-                  toast.error("Couldn't save that setting.");
+                  toast.error(t("people.couldnTSaveThatSetting"));
                 });
             }}
             onRecord={timeOff.recordLeave}

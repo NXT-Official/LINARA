@@ -140,7 +140,7 @@ function BudgetsModal({ onClose }: { onClose: () => void }) {
         }
       }
       await Promise.all(writes);
-      toast.success("Budgets saved.");
+      toast.success(t("groceries.budgetsSaved"));
       onClose();
     } catch {
       // useGroceryList already said what went wrong.

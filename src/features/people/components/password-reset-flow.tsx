@@ -71,12 +71,12 @@ export function PasswordResetFlow() {
 
   const sendLink = async () => {
     if (!email.trim()) {
-      toast.error("Ilagay ang email mo.");
+      toast.error(t("people.ilagayAngEmailMo"));
       return;
     }
     // Caught here so a typo never reaches Supabase (rate limit, raw error text).
     if (!EMAIL_PATTERN.test(email.trim())) {
-      toast.error("Mukhang mali ang email. Tingnan ulit, hal. ben@gmail.com.");
+      toast.error(t("people.mukhangMaliAngEmailTingnan"));
       return;
     }
     setLoading(true);
@@ -90,7 +90,7 @@ export function PasswordResetFlow() {
       setMode("sent");
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "May error na naganap.");
+      toast.error(err instanceof Error ? err.message : t("common.somethingWentWrong"));
     } finally {
       setLoading(false);
     }

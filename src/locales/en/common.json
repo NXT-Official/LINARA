@@ -1,7 +1,8 @@
 {
   "common": {
     "language": {
-      "current": "Language: {language}"
+      "current": "Language: {language}",
+      "label": "Language"
     },
     "primary": "Primary",
     "search": "Search…",
@@ -11,6 +12,11 @@
     "somethingWentWrongHereThe": "Something went wrong here. The rest of Linara is fine. Try again, or pick another tab.",
     "tryAgain": "Try again",
     "showFewer": "Show fewer",
-    "showMore": "Show {count} more {noun}"
+    "showMore": "Show {count} more {noun}",
+    "couldntSaveThat": "Couldn't save that.",
+    "couldntRemoveIt": "Couldn't remove it.",
+    "somethingWentWrong": "Something went wrong.",
+    "undo": "Undo",
+    "nothingWasCharged": "Nothing was charged."
   }
 }

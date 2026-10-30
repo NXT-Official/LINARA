@@ -164,10 +164,8 @@ function ChooseModal({ onClose }: { onClose: () => void }) {
               setError(res.message);
               return;
             }
-            toast.success("Saved.", {
-              description: live
-                ? "Saved to your plan."
-                : "Billing isn't live yet, so nothing changed for your staff.",
+            toast.success(t("plan.saved"), {
+              description: live ? t("plan.savedToPlan") : t("plan.billingNotLiveStaff"),
             });
             onClose();
           }}

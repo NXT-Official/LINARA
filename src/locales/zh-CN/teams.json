@@ -64,6 +64,8 @@
     "helperCount_one": "{count} 位家政人员",
     "helperCount_other": "{count} 位家政人员",
     "removeTeamConfirm": "确定移除？{extra}",
-    "goToNoTeam": "{count} 人将变为无团队。"
+    "goToNoTeam": "{count} 人将变为无团队。",
+    "savedWhereWorks": "已保存 {name} 的工作地点。",
+    "couldntChangeThat": "无法更改。"
   }
 }

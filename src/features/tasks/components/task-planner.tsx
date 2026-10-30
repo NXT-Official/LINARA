@@ -53,7 +53,7 @@ import { TaskToneLegend } from "./planner-tone-legend";
 import { PlannerList } from "./planner-list";
 import { PlannerPeople, type PeopleRow } from "./planner-people";
 import { PlannerSearchResults } from "./planner-search-results";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const VIEW_KEY = "linara.planView";
@@ -73,8 +73,8 @@ const STATUS_CHIPS: { key: PlanStatus; label: string }[] = [
   { key: "cancelled", label: "Cancelled" },
 ];
 
-const dayName = (iso: string) =>
-  parseISODate(iso).toLocaleDateString("en-US", {
+const dayName = (iso: string, locale: string) =>
+  parseISODate(iso).toLocaleDateString(locale, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -138,6 +138,7 @@ export function TaskPlanner({
   useSearch?: typeof useTaskSearch;
 }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const todayIso = toISODate(toHouseholdClock(nowTs));
 
   const [view, setView] = useState<PlanView>("week");
@@ -276,18 +277,23 @@ export function TaskPlanner({
     }
     const assignee = helperId ? findHelper(helperId, helpers) : null;
     const off = offLabel({ ...task, helperId, scheduledStart: startIso });
-    const where = [
-      handedOver ? (assignee ? `to ${assignee.short}` : "to Unassigned") : null,
-      fromDay !== dayIso ? `${handedOver ? "on" : "to"} ${dayName(dayIso)}` : null,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    toast.success(`Moved "${task.title}" ${where}`, {
+    const name = assignee ? assignee.short : t("tasks.unassigned");
+    const day = dayName(dayIso, intlLocale);
+    const moved = !handedOver
+      ? t("tasks.movedToDay", { title: task.title, day })
+      : fromDay !== dayIso
+        ? t("tasks.movedToHelperOnDay", { title: task.title, name, day })
+        : t("tasks.movedToHelper", { title: task.title, name });
+    toast.success(moved, {
       description: off
-        ? `That's ${off === "time off" ? "in" : "outside"} ${assignee?.short ?? "the helper"}'s ${off === "time off" ? "time off" : "shift"}. Doing it then counts as after-hours work.`
+        ? `${
+            off === "time off"
+              ? t("tasks.inApprovedTimeOff", { name: assignee?.short ?? t("tasks.theHelper") })
+              : t("tasks.outsideShift", { name: assignee?.short ?? t("tasks.theHelper") })
+          } ${t("tasks.countsAsAfterHours")}`
         : undefined,
       action: {
-        label: "Undo",
+        label: t("common.undo"),
         onClick: () =>
           void move({ ...task, scheduledStart: startIso, helperId }, fromDay, task.helperId),
       },

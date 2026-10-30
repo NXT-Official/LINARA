@@ -144,6 +144,14 @@
     "simulateOnline": "Simulate online",
     "simulateOffline": "Simulate offline",
     "simulateOnlineTitle": "Simulate Online",
-    "simulateOfflineTitle": "Simulate Offline"
+    "simulateOfflineTitle": "Simulate Offline",
+    "nakaConnectNaUlitNa": "Back online. Your changes are synced.",
+    "theBoardIsOnToday": "The board is on today now.",
+    "newDayRoutines_one": "A new day started while you were away. {count} routine was made again.",
+    "newDayRoutines_other": "A new day started while you were away. {count} routines were made again.",
+    "newDayRoutinesUtos_one": "A new day started while you were away. {count} routine was made again, and Quick Utos were cleared.",
+    "newDayRoutinesUtos_other": "A new day started while you were away. {count} routines were made again, and Quick Utos were cleared.",
+    "newDay": "A new day started while you were away.",
+    "newDayUtos": "A new day started while you were away. Quick Utos were cleared."
   }
 }

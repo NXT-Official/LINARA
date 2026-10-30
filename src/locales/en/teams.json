@@ -64,6 +64,8 @@
     "helperCount_one": "{count} helper",
     "helperCount_other": "{count} helpers",
     "removeTeamConfirm": "Remove? {extra}",
-    "goToNoTeam": "{count} go to no team."
+    "goToNoTeam": "{count} go to no team.",
+    "savedWhereWorks": "Saved where {name} works.",
+    "couldntChangeThat": "Couldn't change that."
   }
 }

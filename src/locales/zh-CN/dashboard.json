@@ -144,6 +144,14 @@
     "simulateOnline": "模拟在线",
     "simulateOffline": "模拟离线",
     "simulateOnlineTitle": "模拟在线状态",
-    "simulateOfflineTitle": "模拟离线状态"
+    "simulateOfflineTitle": "模拟离线状态",
+    "nakaConnectNaUlitNa": "已重新连接。你的更改已同步。",
+    "theBoardIsOnToday": "看板现已切换到今天。",
+    "newDayRoutines_one": "你不在时开始了新的一天。已重新生成 {count} 个例行事项。",
+    "newDayRoutines_other": "你不在时开始了新的一天。已重新生成 {count} 个例行事项。",
+    "newDayRoutinesUtos_one": "你不在时开始了新的一天。已重新生成 {count} 个例行事项，并清除了 Quick Utos。",
+    "newDayRoutinesUtos_other": "你不在时开始了新的一天。已重新生成 {count} 个例行事项，并清除了 Quick Utos。",
+    "newDay": "你不在时开始了新的一天。",
+    "newDayUtos": "你不在时开始了新的一天。已清除 Quick Utos。"
   }
 }

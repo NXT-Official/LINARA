@@ -1,7 +1,8 @@
 {
   "common": {
     "language": {
-      "current": "语言：{language}"
+      "current": "语言：{language}",
+      "label": "语言"
     },
     "primary": "主要管理人",
     "search": "搜索…",
@@ -11,6 +12,11 @@
     "somethingWentWrongHereThe": "这里出了点问题，但 Linara 的其他功能正常。请重试，或切换到其他标签页。",
     "tryAgain": "重试",
     "showFewer": "收起部分",
-    "showMore": "再显示 {count} 个{noun}"
+    "showMore": "再显示 {count} 个{noun}",
+    "couldntSaveThat": "无法保存。",
+    "couldntRemoveIt": "无法移除。",
+    "somethingWentWrong": "出了点问题。",
+    "undo": "撤销",
+    "nothingWasCharged": "未收取任何费用。"
   }
 }

@@ -38,6 +38,8 @@
     "daysCount_one": "{count} 天",
     "daysCount_other": "{count} 天",
     "disputesThis": "{short} 对此有异议。",
-    "disputesThisWithNote": "{short} 对此有异议：“{note}”"
+    "disputesThisWithNote": "{short} 对此有异议：“{note}”",
+    "serviceIncentiveLeaveIs5": "服务奖励假为每年 5 至 30 天。法定最低为 5 天。",
+    "couldntSaveRules": "无法保存休假规则。"
   }
 }

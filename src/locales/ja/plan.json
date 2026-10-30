@@ -149,6 +149,18 @@
     "upgradeTo": "{plan} にアップグレード",
     "pricesLimitsIncluded": "料金、上限、および含まれる機能。",
     "rightsNote": "{rights}。家事労働者（kasambahay）の週休および年次有給休暇は法律（RA 10361）で保障された本人の権利であり、記録も本人のものとして保持されます。",
-    "needMoreRoom": "Normal または Premium で枠が少し足りませんか？いつでもプランに {addons} を追加できます。スタッフの給与・人事機能は、法規への適合確認のため現在一時停止しています。"
+    "needMoreRoom": "Normal または Premium で枠が少し足りませんか？いつでもプランに {addons} を追加できます。スタッフの給与・人事機能は、法規への適合確認のため現在一時停止しています。",
+    "addOnRemoved": "アドオンを削除しました。",
+    "saved": "保存しました。",
+    "youReOn": "{name}プランになりました。",
+    "ends": "{name}は{day}に終了します。",
+    "youReKeeping": "{name}を継続します。",
+    "savedToPlan": "プランに保存しました。",
+    "billingNotLiveStaff": "課金はまだ有効ではないため、スタッフには何も変わりません。",
+    "billingNotLiveCharged": "課金はまだ有効ではないため、料金は発生していません。",
+    "endsSoon": "{name}はまもなく終了します。",
+    "nothingChangesUntilThen": "それまでは何も変わりません。",
+    "keepingYourPlan": "現在のプランを継続します。",
+    "renewsOn": "{day}に更新されます。"
   }
 }

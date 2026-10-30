@@ -57,15 +57,13 @@ export function ReceiptSlot({
     ctx
       .addReceipt(file, runId)
       .then(() => {
-        toast.success("Receipt added");
+        toast.success(t("groceries.receiptAdded"));
         onAdded?.();
       })
       .catch((err) => {
         console.error("[ReceiptSlot] Failed to add receipt:", err);
         toast.error(
-          err instanceof Error && err.message
-            ? err.message
-            : "Couldn't add the receipt. Try again.",
+          err instanceof Error && err.message ? err.message : t("groceries.couldntAddReceipt"),
         );
       })
       .finally(() => setUploading(false));

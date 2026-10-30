@@ -5,6 +5,8 @@
     "needItTrackedTimedOr": "Kailangan bang naka-track, may takdang oras, o may partikular na paraan ng paggawa? Gamitin na lang ang Bagong gawain.",
     "quickUtos": "Mabilis na utos",
     "send": "Ipadala",
-    "sendASmallAskTo2": "Magpadala ng mabilis na utos kay {helperName}"
+    "sendASmallAskTo2": "Magpadala ng mabilis na utos kay {helperName}",
+    "hindiNaSendAngUtos": "Hindi na-send ang utos.",
+    "hindiNaSaveAngPag": "Hindi na-save ang pag-update ng utos."
   }
 }

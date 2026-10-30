@@ -155,6 +155,14 @@
     "today": "today",
     "tomorrow": "tomorrow",
     "noRunsOpenMakeOne": "No runs open. Make one from what's in Needed, or start a repeat.",
-    "noOpenRunsForThat": "No open runs for that team."
+    "noOpenRunsForThat": "No open runs for that team.",
+    "budgetsSaved": "Budgets saved.",
+    "receiptAdded": "Receipt added",
+    "repeatSaved": "Repeat saved.",
+    "repeatDeletedRunsMadeFrom": "Repeat deleted. Runs made from it stay.",
+    "couldntAddReceipt": "Couldn't add the receipt. Try again.",
+    "readyToShop": "{title} is ready to shop.",
+    "runSaved": "Run saved.",
+    "draftSaved": "Draft saved."
   }
 }

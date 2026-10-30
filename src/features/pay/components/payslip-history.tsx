@@ -169,9 +169,9 @@ export function PayslipHistory({
     setWithdrawing(payslipId);
     try {
       await onWithdrawOffApp(payslipId);
-      toast.success("Record withdrawn. The period is unpaid again.");
+      toast.success(t("pay.recordWithdrawnThePeriodIs"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't withdraw it.");
+      toast.error(err instanceof Error ? err.message : t("pay.couldntWithdraw"));
     } finally {
       setWithdrawing(null);
     }
@@ -190,16 +190,16 @@ export function PayslipHistory({
     try {
       const result = await onReconcile(currentCutoffPayslip.id);
       if (!result.changed) {
-        toast.info("Walang pagbabago. Ganoon pa rin ang sabi ng Xendit.");
+        toast.info(t("pay.walangPagbabagoGanoonPaRin"));
       } else if (result.status === "succeeded") {
-        toast.success("Nakumpirma: natanggap na ang payout.");
+        toast.success(t("pay.nakumpirmaNatanggapNaAngPayout"));
       } else if (result.status === "failed" || result.status === "cancelled") {
-        toast.warning("Hindi natuloy ang payout sa Xendit. Pwede nang subukan ulit.");
+        toast.warning(t("pay.hindiNatuloyAngPayoutSa"));
       } else {
-        toast.info("Nasa Xendit pa rin ang payout, hindi pa tapos.");
+        toast.info(t("pay.nasaXenditPaRinAng"));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Hindi ma-check ang Xendit.");
+      toast.error(err instanceof Error ? err.message : t("pay.couldntCheckXendit"));
     } finally {
       setReconciling(false);
     }
@@ -317,7 +317,7 @@ export function PayslipHistory({
           onClose={() => setPayingDirect(false)}
           onSubmit={async (payment) => {
             const result = await onRecordOffApp(helper.id, payment);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it arrived.`);
+            toast.success(t("pay.recordedWillBeAskedTo", { short: helper.short }));
             return result;
           }}
         />
@@ -330,7 +330,7 @@ export function PayslipHistory({
           onClose={() => setRecording(false)}
           onSubmit={async (payment) => {
             await onRecordOffApp(helper.id, payment);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it.`);
+            toast.success(t("pay.recordedWillBeAskedTo2", { short: helper.short }));
           }}
         />
       )}

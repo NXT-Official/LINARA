@@ -40,6 +40,16 @@
     "readOnlyTapToReview": "Read-only. Pindutin para suriin anumang oras.",
     "hide": "Itago",
     "review": "Suriin",
-    "restOwed": "{time} utang na pahinga"
+    "restOwed": "{time} utang na pahinga",
+    "hindiNaSaveAngLedger": "Hindi na-save ang ledger entry.",
+    "hindiNaSaveAngPagbabago": "Hindi na-save ang pagbabago sa ledger entry.",
+    "hindiNaSaveAngDefault": "Hindi na-save ang default para sa helper na ito.",
+    "hindiKaNakaSignIn": "Hindi ka naka-sign in, kaya hindi ma-send ang vale request.",
+    "hindiNaSendAngVale": "Hindi na-send ang vale request. Subukan ulit.",
+    "hindiKaNakaSignIn2": "Hindi ka naka-sign in, kaya hindi ma-update ang vale request.",
+    "hindiNaSaveAngDesisyon": "Hindi na-save ang desisyon sa vale request.",
+    "approvedRestLeft": "Approved. {left} na rest owed na lang ang natitira.",
+    "requestDeclined": "Na-decline ang request.",
+    "requestNotUpdated": "Hindi na-update ang request."
   }
 }

@@ -39,7 +39,7 @@ export function BulkStaffBar({
       await what();
       toast.success(done);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't change that.");
+      toast.error(err instanceof Error ? err.message : t("teams.couldntChangeThat"));
     } finally {
       setBusy(false);
     }

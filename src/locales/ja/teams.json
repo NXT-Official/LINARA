@@ -64,6 +64,8 @@
     "helperCount_one": "スタッフ {count} 名",
     "helperCount_other": "スタッフ {count} 名",
     "removeTeamConfirm": "削除しますか？ {extra}",
-    "goToNoTeam": "{count} 名が「チームなし」になります。"
+    "goToNoTeam": "{count} 名が「チームなし」になります。",
+    "savedWhereWorks": "{name}さんの勤務先を保存しました。",
+    "couldntChangeThat": "変更できませんでした。"
   }
 }

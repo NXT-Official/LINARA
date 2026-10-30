@@ -38,6 +38,8 @@
     "daysCount_one": "{count} day",
     "daysCount_other": "{count} days",
     "disputesThis": "{short} disputes this.",
-    "disputesThisWithNote": "{short} disputes this: \"{note}\""
+    "disputesThisWithNote": "{short} disputes this: \"{note}\"",
+    "serviceIncentiveLeaveIs5": "Service incentive leave is 5 to 30 days a year. The law's minimum is 5.",
+    "couldntSaveRules": "Couldn't save the leave rules."
   }
 }

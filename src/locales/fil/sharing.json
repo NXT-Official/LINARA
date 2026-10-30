@@ -19,6 +19,7 @@
     "add": "Idagdag",
     "employedBy": "Naka-employ sa {house}",
     "employedByTeamHere": "Naka-employ sa {house} · {team} dito",
-    "choose": "Pumili…"
+    "choose": "Pumili…",
+    "couldntAddPlace": "Hindi naidagdag ang lugar."
   }
 }

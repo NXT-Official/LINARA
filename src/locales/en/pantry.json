@@ -24,6 +24,9 @@
     "editItem": "Edit {name}",
     "addPantryItem": "Add pantry item",
     "save": "Save",
-    "add": "Add"
+    "add": "Add",
+    "hindiNaSaveAngPantry": "The pantry item wasn't saved.",
+    "hindiNaAddAngPantry": "The pantry item wasn't added.",
+    "hindiNaRemoveAngPantry": "The pantry item wasn't removed."
   }
 }

@@ -149,6 +149,18 @@
     "upgradeTo": "Mejorar a {plan}",
     "pricesLimitsIncluded": "Precios, límites y qué incluye.",
     "rightsNote": "{rights}. El día de descanso semanal y la licencia anual de una kasambahay le corresponden por ley (RA 10361), y su registro es suyo para siempre.",
-    "needMoreRoom": "¿Necesitas un poco más de capacidad en Normal o Premium? Añade {addons} a tu plan en cualquier momento. Los pagos de personal y RR. HH. están desactivados por ahora mientras se adecúan a la ley."
+    "needMoreRoom": "¿Necesitas un poco más de capacidad en Normal o Premium? Añade {addons} a tu plan en cualquier momento. Los pagos de personal y RR. HH. están desactivados por ahora mientras se adecúan a la ley.",
+    "addOnRemoved": "Complemento quitado.",
+    "saved": "Guardado.",
+    "youReOn": "Ahora tienes {name}.",
+    "ends": "{name} termina el {day}.",
+    "youReKeeping": "Conservas {name}.",
+    "savedToPlan": "Guardado en tu plan.",
+    "billingNotLiveStaff": "La facturación aún no está activa, así que nada cambió para tu personal.",
+    "billingNotLiveCharged": "La facturación aún no está activa, así que no se cobró nada.",
+    "endsSoon": "{name} termina pronto.",
+    "nothingChangesUntilThen": "Nada cambia hasta entonces.",
+    "keepingYourPlan": "Conservas tu plan.",
+    "renewsOn": "Se renueva el {day}."
   }
 }

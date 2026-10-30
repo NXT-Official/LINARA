@@ -9,6 +9,12 @@
     "reachingOffHoursIsReserved": "Ang pag-contact kay {helperName} nang off-hours ay para lang sa mga on-site admin (Primary o Co-manager). Bilang remote admin, puwede mo itong i-queue para sa susunod na shift ni {helperName2}.",
     "until": "· hanggang {value}",
     "letItWait": "Ipagpaliban muna",
-    "queueForNextShift": "I-queue sa susunod na shift"
+    "queueForNextShift": "I-queue sa susunod na shift",
+    "offShiftSuggest": "Wala sa shift si {name}. Idagdag ito bilang task suggestion, at ang on-site manager ang magpapasya.",
+    "classifiedRoutine": "Ginawang routine: \"{text}\"",
+    "classifiedTask": "Ginawang task: \"{text}\"",
+    "usuallyGoesTo": "Karaniwang sa {station} ito napupunta. Ipapadala pa rin kay {name} ({current}). Piliin si {other} sa listahan kung siya ang ibig mong sabihin.",
+    "wentAsSuggestion": "Wala sa shift si {name}, kaya napunta ito sa mga on-site manager bilang suggestion.",
+    "nobodyAssignedSuggestion": "Walang naka-assign, kaya napunta ito sa mga on-site manager bilang suggestion."
   }
 }

@@ -81,6 +81,28 @@
     "outsideLinaraSuffix": "（Linara の外）",
     "afterUnpaidLeave_one": "無給の休み {amount}（{count} 日）差し引き後",
     "afterUnpaidLeave_other": "無給の休み {amount}（{count} 日）差し引き後",
-    "recordPayment": "支払いを記録する"
+    "recordPayment": "支払いを記録する",
+    "recordedWillBeAskedTo": "記録しました。{short}さんに受け取りの確認をお願いします。",
+    "recordedWillBeAskedTo2": "記録しました。{short}さんに確認をお願いします。",
+    "recordWithdrawnThePeriodIs": "記録を取り消しました。この期間は再び未払いです。",
+    "walangPagbabagoGanoonPaRin": "変化はありません。Xenditの状態は同じままです。",
+    "nakumpirmaNatanggapNaAngPayout": "確認しました：支払いは受け取られました。",
+    "hindiNatuloyAngPayoutSa": "Xenditでの支払いが完了しませんでした。もう一度お試しいただけます。",
+    "nasaXenditPaRinAng": "支払いはまだXenditで処理中です。",
+    "hindiKaNakaSignIn": "サインインしていないため、支払いを開始できません。",
+    "hindiKaNakaSignIn2": "サインインしていません。",
+    "recordedDifferent": "表示された{shown}ではなく{recorded}として記録されました：支払い中に変更がありました。給与明細を確認し、差額を送るか請求してください。",
+    "couldntWithdraw": "取り消せませんでした。",
+    "couldntCheckXendit": "Xenditに確認できませんでした。",
+    "wallet": {
+      "title": "{name}さんへの給料の送り先",
+      "lead": "{name}さんがLinaraアプリに登録した口座です。ご自身のGCashまたはMayaから送ってください。Linaraはお金を扱いません。",
+      "loadFailed": "口座を読み込めませんでした。更新するか、後でもう一度お試しください。",
+      "loading": "口座を読み込み中",
+      "none": "{name}さんはまだGCashまたはMayaの口座を登録していません。ご本人のLinaraアプリで登録してもらってください。",
+      "number": "{wallet}の番号",
+      "numberUnconfirmed": "招待時の番号",
+      "copyNumber": "口座番号をコピー"
+    }
   }
 }

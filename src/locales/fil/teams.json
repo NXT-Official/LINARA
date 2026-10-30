@@ -64,6 +64,8 @@
     "helperCount_one": "{count} helper",
     "helperCount_other": "{count} helper",
     "removeTeamConfirm": "Alisin? {extra}",
-    "goToNoTeam": "{count} ang mapupunta sa walang team."
+    "goToNoTeam": "{count} ang mapupunta sa walang team.",
+    "savedWhereWorks": "Na-save kung saan nagtatrabaho si {name}.",
+    "couldntChangeThat": "Hindi iyon nabago."
   }
 }

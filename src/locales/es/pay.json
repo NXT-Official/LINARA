@@ -81,6 +81,28 @@
     "outsideLinaraSuffix": " (fuera de Linara)",
     "afterUnpaidLeave_one": "Después de {amount} por licencia sin sueldo ({count} día)",
     "afterUnpaidLeave_other": "Después de {amount} por licencia sin sueldo ({count} días)",
-    "recordPayment": "Registrar pago"
+    "recordPayment": "Registrar pago",
+    "recordedWillBeAskedTo": "Registrado. Se le pedirá a {short} que confirme que lo recibió.",
+    "recordedWillBeAskedTo2": "Registrado. Se le pedirá a {short} que lo confirme.",
+    "recordWithdrawnThePeriodIs": "Registro retirado. El período vuelve a estar sin pagar.",
+    "walangPagbabagoGanoonPaRin": "Sin cambios. Xendit sigue diciendo lo mismo.",
+    "nakumpirmaNatanggapNaAngPayout": "Confirmado: el pago se recibió.",
+    "hindiNatuloyAngPayoutSa": "El pago no se completó en Xendit. Ya puedes intentarlo de nuevo.",
+    "nasaXenditPaRinAng": "El pago sigue en Xendit, aún no termina.",
+    "hindiKaNakaSignIn": "No has iniciado sesión, así que el pago no puede empezar.",
+    "hindiKaNakaSignIn2": "No has iniciado sesión.",
+    "recordedDifferent": "Registrado como {recorded}, no los {shown} que se mostraban: algo cambió mientras pagabas. Revisa el recibo de nómina y envía o pide la diferencia.",
+    "couldntWithdraw": "No se pudo retirar.",
+    "couldntCheckXendit": "No se pudo consultar con Xendit.",
+    "wallet": {
+      "title": "Dónde enviar el pago de {name}",
+      "lead": "La cuenta que {name} guardó en su app Linara. Envía el pago desde tu propio GCash o Maya; Linara no mueve dinero.",
+      "loadFailed": "No se pudo cargar la cuenta. Actualiza o inténtalo más tarde.",
+      "loading": "Cargando la cuenta",
+      "none": "{name} aún no ha agregado una cuenta de GCash o Maya. Pídele que la agregue en su app Linara.",
+      "number": "Número de {wallet}",
+      "numberUnconfirmed": "Número de la invitación",
+      "copyNumber": "Copiar el número de cuenta"
+    }
   }
 }

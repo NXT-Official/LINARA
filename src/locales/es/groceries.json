@@ -155,6 +155,14 @@
     "today": "hoy",
     "tomorrow": "mañana",
     "noRunsOpenMakeOne": "No hay salidas abiertas. Crea una con lo que hay en Necesarios o inicia una recurrente.",
-    "noOpenRunsForThat": "No hay salidas abiertas para ese equipo."
+    "noOpenRunsForThat": "No hay salidas abiertas para ese equipo.",
+    "budgetsSaved": "Presupuestos guardados.",
+    "receiptAdded": "Recibo agregado",
+    "repeatSaved": "Repetición guardada.",
+    "repeatDeletedRunsMadeFrom": "Repetición eliminada. Las compras creadas con ella se mantienen.",
+    "couldntAddReceipt": "No se pudo agregar el recibo. Inténtalo de nuevo.",
+    "readyToShop": "{title} está lista para comprar.",
+    "runSaved": "Compra guardada.",
+    "draftSaved": "Borrador guardado."
   }
 }

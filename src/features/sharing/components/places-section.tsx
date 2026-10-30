@@ -27,7 +27,7 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
       await sharing.createPlace(draft);
       setDraft(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add the place.");
+      toast.error(err instanceof Error ? err.message : t("sharing.couldntAddPlace"));
     } finally {
       setBusy(false);
     }
@@ -72,7 +72,9 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
                     sharing
                       .deletePlace(p.id)
                       .catch((err) =>
-                        toast.error(err instanceof Error ? err.message : "Couldn't remove it."),
+                        toast.error(
+                          err instanceof Error ? err.message : t("common.couldntRemoveIt"),
+                        ),
                       )
                   }
                   className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"

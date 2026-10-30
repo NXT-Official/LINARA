@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { AppStoreContext, type AppStores } from "../app-store-context";
 import { useSimClock } from "../hooks/use-sim-clock";
 import { rolloverDecision } from "./stale-day.logic";
+import { useT } from "@/lib/i18n/locale-context";
 
 // A device clock that's wildly wrong (stuck, epoch-adjacent, set years off)
 // shouldn't be treated the same as a normal one-day catch-up --
@@ -43,6 +44,7 @@ import { rolloverDecision } from "./stale-day.logic";
  * remounts the day's state.
  */
 export function AppStoreProvider({ children }: { children: ReactNode }) {
+  const t = useT();
   const session = useSession();
   const invites = useInvites({ token: session.token, ready: session.status === "authed" });
   const teams = useTeams({
@@ -396,7 +398,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await removeFromQueue(item.id);
       }
 
-      toast.success("Naka-connect na ulit! Na-sync na ang iyong mga ginawa.");
+      toast.success(t("dashboard.nakaConnectNaUlitNa"));
     } catch (err) {
       console.error("[Offline Sync] Sync failed:", err);
     }
@@ -498,7 +500,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       await runDayRollover(parseISODate(staleBoardToday));
       setStaleBoardToday(null);
       rejectedRolloverDayRef.current = null;
-      toast.success("The board is on today now.");
+      toast.success(t("dashboard.theBoardIsOnToday"));
       return true;
     } catch (err) {
       console.error("[AppStoreProvider] Moving the board to today failed:", err);
@@ -556,11 +558,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return runDayRollover(serverToday).then(({ routinesRespawned, utosCleared }) => {
           // The hourly job may already have made the day's routines (O43).
           toast.info(
-            "Bumagong araw habang wala ka" +
-              (routinesRespawned > 0
-                ? `, ${routinesRespawned} routine${routinesRespawned === 1 ? "" : "s"} respawned`
-                : "") +
-              (utosCleared ? ", mga Quick Utos na-clear." : "."),
+            routinesRespawned > 0
+              ? utosCleared
+                ? t("dashboard.newDayRoutinesUtos", { count: routinesRespawned })
+                : t("dashboard.newDayRoutines", { count: routinesRespawned })
+              : utosCleared
+                ? t("dashboard.newDayUtos")
+                : t("dashboard.newDay"),
           );
         });
       })

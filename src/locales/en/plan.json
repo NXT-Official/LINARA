@@ -149,6 +149,18 @@
     "upgradeTo": "Upgrade to {plan}",
     "pricesLimitsIncluded": "Prices, limits and what's included.",
     "rightsNote": "{rights}. A kasambahay's weekly rest day and yearly leave are hers by law (RA 10361), and her record is hers to keep.",
-    "needMoreRoom": "Need a little more room on Normal or Premium? Add {addons} to your plan any time. Staff pay & HR is switched off for now while it's brought in line with the law."
+    "needMoreRoom": "Need a little more room on Normal or Premium? Add {addons} to your plan any time. Staff pay & HR is switched off for now while it's brought in line with the law.",
+    "addOnRemoved": "Add-on removed.",
+    "saved": "Saved.",
+    "youReOn": "You're on {name}.",
+    "ends": "{name} ends {day}.",
+    "youReKeeping": "You're keeping {name}.",
+    "savedToPlan": "Saved to your plan.",
+    "billingNotLiveStaff": "Billing isn't live yet, so nothing changed for your staff.",
+    "billingNotLiveCharged": "Billing isn't live yet, so nothing was charged.",
+    "endsSoon": "{name} ends soon.",
+    "nothingChangesUntilThen": "Nothing changes until then.",
+    "keepingYourPlan": "You're keeping your plan.",
+    "renewsOn": "It renews {day}."
   }
 }

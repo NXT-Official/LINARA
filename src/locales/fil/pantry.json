@@ -24,6 +24,9 @@
     "editItem": "I-edit ang {name}",
     "addPantryItem": "Magdagdag ng item sa pantry",
     "save": "I-save",
-    "add": "Idagdag"
+    "add": "Idagdag",
+    "hindiNaSaveAngPantry": "Hindi na-save ang pantry item.",
+    "hindiNaAddAngPantry": "Hindi na-add ang pantry item.",
+    "hindiNaRemoveAngPantry": "Hindi na-remove ang pantry item."
   }
 }

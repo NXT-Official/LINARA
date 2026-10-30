@@ -9,6 +9,12 @@
     "reachingOffHoursIsReserved": "勤務時間外に {helperName} へ連絡できるのは在宅の管理者（主管理者または共同管理者）のみです。リモート管理者として、これを {helperName2} の次のシフトに予約できます。",
     "until": "· {value} まで",
     "letItWait": "後回しにする",
-    "queueForNextShift": "次のシフトに予約する"
+    "queueForNextShift": "次のシフトに予約する",
+    "offShiftSuggest": "{name}さんは勤務時間外です。タスクの提案として追加すれば、在宅の管理者が判断します。",
+    "classifiedRoutine": "ルーティンとして分類しました：「{text}」",
+    "classifiedTask": "タスクとして分類しました：「{text}」",
+    "usuallyGoesTo": "これは通常{station}の担当です。このまま{name}さん（{current}）に送ります。{other}さんのつもりなら、宛先リストで選んでください。",
+    "wentAsSuggestion": "{name}さんは勤務時間外のため、在宅の管理者に提案として送りました。",
+    "nobodyAssignedSuggestion": "担当者がいないため、在宅の管理者に提案として送りました。"
   }
 }

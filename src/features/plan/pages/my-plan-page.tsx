@@ -59,8 +59,6 @@ const dateFmt = new Intl.DateTimeFormat("en-PH", {
 });
 const fmtDate = (iso: string) => dateFmt.format(new Date(iso));
 
-const SAMPLE = "Billing isn't live yet, so nothing was charged.";
-
 const card = "rounded-3xl bg-card p-5 shadow-soft sm:p-7";
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0";
@@ -444,8 +442,8 @@ function ChangePlanModal({
                 setError(res.message);
                 return;
               }
-              toast.success(`You're on ${plan.name}.`, {
-                description: live ? "Nothing was charged." : SAMPLE,
+              toast.success(t("plan.youReOn", { name: plan.name }), {
+                description: live ? t("common.nothingWasCharged") : t("plan.billingNotLiveCharged"),
               });
               onClose();
             }}
@@ -506,9 +504,14 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
               setError(res.message);
               return;
             }
-            toast.success(`${name} ends ${sub.periodEnd ? dayText(sub.periodEnd) : "soon"}.`, {
-              description: "Nothing changes until then.",
-            });
+            toast.success(
+              sub.periodEnd
+                ? t("plan.ends", { name, day: dayText(sub.periodEnd) })
+                : t("plan.endsSoon", { name }),
+              {
+                description: t("plan.nothingChangesUntilThen"),
+              },
+            );
             onClose();
           }}
           className={primaryBtn}
@@ -935,9 +938,14 @@ export function MyPlanPage({
                     setKeepError(res.message);
                     return;
                   }
-                  toast.success(`You're keeping ${plan?.name ?? "your plan"}.`, {
-                    description: sub.periodEnd ? `It renews ${dayText(sub.periodEnd)}.` : undefined,
-                  });
+                  toast.success(
+                    plan ? t("plan.youReKeeping", { name: plan.name }) : t("plan.keepingYourPlan"),
+                    {
+                      description: sub.periodEnd
+                        ? t("plan.renewsOn", { day: dayText(sub.periodEnd) })
+                        : undefined,
+                    },
+                  );
                 }}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
               >

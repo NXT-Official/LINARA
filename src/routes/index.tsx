@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { PlansComparison } from "@/features/plan/components/plans-comparison";
 import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
+import { LanguageMenu } from "@/components/shared/language-menu";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -67,6 +68,7 @@ function LandingPage() {
         {/* One way in for an account that exists (a signed-in manager is sent
             straight on to the Pass), one for a new one. */}
         <nav aria-label={t("landing.account")} className="flex items-center gap-2 sm:gap-3">
+          <LanguageMenu className="hidden sm:inline-flex" />
           <Link
             to="/login"
             className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
@@ -242,6 +244,10 @@ function LandingPage() {
         className="mx-auto max-w-7xl px-6 py-12 text-center text-xs text-muted-foreground border-t border-border/40"
         role="contentinfo"
       >
+        {/* On a phone the header has no room for it. */}
+        <div className="mb-2 flex justify-center sm:hidden">
+          <LanguageMenu />
+        </div>
         <p>{t("landing.2026LinaraHomeBuiltFor")}</p>
         <p className="mt-1 flex justify-center gap-2">
           <Link

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { decideValeFn, insertValeFn, listValesFn, type ValeRow } from "../ledger.actions";
 import type { ValeRequest } from "../ledger.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type ValeStore = ReturnType<typeof useVales>;
 
@@ -27,6 +28,7 @@ function toValeRequest(row: ValeRow): ValeRequest {
  * mobile app; request() has no web caller since the web's helper form went.
  */
 export function useVales({ token, ready }: { token: string | null; ready: boolean }) {
+  const t = useT();
   const [vales, setVales] = useState<ValeRequest[]>([]);
 
   const refresh = useCallback(async () => {
@@ -44,7 +46,7 @@ export function useVales({ token, ready }: { token: string | null; ready: boolea
 
   const request = async (helperId: string, amount: number, reason: string) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in, kaya hindi ma-send ang vale request.");
+      toast.error(t("ledger.hindiKaNakaSignIn"));
       return;
     }
     try {
@@ -52,13 +54,13 @@ export function useVales({ token, ready }: { token: string | null; ready: boolea
       await refresh();
     } catch (err) {
       console.error("[useVales] Failed to submit vale request:", err);
-      toast.error("Hindi na-send ang vale request. Subukan ulit.");
+      toast.error(t("ledger.hindiNaSendAngVale"));
     }
   };
 
   const decide = async (id: string, decision: "approved" | "declined") => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in, kaya hindi ma-update ang vale request.");
+      toast.error(t("ledger.hindiKaNakaSignIn2"));
       return;
     }
     try {
@@ -66,7 +68,7 @@ export function useVales({ token, ready }: { token: string | null; ready: boolea
       await refresh();
     } catch (err) {
       console.error("[useVales] Failed to decide vale request:", err);
-      toast.error("Hindi na-save ang desisyon sa vale request.");
+      toast.error(t("ledger.hindiNaSaveAngDesisyon"));
     }
   };
 

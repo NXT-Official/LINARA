@@ -9,6 +9,12 @@
     "reachingOffHoursIsReserved": "Reaching {helperName} off-hours is reserved for on-site admins (Primary or Co-manager). As a remote admin you can queue this for {helperName2}'s next shift.",
     "until": "· until {value}",
     "letItWait": "Let it wait",
-    "queueForNextShift": "Queue for next shift"
+    "queueForNextShift": "Queue for next shift",
+    "offShiftSuggest": "{name} is off shift. Add it as a task suggestion, and an on-site manager can decide.",
+    "classifiedRoutine": "Sorted as a routine: \"{text}\"",
+    "classifiedTask": "Sorted as a task: \"{text}\"",
+    "usuallyGoesTo": "This usually goes to the {station}. Sending to {name} ({current}) instead. Pick {other} in the recipient list if that's who you meant.",
+    "wentAsSuggestion": "{name} is off shift, so it went to the on-site managers as a suggestion.",
+    "nobodyAssignedSuggestion": "Nobody is assigned, so it went to the on-site managers as a suggestion."
   }
 }

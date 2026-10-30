@@ -29,6 +29,11 @@
     "scheduling": "予定を登録中...",
     "schedule": "予定を登録",
     "addPrep": "準備を追加",
-    "appointments": "予定 {span}"
+    "appointments": "予定 {span}",
+    "successfullyScheduledAppointmentAndAll": "予定とすべての準備タスクを登録しました。",
+    "failedToParseAndSchedule": "読み取りと登録ができませんでした。もう一度お試しください。",
+    "hindiNaSaveAngAppointment": "予定を保存できませんでした。",
+    "hindiNaDeleteAngAppointment": "予定を削除できませんでした。",
+    "hindiNaRescheduleAngAppointment": "予定を変更できませんでした。"
   }
 }

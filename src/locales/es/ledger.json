@@ -40,6 +40,16 @@
     "readOnlyTapToReview": "Solo lectura. Toca para revisar cuando quieras.",
     "hide": "Ocultar",
     "review": "Revisar",
-    "restOwed": "{time} de descanso adeudado"
+    "restOwed": "{time} de descanso adeudado",
+    "hindiNaSaveAngLedger": "El registro no se guardó.",
+    "hindiNaSaveAngPagbabago": "El cambio al registro no se guardó.",
+    "hindiNaSaveAngDefault": "El valor predeterminado para esta persona no se guardó.",
+    "hindiKaNakaSignIn": "No has iniciado sesión, así que no se puede enviar la solicitud de vale.",
+    "hindiNaSendAngVale": "La solicitud de vale no se envió. Inténtalo de nuevo.",
+    "hindiKaNakaSignIn2": "No has iniciado sesión, así que no se puede actualizar la solicitud de vale.",
+    "hindiNaSaveAngDesisyon": "La decisión sobre la solicitud de vale no se guardó.",
+    "approvedRestLeft": "Aprobado. Quedan {left} de descanso adeudado.",
+    "requestDeclined": "Solicitud rechazada.",
+    "requestNotUpdated": "La solicitud no se actualizó."
   }
 }

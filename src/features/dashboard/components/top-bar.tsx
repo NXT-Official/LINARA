@@ -9,6 +9,7 @@ import { HouseholdSwitcher } from "@/features/people/components/household-switch
 import { useAppStores } from "../app-store-context";
 import { MANAGER_NAV } from "../nav.constants";
 import { useT } from "@/lib/i18n/locale-context";
+import { LanguageMenu } from "@/components/shared/language-menu";
 // DISABLED 2026-08-15 (see use-sim-clock.ts / KNOWN_GAPS.md C28) -- time
 // simulation caused real testing confusion. Re-enable by restoring this
 // import and the <SimClock> render below.
@@ -69,6 +70,7 @@ export function TopBar() {
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <LanguageMenu />
           {/* Being online is the normal case and says nothing; only a real
               drop earns header space. The simulate switch is a test aid. */}
           {!import.meta.env.DEV && !isOnline && (

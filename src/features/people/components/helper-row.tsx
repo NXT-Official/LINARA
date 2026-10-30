@@ -326,10 +326,14 @@ export function HelperRow({
                       setSavingStation(true);
                       try {
                         await onSetStation(stationDraft);
-                        toast.success(`${displayName} is on ${stationDraft} now.`);
+                        toast.success(
+                          t("people.isOnStationNow", { name: displayName, station: stationDraft }),
+                        );
                         setEditingStation(false);
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Couldn't save that.");
+                        toast.error(
+                          err instanceof Error ? err.message : t("common.couldntSaveThat"),
+                        );
                       } finally {
                         setSavingStation(false);
                       }

@@ -5,6 +5,8 @@
     "needItTrackedTimedOr": "需要追踪进度、定时提醒或按特定标准完成？请改用“新建任务”。",
     "quickUtos": "临时小事",
     "send": "发送",
-    "sendASmallAskTo2": "发送临时小事给 {helperName}"
+    "sendASmallAskTo2": "发送临时小事给 {helperName}",
+    "hindiNaSendAngUtos": "指令未发送。",
+    "hindiNaSaveAngPag": "指令的更新未保存。"
   }
 }

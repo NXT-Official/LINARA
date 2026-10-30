@@ -38,6 +38,8 @@
     "daysCount_one": "{count} 日",
     "daysCount_other": "{count} 日",
     "disputesThis": "{short}さんがこれに異議を唱えています。",
-    "disputesThisWithNote": "{short}さんがこれに異議を唱えています：「{note}」"
+    "disputesThisWithNote": "{short}さんがこれに異議を唱えています：「{note}」",
+    "serviceIncentiveLeaveIs5": "勤続奨励休暇は年5〜30日です。法定の最低は5日です。",
+    "couldntSaveRules": "休暇のルールを保存できませんでした。"
   }
 }

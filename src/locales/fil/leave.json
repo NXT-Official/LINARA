@@ -38,6 +38,8 @@
     "daysCount_one": "{count} araw",
     "daysCount_other": "{count} araw",
     "disputesThis": "Tinututulan ito ni {short}.",
-    "disputesThisWithNote": "Tinututulan ito ni {short}: \"{note}\""
+    "disputesThisWithNote": "Tinututulan ito ni {short}: \"{note}\"",
+    "serviceIncentiveLeaveIs5": "Ang service incentive leave ay 5 hanggang 30 araw kada taon. 5 ang minimum ng batas.",
+    "couldntSaveRules": "Hindi na-save ang mga patakaran sa leave."
   }
 }

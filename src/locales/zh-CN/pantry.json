@@ -24,6 +24,9 @@
     "editItem": "编辑 {name}",
     "addPantryItem": "添加储藏室物品",
     "save": "保存",
-    "add": "添加"
+    "add": "添加",
+    "hindiNaSaveAngPantry": "储藏物品未保存。",
+    "hindiNaAddAngPantry": "储藏物品未添加。",
+    "hindiNaRemoveAngPantry": "储藏物品未移除。"
   }
 }

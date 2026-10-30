@@ -81,6 +81,28 @@
     "outsideLinaraSuffix": " (sa labas ng Linara)",
     "afterUnpaidLeave_one": "Matapos ibawas ang {amount} na unpaid leave ({count} araw)",
     "afterUnpaidLeave_other": "Matapos ibawas ang {amount} na unpaid leave ({count} araw)",
-    "recordPayment": "I-record ang bayad"
+    "recordPayment": "I-record ang bayad",
+    "recordedWillBeAskedTo": "Naitala. Tatanungin si {short} kung natanggap niya ito.",
+    "recordedWillBeAskedTo2": "Naitala. Tatanungin si {short} para kumpirmahin ito.",
+    "recordWithdrawnThePeriodIs": "Binawi ang tala. Hindi pa bayad ulit ang period.",
+    "walangPagbabagoGanoonPaRin": "Walang pagbabago. Ganoon pa rin ang sabi ng Xendit.",
+    "nakumpirmaNatanggapNaAngPayout": "Nakumpirma: natanggap na ang payout.",
+    "hindiNatuloyAngPayoutSa": "Hindi natuloy ang payout sa Xendit. Pwede nang subukan ulit.",
+    "nasaXenditPaRinAng": "Nasa Xendit pa rin ang payout, hindi pa tapos.",
+    "hindiKaNakaSignIn": "Hindi ka naka-sign in, kaya hindi masimulan ang payout.",
+    "hindiKaNakaSignIn2": "Hindi ka naka-sign in.",
+    "recordedDifferent": "Naitala bilang {recorded}, hindi ang {shown} na ipinakita: may nagbago habang nagbabayad ka. Tingnan ang payslip, at ipadala o hingin ang diperensya.",
+    "couldntWithdraw": "Hindi ito nabawi.",
+    "couldntCheckXendit": "Hindi ma-check ang Xendit.",
+    "wallet": {
+      "title": "Saan ipapadala ang sahod ni {name}",
+      "lead": "Ang account na sinave ni {name} sa kanyang Linara app. Ipadala ang sahod mula sa sarili mong GCash o Maya; hindi naglilipat ng pera ang Linara.",
+      "loadFailed": "Hindi ma-load ang account. I-refresh o subukan ulit mamaya.",
+      "loading": "Nilo-load ang account",
+      "none": "Wala pang GCash o Maya account si {name}. Pakisabihan siyang idagdag ito sa kanyang Linara app.",
+      "number": "Numero sa {wallet}",
+      "numberUnconfirmed": "Numero mula sa invite",
+      "copyNumber": "Kopyahin ang account number"
+    }
   }
 }

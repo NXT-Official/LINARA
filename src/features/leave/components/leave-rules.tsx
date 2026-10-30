@@ -27,7 +27,7 @@ export function LeaveRules({
     try {
       await onChange(next);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save the leave rules.");
+      toast.error(err instanceof Error ? err.message : t("leave.couldntSaveRules"));
       setDaysDraft(String(policy.silDaysPerYear));
     } finally {
       setSaving(false);
@@ -37,7 +37,7 @@ export function LeaveRules({
   const commitDays = () => {
     const n = Number(daysDraft);
     if (!Number.isInteger(n) || n < 5 || n > 30) {
-      toast.error("Service incentive leave is 5 to 30 days a year. The law's minimum is 5.");
+      toast.error(t("leave.serviceIncentiveLeaveIs5"));
       setDaysDraft(String(policy.silDaysPerYear));
       return;
     }

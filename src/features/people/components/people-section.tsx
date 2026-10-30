@@ -202,7 +202,7 @@ export function PeopleSection({
             const inv = await onInvite(data);
             setInviteOpen(false);
             setIssued(inv);
-            toast.success("Nagawa na ang invite code!");
+            toast.success(t("people.nagawaNaAngInviteCode"));
           }}
         />
       )}
@@ -216,7 +216,9 @@ export function PeopleSection({
           onClose={() => setEnding(null)}
           onConfirm={async (lastDay, reassignTo) => {
             await onEndEmployment(ending.id, lastDay, reassignTo);
-            toast.success(`${ending.claimedName || ending.name} is now in Past staff.`);
+            toast.success(
+              t("people.isNowInPastStaff", { name: ending.claimedName || ending.name }),
+            );
           }}
         />
       )}
@@ -243,8 +245,8 @@ export function PeopleSection({
             const who = editingWage.claimedName || editingWage.name;
             toast.success(
               effectiveFrom
-                ? `${who}'s new wage starts ${formatCutoffDay(effectiveFrom)}.`
-                : `${who}'s wage is saved.`,
+                ? t("people.newWageStarts", { name: who, day: formatCutoffDay(effectiveFrom) })
+                : t("people.wageSaved", { name: who }),
             );
           }}
         />

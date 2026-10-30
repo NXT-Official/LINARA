@@ -19,6 +19,7 @@
     "add": "Add",
     "employedBy": "Employed by {house}",
     "employedByTeamHere": "Employed by {house} · {team} here",
-    "choose": "Choose…"
+    "choose": "Choose…",
+    "couldntAddPlace": "Couldn't add the place."
   }
 }

@@ -16,6 +16,12 @@
     "edit": "Edit",
     "noOneCovers": "No one covers {day}",
     "noOneInTeamCovers": "No one in {team} covers {day}",
-    "save": "Save"
+    "save": "Save",
+    "tasksHere_one": "{count} task here",
+    "tasksHere_other": "{count} tasks here",
+    "tasksAt_one": "{count} task at {name}",
+    "tasksAt_other": "{count} tasks at {name}",
+    "movedToUnassigned": "{list} moved to Unassigned.",
+    "leaveSavedTasksStuck": "Leave saved, but the tasks on those days couldn't be moved. Move them on Schedule."
   }
 }

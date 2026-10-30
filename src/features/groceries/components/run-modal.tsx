@@ -196,10 +196,10 @@ export function RunModal({
     if (ok) {
       toast.success(
         opts.send || opts.then === "ready"
-          ? `${d.title.trim()} is ready to shop.`
+          ? t("groceries.readyToShop", { title: d.title.trim() })
           : run
-            ? "Run saved."
-            : "Draft saved.",
+            ? t("groceries.runSaved")
+            : t("groceries.draftSaved"),
       );
       onClose();
     }

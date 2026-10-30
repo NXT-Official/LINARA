@@ -149,6 +149,18 @@
     "upgradeTo": "升级到 {plan}",
     "pricesLimitsIncluded": "价格、额度上限及包含的功能。",
     "rightsNote": "{rights}。家政人员（kasambahay）的每周休息日和年度休假受法律（RA 10361）保障，其个人记录永久归本人所有。",
-    "needMoreRoom": "在标准版（Normal）或高级版（Premium）上需要更多额度？可随时为套餐添加{addons}。员工薪资与人事模块正在进行合规调整，目前暂时关闭。"
+    "needMoreRoom": "在标准版（Normal）或高级版（Premium）上需要更多额度？可随时为套餐添加{addons}。员工薪资与人事模块正在进行合规调整，目前暂时关闭。",
+    "addOnRemoved": "附加项已移除。",
+    "saved": "已保存。",
+    "youReOn": "你现在使用 {name}。",
+    "ends": "{name} 将于 {day} 结束。",
+    "youReKeeping": "你将继续使用 {name}。",
+    "savedToPlan": "已保存到你的套餐。",
+    "billingNotLiveStaff": "计费尚未启用，因此你的员工没有任何变化。",
+    "billingNotLiveCharged": "计费尚未启用，因此未收取任何费用。",
+    "endsSoon": "{name} 即将结束。",
+    "nothingChangesUntilThen": "在此之前不会有任何变化。",
+    "keepingYourPlan": "你将继续使用当前套餐。",
+    "renewsOn": "将于 {day} 续订。"
   }
 }
