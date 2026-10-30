@@ -35,12 +35,6 @@ export const FEATURES: Feature[] = [
     description: "A helper's record as a PDF.",
     everyPlan: "Her record is hers to keep.",
   },
-  {
-    key: "staff_pay_hr",
-    name: "Staff pay & HR",
-    description: "Payslips, paying staff, vale, wage changes, SSS, PhilHealth and Pag-IBIG.",
-    offForEveryone: true,
-  },
 ];
 
 /** A plan's features: the ones named, plus every one that's on every plan. */

@@ -2,7 +2,6 @@ import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
-import { PayHrDisabledNotice } from "@/components/shared/pay-hr-disabled-notice";
 import type { ValeRequest } from "@/features/ledger/ledger.types";
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
 import { periodEstimate } from "@/features/pay/period-estimate";
@@ -115,7 +114,7 @@ export function PastStaffSection({
                     <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-pine-deep">
                       {inv.station}
                     </span>
-                    {owed > 0 ? (
+                    {!PAY_HR_ENABLED ? null : owed > 0 ? (
                       <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                         {t("people.paymentsDue", { count: owed })}
                       </span>
@@ -132,22 +131,23 @@ export function PastStaffSection({
                     })}
                   </div>
                 </div>
-                <button
-                  onClick={() => setOpen(isOpen ? null : inv.id)}
-                  aria-expanded={isOpen}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
-                >
-                  {richText(t("people.payAndPayslips"), {
-                    el1: <History className="h-3 w-3" />,
-                    value: isOpen ? (
-                      <ChevronUp className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    ),
-                  })}
-                </button>
+                {PAY_HR_ENABLED && (
+                  <button
+                    onClick={() => setOpen(isOpen ? null : inv.id)}
+                    aria-expanded={isOpen}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
+                  >
+                    {richText(t("people.payAndPayslips"), {
+                      el1: <History className="h-3 w-3" />,
+                      value: isOpen ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      ),
+                    })}
+                  </button>
+                )}
               </div>
-              {isOpen && !PAY_HR_ENABLED && <PayHrDisabledNotice className="mt-3" />}
               {isOpen && PAY_HR_ENABLED && (
                 <div className="mt-3 space-y-3">
                   <PayslipHistory

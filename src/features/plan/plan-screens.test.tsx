@@ -74,7 +74,7 @@ function InviteKasambahay() {
 }
 
 describe("Your plan page", () => {
-  it("shows the plan, a placeholder price, usage from the app's data, and pay & HR off for everyone", () => {
+  it("shows the plan, a placeholder price, usage from the app's data, and no staff pay & HR (that switch is for Linara's own staff)", () => {
     render(<MyPlanPage />);
     expect(screen.getByRole("heading", { name: "Premium" })).toBeTruthy();
     expect(screen.getByText("₱399 a month")).toBeTruthy();
@@ -84,21 +84,22 @@ describe("Your plan page", () => {
     expect(screen.getByText("2, no limit")).toBeTruthy();
     expect(screen.getByText("1 of 3")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show what's included" }));
-    expect(screen.getByText("Off for everyone")).toBeTruthy();
+    expect(screen.getByText("Tasks and the Board")).toBeTruthy();
+    expect(screen.queryByText(/pay & HR|payslip/i)).toBeNull();
   });
 
   it("folds what's included to one line until asked, and folds it back", () => {
     render(<MyPlanPage />);
     expect(screen.getByText(/^\d+ of \d+ features are on your plan\.$/)).toBeTruthy();
-    expect(screen.queryByText("Off for everyone")).toBeNull();
+    expect(screen.queryByText("Tasks and the Board")).toBeNull();
     const toggle = screen.getByRole("button", { name: "Show what's included" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(toggle);
-    expect(screen.getByText("Off for everyone")).toBeTruthy();
+    expect(screen.getByText("Tasks and the Board")).toBeTruthy();
     const hide = screen.getByRole("button", { name: "Hide the list" });
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    expect(screen.queryByText("Off for everyone")).toBeNull();
+    expect(screen.queryByText("Tasks and the Board")).toBeNull();
   });
 
   it("inside the Android app: no price and no way to buy", () => {
