@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 
 import type { PayoutChannelCode } from "./pay.types";
@@ -8,7 +7,8 @@ import type { PayoutChannelCode } from "./pay.types";
 /**
  * Where to send her pay when the household pays her directly
  * (supabase/add-direct-gcash-pay.sql, KNOWN_GAPS O35). Linara moves no money:
- * this only tells the manager where to send it.
+ * this only tells the manager where to send it. Not behind the pay & HR
+ * switch (lib/pay-hr.ts): that switch is about Linara's own staff.
  *
  * - "helper": what she saved in her app (helper_payout_accounts). Hers alone
  *   to change.
@@ -35,7 +35,6 @@ const SIGNED_URL_SECONDS = 900;
 export const getPayoutAccountFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string }) => data)
   .handler(async ({ data }): Promise<PayoutAccount> => {
-    assertPayHrEnabled();
     const client = createAuthedClient(data.token);
     const { data: helper, error } = await client
       .from("helper_profiles")

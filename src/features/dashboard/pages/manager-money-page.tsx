@@ -2,9 +2,9 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
-import { PayHrDisabledNotice } from "@/components/shared/pay-hr-disabled-notice";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
 import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
+import { HelperWalletCard } from "@/features/pay/components/helper-wallet-card";
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
 import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
@@ -97,7 +97,7 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
   return (
     <div className="space-y-6">
       <h1 className="sr-only">{t("dashboard.money")}</h1>
-      {PAY_HR_ENABLED ? (
+      {PAY_HR_ENABLED && (
         <PayrollSummary
           selectedId={selectedHelper?.id ?? null}
           onSelect={(id) => {
@@ -107,8 +107,6 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
               ?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
         />
-      ) : (
-        <PayHrDisabledNotice />
       )}
       <div
         id="pay-details"
@@ -136,6 +134,7 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
           </div>
         )}
       </div>
+      {selectedHelper && <HelperWalletCard helper={selectedHelper} token={session.token} />}
       {PAY_HR_ENABLED && (
         <>
           <SpendAndPayday helper={selectedHelper} />
