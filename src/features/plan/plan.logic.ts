@@ -58,12 +58,22 @@ export function limitText(key: LimitKey, value: number | null, t: Translate = EN
   return t(`plan.limit.${key}` as MessageKey, { count: value });
 }
 
-/** The plan's limits plus what the add-ons raise them by. */
+/**
+ * The plan whose features and limits apply now: the one subscribed to, or
+ * Free once grace is over (billing_effective_version, add-billing-pause.sql).
+ * Paying what's owed still prices the plan they're on.
+ */
+function effectivePlanId(sub: MySubscription): string {
+  return sub.status === "restricted" ? "free" : sub.planId;
+}
+
+/** The limits that apply now, plus what paid add-ons raise them by. */
 export function limitsFor(sub: MySubscription): Record<LimitKey, number | null> {
-  const plan = planById(sub.planId);
+  const plan = planById(effectivePlanId(sub));
   const base = plan?.limits ?? { households: 1, kasambahay: 1, co_managers: 0 };
   const limits = { ...base };
-  for (const line of sub.addons) {
+  // Restricted: unpaid add-ons don't count.
+  for (const line of sub.status === "restricted" ? [] : sub.addons) {
     const addon = ADDONS.find((a) => a.id === line.addonId);
     const current = addon ? limits[addon.limitKey] : null;
     if (!addon || current === null || line.quantity <= 0) continue;
@@ -81,7 +91,7 @@ export function hasFeature(sub: MySubscription, key: FeatureKey): boolean {
   const feature = FEATURES.find((f) => f.key === key);
   if (!feature || feature.offForEveryone) return false;
   if (feature.everyPlan) return true;
-  return planById(sub.planId)?.features[key] ?? false;
+  return planById(effectivePlanId(sub))?.features[key] ?? false;
 }
 
 /** The cheapest published plan that includes a feature, to name in a lock. */

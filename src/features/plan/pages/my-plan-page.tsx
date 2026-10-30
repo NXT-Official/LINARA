@@ -81,7 +81,7 @@ function statusLine(sub: MySubscription): { tone: "calm" | "warn" | "late"; text
     case "restricted":
       return {
         tone: "late",
-        text: "The payment is overdue. Only the households and kasambahay you choose stay active; for the rest, new tasks and changes pause until it's paid. Nothing is deleted, and every kasambahay keeps her own record, leave and rest days.",
+        text: "The payment is overdue, so the household is on Free until it's paid: Free's features, and only the households and kasambahay you choose stay active. For the rest, new tasks and schedule changes pause. Nothing is deleted, and every kasambahay keeps her own record, leave and rest days. Paying brings everything back.",
       };
     case "active":
       if (!sub.periodEnd) return { tone: "calm", text: "Nothing to renew." };

@@ -117,6 +117,37 @@ describe("limits", () => {
     });
   });
 
+  // add-billing-pause.sql: grace over, a plan is Free until it's paid.
+  it("a restricted plan is Free's features and limits until it's paid, add-ons and all", () => {
+    const lapsed = sub({
+      status: "restricted",
+      addons: [{ addonId: "extra_household", quantity: 2 }],
+    });
+    expect(hasFeature(lapsed, "pantry")).toBe(false);
+    expect(hasFeature(lapsed, "teams_labels")).toBe(false);
+    expect(hasFeature(lapsed, "remote_admin")).toBe(false);
+    expect(hasFeature(lapsed, "time_off")).toBe(true);
+    expect(hasFeature(lapsed, "tasks")).toBe(true);
+    expect(limitsFor(lapsed)).toEqual({ households: 1, kasambahay: 1, co_managers: 0 });
+    // Premium's 3 households are now over Free's 1: the picker opens.
+    expect(overLimits(lapsed, usage(3, 1, 0))).toEqual(["households"]);
+    // Grace (past due) changes nothing yet.
+    const late = sub({ status: "past_due" });
+    expect(hasFeature(late, "pantry")).toBe(true);
+    expect(limitsFor(late).households).toBe(3);
+  });
+
+  it("can't pick more to stay active than Free allows while restricted", () => {
+    const lapsed = sub({ status: "restricted" });
+    expect(
+      checkSelection(
+        lapsed,
+        { households: ["a", "b"], kasambahay: [] },
+        { households: ["a", "b"], kasambahay: [] },
+      ),
+    ).toMatchObject({ ok: false });
+  });
+
   it("names the limits that are over, not the ones that are full", () => {
     expect(overLimits(free, usage(2, 1, 0))).toEqual(["households"]);
     expect(overLimits(free, usage(1, 1, 0))).toEqual([]);
