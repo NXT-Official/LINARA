@@ -69,47 +69,69 @@ const isMissing = (error: { code?: string; message?: string } | null) =>
 
 const testMode = () => process.env.XENDIT_LIVE !== "true";
 
+type BillingClient = Pick<ReturnType<typeof createAuthedClient>, "rpc">;
+export type BillingLoad = { missing: true } | { missing: false; billing: MyBilling };
+
+/**
+ * The plan the signed-in manager sees, for the household they're in. Their
+ * own (my_billing) when they're its primary manager; otherwise the
+ * household's, which is its owner's (R2), read-only.
+ */
+export async function loadMyBilling(client: BillingClient): Promise<BillingLoad> {
+  const { data: row, error } = await client.rpc("my_billing");
+  if (isMissing(error)) return { missing: true };
+  if (error && !/primary manager/i.test(error.message)) throw new Error(error.message);
+  // my_billing is theirs wherever they own a household; in one they only
+  // co-manage, the household's plan is what applies (and what the database
+  // checks), so their own mustn't unlock or lock anything there.
+  let ownsHere = !error;
+  if (ownsHere) {
+    const { data: rows, error: householdsError } = await client.rpc("my_households");
+    if (householdsError && !isMissing(householdsError)) throw new Error(householdsError.message);
+    // Before add-household-managers.sql there's one household, and it's theirs.
+    ownsHere =
+      !!householdsError ||
+      ((rows ?? []) as { role: string; is_current: boolean }[]).some(
+        (h) => h.is_current && h.role === "primary_manager",
+      );
+  }
+  if (!ownsHere) {
+    // A co-manager or remote admin here: the household's plan is its owner's (R2).
+    const [{ data: household, error: householdError }, { data: catalog, error: catalogError }] =
+      await Promise.all([client.rpc("my_household_plan"), client.rpc("billing_catalog")]);
+    if (householdError || catalogError) {
+      throw new Error((householdError ?? catalogError)?.message);
+    }
+    const h = household as { subscription: MySubscription; limits: MyBilling["limits"] };
+    return {
+      missing: false,
+      billing: {
+        subscription: h.subscription,
+        limits: h.limits,
+        usage: null,
+        selection: null,
+        payments: [],
+        catalog: catalog as BillingCatalog,
+        testMode: testMode(),
+        owner: false,
+      },
+    };
+  }
+  if (error) throw new Error(error.message);
+  return {
+    missing: false,
+    billing: {
+      ...(row as Omit<MyBilling, "testMode" | "owner">),
+      testMode: testMode(),
+      owner: true,
+    },
+  };
+}
+
 /** The manager's plan, usage and payments; `missing` before billing is set up here. */
 export const getMyBillingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
-  .handler(
-    async ({ data }): Promise<{ missing: true } | { missing: false; billing: MyBilling }> => {
-      const client = createAuthedClient(data.token);
-      const { data: row, error } = await client.rpc("my_billing");
-      if (isMissing(error)) return { missing: true };
-      if (error && /primary manager/i.test(error.message)) {
-        // A co-manager or remote admin: the household's plan is its owner's (R2).
-        const [{ data: household, error: householdError }, { data: catalog, error: catalogError }] =
-          await Promise.all([client.rpc("my_household_plan"), client.rpc("billing_catalog")]);
-        if (householdError || catalogError) {
-          throw new Error((householdError ?? catalogError)?.message);
-        }
-        const h = household as { subscription: MySubscription; limits: MyBilling["limits"] };
-        return {
-          missing: false,
-          billing: {
-            subscription: h.subscription,
-            limits: h.limits,
-            usage: null,
-            selection: null,
-            payments: [],
-            catalog: catalog as BillingCatalog,
-            testMode: testMode(),
-            owner: false,
-          },
-        };
-      }
-      if (error) throw new Error(error.message);
-      return {
-        missing: false,
-        billing: {
-          ...(row as Omit<MyBilling, "testMode" | "owner">),
-          testMode: testMode(),
-          owner: true,
-        },
-      };
-    },
-  );
+  .handler(({ data }) => loadMyBilling(createAuthedClient(data.token)));
 
 /** What's on sale, signed out (the landing page); null before billing is set up. */
 export const getCatalogFn = createServerFn({ method: "GET" }).handler(
