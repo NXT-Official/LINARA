@@ -26,6 +26,12 @@
     "plans": "プラン",
     "lNara": "l{span}nara",
     "clarityOverControl": "管理ではなく、透明性を。{br}{span}",
-    "wagesCheckedAgainstTheRegional": "{span} · 週休、年次休暇、時間外労働でたまった休息時間を、スタッフごとに記録します。"
+    "wagesCheckedAgainstTheRegional": "{span} · 週休、年次休暇、時間外労働でたまった休息時間を、スタッフごとに記録します。",
+    "kitchenSopTerm": "ハウススタンダード（SOP）",
+    "kitchenSopBody": "洗濯の手順や子どものアレルギー対応などの基準を一度決めるだけ。手順書は家に残り、何度も教え直す必要がなくなります。",
+    "kitchenLedgerTerm": "時間外台帳",
+    "kitchenLedgerBody": "勤務時間外のタスクは、未消化の休息時間が自動で台帳に記録されます。時間外手当を計算しなくても、仕事の負担を透明に調整できます。",
+    "kitchenPantryTerm": "パントリーから市場へ",
+    "kitchenPantryBody": "パントリーの在庫が減ると、買い物リストに自動で追加されます。買う人は予算を確認し、実際の金額を入力し、レシート写真をそっとアップロードできます。"
   }
 }

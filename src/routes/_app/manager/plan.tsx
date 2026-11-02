@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_app/manager/plan")({
       typeof search.payment === "string" && UUID.test(search.payment) ? search.payment : undefined,
     result: search.result === "paid" || search.result === "failed" ? search.result : undefined,
   }),
-  head: () => ({ meta: [{ title: "Your plan | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titlePlan") }] }),
   component: ManagerPlanRoute,
   errorComponent: RouteError,
 });

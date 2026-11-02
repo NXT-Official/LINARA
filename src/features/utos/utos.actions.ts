@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -71,7 +72,7 @@ export const insertUtoFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to send quick utos");
+      throw new Error(error?.message || currentT()("utos.errSend"));
     }
 
     // Through the friction wall on purpose (override or emergency, not "let it
@@ -178,7 +179,7 @@ export const routeUtosFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { token, prompt, helperId, helperStatus, senderType = "manager" } = data;
-    if (!token) throw new Error("Sign in to use this.");
+    if (!token) throw new Error(currentT()("common.errors.signInToUse"));
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {

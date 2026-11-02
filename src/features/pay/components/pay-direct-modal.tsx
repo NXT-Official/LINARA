@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Check, Copy, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -100,7 +101,9 @@ export function PayDirectModal({
       const result = await onSubmit({
         method,
         paidOn,
-        note: ref ? `${wallet} ref ${ref}` : `Sent by ${wallet}`,
+        note: ref
+          ? currentT()("pay.noteRef", { wallet, ref })
+          : currentT()("pay.noteSentBy", { wallet }),
       });
       const recorded = (result as { netPay?: number } | null)?.netPay;
       // Something changed in between (a vale approved, say): say so.
@@ -112,7 +115,7 @@ export function PayDirectModal({
       }
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't record the payment.");
+      setError(err instanceof Error ? err.message : currentT()("pay.errRecordPayment"));
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +251,7 @@ export function PayDirectModal({
             <li>{t("pay.comeBackAndTapI")}</li>
           </ol>
 
-          <Field label={`${wallet} reference number (optional)`}>
+          <Field label={t("pay.refOptional", { wallet })}>
             <input
               value={reference}
               onChange={(e) => setReference(e.target.value)}
@@ -329,7 +332,7 @@ function CopyRow({
       </div>
       <button
         onClick={onCopy}
-        aria-label={`Copy ${label.toLowerCase()}`}
+        aria-label={t("pay.copyLabel", { label: label.toLowerCase() })}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
       >
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

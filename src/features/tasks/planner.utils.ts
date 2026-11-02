@@ -1,6 +1,7 @@
 // Calendar math for the planner (components/task-planner.tsx). Days here are
 // the civil Dates the rest of @/lib/time uses: local midnight, fields reading
 // the household's calendar.
+import { dateLocale } from "@/lib/i18n/date-locale";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { isMinuteInShift } from "@/features/shifts/shift.utils";
 import type { TimeOff } from "@/features/shifts/time-off";
@@ -67,12 +68,13 @@ export const stepAnchor = (view: PlanView, anchor: Date, dir: -1 | 1): Date =>
     ? addDays(anchor, 7 * dir)
     : new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
 
-const monthDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const monthDay = (d: Date) =>
+  d.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 
 /** "Sep 28 – Oct 4" for a week, "October 2026" for a month. */
 export function planLabel(view: PlanView, anchor: Date): string {
   if (view === "month") {
-    return anchor.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return anchor.toLocaleDateString(dateLocale(), { month: "long", year: "numeric" });
   }
   const start = startOfWeek(anchor);
   return `${monthDay(start)} – ${monthDay(addDays(start, 6))}`;

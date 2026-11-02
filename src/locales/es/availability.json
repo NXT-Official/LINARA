@@ -15,6 +15,21 @@
     "classifiedTask": "Clasificado como tarea: \"{text}\"",
     "usuallyGoesTo": "Esto suele ir a {station}. Se envía a {name} ({current}) de todos modos. Elige a {other} en la lista si es a quien te referías.",
     "wentAsSuggestion": "{name} está fuera de turno, así que se envió a los encargados en casa como sugerencia.",
-    "nobodyAssignedSuggestion": "No hay nadie asignado, así que se envió a los encargados en casa como sugerencia."
+    "nobodyAssignedSuggestion": "No hay nadie asignado, así que se envió a los encargados en casa como sugerencia.",
+    "statusOnShift": "En turno",
+    "statusAvailable": "Disponible",
+    "statusOff": "Libre",
+    "kindUtos": "utos rápido",
+    "kindTask": "tarea",
+    "headQuiet": "Son horas de silencio para {name}.",
+    "headTimeOff": "{name} tiene libre este tiempo.",
+    "headRestDay": "Es el día de descanso de {name}.",
+    "headOutside": "Esto está fuera del horario de {name}.",
+    "bodyQuiet": "La noche es descanso protegido. El tiempo dedicado a esto se registra como descanso adeudado a {name}. Usa Emergencia solo si de verdad no puede esperar.",
+    "bodyTimeOff": "Es un tiempo libre aprobado para {name}. El tiempo dedicado a esto se registra como descanso adeudado.",
+    "bodyRestDay": "Es el día de descanso de {name}. El tiempo dedicado a esto se registra como descanso adeudado.",
+    "bodyOffShift": "{name} está fuera de turno. El tiempo dedicado a esto se registra como descanso adeudado.",
+    "queueUtos": "Queda en espera. Sin aviso. {name} lo ve cuando vuelva.",
+    "queueTask": "Se añade en silencio. Aparece en el tablero de {name} en su próximo periodo de trabajo."
   }
 }

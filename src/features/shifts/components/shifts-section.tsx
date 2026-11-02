@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, CalendarClock, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -126,8 +127,8 @@ export function ShiftsSection({
                 </span>{" "}
                 :{" "}
                 {names.length === 2
-                  ? `${names.join(" & ")} both rest that day.`
-                  : `all ${names.length} rest that day.`}
+                  ? t("shifts.restBoth", { names: names.join(" & ") })
+                  : t("shifts.restAll", { count: names.length })}
               </span>
             </div>
           ))}
@@ -193,7 +194,7 @@ function ScheduleEditor({
         breakEnd: breakEnd || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save schedule.");
+      setError(err instanceof Error ? err.message : currentT()("shifts.errSaveSchedule"));
     } finally {
       setSaving(false);
     }

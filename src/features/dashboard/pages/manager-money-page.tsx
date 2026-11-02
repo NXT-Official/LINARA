@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
@@ -127,7 +128,7 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
               helpers={activeHelpers}
               value={selectedHelperId ?? ""}
               onChange={setPickedPayHelperId}
-              ariaLabel="Whose money to show"
+              ariaLabel={currentT()("dashboard.whoseMoney")}
               align="right"
               className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
             />

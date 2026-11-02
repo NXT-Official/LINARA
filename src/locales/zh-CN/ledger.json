@@ -50,6 +50,21 @@
     "hindiNaSaveAngDesisyon": "对预支申请的决定未保存。",
     "approvedRestLeft": "已批准。剩余应休时间 {left}。",
     "requestDeclined": "申请已拒绝。",
-    "requestNotUpdated": "申请未更新。"
+    "requestNotUpdated": "申请未更新。",
+    "restOwedMonthName": "本月欠下的休息 · {name}",
+    "restOwedMonth": "本月欠下的休息",
+    "restOwedYours": "本月欠下的休息 · 您的",
+    "wagePerMonth": "₱{amount} / 月",
+    "notOnFile": "尚未登记",
+    "errRecordEntry": "无法记录账本条目",
+    "errSubmitVale": "无法提交预支申请",
+    "errManagersOnlyVale": "禁止：只有管理员可以决定预支申请",
+    "reasonAvailable": "待命",
+    "reasonEmergency": "紧急",
+    "reasonRestDay": "休息日",
+    "reasonRestBreak": "休息时间",
+    "reasonAfterShift": "下班后",
+    "liveIn": "住家",
+    "liveOut": "不住家"
   }
 }

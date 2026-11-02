@@ -20,6 +20,17 @@
     "employedBy": "Naka-employ sa {house}",
     "employedByTeamHere": "Naka-employ sa {house} · {team} dito",
     "choose": "Pumili…",
-    "couldntAddPlace": "Hindi naidagdag ang lugar."
+    "couldntAddPlace": "Hindi naidagdag ang lugar.",
+    "atHouseNow": "Nasa {house} ngayon",
+    "atHouseTimes": "Nasa {house} {times}",
+    "removeItem": "Alisin ang {name}",
+    "tripFromTo": "{from} → {to}",
+    "tripFrom": "Mula sa {from}",
+    "tripTo": "Papunta sa {to}",
+    "trip": "Biyahe",
+    "errNameIt": "Bigyan ito ng pangalan",
+    "errKeepTo": "Hanggang {max} character lang",
+    "errPlaceExists": "May lugar nang may ganoong pangalan",
+    "errAddPlace": "Hindi maidagdag ang lugar"
   }
 }

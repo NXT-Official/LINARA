@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, ArrowLeft, Home, Loader2, Smartphone, UserRound } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -168,7 +169,7 @@ export function ManagerAuthFlow({
         return;
       }
       console.error(err);
-      const message = err instanceof Error ? err.message : "May error na naganap.";
+      const message = err instanceof Error ? err.message : currentT()("people.errGeneric");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -189,7 +190,7 @@ export function ManagerAuthFlow({
       toast.success(t("people.taposNaNagawaNaAng"));
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : "May error na naganap.";
+      const message = err instanceof Error ? err.message : currentT()("people.errGeneric");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -285,13 +286,13 @@ export function ManagerAuthFlow({
           <ChoiceButton
             icon={<Home className="h-5 w-5" />}
             title={t("people.iRunAHousehold")}
-            body="Employer. Set up your household, then invite the people who work in it."
+            body={currentT()("people.roleEmployerBody")}
             onClick={() => goToStep("household")}
           />
           <ChoiceButton
             icon={<UserRound className="h-5 w-5" />}
             title={t("people.iWorkInAHousehold")}
-            body="Kasambahay. Join with the invite code your employer gave you."
+            body={currentT()("people.roleHelperBody")}
             onClick={() => goToStep("kasambahay")}
           />
         </div>

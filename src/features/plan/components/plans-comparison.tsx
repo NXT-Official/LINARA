@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link } from "@tanstack/react-router";
 import { Check, Minus } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -13,15 +14,17 @@ import { useT } from "@/lib/i18n/locale-context";
  * pricing may be published until marketing sets it (PRODUCT.md, Evidence).
  */
 function publicPrice(plan: CatalogPlan): { main: string; sub: string } {
-  if (plan.prices.monthly === 0) return { main: formatCentavos(0), sub: "for good" };
-  if (plan.pricePlaceholder) return { main: "Price", sub: "coming soon" };
-  return { main: formatCentavos(plan.prices.monthly ?? 0), sub: "a month" };
+  if (plan.prices.monthly === 0)
+    return { main: formatCentavos(0), sub: currentT()("plan.forGood") };
+  if (plan.pricePlaceholder)
+    return { main: currentT()("plan.priceWord"), sub: currentT()("plan.comingSoon") };
+  return { main: formatCentavos(plan.prices.monthly ?? 0), sub: currentT()("plan.aMonthShort") };
 }
 
 const LIMIT_ROWS: LimitKey[] = ["households", "kasambahay", "co_managers"];
 
 function limitCell(value: number | null, noneLabel: string) {
-  if (value === null) return "Unlimited";
+  if (value === null) return currentT()("plan.unlimited");
   return value === 0 ? (
     <Minus className="mx-auto size-4 text-muted-foreground" aria-label={noneLabel} />
   ) : (

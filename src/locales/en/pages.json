@@ -18,6 +18,18 @@
     "openAppHelper": "Buksan ang Linara app",
     "openAppManager": "Open the Linara app",
     "continueInBrowser": "Continue in the browser",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "titleMoney": "Money | Linara",
+    "titlePantry": "Pantry | Linara",
+    "titlePass": "The Pass | Linara",
+    "titlePeople": "People | Linara",
+    "titlePlan": "Your plan | Linara",
+    "titleSchedule": "Schedule | Linara",
+    "titleEmailConfirmed": "Email confirmed | Linara",
+    "titlePrivacy": "Privacy policy | Linara",
+    "titleTerms": "Terms of service | Linara",
+    "siteTitle": "Linara · Home, made clear.",
+    "siteDescription": "Linara helps families and household helpers coordinate the day with calm, shared clarity.",
+    "siteOgDescription": "A calm, shared home management app for families and helpers."
   }
 }

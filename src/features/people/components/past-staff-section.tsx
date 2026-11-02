@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { useState } from "react";
 
@@ -18,7 +19,7 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const shortDate = (ymd: string) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", {
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(dateLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",

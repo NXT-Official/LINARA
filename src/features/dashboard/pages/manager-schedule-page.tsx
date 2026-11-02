@@ -13,13 +13,35 @@ import type { Task } from "@/features/tasks/task.types";
 
 import { useAppStores } from "../app-store-context";
 import { useT } from "@/lib/i18n/locale-context";
+import { currentT } from "@/lib/i18n/current-t";
 import { richText } from "@/lib/i18n/rich-text";
 
+/** Labels are read when shown, so they follow a language change. */
 export const SCHEDULE_TABS = [
-  { key: "plan", label: "Plan" },
-  { key: "appointments", label: "Appointments" },
-  { key: "shifts", label: "Shifts" },
-  { key: "routines", label: "Routines" },
+  {
+    key: "plan",
+    get label() {
+      return currentT()("dashboard.tabPlan");
+    },
+  },
+  {
+    key: "appointments",
+    get label() {
+      return currentT()("dashboard.tabAppointments");
+    },
+  },
+  {
+    key: "shifts",
+    get label() {
+      return currentT()("dashboard.tabShifts");
+    },
+  },
+  {
+    key: "routines",
+    get label() {
+      return currentT()("dashboard.tabRoutines");
+    },
+  },
 ] as const;
 export type ScheduleTab = (typeof SCHEDULE_TABS)[number]["key"];
 

@@ -15,6 +15,7 @@ const server = vi.hoisted(() => ({
   removeAddonsFn: vi.fn(),
   saveSelectionFn: vi.fn(),
   getCatalogFn: vi.fn(),
+  startTrialFn: vi.fn(),
 }));
 vi.mock("./plan.actions", () => server);
 vi.mock("@tanstack/react-router", () => ({
@@ -42,6 +43,7 @@ import {
   loadPlanFor,
   payForPlan,
   previewStatus,
+  startTrialLive,
 } from "./plan.store";
 
 const plan = (id: string, monthly: number) => ({
@@ -80,6 +82,7 @@ function billing(over: Partial<MyBilling> = {}): MyBilling {
     },
     testMode: true,
     owner: true,
+    trialAvailable: false,
     ...over,
   };
 }
@@ -683,5 +686,120 @@ describe("plan changes while a paid period runs, live", () => {
     await goLive(billing({ owner: false, usage: null, subscription: runningSub() }));
     render(<MyPlanPage />);
     expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
+  });
+});
+
+// add-billing-renewal-and-trials.sql: a first plan can start as a free trial.
+describe("free trials, live", () => {
+  const DAY = 86_400_000;
+  const dialog = () => within(screen.getByRole("dialog"));
+  const openOn = (name: RegExp) => {
+    fireEvent.click(screen.getByRole("button", { name: "Change plan" }));
+    fireEvent.click(dialog().getByRole("radio", { name }));
+  };
+
+  it("on Free and never paid: offers the plan's trial, starts it in the database, charges nothing", async () => {
+    await goLive(billing({ trialAvailable: true }));
+    server.startTrialFn.mockResolvedValue({ ok: true });
+    render(<MyPlanPage />);
+    openOn(/Normal/);
+    const trialEnd = new Date(Date.now() + 14 * DAY).toISOString();
+    server.getMyBillingFn.mockResolvedValue({
+      missing: false,
+      billing: billing({
+        subscription: {
+          ...billing().subscription,
+          planId: "normal",
+          status: "trialing",
+          periodEnd: trialEnd,
+        },
+      }),
+    });
+    await act(async () => {
+      fireEvent.click(dialog().getByRole("button", { name: "Try Normal free for 14 days" }));
+    });
+    expect(server.startTrialFn).toHaveBeenCalledTimes(1);
+    expect(server.startTrialFn).toHaveBeenCalledWith({
+      data: { token: "token-1", planId: "normal" },
+    });
+    expect(server.startCheckoutFn).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(getPlanState().subscription.status).toBe("trialing");
+  });
+
+  it("the trial button is off while the trial starts, so a double tap is one tap", async () => {
+    await goLive(billing({ trialAvailable: true }));
+    let finish: (v: { ok: true }) => void = () => {};
+    server.startTrialFn.mockReturnValue(new Promise((r) => (finish = r)));
+    render(<MyPlanPage />);
+    openOn(/Premium/);
+    const button = dialog().getByRole("button", { name: "Try Premium free for 14 days" });
+    fireEvent.click(button);
+    // The button can't be tapped again while the trial starts.
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    await act(async () => finish({ ok: true }));
+  });
+
+  it("the store refuses a second start while one is on its way, without asking the server", async () => {
+    await goLive(billing({ trialAvailable: true }));
+    let finish: (v: { ok: true }) => void = () => {};
+    server.startTrialFn.mockReturnValue(new Promise((r) => (finish = r)));
+    const first = startTrialLive("normal");
+    const second = await startTrialLive("normal");
+    expect(second).toEqual({ ok: false, message: "A free trial is already being started." });
+    finish({ ok: true });
+    await act(async () => {
+      await first;
+    });
+    expect(server.startTrialFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a refused trial says why and stays open", async () => {
+    await goLive(billing({ trialAvailable: true }));
+    server.startTrialFn.mockResolvedValue({
+      ok: false,
+      message: "You've already had a free trial.",
+    });
+    render(<MyPlanPage />);
+    openOn(/Normal/);
+    await act(async () => {
+      fireEvent.click(dialog().getByRole("button", { name: "Try Normal free for 14 days" }));
+    });
+    expect(dialog().getByRole("alert").textContent).toBe("You've already had a free trial.");
+    expect(getPlanState().subscription.planId).toBe("free");
+  });
+
+  it("no trial button when one isn't available, on Free, or for a co-manager", async () => {
+    await goLive(billing({ trialAvailable: false }));
+    const first = render(<MyPlanPage />);
+    openOn(/Normal/);
+    expect(dialog().queryByRole("button", { name: /free for/ })).toBeNull();
+    first.unmount();
+    await goLive(billing({ trialAvailable: true }));
+    const second = render(<MyPlanPage />);
+    openOn(/Free/);
+    expect(dialog().queryByRole("button", { name: /free for/ })).toBeNull();
+    second.unmount();
+    await goLive(billing({ trialAvailable: true, owner: false, usage: null }));
+    render(<MyPlanPage />);
+    expect(screen.queryByRole("button", { name: "Change plan" })).toBeNull();
+  });
+
+  it("paying late shows the period from the old renewal date, not from today", async () => {
+    await goLive(
+      billing({
+        subscription: {
+          ...billing().subscription,
+          planId: "normal",
+          status: "past_due",
+          periodEnd: "2026-10-25T02:00:00.000Z",
+        },
+      }),
+    );
+    render(<MyPlanPage />);
+    openOn(/Normal/);
+    expect(dialog().getByText(/Oct 25, 2026 to Nov 25, 2026/)).toBeTruthy();
+    expect(dialog().queryByText("The new plan starts once it's paid.")).toBeNull();
   });
 });

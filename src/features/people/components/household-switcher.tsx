@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, ChevronDown, Home, KeyRound, Loader2, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -162,7 +163,7 @@ function NewHouseholdModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
-  const error = tried && !name.trim() ? "Give it a name." : null;
+  const error = tried && !name.trim() ? currentT()("people.giveName") : null;
 
   const householdCheck = useCanAdd("households");
 
@@ -261,8 +262,8 @@ export function JoinHouseholdForm({
   }, [cleaned, token]);
 
   const errors = {
-    code: tried && cleaned.length !== 8 ? "The code is 8 letters and numbers." : null,
-    name: tried && askName && !fullName.trim() ? "Tell us your name." : null,
+    code: tried && cleaned.length !== 8 ? currentT()("people.codeEight") : null,
+    name: tried && askName && !fullName.trim() ? currentT()("people.tellName") : null,
   };
 
   const join = () => {

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { ChevronRight, Loader2, Plus, Repeat, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -135,7 +136,7 @@ export function RunModal({
       if (done) toast.success(done);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That didn't save.");
+      setError(err instanceof Error ? err.message : currentT()("groceries.didntSave"));
       return false;
     } finally {
       setBusy(null);
@@ -149,7 +150,7 @@ export function RunModal({
 
   const validDraft = (): RunDraft | null => {
     if (cashN === "bad") {
-      setError("Cash given: an amount in pesos, or empty.");
+      setError(currentT()("groceries.cashGivenAmount"));
       return null;
     }
     return { ...draft, title: draft.title.trim() || defaultTitle, cashGiven: cashN };
@@ -176,9 +177,9 @@ export function RunModal({
     const lines = run ? items.length : picked.size;
     const taskHelper = d.ticketId ? board.tasks.find((t) => t.id === d.ticketId)?.helperId : null;
     const goes = d.shopperIds.length > 0 || d.teamId !== null || !!taskHelper;
-    if (!lines && !goes) return "Pick at least one line and who goes.";
-    if (!lines) return "Pick at least one line to buy.";
-    if (!goes) return "Pick who goes (or a team, or a task with someone on it).";
+    if (!lines && !goes) return currentT()("groceries.pickLineAndWho");
+    if (!lines) return currentT()("groceries.pickLine");
+    if (!goes) return currentT()("groceries.pickWho");
     return null;
   };
 
@@ -224,8 +225,8 @@ export function RunModal({
 
   const addLine = () => {
     const n = parseAmount(lineQty);
-    if (!lineName.trim()) return setError("Type what to buy.");
-    if (n === null || n === 0) return setError("Qty: a number above 0.");
+    if (!lineName.trim()) return setError(currentT()("groceries.typeWhatToBuy"));
+    if (n === null || n === 0) return setError(currentT()("groceries.qtyAboveZero"));
     if (!run) return;
     setError(null);
     ctx.addManual(lineName, n, lineUnit, run.id);
@@ -238,30 +239,33 @@ export function RunModal({
   const changeOverCash =
     cashN !== "bad" && changeN !== "bad" && cashN !== null && changeN !== null && changeN > cashN;
   const overCashError = () =>
-    setError(`Change can't be more than the cash given (${fmtPeso(Number(cashN))}).`);
+    setError(currentT()("groceries.changeOverCash", { cash: fmtPeso(Number(cashN)) }));
 
   const closeRun = () => {
-    if (cashN === "bad") return setError("Cash given: an amount in pesos, or empty.");
-    if (changeN === "bad") return setError("Change: an amount in pesos, or empty.");
+    if (cashN === "bad") return setError(currentT()("groceries.cashGivenAmount"));
+    if (changeN === "bad") return setError(currentT()("groceries.changeAmount"));
     if (changeOverCash) return overCashError();
     if (!run) return;
     // With cash handed over, the change is what makes petty cash add up.
     if (cashN !== null && changeN === null) {
       return setError(
-        `Enter the change that came back${expected !== null ? ` (${fmtPeso(expected)} if every cost is in)` : ""}.`,
+        expected !== null
+          ? currentT()("groceries.enterChangeExpected", { expected: fmtPeso(expected) })
+          : currentT()("groceries.enterChange"),
       );
     }
     void step(
       "close",
       // The cash too: it's edited in the petty-cash box, and closing used to drop it.
       () => ctx.setRunStatus(run, "done", { cashGiven: cashN, changeReturned: changeN }),
-      `${run.title} is closed.`,
+      currentT()("groceries.runClosed", { title: run.title }),
     ).then((ok) => ok && onClose());
   };
 
   const fixFigures = () => {
     if (!run) return;
-    if (cashN === "bad" || changeN === "bad") return setError("Amounts in pesos, or empty.");
+    if (cashN === "bad" || changeN === "bad")
+      return setError(currentT()("groceries.amountsInPesos"));
     if (changeOverCash) return overCashError();
     void step(
       "fix",
@@ -291,7 +295,7 @@ export function RunModal({
             pantryItemId: g.pantryItemId ?? null,
           })),
         }),
-      `Saved ${d.title.trim()} as a repeat.`,
+      currentT()("groceries.savedAsRepeat", { title: d.title.trim() }),
     );
   };
 
@@ -382,7 +386,7 @@ export function RunModal({
                     draft.shopperIds.filter((x) => x !== id),
                   )
                 }
-                aria-label={`Take ${helperName(id)} off this run`}
+                aria-label={t("groceries.takeOffRun", { name: helperName(id) })}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
               >
                 {helperName(id)} <X className="h-3 w-3 text-muted-foreground" />
@@ -394,8 +398,8 @@ export function RunModal({
           helpers={activeHelpers.filter((h) => !draft.shopperIds.includes(h.id))}
           value=""
           onChange={(id) => id && set("shopperIds", [...draft.shopperIds, id])}
-          ariaLabel="Add someone to this run"
-          before={[{ value: "", label: "Add someone…" }]}
+          ariaLabel={currentT()("groceries.addSomeoneRun")}
+          before={[{ value: "", label: currentT()("groceries.addSomeoneEllipsis") }]}
         />
         <span className="mt-1 block text-xs text-muted-foreground">
           {t("groceries.seenInApp", {
@@ -721,7 +725,7 @@ export function RunModal({
               void step(
                 "delete",
                 () => ctx.deleteRun(run),
-                "Deleted. Its lines are back in Needed.",
+                currentT()("groceries.deletedBack"),
               ).then((ok) => ok && onClose())
             }
             className="mr-auto rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
@@ -734,9 +738,11 @@ export function RunModal({
             type="button"
             disabled={busy !== null}
             onClick={() =>
-              void step("cancel", () => ctx.setRunStatus(run, "cancelled"), "Run cancelled.").then(
-                (ok) => ok && onClose(),
-              )
+              void step(
+                "cancel",
+                () => ctx.setRunStatus(run, "cancelled"),
+                currentT()("groceries.runCancelled"),
+              ).then((ok) => ok && onClose())
             }
             className="mr-auto rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
           >
@@ -803,7 +809,7 @@ export function RunModal({
                 void step(
                   "back",
                   () => ctx.setRunStatus(run, "draft"),
-                  "Sent back as a draft.",
+                  currentT()("groceries.sentBackDraft"),
                 ).then((ok) => ok && onClose())
               }
               className={btn()}

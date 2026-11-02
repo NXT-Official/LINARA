@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
@@ -70,7 +71,7 @@ export function ManagerPassPage({
       const invite = inviteStore.invites.find((i) => i.id === payslip.helperId);
       return {
         payslip,
-        name: invite ? invite.claimedName || invite.name : "Your helper",
+        name: invite ? invite.claimedName || invite.name : currentT()("dashboard.yourHelper"),
         left: invite?.status === "ended",
       };
     });

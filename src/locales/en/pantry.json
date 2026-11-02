@@ -27,6 +27,22 @@
     "add": "Add",
     "hindiNaSaveAngPantry": "The pantry item wasn't saved.",
     "hindiNaAddAngPantry": "The pantry item wasn't added.",
-    "hindiNaRemoveAngPantry": "The pantry item wasn't removed."
+    "hindiNaRemoveAngPantry": "The pantry item wasn't removed.",
+    "oneLess": "One less {name}",
+    "editOnHand": "Edit how much {name} is on hand",
+    "oneMore": "One more {name}",
+    "removeItem": "Remove {name}",
+    "filterAll": "All",
+    "errAddItem": "Failed to add pantry item",
+    "catRice": "Rice & grains",
+    "catFresh": "Fresh",
+    "catDry": "Dry goods & sauces",
+    "catCleaning": "Cleaning",
+    "catBaby": "Baby",
+    "stockOut": "Out",
+    "other": "Other",
+    "giveName": "Give it a name.",
+    "numberZeroOrMore": "A number, 0 or more.",
+    "runningLowLabel": "Running low"
   }
 }

@@ -67,7 +67,7 @@ export function PlacesSection({ canEdit }: { canEdit: boolean }) {
               {canEdit && (
                 <button
                   type="button"
-                  aria-label={`Remove ${p.name}`}
+                  aria-label={t("sharing.removeItem", { name: p.name })}
                   onClick={() =>
                     sharing
                       .deletePlace(p.id)

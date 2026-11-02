@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -59,7 +60,7 @@ export function PayoutConfirmModal({
     } catch (err) {
       setPhase({
         kind: "failed",
-        message: err instanceof Error ? err.message : "The payout didn't go through.",
+        message: err instanceof Error ? err.message : currentT()("pay.errPayoutFailed"),
       });
     }
   };
@@ -73,8 +74,8 @@ export function PayoutConfirmModal({
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-xl text-foreground">
           {phase.kind === "done" || phase.kind === "failed"
-            ? `Payout to ${helperName}`
-            : `Send ${helperName}'s pay via ${via}?`}
+            ? t("pay.payoutTo", { name: helperName })
+            : t("pay.sendPayVia", { name: helperName, via })}
         </h3>
         <button
           onClick={close}
@@ -117,8 +118,8 @@ export function PayoutConfirmModal({
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           {phase.status === "succeeded"
-            ? `Sent. ${via} confirmed it.`
-            : `Sent to Xendit. ${via} usually confirms within a few minutes; the payslip below shows when it lands.`}
+            ? t("pay.sentConfirmed", { via })
+            : t("pay.sentToXendit", { via })}
         </p>
       )}
       {phase.kind === "done" && phase.status === "needs_review" && (

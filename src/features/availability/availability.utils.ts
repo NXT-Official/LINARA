@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import type { ScheduleStore } from "@/features/shifts/hooks/use-schedules";
 import { isMinuteInShift, isRestDay } from "@/features/shifts/shift.utils";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
@@ -15,7 +16,7 @@ import type { ManualAvailability, RosaStatus } from "./availability.types";
  * converts a raw fetched row into the shape this expects.
  *
  * Approved time off (`timeOff`, KNOWN_GAPS O19) is off even mid-shift: the
- * household gave that time to her. Her own "Available" opt-in still wins,
+ * household gave that time to her. Her own currentT()("availability.statusAvailable") opt-in still wins,
  * because she set it.
  */
 export function statusFor(
@@ -69,15 +70,19 @@ export function manualFromRow(
 export function statusMeta(s: RosaStatus["status"]) {
   if (s === "on_shift")
     return {
-      label: "On shift",
+      label: currentT()("availability.statusOnShift"),
       dot: "bg-status-done",
       cls: "bg-status-done-soft text-status-done-ink",
     };
   if (s === "available")
     return {
-      label: "Available",
+      label: currentT()("availability.statusAvailable"),
       dot: "bg-accent",
       cls: "bg-terracotta-soft/70 text-accent-foreground",
     };
-  return { label: "Off", dot: "bg-muted-foreground/50", cls: "bg-secondary text-muted-foreground" };
+  return {
+    label: currentT()("availability.statusOff"),
+    dot: "bg-muted-foreground/50",
+    cls: "bg-secondary text-muted-foreground",
+  };
 }

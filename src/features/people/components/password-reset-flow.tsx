@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -99,12 +100,12 @@ export function PasswordResetFlow() {
   const savePassword = async () => {
     if (!recovery) return;
     if (password.length < 6) {
-      setFormError("Dapat may kahit anim (6) na characters ang password.");
+      setFormError(currentT()("people.errPasswordShort"));
       return;
     }
     // eslint-disable-next-line security/detect-possible-timing-attacks -- Client-side double-entry check.
     if (password !== confirmPassword) {
-      setFormError("Hindi magkatugma ang dalawang password. Paki-type ulit.");
+      setFormError(currentT()("people.errPasswordMismatch"));
       return;
     }
     setFormError(null);
@@ -122,7 +123,7 @@ export function PasswordResetFlow() {
         setRecovery(null);
         setMode("expired");
       } else {
-        setFormError(message || "Hindi na-save ang bagong password. Subukan ulit.");
+        setFormError(message || currentT()("people.errPasswordNotSaved"));
       }
     } finally {
       setLoading(false);

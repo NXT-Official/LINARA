@@ -27,6 +27,22 @@
     "add": "Idagdag",
     "hindiNaSaveAngPantry": "Hindi na-save ang pantry item.",
     "hindiNaAddAngPantry": "Hindi na-add ang pantry item.",
-    "hindiNaRemoveAngPantry": "Hindi na-remove ang pantry item."
+    "hindiNaRemoveAngPantry": "Hindi na-remove ang pantry item.",
+    "oneLess": "Bawasan ng isa ang {name}",
+    "editOnHand": "I-edit kung gaano karaming {name} ang mayroon",
+    "oneMore": "Dagdagan ng isa ang {name}",
+    "removeItem": "Alisin ang {name}",
+    "filterAll": "Lahat",
+    "errAddItem": "Hindi naidagdag ang pantry item",
+    "catRice": "Bigas at butil",
+    "catFresh": "Sariwa",
+    "catDry": "Tuyong paninda at sawsawan",
+    "catCleaning": "Panlinis",
+    "catBaby": "Para sa sanggol",
+    "stockOut": "Ubos",
+    "other": "Iba pa",
+    "giveName": "Bigyan ito ng pangalan.",
+    "numberZeroOrMore": "Isang numero, 0 o higit pa.",
+    "runningLowLabel": "Paubos na"
   }
 }

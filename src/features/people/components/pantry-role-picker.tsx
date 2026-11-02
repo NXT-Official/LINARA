@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -8,13 +9,21 @@ import { richText } from "@/lib/i18n/rich-text";
 const OPTIONS: { role: PantryRole; label: string; hint: string }[] = [
   {
     role: "lead",
-    label: "In charge",
-    hint: "Keeps the stock and the palengke list, like you do.",
+    get label() {
+      return currentT()("people.pantryLead");
+    },
+    get hint() {
+      return currentT()("people.pantryLeadHint");
+    },
   },
   {
     role: "runner",
-    label: "Buys from the list",
-    hint: "Ticks off what they bought and can say when something runs out.",
+    get label() {
+      return currentT()("people.pantryRunner");
+    },
+    get hint() {
+      return currentT()("people.pantryRunnerHint");
+    },
   },
 ];
 
@@ -71,7 +80,7 @@ export function PantryRolePicker({
         <span className="text-xs font-semibold text-foreground">{t("people.pantry")}</span>
         <div
           role="radiogroup"
-          aria-label={`Pantry access for ${name}`}
+          aria-label={t("people.pantryAccessFor", { name })}
           className="inline-flex rounded-lg bg-secondary/70 p-0.5"
         >
           {OPTIONS.map((o) => {

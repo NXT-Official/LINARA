@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, HelpCircle, X } from "lucide-react";
 
 import { Avatar } from "@/components/shared/avatar";
@@ -25,7 +26,7 @@ export function SuggestionsInbox({
   // Group by who suggested it.
   const groups = new Map<string, Task[]>();
   for (const t of suggestions) {
-    const key = t.createdBy ?? "A remote admin";
+    const key = t.createdBy ?? currentT()("tasks.aRemoteAdmin");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
   }

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -178,9 +179,9 @@ function StationItem({
   // Why it can't go, said rather than a dead button.
   const blocked =
     count > 0
-      ? `${count} ${count === 1 ? "person is" : "people are"} on it. Give them another station first.`
+      ? currentT()(count === 1 ? "people.stationOnePerson" : "people.stationPeople", { count })
       : onlyOne
-        ? "A household needs at least one station."
+        ? currentT()("people.stationNeedOne")
         : null;
 
   return (

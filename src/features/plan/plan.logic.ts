@@ -1,4 +1,5 @@
-import { tFor, type MessageKey, type Translate } from "@/lib/i18n/instance";
+import { intlLocale, tFor, type MessageKey, type Translate } from "@/lib/i18n/instance";
+import { parseLocale } from "@/lib/i18n/locales";
 
 import { ADDONS, CATALOG, FEATURES } from "./plan.sample";
 import type {
@@ -186,11 +187,11 @@ export function checkSelection(
 export type Quote = { ok: true; amount: number } | { ok: false; message: string };
 
 /** What a plan, cycle and add-ons cost each cycle, or why they can't be had. */
-export function quote(planId: string, cycle: Cycle, addons: AddonLine[]): Quote {
+export function quote(planId: string, cycle: Cycle, addons: AddonLine[], t: Translate = EN): Quote {
   const plan = planById(planId);
-  if (!plan) return { ok: false, message: "That plan isn't offered." };
+  if (!plan) return { ok: false, message: t("plan.errPlanNotOffered") };
   const price = plan.prices[cycle];
-  if (price === null) return { ok: false, message: "That plan isn't sold that way." };
+  if (price === null) return { ok: false, message: t("plan.errPlanNotSold") };
   let amount = price;
   for (const line of addons) {
     if (
@@ -198,14 +199,14 @@ export function quote(planId: string, cycle: Cycle, addons: AddonLine[]): Quote 
       line.quantity < 0 ||
       line.quantity > MAX_ADDON_QUANTITY
     ) {
-      return { ok: false, message: `Add 0 to ${MAX_ADDON_QUANTITY} of each add-on.` };
+      return { ok: false, message: t("plan.errAddonRange", { max: MAX_ADDON_QUANTITY }) };
     }
     if (line.quantity === 0) continue;
     const addon = ADDONS.find((a) => a.id === line.addonId);
-    if (!addon) return { ok: false, message: "One of the add-ons isn't offered." };
+    if (!addon) return { ok: false, message: t("plan.errAddonNotOffered") };
     const months = MONTHS[cycle];
     if (months === null || price === 0) {
-      return { ok: false, message: "Add-ons need a paid monthly or yearly plan." };
+      return { ok: false, message: t("plan.errAddonsNeedPaid") };
     }
     amount += addon.monthlyPrice * months * line.quantity;
   }
@@ -213,8 +214,26 @@ export function quote(planId: string, cycle: Cycle, addons: AddonLine[]): Quote 
 }
 
 /** "₱399 a month", or "Free". */
-export function priceText(amount: number, cycle: Cycle): string {
-  return amount === 0 ? "Free" : `${formatCentavos(amount)} ${CYCLE_LABEL[cycle].per}`;
+export function priceText(amount: number, cycle: Cycle, t: Translate = EN): string {
+  if (amount === 0) return t("plan.priceFree");
+  const key =
+    cycle === "monthly"
+      ? "plan.pricePerMonth"
+      : cycle === "annual"
+        ? "plan.pricePerYear"
+        : "plan.priceOnce";
+  return t(key, { price: formatCentavos(amount) });
+}
+
+/** "Monthly", "Yearly", "One-time": a billing cycle’s name. */
+export function cycleName(cycle: Cycle, t: Translate = EN): string {
+  return t(
+    cycle === "monthly"
+      ? "plan.cycleMonthly"
+      : cycle === "annual"
+        ? "plan.cycleAnnual"
+        : "plan.cycleOneTime",
+  );
 }
 
 /** The plan's cycles that have a price, in order. */
@@ -228,14 +247,14 @@ export function addonFor(key: LimitKey) {
 }
 
 /** Why add-ons can't be bought on this plan right now, or null when they can. */
-export function addonsBlocked(sub: MySubscription): string | null {
-  const base = quote(sub.planId, sub.cycle, []);
+export function addonsBlocked(sub: MySubscription, t: Translate = EN): string | null {
+  const base = quote(sub.planId, sub.cycle, [], t);
   if (!base.ok) return base.message;
   if (base.amount === 0 || sub.cycle === "one_time") {
-    return "Add-ons are for paid monthly or yearly plans: Normal and Premium.";
+    return t("plan.addonsPaidOnly");
   }
   if (sub.status === "past_due" || sub.status === "restricted") {
-    return "Pay what's owed first, then add more.";
+    return t("plan.addonsPayFirst");
   }
   return null;
 }
@@ -257,19 +276,23 @@ export type AddonChange =
  * year's price; marketing sets proration later); removing one costs
  * nothing and refunds nothing.
  */
-export function addonChange(sub: MySubscription, lines: AddonLine[]): AddonChange {
-  const blocked = addonsBlocked(sub);
+export function addonChange(
+  sub: MySubscription,
+  lines: AddonLine[],
+  t: Translate = EN,
+): AddonChange {
+  const blocked = addonsBlocked(sub, t);
   if (blocked) return { ok: false, message: blocked };
-  const base = quote(sub.planId, sub.cycle, []);
+  const base = quote(sub.planId, sub.cycle, [], t);
   if (!base.ok) return base;
-  const next = quote(sub.planId, sub.cycle, lines);
+  const next = quote(sub.planId, sub.cycle, lines, t);
   if (!next.ok) return next;
-  const current = quote(sub.planId, sub.cycle, sub.addons);
+  const current = quote(sub.planId, sub.cycle, sub.addons, t);
   const now = current.ok ? current.amount : base.amount;
   const qty = (list: AddonLine[], id: string) =>
     list.filter((l) => l.addonId === id).reduce((n, l) => n + l.quantity, 0);
   if (ADDONS.every((a) => qty(lines, a.id) === qty(sub.addons, a.id))) {
-    return { ok: false, message: "Nothing changed." };
+    return { ok: false, message: t("plan.nothingChanged") };
   }
   return { ok: true, dueNow: Math.max(0, next.amount - now), newAmount: next.amount };
 }
@@ -277,20 +300,71 @@ export function addonChange(sub: MySubscription, lines: AddonLine[]): AddonChang
 /** The smallest amount charged, in centavos: Xendit's card minimum (billing_min_charge). */
 export const MIN_CHARGE = 2_000;
 
-const dayFmt = new Intl.DateTimeFormat("en-PH", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "Asia/Manila",
-});
-/** "Nov 28, 2026", in Manila time (billing_date_text). */
-export const dayText = (iso: string | number) => dayFmt.format(new Date(iso));
+const dayFormats = new Map<string, Intl.DateTimeFormat>();
+/** "Nov 28, 2026", in Manila time (billing_date_text), written for `t`'s language. */
+export function dayText(iso: string | number, t: Translate = EN): string {
+  const tag = intlLocale(parseLocale((t as unknown as { lng?: string }).lng));
+  let fmt = dayFormats.get(tag);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(tag, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "Asia/Manila",
+    });
+    dayFormats.set(tag, fmt);
+  }
+  return fmt.format(new Date(iso));
+}
 
 /** How high a plan ranks: its monthly price, or a twelfth of its yearly one. */
 function planRank(planId: string): number {
   const p = planById(planId)?.prices;
   if (!p) return 0;
   return p.monthly ?? (p.annual !== null ? p.annual / 12 : (p.one_time ?? 0));
+}
+
+/** Adds whole months as Postgres does: a day past the month's end is its last day. */
+function addMonths(iso: string | number, months: number): Date {
+  const d = new Date(iso);
+  const target = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1, d.getUTCHours(), d.getUTCMinutes()),
+  );
+  const last = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(d.getUTCDate(), last));
+  target.setUTCSeconds(d.getUTCSeconds(), d.getUTCMilliseconds());
+  return target;
+}
+
+/**
+ * The period a plan payment pays for, as billing_next_period works it out
+ * (add-billing-renewal-and-trials.sql): late, from the old renewal date (by
+ * whole cycles, until it covers today); in a trial, a cycle past the trial's
+ * end; otherwise from now. One-time has no end.
+ */
+export function nextPeriod(
+  sub: MySubscription,
+  cycle: Cycle,
+  now = Date.now(),
+): { start: string; end: string | null } {
+  const months = MONTHS[cycle];
+  const today = new Date(now).toISOString();
+  if (months === null) return { start: today, end: null };
+  const end = sub.periodEnd ? Date.parse(sub.periodEnd) : NaN;
+  if (sub.status === "trialing" && end > now) {
+    return { start: today, end: addMonths(end, months).toISOString() };
+  }
+  if ((sub.status === "past_due" || sub.status === "restricted") && !Number.isNaN(end)) {
+    let k = 0;
+    while (addMonths(end, months * (k + 1)).getTime() <= now) k++;
+    return {
+      start: addMonths(end, months * k).toISOString(),
+      end: addMonths(end, months * (k + 1)).toISOString(),
+    };
+  }
+  return { start: today, end: addMonths(now, months).toISOString() };
 }
 
 /** A paid period is running: active (not a trial), renewing after `now`. */
@@ -328,15 +402,18 @@ export function planMove(
   cycle: Cycle,
   addons: AddonLine[],
   now = Date.now(),
+  t: Translate = EN,
 ): PlanMove {
-  const next = quote(planId, cycle, addons);
+  const next = quote(planId, cycle, addons, t);
   if (!next.ok) return next;
   const same = planId === sub.planId && cycle === sub.cycle;
 
   if (!periodRunning(sub, now)) {
-    const owes = sub.status === "past_due" || sub.status === "restricted";
+    // Owing, or in a trial: paying for the plan they're on is how it's kept.
+    const owes =
+      sub.status === "past_due" || sub.status === "restricted" || sub.status === "trialing";
     if (same && sameLines(addons, sub.addons) && !owes) {
-      return { ok: false, message: "That's the plan you already have." };
+      return { ok: false, message: t("plan.alreadyHavePlan") };
     }
     return { ok: true, dueNow: next.amount, keepsPeriod: false, prorated: false };
   }
@@ -345,14 +422,14 @@ export function planMove(
   const lower = {
     ok: false as const,
     lower: true,
-    message: `To move to a lower plan, cancel this one. You keep it until ${dayFmt.format(end)}, then choose again.`,
+    message: t("plan.moveLowerCancel", { date: dayText(end, t) }),
   };
   if (same) {
     return sameLines(addons, sub.addons)
-      ? { ok: false, message: "That's the plan you already have." }
-      : { ok: false, message: "To change add-ons, use Add-ons on Your plan." };
+      ? { ok: false, message: t("plan.alreadyHavePlan") }
+      : { ok: false, message: t("plan.changeAddonsUse") };
   }
-  const current = quote(sub.planId, sub.cycle, sub.addons);
+  const current = quote(sub.planId, sub.cycle, sub.addons, t);
   if (!current.ok) return current;
   const start = sub.periodStart ? Date.parse(sub.periodStart) : NaN;
   const left =
@@ -364,8 +441,7 @@ export function planMove(
     if (next.amount <= current.amount) {
       return {
         ok: false,
-        message:
-          "That costs no more than what you pay now. Remove the add-ons you won't need first, then upgrade.",
+        message: t("plan.upgradeNoMore"),
       };
     }
     dueNow = Math.ceil((next.amount - current.amount) * left);

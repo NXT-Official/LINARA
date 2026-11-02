@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -191,7 +192,7 @@ export const setLeavePolicyFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; policy: LeavePolicy }) => {
     const days = data.policy.silDaysPerYear;
     if (!Number.isInteger(days) || days < 5 || days > 30) {
-      throw new Error("Service incentive leave is 5 to 30 days a year");
+      throw new Error(currentT()("leave.errSilRange"));
     }
     return data;
   })
@@ -201,16 +202,16 @@ export const setLeavePolicyFn = createServerFn({ method: "POST" })
       data: { user },
       error: authError,
     } = await client.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+    if (authError || !user) throw new Error(currentT()("common.errors.invalidToken"));
 
     const { data: profile, error: profileError } = await client
       .from("user_profiles")
       .select("household_id, user_type")
       .eq("id", user.id)
       .single();
-    if (profileError || !profile) throw new Error("Unauthorized: Profile not found");
+    if (profileError || !profile) throw new Error(currentT()("common.errors.profileNotFound"));
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can change the leave rules");
+      throw new Error(currentT()("leave.errManagersOnlyRules"));
     }
 
     const { error } = await client

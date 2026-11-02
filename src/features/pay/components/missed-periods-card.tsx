@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { AlertCircle, Banknote, Gift, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { richText } from "@/lib/i18n/rich-text";
 import { useT } from "@/lib/i18n/locale-context";
 
 const longDay = (ymd: string) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 
 type Recording = { target: PaymentTarget; label: string; estimate: number };
 type Paying = Recording & { channel: PayoutChannelCode };
@@ -100,7 +101,7 @@ export function MissedPeriodsCard({
         {!XENDIT_PAYOUTS_ON && (
           <button
             onClick={() => setPayingDirect({ target, label, estimate })}
-            aria-label={`Pay ${label} by GCash or Maya`}
+            aria-label={t("pay.payByGcashOrMayaTo", { name: label })}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
           >
             {richText(t("pay.gcashOrMaya"), { el1: <Smartphone className="h-3.5 w-3.5" /> })}
@@ -110,14 +111,14 @@ export function MissedPeriodsCard({
           <>
             <button
               onClick={() => setPaying({ target, label, estimate, channel: "PH_GCASH" })}
-              aria-label={`Pay ${label} via GCash`}
+              aria-label={t("pay.payViaGcashTo", { name: label })}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-60"
             >
               {richText(t("pay.gcash"), { el1: <Smartphone className="h-3.5 w-3.5" /> })}
             </button>
             <button
               onClick={() => setPaying({ target, label, estimate, channel: "PH_PAYMAYA" })}
-              aria-label={`Pay ${label} via Maya`}
+              aria-label={t("pay.payViaMayaTo", { name: label })}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
             >
               {richText(t("pay.maya"), { el1: <Smartphone className="h-3.5 w-3.5 text-accent" /> })}

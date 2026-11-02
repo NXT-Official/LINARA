@@ -60,7 +60,9 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
     return (
       <span
         className="text-xs font-semibold text-muted-foreground"
-        title={task.cancelledBy ? `Cancelled by ${task.cancelledBy}` : undefined}
+        title={
+          task.cancelledBy ? t("tasks.cancelledByName", { name: task.cancelledBy }) : undefined
+        }
       >
         {t("tasks.cancelled")}
       </span>

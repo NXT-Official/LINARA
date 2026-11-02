@@ -18,6 +18,18 @@
     "openAppHelper": "打开 Linara 应用",
     "openAppManager": "打开 Linara 应用",
     "continueInBrowser": "在浏览器中继续",
-    "signIn": "登录"
+    "signIn": "登录",
+    "titleMoney": "资金 | Linara",
+    "titlePantry": "储藏室 | Linara",
+    "titlePass": "通行台 | Linara",
+    "titlePeople": "人员 | Linara",
+    "titlePlan": "您的套餐 | Linara",
+    "titleSchedule": "日程 | Linara",
+    "titleEmailConfirmed": "邮箱已确认 | Linara",
+    "titlePrivacy": "隐私政策 | Linara",
+    "titleTerms": "服务条款 | Linara",
+    "siteTitle": "Linara · 让家井井有条。",
+    "siteDescription": "Linara 帮助家庭和家政人员从容、清晰地协调每一天。",
+    "siteOgDescription": "一款让家庭与家政人员共同、从容管理家务的应用。"
   }
 }

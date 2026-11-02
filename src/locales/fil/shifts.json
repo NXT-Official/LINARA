@@ -22,6 +22,16 @@
     "tasksAt_one": "{count} task sa {name}",
     "tasksAt_other": "{count} task sa {name}",
     "movedToUnassigned": "Inilipat sa Unassigned ang {list}.",
-    "leaveSavedTasksStuck": "Na-save ang leave, pero hindi nailipat ang mga task sa mga araw na iyon. Ilipat sila sa Schedule."
+    "leaveSavedTasksStuck": "Na-save ang leave, pero hindi nailipat ang mga task sa mga araw na iyon. Ilipat sila sa Schedule.",
+    "restBoth": "Parehong nagpapahinga sina {names} sa araw na iyon.",
+    "restAll": "lahat ng {count} ay nagpapahinga sa araw na iyon.",
+    "errSaveSchedule": "Hindi na-save ang iskedyul.",
+    "leaveApproved": "Inaprubahan ang leave.",
+    "leaveDeclined": "Tinanggihan ang leave.",
+    "errSaveDecision": "Hindi ma-save ang desisyong iyon.",
+    "leaveRecorded": "Naitala ang leave. Hihilingin sa kanilang kumpirmahin ito.",
+    "errRecordLeave": "Hindi maitala ang leave na iyon.",
+    "leaveCancelled": "Kinansela ang leave.",
+    "errCancelLeave": "Hindi makansela ang leave na iyon."
   }
 }

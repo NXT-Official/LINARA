@@ -22,6 +22,16 @@
     "tasksAt_one": "{count} tarea en {name}",
     "tasksAt_other": "{count} tareas en {name}",
     "movedToUnassigned": "{list}: movidas a Sin asignar.",
-    "leaveSavedTasksStuck": "Licencia guardada, pero las tareas de esos días no se pudieron mover. Muévelas en Horario."
+    "leaveSavedTasksStuck": "Licencia guardada, pero las tareas de esos días no se pudieron mover. Muévelas en Horario.",
+    "restBoth": "{names} descansan ese día.",
+    "restAll": "las {count} descansan ese día.",
+    "errSaveSchedule": "No se pudo guardar el horario.",
+    "leaveApproved": "Licencia aprobada.",
+    "leaveDeclined": "Licencia rechazada.",
+    "errSaveDecision": "No se pudo guardar esa decisión.",
+    "leaveRecorded": "Licencia registrada. Se les pedirá que la confirmen.",
+    "errRecordLeave": "No se pudo registrar esa licencia.",
+    "leaveCancelled": "Licencia cancelada.",
+    "errCancelLeave": "No se pudo cancelar esa licencia."
   }
 }

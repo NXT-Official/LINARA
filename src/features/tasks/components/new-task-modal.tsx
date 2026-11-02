@@ -1,3 +1,5 @@
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertTriangle, X } from "lucide-react";
 import { useState } from "react";
 
@@ -153,8 +155,8 @@ export function NewTaskModal({
             helpers={activeHelpers}
             value={helperId}
             onChange={setHelperId}
-            ariaLabel="Assign to"
-            before={[{ value: "", label: "Unassigned (decide later)" }]}
+            ariaLabel={currentT()("tasks.assignTo")}
+            before={[{ value: "", label: currentT()("tasks.unassignedLater") }]}
           />
         </Field>
         <TripFields from={trip.from} to={trip.to} onChange={(from, to) => setTrip({ from, to })} />
@@ -253,7 +255,7 @@ export function NewTaskModal({
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {d}
+                    {weekdayName(d)}
                   </button>
                 );
               })}

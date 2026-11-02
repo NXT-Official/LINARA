@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { RouteError } from "@/components/shared/route-error";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/_app/manager/schedule")({
         ? search.day
         : undefined,
   }),
-  head: () => ({ meta: [{ title: "Schedule | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titleSchedule") }] }),
   component: ManagerScheduleRoute,
   errorComponent: RouteError,
 });

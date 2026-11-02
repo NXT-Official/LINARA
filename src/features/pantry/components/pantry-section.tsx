@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Check, Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -39,8 +40,8 @@ export function PantrySection({ pantry }: { pantry: PantryStore }) {
   const activeQuery = showFilter ? query : "";
   // Only shelves that hold something: a chip that shows nothing is a dead end.
   const chips: { key: PantryFilter; label: string }[] = [
-    { key: "all", label: "All" },
-    ...(lowCount > 0 ? [{ key: "low" as const, label: "Running low" }] : []),
+    { key: "all", label: currentT()("pantry.filterAll") },
+    ...(lowCount > 0 ? [{ key: "low" as const, label: currentT()("pantry.runningLowLabel") }] : []),
     ...PANTRY_CATEGORIES.filter((c) => items.some((i) => i.category === c)).map((c) => ({
       key: c,
       label: CATEGORY_LABEL[c],

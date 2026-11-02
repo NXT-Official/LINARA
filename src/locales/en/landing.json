@@ -26,6 +26,12 @@
     "plans": "Plans",
     "lNara": "l{span}nara",
     "clarityOverControl": "Clarity over control. {br}{span}",
-    "wagesCheckedAgainstTheRegional": "{span} · Weekly rest days, yearly leave, and rest owed for after-hours work are kept for every helper."
+    "wagesCheckedAgainstTheRegional": "{span} · Weekly rest days, yearly leave, and rest owed for after-hours work are kept for every helper.",
+    "kitchenSopTerm": "House Standards (SOPs)",
+    "kitchenSopBody": "Define standards once, like laundry instructions or child allergy guidelines. The operating manual stays in the home, ending continuous retraining.",
+    "kitchenLedgerTerm": "After-Hours Ledger",
+    "kitchenLedgerBody": "Off-shift tasks automatically register rest-owed minutes to the ledger. Work is balanced transparently without the need to calculate hourly OT.",
+    "kitchenPantryTerm": "Pantry-to-Palengke",
+    "kitchenPantryBody": "Low pantry stocks automatically populate the grocery checklist. The buyer gets clear budgets, actual cost inputs, and silent receipt-photo uploads."
   }
 }

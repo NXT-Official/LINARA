@@ -56,8 +56,10 @@ export function AfterHoursLedger({
 
   const heading =
     audience === "manager"
-      ? `Rest owed this month${helperName ? ` · ${helperName}` : ""}`
-      : "Rest owed this month · yours";
+      ? helperName
+        ? t("ledger.restOwedMonthName", { name: helperName })
+        : t("ledger.restOwedMonth")
+      : t("ledger.restOwedYours");
 
   if (!mounted) {
     return (

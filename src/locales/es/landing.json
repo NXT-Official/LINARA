@@ -26,6 +26,12 @@
     "plans": "Planes",
     "lNara": "l{span}nara",
     "clarityOverControl": "Claridad antes que control. {br}{span}",
-    "wagesCheckedAgainstTheRegional": "{span} · El día de descanso semanal, la licencia anual y el descanso adeudado por trabajo fuera de horario se registran para cada persona."
+    "wagesCheckedAgainstTheRegional": "{span} · El día de descanso semanal, la licencia anual y el descanso adeudado por trabajo fuera de horario se registran para cada persona.",
+    "kitchenSopTerm": "Estándares del hogar (SOP)",
+    "kitchenSopBody": "Define los estándares una vez, como instrucciones de lavandería o pautas de alergias infantiles. El manual se queda en el hogar y se acaba el reentrenamiento constante.",
+    "kitchenLedgerTerm": "Libro de horas extra",
+    "kitchenLedgerBody": "Las tareas fuera de turno registran automáticamente en el libro los minutos de descanso adeudados. El trabajo se equilibra con transparencia sin calcular horas extra.",
+    "kitchenPantryTerm": "De la despensa al mercado",
+    "kitchenPantryBody": "Las existencias bajas de la despensa llenan automáticamente la lista de compras. Quien compra recibe presupuestos claros, registra costos reales y sube fotos de recibos sin hacer ruido."
   }
 }

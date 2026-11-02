@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -30,6 +31,7 @@ import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
 import { useT } from "@/lib/i18n/locale-context";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
 import { richText } from "@/lib/i18n/rich-text";
 
 /** Where an outside-Linara payment stands with the helper. */
@@ -37,20 +39,23 @@ export function AckChip({ payslip }: { payslip: Payslip }) {
   if (payslip.payoutProvider !== "manual" || !payslip.helperAck) return null;
   const { label, tone } =
     payslip.helperAck === "confirmed"
-      ? { label: "Confirmed", tone: "bg-primary/10 text-primary" }
+      ? { label: currentT()("pay.ackConfirmed"), tone: "bg-primary/10 text-primary" }
       : payslip.helperAck === "disputed"
-        ? { label: "Says not received", tone: "bg-destructive/10 text-destructive" }
-        : { label: "Awaiting confirmation", tone: "bg-accent/15 text-terracotta-ink" };
+        ? {
+            label: currentT()("pay.ackSaysNotReceived"),
+            tone: "bg-destructive/10 text-destructive",
+          }
+        : { label: currentT()("pay.ackAwaiting"), tone: "bg-accent/15 text-terracotta-ink" };
   return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
 }
 
-const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = {
-  pending_send: "Sending…",
-  processing: "Processing",
-  succeeded: "Paid",
-  failed: "Failed",
-  needs_review: "Needs review",
-};
+const STATUS_LABEL: Record<Payslip["payoutStatus"], string> = lazyMessages({
+  pending_send: "pay.statusSending",
+  processing: "pay.statusProcessing",
+  succeeded: "pay.statePaid",
+  failed: "pay.statusFailed",
+  needs_review: "pay.stateNeedsReview",
+});
 
 function StatusBadge({ status }: { status: Payslip["payoutStatus"] }) {
   const Icon =
@@ -114,7 +119,7 @@ export function PayslipHistory({
   helper,
   payslips,
   cutoff,
-  label = "Current cutoff",
+  label = currentT()("pay.currentCutoff"),
   estimate,
   onPayNow,
   onReconcile,
@@ -375,9 +380,9 @@ export function PayslipHistory({
                 )}
                 {manual && (p.manualNote || p.helperAckNote) && (
                   <p className="mt-1 text-muted-foreground">
-                    {p.manualNote ? `Your note: ${p.manualNote}` : ""}
+                    {p.manualNote ? t("pay.yourNote", { note: p.manualNote }) : ""}
                     {p.manualNote && p.helperAckNote ? " · " : ""}
-                    {p.helperAckNote ? `Their note: "${p.helperAckNote}"` : ""}
+                    {p.helperAckNote ? t("pay.theirNote", { note: p.helperAckNote }) : ""}
                   </p>
                 )}
               </div>

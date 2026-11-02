@@ -7,6 +7,8 @@
     "send": "发送",
     "sendASmallAskTo2": "发送临时小事给 {helperName}",
     "hindiNaSendAngUtos": "指令未发送。",
-    "hindiNaSaveAngPag": "指令的更新未保存。"
+    "hindiNaSaveAngPag": "指令的更新未保存。",
+    "sendTo": "发送给",
+    "errSend": "无法发送快速指令"
   }
 }

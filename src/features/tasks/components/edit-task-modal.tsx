@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertTriangle, Ban, Camera, CheckCircle2, Download, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 
@@ -193,7 +194,7 @@ export function EditTaskModal({
                 target="_blank"
                 rel="noreferrer"
                 className="mt-2 block overflow-hidden rounded-lg ring-1 ring-border/30"
-                aria-label="Open the photo full size"
+                aria-label={currentT()("tasks.openPhoto")}
               >
                 <img
                   src={task.photo}
@@ -256,7 +257,7 @@ export function EditTaskModal({
       {repeats && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/70 px-3 py-2 text-sm text-foreground">
           <span>
-            {repeats === "Daily"
+            {task.recurrence === "daily"
               ? t("tasks.repeatsEveryDay")
               : t("tasks.repeatsOn", { days: repeats })}
             {t("tasks.eachNextDayCopies")}
@@ -329,8 +330,8 @@ export function EditTaskModal({
               helpers={helpers}
               value={helperId ?? ""}
               onChange={(v) => setHelperId(v || null)}
-              ariaLabel="Assigned to"
-              before={[{ value: "", label: "Unassigned (decide later)" }]}
+              ariaLabel={currentT()("tasks.assignedTo")}
+              before={[{ value: "", label: currentT()("tasks.unassignedLater") }]}
               describe={(h) => `${h.short} · ${h.station}`}
               className={inputCls}
             />

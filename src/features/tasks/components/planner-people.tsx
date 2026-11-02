@@ -1,3 +1,5 @@
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
@@ -86,7 +88,7 @@ export function PlannerPeople({
               <span
                 className={`text-xs font-semibold ${isToday ? "text-primary" : "text-muted-foreground"}`}
               >
-                {weekdayOf(day)}
+                {weekdayName(weekdayOf(day))}
               </span>
               <span
                 className={`font-display text-lg leading-none tabular-nums ${
@@ -153,8 +155,8 @@ export function PlannerPeople({
                   helper
                     ? schedule
                       ? summarizeSchedule(schedule)
-                      : "No shift set"
-                    : "Nobody has these yet"
+                      : currentT()("tasks.noShiftSet")
+                    : currentT()("tasks.nobodyHasThese")
                 }
               />
               {days.map((day) => {
@@ -175,12 +177,12 @@ export function PlannerPeople({
                       off
                         ? t("tasks.peopleCellOffAria", {
                             name,
-                            weekday: weekdayOf(day),
+                            weekday: weekdayName(weekdayOf(day)),
                             date: day.getDate(),
                           })
                         : t("tasks.peopleCellAria", {
                             name,
-                            weekday: weekdayOf(day),
+                            weekday: weekdayName(weekdayOf(day)),
                             date: day.getDate(),
                           })
                     }
@@ -226,7 +228,10 @@ export function PlannerPeople({
                       <button
                         type="button"
                         onClick={() => onAdd(iso, helperId)}
-                        aria-label={`Add task for ${name} on ${weekdayOf(day)} ${day.getDate()}`}
+                        aria-label={t("tasks.addTaskFor", {
+                          name,
+                          day: `${weekdayName(weekdayOf(day))} ${day.getDate()}`,
+                        })}
                         className="mt-auto flex items-center gap-1 px-3 py-2 text-xs font-semibold text-primary opacity-60 transition hover:bg-secondary/50 hover:opacity-100 focus-visible:opacity-100 group-hover/cell:opacity-100"
                       >
                         <Plus className="h-3.5 w-3.5" /> {t("tasks.add")}

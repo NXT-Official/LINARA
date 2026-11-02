@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useMemo, useState } from "react";
 
 import { stationHex, UNASSIGNED_HEX } from "@/features/people/people.constants";
@@ -54,9 +55,15 @@ export function HelperLane({
   // Two slots: today's now/next first; a later day's task only fills a gap,
   // and says so rather than posing as "next up" today.
   const rows: { label: string; task: Task; muted: boolean }[] = [];
-  if (nowTask) rows.push({ label: inProg ? "Now" : "Next up", task: nowTask, muted: false });
-  if (nextTask) rows.push({ label: "Next", task: nextTask, muted: true });
-  if (rows.length < 2 && later[0]) rows.push({ label: "Coming up", task: later[0], muted: true });
+  if (nowTask)
+    rows.push({
+      label: inProg ? "Now" : currentT()("tasks.laneNextUp"),
+      task: nowTask,
+      muted: false,
+    });
+  if (nextTask) rows.push({ label: currentT()("tasks.laneNext"), task: nextTask, muted: true });
+  if (rows.length < 2 && later[0])
+    rows.push({ label: currentT()("tasks.laneComingUp"), task: later[0], muted: true });
   const toAssign = sorted.filter((t) => t.status !== "done").length + later.length;
   const pill = unassigned
     ? {

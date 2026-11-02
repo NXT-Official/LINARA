@@ -7,6 +7,8 @@
     "send": "Send",
     "sendASmallAskTo2": "Send a small ask to {helperName}",
     "hindiNaSendAngUtos": "The utos wasn't sent.",
-    "hindiNaSaveAngPag": "The update to the utos wasn't saved."
+    "hindiNaSaveAngPag": "The update to the utos wasn't saved.",
+    "sendTo": "Send to",
+    "errSend": "Failed to send quick utos"
   }
 }

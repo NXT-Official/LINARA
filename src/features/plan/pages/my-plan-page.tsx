@@ -1,5 +1,5 @@
 import { Check, Info, Loader2, Lock, Minus, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
@@ -9,7 +9,7 @@ import { usePlanUsage } from "../hooks/use-plan-usage";
 import {
   addonFor,
   addonsBlocked,
-  CYCLE_LABEL,
+  cycleName,
   cyclesOf,
   dayText,
   formatCentavos,
@@ -20,6 +20,7 @@ import {
   limitText,
   limitsFor,
   MAX_ADDON_QUANTITY,
+  nextPeriod,
   overLimits,
   periodRunning,
   planById,
@@ -38,26 +39,35 @@ import {
   getPlanState,
   isCurrentPlan,
   METHOD_LABEL,
+  methodLabel,
   previewStatus,
   refreshPlan,
   resetPlan,
   resumePlan,
   resumePlanLive,
+  startTrialLive,
   usePlan,
   type PaymentMethod,
   type PlanPayment,
   type SamplePayment,
 } from "../plan.store";
 import type { Cycle, LimitKey, MySubscription, SubStatus, Usage } from "../plan.types";
-import { useListText, useT } from "@/lib/i18n/locale-context";
+import type { MessageKey, Translate } from "@/lib/i18n/instance";
+import { useIntlLocale, useListText, useT } from "@/lib/i18n/locale-context";
 
-const dateFmt = new Intl.DateTimeFormat("en-PH", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "Asia/Manila",
-});
-const fmtDate = (iso: string) => dateFmt.format(new Date(iso));
+/** Dates in the reader’s language, on Manila time. */
+function useFmtDate(): (iso: string) => string {
+  const locale = useIntlLocale();
+  return useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "Asia/Manila",
+    });
+    return (iso: string) => fmt.format(new Date(iso));
+  }, [locale]);
+}
 
 const card = "rounded-3xl bg-card p-5 shadow-soft sm:p-7";
 const primaryBtn =
@@ -65,31 +75,37 @@ const primaryBtn =
 const secondaryBtn =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0";
 
-function statusLine(sub: MySubscription): { tone: "calm" | "warn" | "late"; text: string } {
+function statusLine(
+  sub: MySubscription,
+  t: Translate,
+  fmtDate: (iso: string) => string,
+): { tone: "calm" | "warn" | "late"; text: string } {
   const grace = graceEndsAt(sub);
   switch (sub.status) {
     case "trialing":
       return {
         tone: "calm",
-        text: sub.periodEnd ? `Free trial until ${fmtDate(sub.periodEnd)}.` : "Free trial.",
+        text: sub.periodEnd
+          ? t("plan.trialUntil", { date: fmtDate(sub.periodEnd) })
+          : t("plan.trialPlain"),
       };
     case "past_due":
       return {
         tone: "warn",
-        text: `The last payment didn't go through. Everything keeps working until ${grace ? fmtDate(grace) : "the grace period ends"}; pay before then to keep it that way.`,
+        text: t("plan.pastDueNote", { date: grace ? fmtDate(grace) : t("plan.graceEnd") }),
       };
     case "restricted":
       return {
         tone: "late",
-        text: "The payment is overdue, so the household is on Free until it's paid: Free's features, and only the households and kasambahay you choose stay active. For the rest, new tasks and schedule changes pause. Nothing is deleted, and every kasambahay keeps her own record, leave and rest days. Paying brings everything back.",
+        text: t("plan.restrictedNote"),
       };
     case "active":
-      if (!sub.periodEnd) return { tone: "calm", text: "Nothing to renew." };
+      if (!sub.periodEnd) return { tone: "calm", text: t("plan.nothingToRenew") };
       return {
         tone: "calm",
         text: sub.cancelAtPeriodEnd
-          ? `Ends ${fmtDate(sub.periodEnd)}, then moves to Free.`
-          : `Renews ${fmtDate(sub.periodEnd)}.`,
+          ? t("plan.endsMoves", { date: fmtDate(sub.periodEnd) })
+          : t("plan.renewsOnDate", { date: fmtDate(sub.periodEnd) }),
       };
   }
 }
@@ -116,7 +132,7 @@ function UsageRow({
         <span
           className={`text-sm tabular-nums ${over ? "font-semibold text-status-late-ink" : "text-foreground"}`}
         >
-          {limit === null ? `${used}, no limit` : `${used} of ${limit}`}
+          {limit === null ? t("plan.usageNoLimit", { used }) : t("plan.usageOf", { used, limit })}
         </span>
       </div>
       {limit !== null && limit > 0 ? (
@@ -146,11 +162,12 @@ function Stepper({
   value: number;
   onChange: (n: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-1" role="group" aria-label={label}>
       <button
         type="button"
-        aria-label={`Fewer: ${label}`}
+        aria-label={t("plan.fewer", { label })}
         disabled={value <= 0}
         onClick={() => onChange(value - 1)}
         className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
@@ -162,7 +179,7 @@ function Stepper({
       </span>
       <button
         type="button"
-        aria-label={`More: ${label}`}
+        aria-label={t("plan.more", { label })}
         disabled={value >= MAX_ADDON_QUANTITY}
         onClick={() => onChange(value + 1)}
         className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
@@ -197,18 +214,33 @@ function ChangePlanModal({
   );
   const paid = (plan.prices[cycle] ?? 0) > 0 && cycle !== "one_time";
   const addons = paid ? ADDONS.map((a) => ({ addonId: a.id, quantity: qty[a.id] ?? 0 })) : [];
-  const q = quote(planId, cycle, addons);
+  const q = quote(planId, cycle, addons, t);
   // Up only while a paid period runs, at the price the database charges (planMove).
   const running = periodRunning(sub);
-  const move = planMove(sub, planId, cycle, addons);
+  const move = planMove(sub, planId, cycle, addons, Date.now(), t);
   const current = isCurrentPlan(planId, cycle, addons);
   const live = getPlanState().live;
+  const { owner, trialAvailable } = usePlan();
+  // A first plan can start as its free trial (billing_start_trial).
+  const trialOffered =
+    live &&
+    owner &&
+    trialAvailable &&
+    planId !== "free" &&
+    plan.trialDays > 0 &&
+    q.ok &&
+    q.amount > 0;
+  const [startingTrial, setStartingTrial] = useState(false);
+  // Late or in a trial, a payment's period isn't from today (billing_next_period).
+  const owesOrTrial =
+    sub.status === "past_due" || sub.status === "restricted" || sub.status === "trialing";
+  const period = nextPeriod(sub, cycle);
   const lowerThanNow = (id: string) => {
     if (!running || id === sub.planId) return false;
     const p = planById(id);
     if (!p) return true;
     const cs = cyclesOf(p);
-    const m = planMove(sub, id, cs.includes(sub.cycle) ? sub.cycle : cs[0], []);
+    const m = planMove(sub, id, cs.includes(sub.cycle) ? sub.cycle : cs[0], [], Date.now(), t);
     return !m.ok && !!m.lower;
   };
   const after = overLimits({ ...sub, planId, addons }, usage);
@@ -234,16 +266,26 @@ function ChangePlanModal({
   };
   const [receipt, setReceipt] = useState<SamplePayment | null>(null);
   const needsPayment = move.ok && move.dueNow > 0;
-  const fullPrice = q.ok ? priceText(q.amount, cycle) : "";
+  const fullPrice = q.ok ? priceText(q.amount, cycle, t) : "";
   const summary = current
-    ? `${fullPrice}, your plan now`
+    ? t("plan.yourPlanNow", { price: fullPrice })
     : !move.ok
       ? move.message
       : move.keepsPeriod && sub.periodEnd
-        ? `${formatCentavos(move.dueNow)} now for the rest of this period, then ${fullPrice} from ${dayText(sub.periodEnd)}.`
+        ? t("plan.nowRestThen", {
+            amount: formatCentavos(move.dueNow),
+            price: fullPrice,
+            date: dayText(sub.periodEnd, t),
+          })
         : move.prorated
-          ? `${formatCentavos(move.dueNow)} now (the year, less what's unused of this month), then ${fullPrice}.`
-          : fullPrice;
+          ? t("plan.nowYearLessThen", { amount: formatCentavos(move.dueNow), price: fullPrice })
+          : owesOrTrial && needsPayment && period.end
+            ? t("plan.priceForRange", {
+                price: fullPrice,
+                from: dayText(period.start, t),
+                to: dayText(period.end, t),
+              })
+            : fullPrice;
 
   if (receipt) {
     return (
@@ -287,8 +329,10 @@ function ChangePlanModal({
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         {running && sub.periodEnd
-          ? t("plan.moveUpAnyTime", { date: dayText(sub.periodEnd) })
-          : t("plan.startsOncePaid")}
+          ? t("plan.moveUpAnyTime", { date: dayText(sub.periodEnd, t) })
+          : owesOrTrial
+            ? ""
+            : t("plan.startsOncePaid")}
         {live ? t("plan.payOnXendit") : t("plan.paymentsSample")}
       </p>
 
@@ -319,7 +363,7 @@ function ChangePlanModal({
                   <span className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="text-sm font-semibold text-foreground">{p.name}</span>
                     <span className="text-sm text-foreground tabular-nums">
-                      {priceText(p.prices.monthly ?? 0, "monthly")}
+                      {priceText(p.prices.monthly ?? 0, "monthly", t)}
                     </span>
                   </span>
                   <span className="block text-xs text-muted-foreground">
@@ -358,7 +402,7 @@ function ChangePlanModal({
                 onClick={() => setCycle(c)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cycle === c ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {CYCLE_LABEL[c].name}, {formatCentavos(plan.prices[c] ?? 0)}
+                {cycleName(c, t)}, {formatCentavos(plan.prices[c] ?? 0)}
               </button>
             ))}
           </div>
@@ -420,16 +464,44 @@ function ChangePlanModal({
         >
           {q.ok ? summary : q.message}
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button type="button" onClick={onClose} className={secondaryBtn}>
             {t("plan.cancel")}
           </button>
+          {trialOffered ? (
+            <button
+              type="button"
+              disabled={startingTrial}
+              onClick={async () => {
+                if (startingTrial) return;
+                setStartingTrial(true);
+                setError(null);
+                const res = await startTrialLive(planId);
+                setStartingTrial(false);
+                if (!res.ok) {
+                  setError(res.message);
+                  return;
+                }
+                const ends = getPlanState().subscription.periodEnd;
+                toast.success(t("plan.trialStarted", { plan: plan.name }), {
+                  description: ends ? t("plan.trialEnds", { date: dayText(ends, t) }) : undefined,
+                });
+                onClose();
+              }}
+              className={secondaryBtn}
+            >
+              {startingTrial ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+              ) : null}
+              {t("plan.startTrial", { plan: plan.name, days: plan.trialDays })}
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={!q.ok || (!move.ok && !current)}
             onClick={async () => {
               if (current) {
-                setError("That's the plan you already have.");
+                setError(t("plan.alreadyHavePlan"));
                 return;
               }
               if (!move.ok) return;
@@ -477,7 +549,7 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
       <p className="mt-2 text-sm text-muted-foreground">
         {t("plan.keepUntil", {
           plan: name,
-          date: sub.periodEnd ? dayText(sub.periodEnd) : t("plan.itEnds"),
+          date: sub.periodEnd ? dayText(sub.periodEnd, t) : t("plan.itEnds"),
         })}
       </p>
       {error ? (
@@ -506,7 +578,7 @@ function CancelPlanModal({ sub, onClose }: { sub: MySubscription; onClose: () =>
             }
             toast.success(
               sub.periodEnd
-                ? t("plan.ends", { name, day: dayText(sub.periodEnd) })
+                ? t("plan.ends", { name, day: dayText(sub.periodEnd, t) })
                 : t("plan.endsSoon", { name }),
               {
                 description: t("plan.nothingChangesUntilThen"),
@@ -553,20 +625,19 @@ function PayNowModal({ sub, onClose }: { sub: MySubscription; onClose: () => voi
   );
 }
 
-const PAYMENT_STATUS: Record<PlanPayment["status"], { label: string; tone: string }> = {
-  paid: { label: "Paid", tone: "bg-status-done-soft text-status-done-ink" },
-  failed: { label: "Declined", tone: "bg-status-late-soft text-status-late-ink" },
-  pending: { label: "Waiting", tone: "bg-terracotta-soft text-hearth-ink" },
-  expired: { label: "Not paid", tone: "bg-secondary text-pine-deep" },
-  review: { label: "Being checked", tone: "bg-terracotta-soft text-hearth-ink" },
-  cancelled: { label: "Replaced", tone: "bg-secondary text-pine-deep" },
+const PAYMENT_STATUS: Record<PlanPayment["status"], { label: MessageKey; tone: string }> = {
+  paid: { label: "plan.statusPaid", tone: "bg-status-done-soft text-status-done-ink" },
+  failed: { label: "plan.statusDeclined", tone: "bg-status-late-soft text-status-late-ink" },
+  pending: { label: "plan.statusWaiting", tone: "bg-terracotta-soft text-hearth-ink" },
+  expired: { label: "plan.statusNotPaid", tone: "bg-secondary text-pine-deep" },
+  review: { label: "plan.statusChecking", tone: "bg-terracotta-soft text-hearth-ink" },
+  cancelled: { label: "plan.statusReplaced", tone: "bg-secondary text-pine-deep" },
 };
 
 /** "GCash", or Xendit's channel ("CREDIT_CARD" reads "Credit card"). */
-function methodName(method: string | null): string | null {
+function methodName(method: string | null, t: Translate): string | null {
   if (!method) return null;
-  const sample = METHOD_LABEL[method as PaymentMethod];
-  if (sample) return sample.name;
+  if (method in METHOD_LABEL) return methodLabel(method as PaymentMethod, t);
   const known: Record<string, string> = { GCASH: "GCash", PAYMAYA: "Maya", QRPH: "QR Ph" };
   if (known[method]) return known[method];
   const words = method.toLowerCase().replace(/_/g, " ");
@@ -575,6 +646,7 @@ function methodName(method: string | null): string | null {
 
 function PaymentRow({ p }: { p: PlanPayment }) {
   const t = useT();
+  const fmtDate = useFmtDate();
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
       <span className="min-w-0 text-sm">
@@ -584,7 +656,7 @@ function PaymentRow({ p }: { p: PlanPayment }) {
         <span className="text-muted-foreground">
           {[
             p.kind === "addons" ? t("plan.addOns") : (planById(p.planId)?.name ?? p.planId),
-            methodName(p.method),
+            methodName(p.method, t),
             fmtDate(p.at),
           ]
             .filter(Boolean)
@@ -612,7 +684,7 @@ function PaymentRow({ p }: { p: PlanPayment }) {
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_STATUS[p.status].tone}`}
         >
-          {PAYMENT_STATUS[p.status].label}
+          {t(PAYMENT_STATUS[p.status].label)}
         </span>
       </span>
     </li>
@@ -745,16 +817,16 @@ function ReturnNotice({
   const gaveUp = phase === "gave_up";
   const text =
     status === "paid"
-      ? "Payment received. Your plan is updated."
+      ? t("plan.returnPaid")
       : status === "review"
-        ? "Payment received, but the amount needs checking. We'll sort it out; nothing else is needed from you."
+        ? t("plan.returnReview")
         : status === "failed" || status === "expired" || result === "failed"
-          ? "That payment didn't go through, so nothing was charged. You can try again."
+          ? t("plan.returnFailed")
           : gaveUp
-            ? "Xendit hasn't confirmed it yet. If you paid, it will show here once it does."
+            ? t("plan.returnGaveUp")
             : phase === "slow"
-              ? "Xendit is taking longer than usual. You can leave this page; your plan updates once it's confirmed."
-              : "Confirming your payment with Xendit…";
+              ? t("plan.returnSlow")
+              : t("plan.returnWaiting");
   const tone =
     status === "paid"
       ? "bg-status-done-soft text-status-done-ink"
@@ -843,7 +915,8 @@ export function MyPlanPage({
   const inApp = inMobileApp();
   const plan = planById(sub.planId);
   const limits = limitsFor(sub);
-  const status = statusLine(sub);
+  const fmtDate = useFmtDate();
+  const status = statusLine(sub, t, fmtDate);
   const amount = quote(sub.planId, sub.cycle, sub.addons);
   const addonLines = sub.addons.filter((a) => a.quantity > 0);
 
@@ -882,7 +955,7 @@ export function MyPlanPage({
             <p className="text-sm text-muted-foreground">{plan?.description}</p>
             {!inApp && amount.ok ? (
               <p className="mt-2 text-sm font-semibold text-foreground tabular-nums">
-                {priceText(amount.amount, sub.cycle)}
+                {priceText(amount.amount, sub.cycle, t)}
                 {plan?.pricePlaceholder ? (
                   <span className="ml-1.5 font-normal text-muted-foreground">
                     {t("plan.placeholderPrice")}
@@ -942,7 +1015,7 @@ export function MyPlanPage({
                     plan ? t("plan.youReKeeping", { name: plan.name }) : t("plan.keepingYourPlan"),
                     {
                       description: sub.periodEnd
-                        ? t("plan.renewsOn", { day: dayText(sub.periodEnd) })
+                        ? t("plan.renewsOn", { day: dayText(sub.periodEnd, t) })
                         : undefined,
                     },
                   );

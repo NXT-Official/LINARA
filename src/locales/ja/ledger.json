@@ -50,6 +50,21 @@
     "hindiNaSaveAngDesisyon": "前借り申請への判断を保存できませんでした。",
     "approvedRestLeft": "承認しました。未消化の休息は残り{left}です。",
     "requestDeclined": "申請を却下しました。",
-    "requestNotUpdated": "申請を更新できませんでした。"
+    "requestNotUpdated": "申請を更新できませんでした。",
+    "restOwedMonthName": "今月の未消化の休息・{name}",
+    "restOwedMonth": "今月の未消化の休息",
+    "restOwedYours": "今月の未消化の休息・あなたの分",
+    "wagePerMonth": "月額₱{amount}",
+    "notOnFile": "未登録",
+    "errRecordEntry": "台帳の記録に失敗しました",
+    "errSubmitVale": "ヴァーレの申請を送信できませんでした",
+    "errManagersOnlyVale": "禁止：ヴァーレの申請を判断できるのは管理者のみです",
+    "reasonAvailable": "待機",
+    "reasonEmergency": "緊急",
+    "reasonRestDay": "休日",
+    "reasonRestBreak": "休憩",
+    "reasonAfterShift": "勤務後",
+    "liveIn": "住み込み",
+    "liveOut": "通い"
   }
 }

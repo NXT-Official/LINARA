@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { CalendarOff, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -24,23 +26,27 @@ import { richText } from "@/lib/i18n/rich-text";
 const SHOWN = 5;
 
 const shortDate = (iso: string) =>
-  parseISODate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  parseISODate(iso).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 const dates = (l: LeaveRequest) =>
   l.startDate === l.endDate
     ? shortDate(l.startDate)
     : `${shortDate(l.startDate)} – ${shortDate(l.endDate)}`;
 const longDate = (iso: string) =>
-  parseISODate(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  parseISODate(iso).toLocaleDateString(dateLocale(), {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
 /** Why SIL can't be recorded for her now, or null when it can (or isn't known yet). */
 const silUnavailable = (b: LeaveBalance | undefined): string | null =>
   !b || b.silDays > 0
     ? null
     : b.silYearEnd
-      ? "has none left this service year"
+      ? currentT()("leave.noneLeft")
       : b.silEligibleFrom
-        ? `starts ${longDate(b.silEligibleFrom)}`
-        : "starts after a year of service";
+        ? currentT()("leave.startsOn", { date: longDate(b.silEligibleFrom) })
+        : currentT()("leave.startsAfterYear");
 
 /**
  * Leave on People: per helper, what she has left (service incentive leave

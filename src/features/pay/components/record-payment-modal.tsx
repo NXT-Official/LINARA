@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -11,9 +12,24 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const METHODS: { value: OffAppMethod; label: string }[] = [
-  { value: "CASH", label: "Cash" },
-  { value: "BANK_TRANSFER", label: "Bank transfer" },
-  { value: "OTHER", label: "Other" },
+  {
+    value: "CASH",
+    get label() {
+      return currentT()("pay.methodCash");
+    },
+  },
+  {
+    value: "BANK_TRANSFER",
+    get label() {
+      return currentT()("pay.methodBank");
+    },
+  },
+  {
+    value: "OTHER",
+    get label() {
+      return currentT()("pay.methodOther");
+    },
+  },
 ];
 
 /**
@@ -51,7 +67,7 @@ export function RecordPaymentModal({
       await onSubmit({ method, paidOn, note: note.trim() || undefined });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't record the payment.");
+      setError(err instanceof Error ? err.message : currentT()("pay.errRecordPayment"));
     } finally {
       setSubmitting(false);
     }

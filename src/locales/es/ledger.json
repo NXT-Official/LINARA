@@ -50,6 +50,21 @@
     "hindiNaSaveAngDesisyon": "La decisión sobre la solicitud de vale no se guardó.",
     "approvedRestLeft": "Aprobado. Quedan {left} de descanso adeudado.",
     "requestDeclined": "Solicitud rechazada.",
-    "requestNotUpdated": "La solicitud no se actualizó."
+    "requestNotUpdated": "La solicitud no se actualizó.",
+    "restOwedMonthName": "Descanso adeudado este mes · {name}",
+    "restOwedMonth": "Descanso adeudado este mes",
+    "restOwedYours": "Descanso adeudado este mes · tuyo",
+    "wagePerMonth": "₱{amount} / mes",
+    "notOnFile": "Aún no registrado",
+    "errRecordEntry": "No se pudo registrar la entrada del libro",
+    "errSubmitVale": "No se pudo enviar la solicitud de vale",
+    "errManagersOnlyVale": "Prohibido: solo los administradores pueden decidir las solicitudes de vale",
+    "reasonAvailable": "Disponible",
+    "reasonEmergency": "Emergencia",
+    "reasonRestDay": "Día de descanso",
+    "reasonRestBreak": "Pausa de descanso",
+    "reasonAfterShift": "Después del turno",
+    "liveIn": "Interna",
+    "liveOut": "Externa"
   }
 }

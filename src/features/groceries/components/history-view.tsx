@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,7 +16,11 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const day = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+  new Date(iso).toLocaleDateString(dateLocale(), {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
 /**
  * Past runs, a month at a time: when each closed, who went, what it cost

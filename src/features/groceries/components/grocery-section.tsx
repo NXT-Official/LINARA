@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useEffect, useState } from "react";
 
 import { useGrocery } from "../grocery-context";
@@ -69,10 +70,10 @@ export function GrocerySection() {
   };
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: "needed", label: "Needed", count: ctx.toBuyCount },
-    { key: "runs", label: "Runs", count: ctx.runs.length },
-    { key: "repeats", label: "Repeats" },
-    { key: "history", label: "History" },
+    { key: "needed", label: currentT()("groceries.tabNeeded"), count: ctx.toBuyCount },
+    { key: "runs", label: currentT()("groceries.tabRuns"), count: ctx.runs.length },
+    { key: "repeats", label: currentT()("groceries.tabRepeats") },
+    { key: "history", label: currentT()("groceries.tabHistory") },
   ];
 
   return (

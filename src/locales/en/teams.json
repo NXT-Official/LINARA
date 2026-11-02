@@ -66,6 +66,21 @@
     "removeTeamConfirm": "Remove? {extra}",
     "goToNoTeam": "{count} go to no team.",
     "savedWhereWorks": "Saved where {name} works.",
-    "couldntChangeThat": "Couldn't change that."
+    "couldntChangeThat": "Couldn't change that.",
+    "movedTo": "Moved {people} to {team}.",
+    "labelAdded": "Added {label} to {people}.",
+    "labelTook": "Took {label} off {people}.",
+    "chooseSomeone": "Choose someone",
+    "searchFor": "Search: {label}",
+    "searchStaff": "Search staff by name",
+    "errAddTeam": "Couldn't add the team",
+    "errAddLabel": "Couldn't add the label",
+    "renameItem": "Rename {name}",
+    "removeItem": "Remove {name}",
+    "editItem": "Edit {name}",
+    "errOnlyPrimary": "Only the primary manager or a co-manager can change teams and labels",
+    "errTeamExists": "There's already a team with that name",
+    "errLabelExists": "There's already a label with that name",
+    "errUnknownColour": "Unknown colour"
   }
 }

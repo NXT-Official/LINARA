@@ -14,5 +14,6 @@ export const PAY_HR_DISABLED_MESSAGE =
 
 /** Called first in every server function that writes pay or HR data. */
 export function assertPayHrEnabled(): void {
-  if (!PAY_HR_ENABLED) throw new Error(PAY_HR_DISABLED_MESSAGE);
+  if (!PAY_HR_ENABLED) throw new Error(currentT()("pay.hrDisabled"));
 }
+import { currentT } from "@/lib/i18n/current-t";

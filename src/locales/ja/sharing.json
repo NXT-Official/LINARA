@@ -20,6 +20,17 @@
     "employedBy": "{house}で雇用",
     "employedByTeamHere": "{house}で雇用 · ここでは{team}",
     "choose": "選択…",
-    "couldntAddPlace": "場所を追加できませんでした。"
+    "couldntAddPlace": "場所を追加できませんでした。",
+    "atHouseNow": "現在{house}にいます",
+    "atHouseTimes": "{house}にいます {times}",
+    "removeItem": "{name}を削除",
+    "tripFromTo": "{from} → {to}",
+    "tripFrom": "{from}から",
+    "tripTo": "{to}へ",
+    "trip": "移動",
+    "errNameIt": "名前を付けてください",
+    "errKeepTo": "{max}文字以内にしてください",
+    "errPlaceExists": "その名前の場所はすでにあります",
+    "errAddPlace": "場所を追加できませんでした"
   }
 }

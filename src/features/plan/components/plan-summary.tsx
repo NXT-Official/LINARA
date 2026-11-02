@@ -12,15 +12,15 @@ export function PlanSummary() {
   const t = useT();
   const { subscription: sub } = usePlan();
   const usage = usePlanUsage();
-  const name = planById(sub.planId)?.name ?? "Unknown plan";
+  const name = planById(sub.planId)?.name ?? t("plan.unknownPlan");
   const over = overLimits(sub, usage).length > 0;
   const note =
     sub.status === "restricted"
-      ? "Payment overdue"
+      ? t("plan.summaryOverdue")
       : sub.status === "past_due"
-        ? "Payment didn't go through"
+        ? t("plan.summaryPastDue")
         : over
-          ? "Over the plan's limits"
+          ? t("plan.summaryOver")
           : null;
 
   return (

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Plus, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
@@ -41,15 +42,18 @@ export function NeededList({ onPlanRun }: { onPlanRun?: () => void }) {
   const filtering = activeQuery.trim() !== "" || activeFilter !== "all";
   const toBuyGroups = groupByPantryCategory(toBuy, pantry.items, PANTRY_CATEGORIES);
   const chips: { key: GroceryFilter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "to_buy", label: "To buy" },
-    { key: "bought", label: ctx.runsAvailable ? "Bought today" : "Bought" },
+    { key: "all", label: currentT()("groceries.chipAll") },
+    { key: "to_buy", label: currentT()("groceries.chipToBuy") },
+    {
+      key: "bought",
+      label: ctx.runsAvailable ? t("groceries.chipBoughtToday") : t("groceries.chipBought"),
+    },
   ];
 
   const submit = () => {
     const n = parseAmount(qty);
-    if (!name.trim()) return setAddError("Type what to buy.");
-    if (n === null || n === 0) return setAddError("Qty: a number above 0.");
+    if (!name.trim()) return setAddError(currentT()("groceries.typeWhatToBuy"));
+    if (n === null || n === 0) return setAddError(currentT()("groceries.qtyAboveZero"));
     setAddError(null);
     ctx.addManual(name, n, unit);
     setName("");

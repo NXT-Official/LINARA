@@ -103,7 +103,7 @@ export function BulkStaffBar({
                 onClick={() =>
                   run(
                     () => teams.setTeam(selectedIds, teamChoice === NO_TEAM ? null : teamChoice),
-                    `Moved ${people} to ${teamName(teamChoice)}.`,
+                    t("teams.movedTo", { people, team: teamName(teamChoice) }),
                   ).then(() => setTeamChoice(KEEP))
                 }
                 className={btn}
@@ -133,7 +133,7 @@ export function BulkStaffBar({
                 onClick={() =>
                   run(
                     () => teams.setLabel(selectedIds, labelChoice, true),
-                    `Added ${labelName} to ${people}.`,
+                    t("teams.labelAdded", { label: labelName, people }),
                   )
                 }
                 className={btn}
@@ -146,7 +146,7 @@ export function BulkStaffBar({
                 onClick={() =>
                   run(
                     () => teams.setLabel(selectedIds, labelChoice, false),
-                    `Took ${labelName} off ${people}.`,
+                    t("teams.labelTook", { label: labelName, people }),
                   )
                 }
                 className={btn}

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Loader2, Plus } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -42,7 +43,7 @@ export function TeamLabelFields({
       onTeam(team.id);
       setNewTeam(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't add the team");
+      setError(err instanceof Error ? err.message : currentT()("teams.errAddTeam"));
     } finally {
       setBusy(null);
     }
@@ -57,7 +58,7 @@ export function TeamLabelFields({
       onLabels([...labelIds, label.id]);
       setNewLabel(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't add the label");
+      setError(err instanceof Error ? err.message : currentT()("teams.errAddLabel"));
     } finally {
       setBusy(null);
     }

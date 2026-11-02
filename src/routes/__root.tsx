@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -80,16 +81,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Linara · Home, made clear." },
+      { title: currentT()("pages.siteTitle") },
       {
         name: "description",
-        content:
-          "Linara helps families and household helpers coordinate the day with calm, shared clarity.",
+        content: currentT()("pages.siteDescription"),
       },
-      { property: "og:title", content: "Linara · Home, made clear." },
+      { property: "og:title", content: currentT()("pages.siteTitle") },
       {
         property: "og:description",
-        content: "A calm, shared home management app for families and helpers.",
+        content: currentT()("pages.siteOgDescription"),
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: `${SITE_URL}/og-image.png` },

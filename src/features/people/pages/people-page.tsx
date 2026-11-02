@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { toast } from "sonner";
 
 import { Segmented } from "@/components/shared/segmented";
@@ -18,9 +19,24 @@ import { StationsSection } from "../components/stations-section";
 import { useT } from "@/lib/i18n/locale-context";
 
 export const PEOPLE_TABS = [
-  { key: "staff", label: "Staff" },
-  { key: "teams", label: "Stations & teams" },
-  { key: "leave", label: "Leave" },
+  {
+    key: "staff",
+    get label() {
+      return currentT()("people.tabStaff");
+    },
+  },
+  {
+    key: "teams",
+    get label() {
+      return currentT()("people.tabStations");
+    },
+  },
+  {
+    key: "leave",
+    get label() {
+      return currentT()("people.tabLeave");
+    },
+  },
 ] as const;
 export type PeopleTab = (typeof PEOPLE_TABS)[number]["key"];
 

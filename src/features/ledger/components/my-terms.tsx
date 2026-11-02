@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 
 import { ReviewRow } from "@/components/shared/detail-row";
@@ -10,13 +11,15 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
   const [open, setOpen] = useState(false);
   const employment = invite?.employment
     ? invite.employment === "live-in"
-      ? "Live-in"
-      : "Live-out"
+      ? currentT()("ledger.liveIn")
+      : currentT()("ledger.liveOut")
     : "—";
   const role = invite?.station ?? helper.station;
   const shift = invite?.shift ?? helper.shift;
   const restDay = invite?.restDay ?? helper.restDay;
-  const wage = invite?.wagePHP ? `₱${invite.wagePHP.toLocaleString()} / month` : "Not on file yet";
+  const wage = invite?.wagePHP
+    ? currentT()("ledger.wagePerMonth", { amount: invite.wagePHP.toLocaleString() })
+    : currentT()("ledger.notOnFile");
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <button

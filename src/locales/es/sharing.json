@@ -20,6 +20,17 @@
     "employedBy": "Empleada por {house}",
     "employedByTeamHere": "Empleada por {house} · {team} aquí",
     "choose": "Elegir…",
-    "couldntAddPlace": "No se pudo agregar el lugar."
+    "couldntAddPlace": "No se pudo agregar el lugar.",
+    "atHouseNow": "En {house} ahora",
+    "atHouseTimes": "En {house} {times}",
+    "removeItem": "Quitar {name}",
+    "tripFromTo": "{from} → {to}",
+    "tripFrom": "Desde {from}",
+    "tripTo": "Hacia {to}",
+    "trip": "Viaje",
+    "errNameIt": "Ponle un nombre",
+    "errKeepTo": "Máximo {max} caracteres",
+    "errPlaceExists": "Ya hay un lugar con ese nombre",
+    "errAddPlace": "No se pudo añadir el lugar"
   }
 }

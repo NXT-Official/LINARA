@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { Camera, Download, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -12,7 +14,7 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-PH", {
+  new Date(iso).toLocaleString(dateLocale(), {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -103,7 +105,9 @@ export function ReceiptSlot({
     id: r.id,
     url: r.url,
     thumb: r.thumbUrl ?? r.url,
-    label: r.byName ? `From ${shortNameOf(r.byName)}` : "Receipt",
+    label: r.byName
+      ? currentT()("groceries.fromName", { name: shortNameOf(r.byName) })
+      : currentT()("groceries.receipt"),
     sub: when(r.createdAt),
     takenAt: r.createdAt,
   }));

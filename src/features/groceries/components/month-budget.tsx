@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Loader2, Settings2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -126,7 +127,7 @@ function BudgetsModal({ onClose }: { onClose: () => void }) {
     const houseAmount = toAmount(house);
     const teamAmounts = teamList.map((t) => [t.id, toAmount(byTeam[t.id] ?? "")] as const);
     if (houseAmount === "bad" || teamAmounts.some(([, a]) => a === "bad")) {
-      setError("Budgets are amounts in pesos, or empty for none.");
+      setError(currentT()("groceries.budgetsAmounts"));
       return;
     }
     setError(null);

@@ -20,6 +20,17 @@
     "employedBy": "受雇于 {house}",
     "employedByTeamHere": "受雇于 {house} · 在此属于{team}",
     "choose": "选择…",
-    "couldntAddPlace": "无法添加地点。"
+    "couldntAddPlace": "无法添加地点。",
+    "atHouseNow": "现在在 {house}",
+    "atHouseTimes": "在 {house} {times}",
+    "removeItem": "移除 {name}",
+    "tripFromTo": "{from} → {to}",
+    "tripFrom": "从 {from}",
+    "tripTo": "到 {to}",
+    "trip": "行程",
+    "errNameIt": "请给它起个名字",
+    "errKeepTo": "最多 {max} 个字符",
+    "errPlaceExists": "已有同名地点",
+    "errAddPlace": "无法添加地点"
   }
 }

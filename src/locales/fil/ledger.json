@@ -50,6 +50,21 @@
     "hindiNaSaveAngDesisyon": "Hindi na-save ang desisyon sa vale request.",
     "approvedRestLeft": "Approved. {left} na rest owed na lang ang natitira.",
     "requestDeclined": "Na-decline ang request.",
-    "requestNotUpdated": "Hindi na-update ang request."
+    "requestNotUpdated": "Hindi na-update ang request.",
+    "restOwedMonthName": "Pahinga na utang ngayong buwan · {name}",
+    "restOwedMonth": "Pahinga na utang ngayong buwan",
+    "restOwedYours": "Pahinga na utang ngayong buwan · sa iyo",
+    "wagePerMonth": "₱{amount} / buwan",
+    "notOnFile": "Wala pa sa talaan",
+    "errRecordEntry": "Hindi naitala ang entry sa ledger",
+    "errSubmitVale": "Hindi naipadala ang hiling na vale",
+    "errManagersOnlyVale": "Ipinagbabawal: mga manager lang ang makapagpapasya sa hiling na vale",
+    "reasonAvailable": "Available",
+    "reasonEmergency": "Emergency",
+    "reasonRestDay": "Araw ng pahinga",
+    "reasonRestBreak": "Pahinga sa trabaho",
+    "reasonAfterShift": "Pagkatapos ng shift",
+    "liveIn": "Live-in",
+    "liveOut": "Live-out"
   }
 }

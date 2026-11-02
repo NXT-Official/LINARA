@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -177,7 +178,7 @@ export function useGroceryList({
     refresh,
 
     addReceipt: async (file, runId) => {
-      if (!token) throw new Error("Not signed in.");
+      if (!token) throw currentT()("common.errors.notSignedIn");
       const { photo, thumb } = await shrinkPhoto(file);
       await addGroceryReceiptFn({ data: { token, photo, thumb, runId } });
       setReceipts(await listGroceryReceiptsFn({ data: { token } }));
@@ -190,7 +191,7 @@ export function useGroceryList({
             insertGroceryItemFn({
               data: { token, name: name.trim(), qty, unit: unit.trim() || "pcs", runId },
             }),
-          "Couldn't add the item.",
+          currentT()("groceries.errAddItemShort"),
         ),
       );
     },
@@ -202,7 +203,7 @@ export function useGroceryList({
           insertGroceryItemFn({
             data: { token, name: item.name, qty: item.qty, unit: item.unit, pantryItemId, runId },
           }),
-        "Couldn't add the item.",
+        currentT()("groceries.errAddItemShort"),
       );
     },
     edit: (item, patch) => {
@@ -219,7 +220,7 @@ export function useGroceryList({
                 unit: patch.unit.trim() || "pcs",
               },
             }),
-          "Couldn't save the item.",
+          currentT()("groceries.errSaveItem"),
         ),
       );
     },
@@ -236,7 +237,7 @@ export function useGroceryList({
       quiet(
         write(
           () => deleteGroceryItemFn({ data: { token, itemId: item.id } }),
-          "Couldn't remove the item.",
+          currentT()("groceries.errRemoveItem"),
         ),
       );
     },
@@ -246,7 +247,7 @@ export function useGroceryList({
       quiet(
         write(
           () => setGroceryItemBoughtFn({ data: { token, itemId: item.id, bought: !item.bought } }),
-          "Couldn't update the item. Try again.",
+          currentT()("groceries.errUpdateItem"),
           true,
         ),
       );
@@ -256,7 +257,7 @@ export function useGroceryList({
       quiet(
         write(
           () => setGroceryItemCostFn({ data: { token, itemId: item.id, cost } }),
-          "Couldn't save the cost.",
+          currentT()("groceries.errSaveCost"),
         ),
       );
     },
@@ -264,15 +265,15 @@ export function useGroceryList({
       if (!token || itemIds.length === 0) return;
       await write(
         () => moveGroceryItemsFn({ data: { token, itemIds, runId } }),
-        "Couldn't move those items.",
+        currentT()("groceries.errMoveItems"),
       );
     },
 
     saveRun: async (draft, opts) => {
-      if (!token) throw new Error("Not signed in.");
+      if (!token) throw currentT()("common.errors.notSignedIn");
       const { id } = await write(
         () => saveGroceryRunFn({ data: { token, draft, ...opts } }),
-        "Couldn't save the run.",
+        currentT()("groceries.errSaveRun"),
       );
       return id;
     },
@@ -280,33 +281,36 @@ export function useGroceryList({
       if (!token) return;
       await write(
         () => setGroceryRunStatusFn({ data: { token, id: run.id, status, ...money } }),
-        "Couldn't update the run.",
+        currentT()("groceries.errUpdateRun"),
       );
     },
     deleteRun: async (run) => {
       if (!token) return;
-      await write(() => deleteGroceryRunFn({ data: { token, id: run.id } }), "Couldn't delete it.");
+      await write(
+        () => deleteGroceryRunFn({ data: { token, id: run.id } }),
+        currentT()("groceries.errDeleteRun"),
+      );
     },
 
     saveTemplate: async (draft, id) => {
       if (!token) return;
       await write(
         () => saveGroceryTemplateFn({ data: { token, draft, id } }),
-        "Couldn't save the repeat.",
+        currentT()("groceries.errSaveRepeat"),
       );
     },
     deleteTemplate: async (id) => {
       if (!token) return;
       await write(
         () => deleteGroceryTemplateFn({ data: { token, id } }),
-        "Couldn't delete the repeat.",
+        currentT()("groceries.errDeleteRepeat"),
       );
     },
     startTemplate: async (id, shopOn) => {
-      if (!token) throw new Error("Not signed in.");
+      if (!token) throw currentT()("common.errors.notSignedIn");
       const out = await write(
         () => startGroceryTemplateFn({ data: { token, id, shopOn } }),
-        "Couldn't start the run.",
+        currentT()("groceries.errStartRun"),
       );
       return out.id;
     },
@@ -317,7 +321,7 @@ export function useGroceryList({
       await write(async () => {
         if (board.available) await setGroceryBudgetFn({ data: { token, teamId, amount } });
         else await updateHouseholdBudgetFn({ data: { token, budget: Math.max(0, amount ?? 0) } });
-      }, "Couldn't save the budget.");
+      }, currentT()("groceries.errSaveBudget"));
     },
   };
 }

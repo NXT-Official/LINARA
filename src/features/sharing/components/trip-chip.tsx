@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { MapPin } from "lucide-react";
 import { useContext } from "react";
 
@@ -11,7 +12,15 @@ export function TripChip({ from, to }: { from?: PlaceRef; to?: PlaceRef }) {
   if (!sharing || (!from && !to)) return null;
   const a = sharing.placeName(from);
   const b = sharing.placeName(to);
-  const text = a && b ? `${a} → ${b}` : a ? `From ${a}` : b ? `To ${b}` : "Trip";
+  const t = currentT();
+  const text =
+    a && b
+      ? t("sharing.tripFromTo", { from: a, to: b })
+      : a
+        ? t("sharing.tripFrom", { from: a })
+        : b
+          ? t("sharing.tripTo", { to: b })
+          : t("sharing.trip");
   return (
     <span className="inline-flex max-w-full items-center gap-1 text-xs font-semibold text-muted-foreground">
       <MapPin className="h-3 w-3 shrink-0" aria-hidden />

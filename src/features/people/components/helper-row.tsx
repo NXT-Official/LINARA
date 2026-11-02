@@ -104,7 +104,7 @@ export function HelperRow({
           type="checkbox"
           checked={selected}
           onChange={onSelect}
-          aria-label={`Select ${displayName}`}
+          aria-label={t("people.selectName", { name: displayName })}
           className="mt-3 h-4 w-4 shrink-0 accent-primary"
         />
       )}
@@ -417,7 +417,11 @@ export function HelperRow({
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            aria-label={open ? `Less about ${displayName}` : `More about ${displayName}`}
+            aria-label={
+              open
+                ? t("people.lessAbout", { name: displayName })
+                : t("people.moreAbout", { name: displayName })
+            }
             className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
           >
             <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />

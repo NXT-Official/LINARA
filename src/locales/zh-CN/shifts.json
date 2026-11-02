@@ -22,6 +22,16 @@
     "tasksAt_one": "{name} 的 {count} 项任务",
     "tasksAt_other": "{name} 的 {count} 项任务",
     "movedToUnassigned": "{list}已移至未指派。",
-    "leaveSavedTasksStuck": "休假已保存，但那几天的任务未能移走。请在日程中移动它们。"
+    "leaveSavedTasksStuck": "休假已保存，但那几天的任务未能移走。请在日程中移动它们。",
+    "restBoth": "{names} 那天都休息。",
+    "restAll": "全部 {count} 人那天都休息。",
+    "errSaveSchedule": "无法保存日程。",
+    "leaveApproved": "休假已批准。",
+    "leaveDeclined": "休假已拒绝。",
+    "errSaveDecision": "无法保存该决定。",
+    "leaveRecorded": "休假已记录。会请对方确认。",
+    "errRecordLeave": "无法记录该休假。",
+    "leaveCancelled": "休假已取消。",
+    "errCancelLeave": "无法取消该休假。"
   }
 }

@@ -114,7 +114,7 @@ export function RecordLeaveModal({
           </select>
           <p className="mt-1 text-xs text-muted-foreground">
             {kind === ""
-              ? `Pick which kind this is. Service incentive leave ${silUnavailable}.`
+              ? t("leave.pickKindSil", { reason: silUnavailable })
               : kind === "sil" && silHintText
                 ? silHintText
                 : LEAVE_KIND_HINT[kind]}

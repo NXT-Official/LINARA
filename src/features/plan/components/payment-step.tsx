@@ -14,6 +14,7 @@ import { ADDONS } from "../plan.sample";
 import {
   checkout,
   METHOD_LABEL,
+  methodLabel,
   payForAddons,
   payForPlan,
   usePlan,
@@ -110,7 +111,7 @@ function XenditStep({
               {t("plan.openingXendit")}
             </>
           ) : (
-            `Pay ${formatCentavos(amount)} on Xendit`
+            t("plan.payAmountOnXendit", { amount: formatCentavos(amount) })
           )}
         </button>
       </div>
@@ -197,9 +198,11 @@ function PaymentStep({
               />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-foreground">
-                  {METHOD_LABEL[m].name}
+                  {methodLabel(m, t)}
                 </span>
-                <span className="block text-xs text-muted-foreground">{METHOD_LABEL[m].hint}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {t(METHOD_LABEL[m].hint)}
+                </span>
               </span>
             </label>
           ))}
@@ -230,7 +233,7 @@ function PaymentStep({
               {t("plan.paying")}
             </>
           ) : (
-            `Pay ${formatCentavos(amount)}`
+            t("plan.payAmount", { amount: formatCentavos(amount) })
           )}
         </button>
       </div>
@@ -246,26 +249,35 @@ export function PlanPaymentStep({
   ...step
 }: StepProps & { planId: string; cycle: Cycle; addons: AddonLine[] }) {
   // The same price the store and the database charge: prorated while a period runs.
+  const t = useT();
   const { subscription } = usePlan();
-  const q = quote(planId, cycle, addons);
-  const move = planMove(subscription, planId, cycle, addons);
+  const q = quote(planId, cycle, addons, t);
+  const move = planMove(subscription, planId, cycle, addons, Date.now(), t);
   const full = q.ok ? q.amount : 0;
   const amount = move.ok ? move.dueNow : full;
   const extras = addonsText(addons);
-  const name = planById(planId)?.name ?? "Plan";
+  const name = planById(planId)?.name ?? t("plan.unknownPlan");
   const notes = [
     move.ok && move.keepsPeriod && subscription.periodEnd
-      ? `${formatCentavos(amount)} now for the rest of this period, then ${priceText(full, cycle)} from ${dayText(subscription.periodEnd)}.`
+      ? t("plan.nowRestThen", {
+          amount: formatCentavos(amount),
+          price: priceText(full, cycle, t),
+          date: dayText(subscription.periodEnd, t),
+        })
       : move.ok && move.prorated
-        ? `${formatCentavos(amount)} now: a year of ${name}, less what's unused of this month.`
+        ? t("plan.nowYearLess", { amount: formatCentavos(amount), name })
         : null,
-    extras ? `Includes ${extras}` : null,
+    extras ? t("plan.includes", { items: extras }) : null,
   ].filter(Boolean);
   return (
     <PaymentStep
       {...step}
       amount={amount}
-      title={move.ok && move.prorated ? `${name}, upgrade` : `${name}, ${priceText(amount, cycle)}`}
+      title={
+        move.ok && move.prorated
+          ? t("plan.upgradeTitle", { name })
+          : t("plan.nameComma", { name, price: priceText(amount, cycle, t) })
+      }
       detail={notes.length ? notes.join(" ") : undefined}
       pay={(method) => payForPlan(planId, cycle, addons, method)}
       open={() => checkout("plan", planId, cycle, addons)}
@@ -281,7 +293,7 @@ export function AddonPaymentStep({
 }: StepProps & { sub: MySubscription; lines: AddonLine[] }) {
   const t = useT();
   // The same change the store charges.
-  const change = addonChange(sub, lines);
+  const change = addonChange(sub, lines, t);
   const dueNow = change.ok ? change.dueNow : 0;
   return (
     <PaymentStep
@@ -290,7 +302,10 @@ export function AddonPaymentStep({
       title={t("plan.addOnsLine", { items: addonsText(lines) || t("plan.noneLower") })}
       detail={
         change.ok
-          ? `${formatCentavos(dueNow)} now, for the period that's running. Then ${priceText(change.newAmount, sub.cycle)} with your plan.`
+          ? t("plan.addonsNowThen", {
+              amount: formatCentavos(dueNow),
+              price: priceText(change.newAmount, sub.cycle, t),
+            })
           : change.message
       }
       pay={(method) => payForAddons(lines, method)}
@@ -312,7 +327,7 @@ export function PaymentDone({ payment, onDone }: { payment: SamplePayment; onDon
       <p className="mt-1 text-sm text-muted-foreground">
         {richText(t("plan.byReferenceASampleNothing"), {
           value: formatCentavos(payment.amount),
-          name: METHOD_LABEL[payment.method].name,
+          name: methodLabel(payment.method, t),
           span: <span className="tabular-nums">{payment.reference}</span>,
         })}
       </p>

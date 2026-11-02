@@ -22,6 +22,16 @@
     "tasksAt_one": "{count} task at {name}",
     "tasksAt_other": "{count} tasks at {name}",
     "movedToUnassigned": "{list} moved to Unassigned.",
-    "leaveSavedTasksStuck": "Leave saved, but the tasks on those days couldn't be moved. Move them on Schedule."
+    "leaveSavedTasksStuck": "Leave saved, but the tasks on those days couldn't be moved. Move them on Schedule.",
+    "restBoth": "{names} both rest that day.",
+    "restAll": "all {count} rest that day.",
+    "errSaveSchedule": "Failed to save schedule.",
+    "leaveApproved": "Leave approved.",
+    "leaveDeclined": "Leave declined.",
+    "errSaveDecision": "Couldn't save that decision.",
+    "leaveRecorded": "Leave recorded. They'll be asked to confirm it.",
+    "errRecordLeave": "Couldn't record that leave.",
+    "leaveCancelled": "Leave cancelled.",
+    "errCancelLeave": "Couldn't cancel that leave."
   }
 }

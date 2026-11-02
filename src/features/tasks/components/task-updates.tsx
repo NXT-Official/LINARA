@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { Loader2, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ import {
 import { useT } from "@/lib/i18n/locale-context";
 
 const stamp = (iso: string) =>
-  new Date(iso).toLocaleString("en-US", {
+  new Date(iso).toLocaleString(dateLocale(), {
     month: "short",
     day: "numeric",
     hour: "numeric",

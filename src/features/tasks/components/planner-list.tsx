@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { weekdayName } from "@/lib/time";
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
@@ -10,7 +12,7 @@ import { PlannerAppointmentRow, PlannerTaskRow, RoutineGhostRow } from "./planne
 import { useT } from "@/lib/i18n/locale-context";
 
 const dayHeading = (day: Date) =>
-  day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  day.toLocaleDateString(dateLocale(), { weekday: "short", month: "short", day: "numeric" });
 
 type Item =
   | { kind: "appointment"; at: number; appointment: Appointment }
@@ -89,7 +91,9 @@ export function PlannerList({
           ),
         ].sort((a, b) => a.at - b.at);
         const notes = [
-          ...(offOn(day).length > 0 ? [`Day off: ${offOn(day).join(", ")}`] : []),
+          ...(offOn(day).length > 0
+            ? [t("tasks.dayOffNames", { names: offOn(day).join(", ") })]
+            : []),
           ...timeOffNotes(iso),
         ];
 
@@ -128,7 +132,9 @@ export function PlannerList({
                 <button
                   type="button"
                   onClick={() => onAdd(iso)}
-                  aria-label={`Add a task on ${weekdayOf(day)} ${day.getDate()}`}
+                  aria-label={t("tasks.addTaskOn", {
+                    day: `${weekdayName(weekdayOf(day))} ${day.getDate()}`,
+                  })}
                   className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden /> {t("tasks.add")}

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -110,7 +111,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
   ) => {
     if (!token) {
       toast.error(t("pay.hindiKaNakaSignIn"));
-      throw new Error("Not authenticated");
+      throw new Error(currentT()("common.errors.notAuthenticated"));
     }
     try {
       const result = await initiatePayoutFn({ data: { token, helperId, channelCode, ...target } });
@@ -130,7 +131,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
   const reconcile = async (payslipId: string) => {
     if (!token) {
       toast.error(t("pay.hindiKaNakaSignIn2"));
-      throw new Error("Not authenticated");
+      throw new Error(currentT()("common.errors.notAuthenticated"));
     }
     try {
       return await reconcilePayoutFn({ data: { token, payslipId } });
@@ -145,7 +146,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     payment: ManualPayment,
     target: PaymentTarget = {},
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     try {
       return await recordOffAppPaymentFn({ data: { token, helperId, ...payment, ...target } });
     } finally {
@@ -155,7 +156,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
 
   /** Takes back an outside-Linara record she hasn't confirmed. */
   const withdrawOffApp = async (payslipId: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     try {
       await withdrawOffAppPaymentFn({ data: { token, payslipId } });
     } finally {

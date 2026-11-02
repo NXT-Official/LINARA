@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   CalendarDays,
@@ -240,17 +241,17 @@ export function ManagerPassTab({
   // Only say something the counts above don't already say. Anything waiting
   // on a decision is Needs You's job, directly below.
   const dayNote = dayLoading
-    ? "Loading that day…"
+    ? currentT()("dashboard.dayLoading")
     : !isToday
       ? active.length === 0
-        ? "Nothing planned that day."
+        ? currentT()("dashboard.dayNothingPlanned")
         : null
       : boardClosed
-        ? "The day is done. Anything you add for today waits until it reopens."
+        ? currentT()("dashboard.dayDone")
         : active.length === 0
-          ? "Nothing on today's board yet."
+          ? currentT()("dashboard.dayBoardEmpty")
           : counts.done === active.length
-            ? "Everything on today's board is done."
+            ? currentT()("dashboard.dayBoardAllDone")
             : null;
   const dayBtn =
     "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground";
@@ -263,9 +264,9 @@ export function ManagerPassTab({
         <Segmented
           label={t("dashboard.passLayout")}
           options={[
-            { key: "line", label: "The Line", Icon: Users },
-            { key: "roll", label: "Roll call", Icon: Rows3 },
-            { key: "board", label: "The Board", Icon: Columns3 },
+            { key: "line", label: currentT()("dashboard.viewLine"), Icon: Users },
+            { key: "roll", label: currentT()("dashboard.viewRoll"), Icon: Rows3 },
+            { key: "board", label: currentT()("dashboard.viewBoard"), Icon: Columns3 },
           ]}
           value={passMode}
           onChange={updatePassMode}
@@ -493,7 +494,11 @@ export function ManagerPassTab({
                     key={g.key}
                     title={g.title}
                     count={g.items.length}
-                    summary={total === 0 ? "Nothing today" : `${done} of ${total} done`}
+                    summary={
+                      total === 0
+                        ? t("dashboard.nothingToday")
+                        : t("dashboard.doneOfTotal", { done, total })
+                    }
                     attention={attention}
                     defaultOpen={groups.length === 1 || !large}
                   >

@@ -10,6 +10,8 @@ import { usePlanUsage } from "../hooks/use-plan-usage";
 import { limitText, limitsFor, overLimits, planById } from "../plan.logic";
 import { getPlanState, saveSelection, saveSelectionLive, usePlan } from "../plan.store";
 import type { ActiveSelection } from "../plan.types";
+import { tFor } from "@/lib/i18n/instance";
+import { readLocale } from "@/lib/i18n/locale-cookie";
 import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
@@ -24,7 +26,9 @@ function useChoices(): { households: Item[]; kasambahay: Item[] } {
     .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent))
     .map((h) => ({ id: h.id, name: h.name }));
   return {
-    households: owned.length ? owned : [{ id: "current", name: "This household" }],
+    households: owned.length
+      ? owned
+      : [{ id: "current", name: tFor(readLocale())("plan.thisHousehold") }],
     kasambahay: invites.invites
       .filter((i) => i.status !== "ended")
       .map((i) => ({ id: i.id, name: i.claimedName || i.name })),
@@ -192,9 +196,7 @@ export function OverLimitBanner() {
   const restricted = sub.status === "restricted";
   if (!restricted && over.length === 0) return null;
 
-  const text = restricted
-    ? "Your plan's payment is overdue, so only what you choose stays active. For the rest, new tasks and changes pause until it's paid."
-    : "You have more than your plan allows. Choose what stays active; for the rest, new tasks and changes pause.";
+  const text = restricted ? t("plan.bannerRestricted") : t("plan.bannerOver");
 
   return (
     <section

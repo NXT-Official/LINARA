@@ -40,11 +40,12 @@ function Stepper({
   max: number;
   onChange: (n: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-1" role="group" aria-label={label}>
       <button
         type="button"
-        aria-label={`Fewer: ${label}`}
+        aria-label={t("plan.fewer", { label })}
         disabled={value <= 0}
         onClick={() => onChange(value - 1)}
         className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
@@ -56,7 +57,7 @@ function Stepper({
       </span>
       <button
         type="button"
-        aria-label={`More: ${label}`}
+        aria-label={t("plan.more", { label })}
         disabled={value >= max}
         onClick={() => onChange(value + 1)}
         className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
@@ -93,7 +94,7 @@ function AddonsModal({
     addonId: a.id,
     quantity: owned(sub, a.id) + (buy[a.id] ?? 0),
   }));
-  const change = addonChange(sub, lines);
+  const change = addonChange(sub, lines, t);
   const buying = ADDONS.some((a) => (buy[a.id] ?? 0) > 0);
   const after = limitsFor({ ...sub, addons: lines });
   const close = () => {
@@ -126,10 +127,13 @@ function AddonsModal({
   }
 
   const summary = !buying
-    ? "Choose how many to add."
+    ? t("plan.addonsChooseHowMany")
     : !change.ok
       ? change.message
-      : `${formatCentavos(change.dueNow)} now, then ${priceText(change.newAmount, sub.cycle)} with your plan.`;
+      : t("plan.addonsNowThenShort", {
+          amount: formatCentavos(change.dueNow),
+          price: priceText(change.newAmount, sub.cycle, t),
+        });
   const canPay = buying && change.ok && change.dueNow > 0;
 
   return (
@@ -305,7 +309,7 @@ export function AddonsSection({
   waiting?: boolean;
 }) {
   const t = useT();
-  const blocked = owner ? addonsBlocked(sub) : "Only the household's primary manager buys add-ons.";
+  const blocked = owner ? addonsBlocked(sub, t) : t("plan.addonsPrimaryOnly");
   const [open, setOpen] = useState<{ preset?: string } | null>(() =>
     preset && !inApp && !blocked ? { preset } : null,
   );
@@ -357,7 +361,7 @@ export function AddonsSection({
                 {n > 0 && !inApp && !blocked ? (
                   <button
                     type="button"
-                    aria-label={`Remove one ${a.name}`}
+                    aria-label={t("plan.addonsRemoveOne", { name: a.name })}
                     disabled={waiting}
                     onClick={() => setRemoving(a.id)}
                     className="inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:translate-y-0"

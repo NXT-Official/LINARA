@@ -66,6 +66,21 @@
     "removeTeamConfirm": "¿Eliminar? {extra}",
     "goToNoTeam": "{count} quedarán sin equipo.",
     "savedWhereWorks": "Se guardó dónde trabaja {name}.",
-    "couldntChangeThat": "No se pudo cambiar."
+    "couldntChangeThat": "No se pudo cambiar.",
+    "movedTo": "Se movió a {people} a {team}.",
+    "labelAdded": "Se añadió {label} a {people}.",
+    "labelTook": "Se quitó {label} a {people}.",
+    "chooseSomeone": "Elige a alguien",
+    "searchFor": "Buscar: {label}",
+    "searchStaff": "Buscar personal por nombre",
+    "errAddTeam": "No se pudo añadir el equipo",
+    "errAddLabel": "No se pudo añadir la etiqueta",
+    "renameItem": "Renombrar {name}",
+    "removeItem": "Quitar {name}",
+    "editItem": "Editar {name}",
+    "errOnlyPrimary": "Solo el administrador principal o un coadministrador puede cambiar equipos y etiquetas",
+    "errTeamExists": "Ya hay un equipo con ese nombre",
+    "errLabelExists": "Ya hay una etiqueta con ese nombre",
+    "errUnknownColour": "Color desconocido"
   }
 }

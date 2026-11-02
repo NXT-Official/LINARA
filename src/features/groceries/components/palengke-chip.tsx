@@ -28,11 +28,16 @@ export function PalengkeChip({
   const run = ctx.runForTask(task.id);
   if (!run && !isPalengke(task)) return null;
 
-  let label = `Grocery · ${ctx.toBuyCount} to buy`;
+  let label = t("groceries.groceryToBuy", { count: ctx.toBuyCount });
   if (run) {
     const items = ctx.itemsByRun.get(run.id) ?? [];
     const p = progress(items);
-    label = `${run.title} · ${p.bought} of ${p.total} bought · ${fmtPeso(spentOn(items))}`;
+    label = t("groceries.runProgress", {
+      title: run.title,
+      bought: p.bought,
+      total: p.total,
+      spent: fmtPeso(spentOn(items)),
+    });
   }
   const chip = (
     <Link

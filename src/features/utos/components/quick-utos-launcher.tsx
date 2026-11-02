@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Send, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -62,7 +63,7 @@ export function QuickUtosLauncher({
               helpers={sortedHelpers}
               value={selectedHelperId ?? ""}
               onChange={onSelectHelper}
-              ariaLabel="Send to"
+              ariaLabel={currentT()("utos.sendTo")}
               className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
             />
           </div>

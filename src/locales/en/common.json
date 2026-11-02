@@ -17,6 +17,20 @@
     "couldntRemoveIt": "Couldn't remove it.",
     "somethingWentWrong": "Something went wrong.",
     "undo": "Undo",
-    "nothingWasCharged": "Nothing was charged."
+    "nothingWasCharged": "Nothing was charged.",
+    "errors": {
+      "notSignedIn": "Not signed in.",
+      "notAuthenticated": "Not authenticated",
+      "invalidToken": "Unauthorized: Invalid token",
+      "profileNotFound": "Unauthorized: Profile not found",
+      "signInToUse": "Sign in to use this.",
+      "sessionExpired": "Session expired",
+      "unknownHelper": "Unknown helper",
+      "helperNotFound": "Helper not found",
+      "noHousehold": "No household",
+      "loginFailed": "Login failed",
+      "browserPhotos": "This browser can't process photos.",
+      "readPhoto": "Couldn't read that photo."
+    }
   }
 }

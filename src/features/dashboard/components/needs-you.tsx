@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
 import {
   AlertCircle,
   Ban,
@@ -29,15 +31,15 @@ import { taskWhen } from "@/features/tasks/task.utils";
 import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 
 /** What a helper can flag (LINARA_MOBILE's claim screen and My Record), plus the invite-time wage check. */
-const FLAG_LABEL: Record<string, string> = {
-  wage: "Wage",
-  shift: "Shift hours",
-  restDay: "Rest day",
-  station: "Role / station",
-  employment: "Live-in / live-out",
-  other: "Something else",
-  wage_below_minimum: "Below the regional minimum wage",
-};
+const FLAG_LABEL: Record<string, string> = lazyMessages({
+  wage: "dashboard.flagWage",
+  shift: "dashboard.flagShift",
+  restDay: "dashboard.flagRestDay",
+  station: "dashboard.flagStation",
+  employment: "dashboard.flagEmployment",
+  other: "dashboard.flagOther",
+  wage_below_minimum: "dashboard.flagBelowMinimum",
+});
 
 export function NeedsYou({
   blocked,
@@ -195,7 +197,7 @@ export function NeedsYou({
                         value={drafts[task.id] ?? ""}
                         onChange={(e) => setDrafts((d) => ({ ...d, [task.id]: e.target.value }))}
                         rows={2}
-                        placeholder={`Message ${helper.short}…`}
+                        placeholder={t("dashboard.messageHelper", { name: helper.short })}
                         className="w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-muted-foreground"
                       />
                       <div className="mt-1 flex items-center justify-between px-1">
@@ -637,7 +639,7 @@ function NeedsYouGroup({
 }
 
 const shortDate = (iso: string) =>
-  parseISODate(iso).toLocaleDateString("en-US", {
+  parseISODate(iso).toLocaleDateString(dateLocale(), {
     weekday: "short",
     month: "short",
     day: "numeric",

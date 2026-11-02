@@ -26,6 +26,12 @@
     "plans": "套餐方案",
     "lNara": "l{span}nara",
     "clarityOverControl": "清晰胜于控制。{br}{span}",
-    "wagesCheckedAgainstTheRegional": "{span} · 为每位家政人员记录每周休息日、年假以及加班应补的休息时间。"
+    "wagesCheckedAgainstTheRegional": "{span} · 为每位家政人员记录每周休息日、年假以及加班应补的休息时间。",
+    "kitchenSopTerm": "家庭标准（SOP）",
+    "kitchenSopBody": "一次性制定标准，例如洗衣说明或儿童过敏须知。操作手册留在家中，不再需要反复培训。",
+    "kitchenLedgerTerm": "加班账本",
+    "kitchenLedgerBody": "非工作时间的任务会自动把欠下的休息分钟记入账本。无需按小时计算加班费，工作也能透明地得到平衡。",
+    "kitchenPantryTerm": "从储藏室到菜市场",
+    "kitchenPantryBody": "储藏室库存偏低时会自动加入采购清单。采购的人能看到明确的预算，录入实际花费，并悄悄上传收据照片。"
   }
 }

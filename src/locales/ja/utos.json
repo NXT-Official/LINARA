@@ -7,6 +7,8 @@
     "send": "送信",
     "sendASmallAskTo2": "{helperName} にちょっとした頼みごとを送る",
     "hindiNaSendAngUtos": "指示を送れませんでした。",
-    "hindiNaSaveAngPag": "指示の更新を保存できませんでした。"
+    "hindiNaSaveAngPag": "指示の更新を保存できませんでした。",
+    "sendTo": "送信先",
+    "errSend": "クイック指示を送信できませんでした"
   }
 }

@@ -1,3 +1,5 @@
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
@@ -58,19 +60,59 @@ import { richText } from "@/lib/i18n/rich-text";
 
 const VIEW_KEY = "linara.planView";
 const VIEWS: { key: PlanView; label: string }[] = [
-  { key: "week", label: "Week" },
-  { key: "people", label: "By person" },
-  { key: "list", label: "List" },
-  { key: "month", label: "Month" },
+  {
+    key: "week",
+    get label() {
+      return currentT()("tasks.viewWeek");
+    },
+  },
+  {
+    key: "people",
+    get label() {
+      return currentT()("tasks.viewPeople");
+    },
+  },
+  {
+    key: "list",
+    get label() {
+      return currentT()("tasks.viewList");
+    },
+  },
+  {
+    key: "month",
+    get label() {
+      return currentT()("tasks.viewMonth");
+    },
+  },
 ];
 /** "all", "unassigned", a helper id, or "team:<id>" for everyone on a team. */
 type Who = string;
 const TEAM_PREFIX = "team:";
 const STATUS_CHIPS: { key: PlanStatus; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "open", label: "To do" },
-  { key: "done", label: "Done" },
-  { key: "cancelled", label: "Cancelled" },
+  {
+    key: "all",
+    get label() {
+      return currentT()("tasks.chipAll");
+    },
+  },
+  {
+    key: "open",
+    get label() {
+      return currentT()("tasks.chipOpen");
+    },
+  },
+  {
+    key: "done",
+    get label() {
+      return currentT()("tasks.chipDone");
+    },
+  },
+  {
+    key: "cancelled",
+    get label() {
+      return currentT()("tasks.chipCancelled");
+    },
+  },
 ];
 
 const dayName = (iso: string, locale: string) =>
@@ -425,15 +467,15 @@ export function TaskPlanner({
               helpers={activeHelpers}
               value={who}
               onChange={setWho}
-              ariaLabel="Whose tasks"
+              ariaLabel={currentT()("tasks.whoseTasks")}
               before={[
-                { value: "all", label: "Everyone" },
+                { value: "all", label: currentT()("tasks.everyone") },
                 ...teams.teams.map((t) => ({
                   value: `${TEAM_PREFIX}${t.id}`,
-                  label: `All of ${t.name}`,
+                  label: currentT()("tasks.allOfTeam", { name: t.name }),
                 })),
               ]}
-              after={[{ value: "unassigned", label: "Unassigned" }]}
+              after={[{ value: "unassigned", label: currentT()("tasks.unassigned") }]}
               describe={(h) => h.short}
               className="h-11 w-full rounded-lg border border-input bg-card px-2.5 text-sm text-foreground outline-none focus:border-primary"
             />
@@ -551,7 +593,7 @@ export function TaskPlanner({
                     key={iso}
                     dayIso={iso}
                     label={String(day.getDate())}
-                    weekday={weekdayOf(day)}
+                    weekday={weekdayName(weekdayOf(day))}
                     isToday={iso === todayIso}
                     isPast={isPast}
                     tasks={tasksByDay.get(iso) ?? []}

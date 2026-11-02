@@ -1,3 +1,5 @@
+import { tFor } from "@/lib/i18n/instance";
+import { readLocale } from "@/lib/i18n/locale-cookie";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient, supabaseClient } from "@/lib/supabase";
@@ -59,6 +61,8 @@ export type MyBilling = {
   testMode: boolean;
   /** The signed-in account pays for this plan (false: a co-manager or remote admin). */
   owner: boolean;
+  /** A first-plan trial can be started (add-billing-renewal-and-trials.sql). */
+  trialAvailable: boolean;
 };
 
 /** The functions aren't in this database yet (add-billing.sql not applied). */
@@ -114,6 +118,7 @@ export async function loadMyBilling(client: BillingClient): Promise<BillingLoad>
         catalog: catalog as BillingCatalog,
         testMode: testMode(),
         owner: false,
+        trialAvailable: false,
       },
     };
   }
@@ -121,9 +126,11 @@ export async function loadMyBilling(client: BillingClient): Promise<BillingLoad>
   return {
     missing: false,
     billing: {
-      ...(row as Omit<MyBilling, "testMode" | "owner">),
+      ...(row as Omit<MyBilling, "testMode" | "owner" | "trialAvailable">),
       testMode: testMode(),
       owner: true,
+      // Missing before add-billing-renewal-and-trials.sql: no trials then.
+      trialAvailable: (row as { trialAvailable?: boolean }).trialAvailable === true,
     },
   };
 }
@@ -149,6 +156,16 @@ export const changeToFreeFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }): Promise<Done> => {
     const { error } = await createAuthedClient(data.token).rpc("billing_change_to_free");
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+
+/** Starts the plan's free trial (billing_start_trial): nothing is charged. */
+export const startTrialFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; planId: string }) => data)
+  .handler(async ({ data }): Promise<Done> => {
+    const { error } = await createAuthedClient(data.token).rpc("billing_start_trial", {
+      p_plan_id: data.planId,
+    });
     return error ? { ok: false, message: error.message } : { ok: true };
   });
 
@@ -217,10 +234,7 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
           body: JSON.stringify(body),
         });
       } catch {
-        return {
-          ok: false,
-          message: "Couldn't reach payments. Check your connection and try again.",
-        };
+        return { ok: false, message: tFor(readLocale())("plan.couldntReachPayments") };
       }
       const json = (await res.json().catch(() => null)) as {
         invoiceUrl?: string;
@@ -228,7 +242,10 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
         error?: string;
       } | null;
       if (!res.ok || !json?.invoiceUrl || !json.paymentId) {
-        return { ok: false, message: json?.error ?? "Couldn't start the payment. Try again." };
+        return {
+          ok: false,
+          message: json?.error ?? tFor(readLocale())("plan.couldntStartPayment"),
+        };
       }
       return { ok: true, invoiceUrl: json.invoiceUrl, paymentId: json.paymentId };
     },

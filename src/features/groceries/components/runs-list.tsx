@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { CalendarClock, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -20,9 +21,9 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const GROUPS: { status: RunStatus; label: string }[] = [
-  { status: "pending", label: "Waiting for your approval" },
-  { status: "ready", label: "Ready to shop" },
-  { status: "draft", label: "Drafts" },
+  { status: "pending", label: currentT()("groceries.groupWaitingYou") },
+  { status: "ready", label: currentT()("groceries.statusReady") },
+  { status: "draft", label: currentT()("groceries.groupDrafts") },
 ];
 
 /**

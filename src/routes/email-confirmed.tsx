@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -12,7 +13,7 @@ type ConfirmedSearch = { for?: Who };
 // already confirmed the address by the time it sends people here; this page
 // only says so and points them back, to the app first on a phone.
 export const Route = createFileRoute("/email-confirmed")({
-  head: () => ({ meta: [{ title: "Email confirmed | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titleEmailConfirmed") }] }),
   validateSearch: (search: Record<string, unknown>): ConfirmedSearch =>
     search.for === "helper" || search.for === "manager" ? { for: search.for } : {},
   component: EmailConfirmed,

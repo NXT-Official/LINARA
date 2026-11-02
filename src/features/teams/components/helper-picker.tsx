@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -140,7 +141,7 @@ function SearchablePicker({
     [...before, ...after].find((o) => o.value === value)?.label ??
     (() => {
       const h = helpers.find((x) => x.id === value);
-      return h ? describe(h) : (emptyLabel ?? "Choose someone");
+      return h ? describe(h) : (emptyLabel ?? currentT()("teams.chooseSomeone"));
     })();
 
   const rows = useMemo<Row[]>(() => {
@@ -257,7 +258,7 @@ function SearchablePicker({
                 setCursor(0);
               }}
               placeholder={t("teams.nameTeamOrLabel")}
-              aria-label={`Search: ${ariaLabel}`}
+              aria-label={t("teams.searchFor", { label: ariaLabel })}
               aria-controls={listId}
               className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none"
             />

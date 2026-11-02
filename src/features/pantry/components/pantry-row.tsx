@@ -47,7 +47,7 @@ export function PantryRow({
             type="button"
             onClick={() => onEdit(item)}
             className="group inline-flex min-w-0 items-center gap-1 text-left"
-            aria-label={`Edit ${item.name}`}
+            aria-label={t("pantry.editItem", { name: item.name })}
           >
             <span className="text-sm font-semibold text-foreground group-hover:underline">
               {item.name}
@@ -78,7 +78,7 @@ export function PantryRow({
           onClick={() => onAdjust(item.id, -1)}
           disabled={item.qty <= 0}
           className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground disabled:opacity-40"
-          aria-label={`One less ${item.name}`}
+          aria-label={t("pantry.oneLess", { name: item.name })}
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -102,7 +102,7 @@ export function PantryRow({
           <button
             onClick={() => setEditing(true)}
             className="min-w-[64px] rounded-lg px-2 py-1 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-secondary"
-            aria-label={`Edit how much ${item.name} is on hand`}
+            aria-label={t("pantry.editOnHand", { name: item.name })}
           >
             {item.qty}{" "}
             <span className="text-xs font-normal text-muted-foreground">
@@ -113,7 +113,7 @@ export function PantryRow({
         <button
           onClick={() => onAdjust(item.id, 1)}
           className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label={`One more ${item.name}`}
+          aria-label={t("pantry.oneMore", { name: item.name })}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -136,7 +136,7 @@ export function PantryRow({
           <button
             onClick={() => setConfirmingRemove(true)}
             className="ml-1 grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-            aria-label={`Remove ${item.name}`}
+            aria-label={t("pantry.removeItem", { name: item.name })}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

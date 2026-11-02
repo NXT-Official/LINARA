@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -147,7 +148,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
     },
     byName: string,
   ): Promise<Invite> => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
 
     const { shiftStart, shiftEnd } = data;
     const weeklyRestDay = WEEKLY_REST_DAY_NAMES.indexOf(
@@ -212,7 +213,7 @@ export function useInvites({ token, ready }: { token: string | null; ready: bool
    * null to remove them). Write-then-refresh: the roster, payroll and
    * schedules all derive from this list. */
   const endEmployment = async (id: string, lastDay: string, reassignTo: string | null) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     const result = await endEmploymentFn({ data: { token, helperId: id, lastDay, reassignTo } });
     await refresh();
     return result;

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { mapLimit } from "@/lib/map-limit";
@@ -196,7 +197,7 @@ export const getHouseholdCutoffFn = createServerFn({ method: "POST" })
     });
 
     if (error || !rows?.[0]) {
-      throw new Error(error?.message || "Failed to read the current cutoff");
+      throw new Error(error?.message || currentT()("pay.errCurrentCutoff"));
     }
 
     return {
@@ -234,7 +235,7 @@ async function readHelperPayCutoff(
     ...(cutoffStart ? { p_cutoff_start: cutoffStart } : {}),
   });
   if (error || !rows?.[0]) {
-    throw new Error(error?.message || "Failed to read the helper's cutoff");
+    throw new Error(error?.message || currentT()("pay.errHelperCutoff"));
   }
   const start = rows[0].cutoff_start as string;
   return {
@@ -381,7 +382,7 @@ async function componentsForPayment(
     .eq("id", helperId)
     .single();
   if (error || !helperRow) {
-    throw new Error("Helper not found");
+    throw new Error(currentT()("common.errors.helperNotFound"));
   }
   if (kind === "thirteenth_month") {
     return { helperRow, basePay: 0, statutoryShare: 0, isFinal: false };
@@ -457,7 +458,7 @@ export const recordOffAppPaymentFn = createServerFn({ method: "POST" })
       p_kind: kind,
     });
     if (error || !rows?.[0]) {
-      throw new Error(error?.message || "Couldn't record the payment");
+      throw new Error(error?.message || currentT()("pay.errRecordPaymentShort"));
     }
     return { payslipId: rows[0].payslip_id as string, netPay: Number(rows[0].net_pay) };
   });
@@ -482,7 +483,7 @@ export const previewPaymentFn = createServerFn({ method: "POST" })
       const { data: rows, error } = await client.rpc("thirteenth_month_due", {
         p_helper_id: data.helperId,
       });
-      if (error || !rows?.[0]) throw new Error(error?.message || "No 13th-month pay is due");
+      if (error || !rows?.[0]) throw new Error(error?.message || currentT()("pay.errNoThirteenth"));
       return { netPay: Math.max(0, Number(rows[0].amount)) };
     }
     const { basePay, statutoryShare } = await componentsForPayment(
@@ -600,9 +601,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     // Off unless the build turns it on: households pay her directly and
     // Linara records it (payout-mode.ts, KNOWN_GAPS O35).
     if (!XENDIT_PAYOUTS_ON) {
-      throw new Error(
-        "Paying through Linara is turned off. Send it to their GCash or Maya directly.",
-      );
+      throw new Error(currentT()("pay.errPayingOff"));
     }
     const { token, helperId, channelCode } = data;
     const kind = data.kind ?? "regular";
@@ -621,7 +620,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     );
 
     if (!helperRow.phone) {
-      throw new Error("This helper has no phone number on file -- add one before paying out.");
+      throw new Error(currentT()("pay.errNoPhone"));
     }
 
     // The cutoff is NOT computed here -- initiate_payslip derives it from
@@ -643,7 +642,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
     });
 
     if (rpcError || !rpcRows?.[0]) {
-      throw new Error(rpcError?.message || "Failed to create payslip");
+      throw new Error(rpcError?.message || currentT()("pay.errCreatePayslip"));
     }
 
     const payslipId = rpcRows[0].payslip_id as string;
@@ -725,9 +724,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       await recordAttempt(authedClient, attemptId, "ambiguous", {
         failureReason: `Couldn't confirm the payout reached Xendit (${detail}), and the reference lookup also failed. Reconcile in the Xendit dashboard before retrying.`,
       });
-      throw new Error(
-        "Hindi makumpirma kung natanggap ng Xendit ang payout. Naka-hold para i-review. Tignan sa Xendit bago ulitin.",
-      );
+      throw new Error(currentT()("pay.errPayoutNotConfirmed"));
     }
 
     const body: XenditPayoutResponse = await response
@@ -793,9 +790,7 @@ export const initiatePayoutFn = createServerFn({ method: "POST" })
       if (resolved === "accepted" || resolved === "succeeded") {
         return { payslipId, netPay, status: "processing" as const };
       }
-      throw new Error(
-        "Duplicate na naiulat ang Xendit para sa payout na ito. Naka-hold para i-review.",
-      );
+      throw new Error(currentT()("pay.errPayoutDuplicate"));
     }
 
     // Genuine rejection: Xendit received it and said no (bad account number,
@@ -849,7 +844,7 @@ export const reconcilePayoutFn = createServerFn({ method: "POST" })
 
     const attempt = attempts?.[0];
     if (attemptError || !attempt) {
-      throw new Error("No payout attempt found for this payslip.");
+      throw new Error(currentT()("pay.errNoPayoutAttempt"));
     }
 
     if (["succeeded", "failed", "cancelled"].includes(attempt.status as string)) {
@@ -868,7 +863,7 @@ export const reconcilePayoutFn = createServerFn({ method: "POST" })
 
     if (!lookup.ok) {
       // Could not ask. Record nothing: an unanswered question is not an answer.
-      throw new Error("Hindi ma-contact ang Xendit ngayon. Subukan ulit mamaya.");
+      throw new Error(currentT()("pay.errXenditUnreachable"));
     }
 
     if (!lookup.payout) {

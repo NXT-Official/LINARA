@@ -66,6 +66,21 @@
     "removeTeamConfirm": "Alisin? {extra}",
     "goToNoTeam": "{count} ang mapupunta sa walang team.",
     "savedWhereWorks": "Na-save kung saan nagtatrabaho si {name}.",
-    "couldntChangeThat": "Hindi iyon nabago."
+    "couldntChangeThat": "Hindi iyon nabago.",
+    "movedTo": "Inilipat ang {people} sa {team}.",
+    "labelAdded": "Idinagdag ang {label} kay {people}.",
+    "labelTook": "Inalis ang {label} kay {people}.",
+    "chooseSomeone": "Pumili ng tao",
+    "searchFor": "Maghanap: {label}",
+    "searchStaff": "Maghanap ng staff ayon sa pangalan",
+    "errAddTeam": "Hindi maidagdag ang team",
+    "errAddLabel": "Hindi maidagdag ang label",
+    "renameItem": "Palitan ang pangalan ng {name}",
+    "removeItem": "Alisin ang {name}",
+    "editItem": "I-edit ang {name}",
+    "errOnlyPrimary": "Ang pangunahing manager o co-manager lang ang makapagbabago ng mga team at label",
+    "errTeamExists": "May team nang may ganoong pangalan",
+    "errLabelExists": "May label nang may ganoong pangalan",
+    "errUnknownColour": "Hindi kilalang kulay"
   }
 }

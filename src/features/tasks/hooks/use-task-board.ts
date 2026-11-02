@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -665,7 +667,7 @@ export function useTaskBoard({
       },
     })
       .then(() => {
-        const first = parseISODate(dayIso).toLocaleDateString("en-US", {
+        const first = parseISODate(dayIso).toLocaleDateString(dateLocale(), {
           weekday: "short",
           month: "short",
           day: "numeric",
@@ -688,7 +690,7 @@ export function useTaskBoard({
     if (!token) return Promise.resolve(false);
     return stopRepeatFn({ data: { token, routineId } })
       .then(async (changed) => {
-        if (changed === 0) throw new Error("No task of this routine could be changed.");
+        if (changed === 0) throw new Error(currentT()("tasks.errNoRoutineChanged"));
         toast.success(t("tasks.itWonTRepeatAny"));
         await refresh();
         return true;

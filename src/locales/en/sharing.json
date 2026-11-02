@@ -20,6 +20,17 @@
     "employedBy": "Employed by {house}",
     "employedByTeamHere": "Employed by {house} · {team} here",
     "choose": "Choose…",
-    "couldntAddPlace": "Couldn't add the place."
+    "couldntAddPlace": "Couldn't add the place.",
+    "atHouseNow": "At {house} now",
+    "atHouseTimes": "At {house} {times}",
+    "removeItem": "Remove {name}",
+    "tripFromTo": "{from} → {to}",
+    "tripFrom": "From {from}",
+    "tripTo": "To {to}",
+    "trip": "Trip",
+    "errNameIt": "Give it a name",
+    "errKeepTo": "Keep it to {max} characters",
+    "errPlaceExists": "There's already a place with that name",
+    "errAddPlace": "Couldn't add the place"
   }
 }

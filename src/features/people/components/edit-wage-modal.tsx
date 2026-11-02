@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -56,7 +57,7 @@ export function EditWageModal({
       await onSubmit(parseInt(wage, 10) || 0, effectiveFrom);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update the wage.");
+      setError(err instanceof Error ? err.message : currentT()("people.errUpdateWage"));
     } finally {
       setSubmitting(false);
     }
@@ -103,7 +104,7 @@ export function EditWageModal({
                 title={t("people.thisCutoff")}
                 body={
                   thisPaid
-                    ? "Already paid"
+                    ? currentT()("people.alreadyPaid")
                     : formatCutoffRange(currentPeriod.fullStart, currentPeriod.fullEnd)
                 }
               />
@@ -111,7 +112,7 @@ export function EditWageModal({
                 checked={startsNext}
                 onSelect={() => setStartsNext(true)}
                 title={t("people.nextCutoff")}
-                body={`From ${formatCutoffDay(nextStart)}`}
+                body={currentT()("people.fromDay", { day: formatCutoffDay(nextStart) })}
               />
             </div>
           </fieldset>

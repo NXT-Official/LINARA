@@ -3,7 +3,9 @@ import { useSyncExternalStore } from "react";
 import type { BillingPayment, MyBilling } from "./plan.actions";
 import {
   addonChange,
+  dayText,
   checkSelection,
+  nextPeriod,
   periodRunning,
   planById,
   planMove,
@@ -20,23 +22,32 @@ import {
   type SubStatus,
   type Usage,
 } from "./plan.types";
-import type { Translate } from "@/lib/i18n/instance";
+import { tFor, type MessageKey, type Translate } from "@/lib/i18n/instance";
+import { readLocale } from "@/lib/i18n/locale-cookie";
 
 export const PAYMENT_METHODS = ["gcash", "maya", "card", "qrph", "otc", "card_decline"] as const;
 /** Xendit's channels for the Philippines, plus a test card that always declines. */
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-export const METHOD_LABEL: Record<PaymentMethod, { name: string; hint: string }> = {
-  gcash: { name: "GCash", hint: "Pay from the GCash app." },
-  maya: { name: "Maya", hint: "Pay from the Maya app." },
-  card: { name: "Credit or debit card", hint: "Visa or Mastercard." },
-  qrph: { name: "QR Ph", hint: "Scan with any bank or e-wallet app." },
-  otc: { name: "Over the counter", hint: "7-Eleven, Cebuana and others." },
-  card_decline: {
-    name: "Test card that declines",
-    hint: "For trying a failed payment.",
-  },
-};
+/** A channel's name (brand names stay as they are) and hint, in `t`'s language. */
+export const METHOD_LABEL: Record<PaymentMethod, { name: MessageKey | string; hint: MessageKey }> =
+  {
+    gcash: { name: "GCash", hint: "plan.methodGcashHint" },
+    maya: { name: "Maya", hint: "plan.methodMayaHint" },
+    card: { name: "plan.methodCard", hint: "plan.methodCardHint" },
+    qrph: { name: "QR Ph", hint: "plan.methodQrphHint" },
+    otc: { name: "plan.methodOtc", hint: "plan.methodOtcHint" },
+    card_decline: { name: "plan.methodDecline", hint: "plan.methodDeclineHint" },
+  };
+
+/** The channel's name in `t`'s language: brand names as they are, the rest translated. */
+export function methodLabel(method: PaymentMethod, t: Translate): string {
+  const name = METHOD_LABEL[method].name;
+  return name.startsWith("plan.") ? t(name as MessageKey) : name;
+}
+
+/** `t` in the reader's language, for messages made outside a component. */
+const tt = () => tFor(readLocale());
 
 export type SamplePayment = {
   id: string;
@@ -72,6 +83,8 @@ type PlanState = {
   usage: Usage | null;
   /** The signed-in account pays for the plan; false for a co-manager or remote admin. */
   owner: boolean;
+  /** Live: a first-plan trial can be started. Never in the sample. */
+  trialAvailable: boolean;
 };
 
 /**
@@ -90,6 +103,7 @@ const SAMPLE_STATE: PlanState = {
   testMode: false,
   usage: null,
   owner: true,
+  trialAvailable: false,
 };
 const MAX_SAVED_PAYMENTS = 200;
 const storageKey = (accountId: string) => `linara_plan_preview:${accountId}`;
@@ -259,6 +273,7 @@ function applyLive(billing: MyBilling) {
     testMode: billing.testMode,
     usage: billing.usage,
     owner: billing.owner,
+    trialAvailable: billing.trialAvailable,
   };
   emit();
 }
@@ -305,7 +320,7 @@ export async function refreshPlan(): Promise<boolean> {
   return connectPlan(accountId, token);
 }
 
-const NOT_SAMPLE = "Billing is live here: this goes through Xendit.";
+const notSample = () => tt()("plan.billingLive");
 
 export type CheckoutResult = { ok: true; invoiceUrl: string } | { ok: false; message: string };
 
@@ -320,8 +335,8 @@ export async function checkout(
   cycle: Cycle | null,
   addons: AddonLine[],
 ): Promise<CheckoutResult> {
-  if (!state.live || !token) return { ok: false, message: "Billing isn't set up here yet." };
-  if (paying) return { ok: false, message: "A payment is already being opened." };
+  if (!state.live || !token) return { ok: false, message: tt()("plan.billingNotSetUp") };
+  if (paying) return { ok: false, message: tt()("plan.paymentOpening") };
   paying = true;
   try {
     const res = await (
@@ -340,19 +355,19 @@ export async function checkout(
     window.location.assign(res.invoiceUrl);
     return { ok: true, invoiceUrl: res.invoiceUrl };
   } catch {
-    return { ok: false, message: "Couldn't start the payment. Try again." };
+    return { ok: false, message: tt()("plan.couldntStartPayment") };
   } finally {
     paying = false;
   }
 }
 
 async function liveChange(run: (token: string) => Promise<ChangeResult>): Promise<ChangeResult> {
-  if (!state.live || !token) return { ok: false, message: "Billing isn't set up here yet." };
+  if (!state.live || !token) return { ok: false, message: tt()("plan.billingNotSetUp") };
   let res: ChangeResult;
   try {
     res = await run(token);
   } catch {
-    return { ok: false, message: "Couldn't save that. Check your connection and try again." };
+    return { ok: false, message: tt()("plan.couldntSave") };
   }
   if (res.ok) await refreshPlan();
   return res;
@@ -361,6 +376,21 @@ async function liveChange(run: (token: string) => Promise<ChangeResult>): Promis
 /** Live: moves to Free now (nothing to pay). */
 export function changeToFreeLive(): Promise<ChangeResult> {
   return liveChange(async (t) => (await actions()).changeToFreeFn({ data: { token: t } }));
+}
+
+let startingTrial = false;
+
+/** Live: starts the plan's free trial (nothing is charged). A second tap while one starts is refused. */
+export async function startTrialLive(planId: string): Promise<ChangeResult> {
+  if (startingTrial) return { ok: false, message: tt()("plan.trialStarting") };
+  startingTrial = true;
+  try {
+    return await liveChange(async (t) =>
+      (await actions()).startTrialFn({ data: { token: t, planId } }),
+    );
+  } finally {
+    startingTrial = false;
+  }
 }
 
 /** Live: the plan ends at its renewal date, then it's Free. */
@@ -418,7 +448,8 @@ export function isCurrentPlan(planId: string, cycle: Cycle, addons: AddonLine[])
     s.cycle === cycle &&
     JSON.stringify(s.addons) === JSON.stringify(lines) &&
     s.status !== "restricted" &&
-    s.status !== "past_due"
+    s.status !== "past_due" &&
+    s.status !== "trialing"
   );
 }
 
@@ -428,14 +459,15 @@ export function isCurrentPlan(planId: string, cycle: Cycle, addons: AddonLine[])
  * can move to is planMove's call, checked by the screens and payForPlan.
  */
 export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): ChangeResult {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
-  const q = quote(planId, cycle, addons);
+  if (state.live) return { ok: false, message: notSample() };
+  const t = tt();
+  const q = quote(planId, cycle, addons, t);
   if (!q.ok) return q;
   const plan = planById(planId);
-  if (!plan) return { ok: false, message: "That plan isn't offered." };
+  if (!plan) return { ok: false, message: t("plan.errPlanNotOffered") };
   const lines = addons.filter((a) => a.quantity > 0);
   if (isCurrentPlan(planId, cycle, addons)) {
-    return { ok: false, message: "That's the plan you already have." };
+    return { ok: false, message: t("plan.alreadyHavePlan") };
   }
   const start = new Date();
   const end = new Date(start);
@@ -461,16 +493,14 @@ export function changePlan(planId: string, cycle: Cycle, addons: AddonLine[]): C
 
 /** Sample: moves to Free now, only when no paid period runs (as billing_change_to_free). */
 export function changeToFree(): ChangeResult {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
-  const move = planMove(state.subscription, "free", "monthly", []);
+  if (state.live) return { ok: false, message: notSample() };
+  const t = tt();
+  const move = planMove(state.subscription, "free", "monthly", [], Date.now(), t);
   if (!move.ok) {
-    return move.lower
+    return move.lower && state.subscription.periodEnd
       ? {
           ok: false,
-          message: move.message.replace(
-            "To move to a lower plan, cancel this one. You keep it until",
-            "To move to Free, cancel your plan. You keep it until",
-          ),
+          message: t("plan.moveFreeCancel", { date: dayText(state.subscription.periodEnd, t) }),
         }
       : move;
   }
@@ -479,20 +509,20 @@ export function changeToFree(): ChangeResult {
 
 /** Sample: the plan ends at its renewal date (as billing_cancel_plan). */
 export function cancelPlan(): ChangeResult {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  if (state.live) return { ok: false, message: notSample() };
   const s = state.subscription;
-  if (!periodRunning(s)) return { ok: false, message: "There's no paid plan running to cancel." };
-  if (s.cancelAtPeriodEnd) return { ok: false, message: "Your plan already ends then." };
+  if (!periodRunning(s)) return { ok: false, message: tt()("plan.noPaidPlanToCancel") };
+  if (s.cancelAtPeriodEnd) return { ok: false, message: tt()("plan.planAlreadyEnds") };
   set({ ...state, subscription: { ...s, cancelAtPeriodEnd: true } });
   return { ok: true };
 }
 
 /** Sample: keeps a cancelled plan (as billing_resume_plan). */
 export function resumePlan(): ChangeResult {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  if (state.live) return { ok: false, message: notSample() };
   const s = state.subscription;
   if (!periodRunning(s) || !s.cancelAtPeriodEnd) {
-    return { ok: false, message: "Your plan isn't set to end." };
+    return { ok: false, message: tt()("plan.planNotEnding") };
   }
   set({ ...state, subscription: { ...s, cancelAtPeriodEnd: false } });
   return { ok: true };
@@ -516,14 +546,15 @@ export async function payForPlan(
   addons: AddonLine[],
   method: PaymentMethod,
 ): Promise<PayResult> {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
-  if (paying) return { ok: false, message: "A payment is already going through." };
-  if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: "Choose how to pay." };
-  const q = quote(planId, cycle, addons);
+  if (state.live) return { ok: false, message: notSample() };
+  const t = tt();
+  if (paying) return { ok: false, message: t("plan.paymentGoing") };
+  if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: t("plan.chooseHow") };
+  const q = quote(planId, cycle, addons, t);
   if (!q.ok) return q;
-  if (q.amount === 0) return { ok: false, message: "Nothing to pay on this plan." };
+  if (q.amount === 0) return { ok: false, message: t("plan.nothingToPayPlan") };
   // The same rule and price as the database: up only, prorated while a period runs.
-  const move = planMove(state.subscription, planId, cycle, addons);
+  const move = planMove(state.subscription, planId, cycle, addons, Date.now(), t);
   if (!move.ok) return move;
   paying = true;
   try {
@@ -539,15 +570,14 @@ export async function payForPlan(
       method,
       status: declined ? "failed" : "paid",
       at: new Date().toISOString(),
-      failureReason: declined ? "The card was declined." : null,
+      failureReason: declined ? t("plan.cardDeclined") : null,
     };
     if (declined) {
       set({ ...state, payments: [payment, ...state.payments] });
-      return { ok: false, message: "The card was declined. Nothing was charged; try another way." };
+      return { ok: false, message: t("plan.cardDeclinedNothing") };
     }
-    const start = new Date();
-    const end = new Date(start);
-    end.setUTCMonth(end.getUTCMonth() + (cycle === "annual" ? 12 : 1));
+    // From the old renewal date when late, past the trial's end in one (billing_next_period).
+    const period = nextPeriod(state.subscription, cycle);
     const kept = move.keepsPeriod ? state.subscription : null;
     set({
       ...state,
@@ -558,12 +588,8 @@ export async function payForPlan(
         addons: addons.filter((a) => a.quantity > 0),
         status: "active",
         cancelAtPeriodEnd: false,
-        periodStart: kept
-          ? (kept.periodStart ?? null)
-          : cycle === "one_time"
-            ? null
-            : start.toISOString(),
-        periodEnd: kept ? kept.periodEnd : cycle === "one_time" ? null : end.toISOString(),
+        periodStart: kept ? (kept.periodStart ?? null) : cycle === "one_time" ? null : period.start,
+        periodEnd: kept ? kept.periodEnd : period.end,
       },
       selection: null,
       payments: [payment, ...state.payments],
@@ -580,18 +606,19 @@ export async function payForPlan(
  * test card declines; a second tap while one is going through is refused.
  */
 export async function payForAddons(lines: AddonLine[], method: PaymentMethod): Promise<PayResult> {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
-  if (paying) return { ok: false, message: "A payment is already going through." };
-  if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: "Choose how to pay." };
-  const change = addonChange(state.subscription, lines);
+  if (state.live) return { ok: false, message: notSample() };
+  const t = tt();
+  if (paying) return { ok: false, message: t("plan.paymentGoing") };
+  if (!PAYMENT_METHODS.includes(method)) return { ok: false, message: t("plan.chooseHow") };
+  const change = addonChange(state.subscription, lines, t);
   if (!change.ok) return change;
-  if (change.dueNow === 0) return { ok: false, message: "Nothing to pay for this change." };
+  if (change.dueNow === 0) return { ok: false, message: t("plan.nothingToPayChange") };
   paying = true;
   try {
     await new Promise((r) => setTimeout(r, PROCESSING_MS));
     const sub = state.subscription;
     // The plan may have changed while this was going through.
-    const again = addonChange(sub, lines);
+    const again = addonChange(sub, lines, t);
     if (!again.ok) return again;
     const declined = method === "card_decline";
     const payment: SamplePayment = {
@@ -604,11 +631,11 @@ export async function payForAddons(lines: AddonLine[], method: PaymentMethod): P
       method,
       status: declined ? "failed" : "paid",
       at: new Date().toISOString(),
-      failureReason: declined ? "The card was declined." : null,
+      failureReason: declined ? t("plan.cardDeclined") : null,
     };
     if (declined) {
       set({ ...state, payments: [payment, ...state.payments] });
-      return { ok: false, message: "The card was declined. Nothing was charged; try another way." };
+      return { ok: false, message: t("plan.cardDeclinedNothing") };
     }
     set({
       ...state,
@@ -623,10 +650,11 @@ export async function payForAddons(lines: AddonLine[], method: PaymentMethod): P
 
 /** Removes add-ons (nothing to pay, nothing refunded). Refuses a change that costs more. */
 export function removeAddons(lines: AddonLine[]): ChangeResult {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
-  const change = addonChange(state.subscription, lines);
+  if (state.live) return { ok: false, message: notSample() };
+  const t = tt();
+  const change = addonChange(state.subscription, lines, t);
   if (!change.ok) return change;
-  if (change.dueNow > 0) return { ok: false, message: "That adds add-ons: pay for them first." };
+  if (change.dueNow > 0) return { ok: false, message: t("plan.addsAddons") };
   set({
     ...state,
     subscription: { ...state.subscription, addons: lines.filter((l) => l.quantity > 0) },
@@ -645,7 +673,7 @@ export function saveSelection(
   available: { households: string[]; kasambahay: string[] },
   t?: Translate,
 ): SelectionCheck {
-  if (state.live) return { ok: false, message: NOT_SAMPLE };
+  if (state.live) return { ok: false, message: notSample() };
   const check = checkSelection(state.subscription, selection, available, t);
   if (check.ok) set({ ...state, selection });
   return check;

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { MapPin } from "lucide-react";
 
 import { useBusyElsewhere } from "../hooks/use-busy-elsewhere";
@@ -19,8 +20,8 @@ export function BusyElsewhereNote({ helperId, dayIso }: { helperId: string; dayI
   const text = [...byHouse.entries()]
     .map(([house, list]) =>
       list.some((s) => s.status === "in_progress")
-        ? `At ${house} now`
-        : `At ${house} ${list.map(slotTime).join(", ")}`,
+        ? currentT()("sharing.atHouseNow", { house })
+        : currentT()("sharing.atHouseTimes", { house, times: list.map(slotTime).join(", ") }),
     )
     .join(" · ");
 

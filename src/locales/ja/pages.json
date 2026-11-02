@@ -18,6 +18,18 @@
     "openAppHelper": "Linara アプリを開く",
     "openAppManager": "Linara アプリを開く",
     "continueInBrowser": "ブラウザで続ける",
-    "signIn": "ログイン"
+    "signIn": "ログイン",
+    "titleMoney": "お金 | Linara",
+    "titlePantry": "パントリー | Linara",
+    "titlePass": "ザ・パス | Linara",
+    "titlePeople": "メンバー | Linara",
+    "titlePlan": "ご利用中のプラン | Linara",
+    "titleSchedule": "スケジュール | Linara",
+    "titleEmailConfirmed": "メール確認済み | Linara",
+    "titlePrivacy": "プライバシーポリシー | Linara",
+    "titleTerms": "利用規約 | Linara",
+    "siteTitle": "Linara · 暮らしを、わかりやすく。",
+    "siteDescription": "Linaraは、家族とヘルパーが落ち着いて同じ見通しで一日を調整できるようにします。",
+    "siteOgDescription": "家族とヘルパーが落ち着いて共有できる、家事管理アプリです。"
   }
 }

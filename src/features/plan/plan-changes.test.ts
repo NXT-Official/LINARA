@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MIN_CHARGE, planMove } from "./plan.logic";
+import { MIN_CHARGE, nextPeriod, planMove } from "./plan.logic";
 import type { MySubscription } from "./plan.types";
 
 // The same cases as supabase/tests/billing-plan-changes.test.mjs, so the
@@ -151,5 +151,64 @@ describe("when no paid period runs, any plan at its full price", () => {
     expect(
       planMove(running({ planId: "premium", status: "trialing" }), "free", "monthly", [], NOW),
     ).toMatchObject({ ok: true, dueNow: 0 });
+  });
+
+  it("in a trial, its own plan can be paid for (that's how the trial is kept)", () => {
+    expect(
+      planMove(running({ planId: "premium", status: "trialing" }), "premium", "monthly", [], NOW),
+    ).toMatchObject({ ok: true, dueNow: 39_900 });
+  });
+});
+
+// add-billing-renewal-and-trials.sql (billing_next_period): the same dates.
+describe("the period a plan payment pays for", () => {
+  const iso = (s: string) => new Date(s).toISOString();
+  it("late: from the old renewal date, not today", () => {
+    const owed = running({ status: "past_due", periodEnd: iso("2026-11-05T00:00:00Z") });
+    expect(nextPeriod(owed, "monthly", NOW)).toEqual({
+      start: iso("2026-11-05T00:00:00Z"),
+      end: iso("2026-12-05T00:00:00Z"),
+    });
+  });
+
+  it("unpaid for over a cycle: whole cycles on, the same day, covering today", () => {
+    const owed = running({ status: "restricted", periodEnd: iso("2026-07-20T00:00:00Z") });
+    expect(nextPeriod(owed, "monthly", NOW)).toEqual({
+      start: iso("2026-10-20T00:00:00Z"),
+      end: iso("2026-11-20T00:00:00Z"),
+    });
+  });
+
+  it("from a month's end, as Postgres does it (Jan 31 + 1 month is Feb 28)", () => {
+    const owed = running({ status: "past_due", periodEnd: iso("2027-01-31T00:00:00Z") });
+    expect(nextPeriod(owed, "monthly", Date.parse("2027-02-03T00:00:00Z"))).toEqual({
+      start: iso("2027-01-31T00:00:00Z"),
+      end: iso("2027-02-28T00:00:00Z"),
+    });
+  });
+
+  it("late on monthly, paying yearly: the year from the old renewal date", () => {
+    const owed = running({ status: "past_due", periodEnd: iso("2026-11-05T00:00:00Z") });
+    expect(nextPeriod(owed, "annual", NOW).end).toBe(iso("2027-11-05T00:00:00Z"));
+  });
+
+  it("in a trial: starts now and runs a cycle past the trial's end", () => {
+    const trial = running({ status: "trialing", periodEnd: iso("2026-11-15T00:00:00Z") });
+    expect(nextPeriod(trial, "monthly", NOW)).toEqual({
+      start: new Date(NOW).toISOString(),
+      end: iso("2026-12-15T00:00:00Z"),
+    });
+  });
+
+  it("otherwise from today; one-time has no end", () => {
+    const free = running({ planId: "free", periodStart: null, periodEnd: null });
+    expect(nextPeriod(free, "monthly", NOW)).toEqual({
+      start: new Date(NOW).toISOString(),
+      end: iso("2026-12-08T00:00:00Z"),
+    });
+    expect(nextPeriod(free, "one_time", NOW)).toEqual({
+      start: new Date(NOW).toISOString(),
+      end: null,
+    });
   });
 });

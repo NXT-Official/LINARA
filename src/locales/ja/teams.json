@@ -66,6 +66,21 @@
     "removeTeamConfirm": "削除しますか？ {extra}",
     "goToNoTeam": "{count} 名が「チームなし」になります。",
     "savedWhereWorks": "{name}さんの勤務先を保存しました。",
-    "couldntChangeThat": "変更できませんでした。"
+    "couldntChangeThat": "変更できませんでした。",
+    "movedTo": "{people}を{team}に移動しました。",
+    "labelAdded": "{people}に{label}を追加しました。",
+    "labelTook": "{people}から{label}を外しました。",
+    "chooseSomeone": "人を選ぶ",
+    "searchFor": "検索：{label}",
+    "searchStaff": "名前でスタッフを検索",
+    "errAddTeam": "チームを追加できませんでした",
+    "errAddLabel": "ラベルを追加できませんでした",
+    "renameItem": "{name}の名前を変更",
+    "removeItem": "{name}を削除",
+    "editItem": "{name}を編集",
+    "errOnlyPrimary": "チームとラベルを変更できるのは主管理者または共同管理者のみです",
+    "errTeamExists": "その名前のチームはすでにあります",
+    "errLabelExists": "その名前のラベルはすでにあります",
+    "errUnknownColour": "不明な色"
   }
 }

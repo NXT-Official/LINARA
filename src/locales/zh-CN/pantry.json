@@ -27,6 +27,22 @@
     "add": "添加",
     "hindiNaSaveAngPantry": "储藏物品未保存。",
     "hindiNaAddAngPantry": "储藏物品未添加。",
-    "hindiNaRemoveAngPantry": "储藏物品未移除。"
+    "hindiNaRemoveAngPantry": "储藏物品未移除。",
+    "oneLess": "{name} 减一",
+    "editOnHand": "编辑现有 {name} 的数量",
+    "oneMore": "{name} 加一",
+    "removeItem": "移除 {name}",
+    "filterAll": "全部",
+    "errAddItem": "无法添加储藏室物品",
+    "catRice": "米和谷物",
+    "catFresh": "生鲜",
+    "catDry": "干货和酱料",
+    "catCleaning": "清洁用品",
+    "catBaby": "婴儿用品",
+    "stockOut": "已用完",
+    "other": "其他",
+    "giveName": "请给它起个名字。",
+    "numberZeroOrMore": "一个数字，0 或更大。",
+    "runningLowLabel": "快用完"
   }
 }

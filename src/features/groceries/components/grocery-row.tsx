@@ -64,7 +64,7 @@ export function GroceryRow({
           type="button"
           role="checkbox"
           aria-checked={item.bought}
-          aria-label={`Bought ${item.name}`}
+          aria-label={t("groceries.boughtItem", { name: item.name })}
           onClick={onToggleBought}
           className="group -ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-full"
         >
@@ -102,7 +102,7 @@ export function GroceryRow({
               type="button"
               onClick={() => setEditing(true)}
               className="group inline-flex min-w-0 items-center gap-1 text-left"
-              aria-label={`Edit ${item.name}`}
+              aria-label={t("groceries.editItem", { name: item.name })}
             >
               <span className="truncate font-medium group-hover:underline">{item.name}</span>
               <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
@@ -155,10 +155,10 @@ export function GroceryRow({
           className="-mr-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
           aria-label={
             suggested
-              ? `Dismiss ${item.name}`
+              ? t("groceries.dismissItem", { name: item.name })
               : unlist
-                ? `Move ${item.name} back to Needed`
-                : `Remove ${item.name}`
+                ? t("groceries.moveBackNeeded", { name: item.name })
+                : t("groceries.removeItem", { name: item.name })
           }
           title={unlist ? t("groceries.backToNeeded") : undefined}
         >
@@ -193,7 +193,7 @@ function CostInput({ item, onCost }: { item: GroceryItem; onCost: (cost: number 
         }}
         inputMode="decimal"
         placeholder="—"
-        aria-label={`What ${item.name} cost`}
+        aria-label={t("groceries.whatItCost", { name: item.name })}
         className="w-20 rounded-lg border border-input bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
       />
     </label>

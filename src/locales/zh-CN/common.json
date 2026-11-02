@@ -17,6 +17,20 @@
     "couldntRemoveIt": "无法移除。",
     "somethingWentWrong": "出了点问题。",
     "undo": "撤销",
-    "nothingWasCharged": "未收取任何费用。"
+    "nothingWasCharged": "未收取任何费用。",
+    "errors": {
+      "notSignedIn": "尚未登录。",
+      "notAuthenticated": "未通过身份验证",
+      "invalidToken": "未授权：令牌无效",
+      "profileNotFound": "未授权：找不到个人资料",
+      "signInToUse": "请登录后使用。",
+      "sessionExpired": "会话已过期",
+      "unknownHelper": "未知的家政人员",
+      "helperNotFound": "找不到该家政人员",
+      "noHousehold": "没有家庭",
+      "loginFailed": "登录失败",
+      "browserPhotos": "此浏览器无法处理照片。",
+      "readPhoto": "无法读取该照片。"
+    }
   }
 }

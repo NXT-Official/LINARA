@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { Link } from "@tanstack/react-router";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -16,7 +18,11 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const longDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" });
+  new Date(iso).toLocaleDateString(dateLocale(), {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
 /**
  * The manager's own account: where the privacy policy lives, and the
@@ -64,7 +70,7 @@ export function AccountSection({
       await cancelAccountDeletionFn({ data: { token } });
       setRequest(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't withdraw the request.");
+      setError(err instanceof Error ? err.message : currentT()("people.errWithdraw"));
     } finally {
       setCancelling(false);
     }
@@ -177,7 +183,7 @@ function DeleteAccountModal({
         await requestAccountDeletionFn({ data: { token, note: note.trim() || undefined } }),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't send the request.");
+      setError(err instanceof Error ? err.message : currentT()("people.errSendRequestDot"));
       setSubmitting(false);
     }
   };

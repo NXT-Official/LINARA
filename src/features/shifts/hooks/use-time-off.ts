@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -175,8 +176,10 @@ export function useTimeOff({
       const request = leave.find((l) => l.id === id);
       return run(
         () => decideLeaveFn({ data: { token, requestId: id, decision } }),
-        decision === "approved" ? "Leave approved." : "Leave declined.",
-        "Couldn't save that decision.",
+        decision === "approved"
+          ? currentT()("shifts.leaveApproved")
+          : currentT()("shifts.leaveDeclined"),
+        currentT()("shifts.errSaveDecision"),
         decision === "approved" && opts?.unassignTasks && request
           ? () => unassignDuring(request.helperId, request.startDate, request.endDate)
           : undefined,
@@ -190,8 +193,8 @@ export function useTimeOff({
       token
         ? run(
             () => recordLeaveFn({ data: { token, ...input } }),
-            "Leave recorded. They'll be asked to confirm it.",
-            "Couldn't record that leave.",
+            currentT()("shifts.leaveRecorded"),
+            currentT()("shifts.errRecordLeave"),
             unassignTasks
               ? () => unassignDuring(input.helperId, input.startDate, input.endDate)
               : undefined,
@@ -205,8 +208,8 @@ export function useTimeOff({
       token
         ? run(
             () => cancelLeaveFn({ data: { token, requestId: id } }),
-            "Leave cancelled.",
-            "Couldn't cancel that leave.",
+            currentT()("shifts.leaveCancelled"),
+            currentT()("shifts.errCancelLeave"),
           )
         : Promise.resolve(false),
     [token, run],

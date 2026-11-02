@@ -50,6 +50,21 @@
     "hindiNaSaveAngDesisyon": "The decision on the vale request wasn't saved.",
     "approvedRestLeft": "Approved. {left} rest owed is left.",
     "requestDeclined": "Request declined.",
-    "requestNotUpdated": "The request wasn't updated."
+    "requestNotUpdated": "The request wasn't updated.",
+    "restOwedMonthName": "Rest owed this month · {name}",
+    "restOwedMonth": "Rest owed this month",
+    "restOwedYours": "Rest owed this month · yours",
+    "wagePerMonth": "₱{amount} / month",
+    "notOnFile": "Not on file yet",
+    "errRecordEntry": "Failed to record ledger entry",
+    "errSubmitVale": "Failed to submit vale request",
+    "errManagersOnlyVale": "Forbidden: Only managers can decide vale requests",
+    "reasonAvailable": "Available",
+    "reasonEmergency": "Emergency",
+    "reasonRestDay": "Rest day",
+    "reasonRestBreak": "Rest break",
+    "reasonAfterShift": "After shift",
+    "liveIn": "Live-in",
+    "liveOut": "Live-out"
   }
 }

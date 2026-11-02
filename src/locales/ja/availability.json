@@ -15,6 +15,21 @@
     "classifiedTask": "タスクとして分類しました：「{text}」",
     "usuallyGoesTo": "これは通常{station}の担当です。このまま{name}さん（{current}）に送ります。{other}さんのつもりなら、宛先リストで選んでください。",
     "wentAsSuggestion": "{name}さんは勤務時間外のため、在宅の管理者に提案として送りました。",
-    "nobodyAssignedSuggestion": "担当者がいないため、在宅の管理者に提案として送りました。"
+    "nobodyAssignedSuggestion": "担当者がいないため、在宅の管理者に提案として送りました。",
+    "statusOnShift": "勤務中",
+    "statusAvailable": "対応可能",
+    "statusOff": "オフ",
+    "kindUtos": "クイック指示",
+    "kindTask": "タスク",
+    "headQuiet": "{name}の静かな時間帯です。",
+    "headTimeOff": "{name}はこの時間は休みです。",
+    "headRestDay": "今日は{name}の休日です。",
+    "headOutside": "{name}の勤務時間外です。",
+    "bodyQuiet": "夜間は保護された休息時間です。これに費やした時間は{name}への「未消化の休息」として記録されます。本当に待てない場合のみ緊急を使ってください。",
+    "bodyTimeOff": "これは{name}に承認された休みです。これに費やした時間は未消化の休息として記録されます。",
+    "bodyRestDay": "今日は{name}の休日です。これに費やした時間は未消化の休息として記録されます。",
+    "bodyOffShift": "{name}は勤務外です。これに費やした時間は未消化の休息として記録されます。",
+    "queueUtos": "待機のままになります。通知はありません。{name}が勤務に戻ると表示されます。",
+    "queueTask": "静かに追加されます。{name}の次の勤務時間に、ボードに表示されます。"
   }
 }

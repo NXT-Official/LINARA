@@ -24,23 +24,24 @@ export function AvailabilityGate({
   onChoose: (choice: "queue" | "override" | "emergency") => void;
 }) {
   const t = useT();
-  const kindLabel = intent.kind === "utos" ? "quick utos" : "task";
+  const kindLabel =
+    intent.kind === "utos" ? t("availability.kindUtos") : t("availability.kindTask");
   const preview = intent.kind === "utos" ? intent.content : intent.task.title;
   const hard = status.quiet || status.restDay || !!status.timeOff;
   const headline = status.quiet
-    ? `It's quiet hours for ${helperName}.`
+    ? t("availability.headQuiet", { name: helperName })
     : status.timeOff
-      ? `${helperName} has this time off.`
+      ? t("availability.headTimeOff", { name: helperName })
       : status.restDay
-        ? `It's ${helperName}'s rest day.`
-        : `This is outside ${helperName}'s hours.`;
+        ? t("availability.headRestDay", { name: helperName })
+        : t("availability.headOutside", { name: helperName });
   const body = status.quiet
-    ? `Overnight is protected rest. Time spent on this is logged as rest owed to ${helperName}. Only use Emergency if it truly can't wait.`
+    ? t("availability.bodyQuiet", { name: helperName })
     : status.timeOff
-      ? `This is time off that was approved for ${helperName}. Time spent on this is logged as rest owed.`
+      ? t("availability.bodyTimeOff", { name: helperName })
       : status.restDay
-        ? `It's ${helperName}'s rest day. Time spent on this is logged as rest owed.`
-        : `${helperName} is off-shift. Time spent on this is logged as rest owed.`;
+        ? t("availability.bodyRestDay", { name: helperName })
+        : t("availability.bodyOffShift", { name: helperName });
 
   return (
     <Modal onClose={onCancel}>
@@ -77,8 +78,8 @@ export function AvailabilityGate({
             </div>
             <div className="text-xs text-muted-foreground">
               {intent.kind === "utos"
-                ? `Sits as waiting. No ping. ${helperName} sees it when back on.`
-                : `Added quietly. Appears on ${helperName}'s board next working period.`}
+                ? t("availability.queueUtos", { name: helperName })
+                : t("availability.queueTask", { name: helperName })}
             </div>
           </div>
         </button>

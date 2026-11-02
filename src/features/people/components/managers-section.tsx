@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, KeyRound, Link2, Loader2, LogOut, Plus, Users, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -30,7 +32,7 @@ const roleBadge: Record<Admin["type"], string> = {
 };
 
 const whenExpires = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  new Date(iso).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 
 /**
  * Who manages the household (KNOWN_GAPS O2). The primary manager invites
@@ -75,7 +77,10 @@ export function ManagersSection() {
     run(
       `role-${a.id}`,
       () => session.setManagerRole(a.id, role),
-      `${a.short} is now a ${adminTypeLabel[managerRoleType[role]].toLowerCase()}.`,
+      currentT()("people.managerNowA", {
+        name: a.short,
+        role: adminTypeLabel[managerRoleType[role]].toLowerCase(),
+      }),
     );
 
   return (
@@ -123,7 +128,7 @@ export function ManagersSection() {
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     {confirming === "remove" ? (
                       <ConfirmInline
-                        question={`Take ${a.short} off this household? Their account stays.`}
+                        question={currentT()("people.takeOffQuestion", { name: a.short })}
                         yes="Remove"
                         busy={busy === `remove-${a.id}`}
                         onYes={() =>
@@ -137,8 +142,8 @@ export function ManagersSection() {
                       />
                     ) : confirming === "primary" ? (
                       <ConfirmInline
-                        question={`Make ${a.short} the primary manager? You'll become a co-manager.`}
-                        yes="Make primary"
+                        question={currentT()("people.makePrimaryQuestion", { name: a.short })}
+                        yes={currentT()("people.makePrimary")}
                         busy={busy === `primary-${a.id}`}
                         onYes={() =>
                           run(`primary-${a.id}`, () =>
@@ -183,7 +188,7 @@ export function ManagersSection() {
                   <div className="mt-2.5">
                     {confirming === "leave" ? (
                       <ConfirmInline
-                        question="Leave this household? You'll need a new code to come back."
+                        question={currentT()("people.leaveQuestion")}
                         yes="Leave"
                         busy={busy === "leave"}
                         onYes={() => run("leave", () => session.leaveHousehold())}
@@ -236,7 +241,7 @@ export function ManagersSection() {
                           await revokeManagerInviteFn({ data: { token, inviteId: inv.id } });
                           refreshInvites();
                         },
-                        "Code cancelled.",
+                        currentT()("people.codeCancelled"),
                       )
                     }
                     disabled={busy === `revoke-${inv.id}`}

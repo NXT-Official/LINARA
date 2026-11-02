@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Loader2, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -71,7 +72,7 @@ export function RepeatsList({ onStarted }: { onStarted: (runId: string) => void 
                   type="button"
                   onClick={() => setEditing(item)}
                   className="min-w-0 flex-1 text-left"
-                  aria-label={`Edit ${item.title}`}
+                  aria-label={t("groceries.editItem", { name: item.title })}
                 >
                   <span className="block truncate text-sm font-semibold text-foreground hover:underline">
                     {item.title}
@@ -139,8 +140,8 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
 
   const addLine = () => {
     const n = parseAmount(line.qty);
-    if (!line.name.trim()) return setError("Type what to buy.");
-    if (n === null || n === 0) return setError("Qty: a number above 0.");
+    if (!line.name.trim()) return setError(currentT()("groceries.typeWhatToBuy"));
+    if (n === null || n === 0) return setError(currentT()("groceries.qtyAboveZero"));
     setError(null);
     set("items", [
       ...draft.items,
@@ -163,10 +164,10 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
   };
 
   const save = async () => {
-    if (!draft.title.trim()) return setError("Give it a name, like “Weekly palengke”.");
+    if (!draft.title.trim()) return setError(currentT()("groceries.nameIt"));
     const c = cash.trim() === "" ? null : Number(cash.replace(/[,₱\s]/g, ""));
     if (c !== null && (!Number.isFinite(c) || c < 0)) {
-      return setError("Usual cash: an amount in pesos, or empty.");
+      return setError(currentT()("groceries.usualCashAmount"));
     }
     setError(null);
     setBusy("save");
@@ -276,7 +277,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
                       shoppers.filter((x) => x !== id),
                     )
                   }
-                  aria-label={`Take ${helperName(id)} off this repeat`}
+                  aria-label={t("groceries.takeOffRepeat", { name: helperName(id) })}
                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
                 >
                   {helperName(id)} <X className="h-3 w-3 text-muted-foreground" />
@@ -288,8 +289,8 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             helpers={activeHelpers.filter((h) => !shoppers.includes(h.id))}
             value=""
             onChange={(id) => id && set("shopperIds", [...shoppers, id])}
-            ariaLabel="Add someone to this repeat"
-            before={[{ value: "", label: "Add someone…" }]}
+            ariaLabel={currentT()("groceries.addSomeoneRepeat")}
+            before={[{ value: "", label: currentT()("groceries.addSomeoneEllipsis") }]}
           />
         </div>
       </div>
@@ -324,7 +325,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
                     draft.items.filter((_, j) => j !== i),
                   )
                 }
-                aria-label={`Remove ${it.name}`}
+                aria-label={t("groceries.removeItem", { name: it.name })}
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />

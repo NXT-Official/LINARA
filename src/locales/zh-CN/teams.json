@@ -66,6 +66,21 @@
     "removeTeamConfirm": "确定移除？{extra}",
     "goToNoTeam": "{count} 人将变为无团队。",
     "savedWhereWorks": "已保存 {name} 的工作地点。",
-    "couldntChangeThat": "无法更改。"
+    "couldntChangeThat": "无法更改。",
+    "movedTo": "已把 {people} 移到 {team}。",
+    "labelAdded": "已为 {people} 添加 {label}。",
+    "labelTook": "已从 {people} 移除 {label}。",
+    "chooseSomeone": "选择一个人",
+    "searchFor": "搜索：{label}",
+    "searchStaff": "按姓名搜索员工",
+    "errAddTeam": "无法添加团队",
+    "errAddLabel": "无法添加标签",
+    "renameItem": "重命名 {name}",
+    "removeItem": "移除 {name}",
+    "editItem": "编辑 {name}",
+    "errOnlyPrimary": "只有主要管理员或共同管理员可以更改团队和标签",
+    "errTeamExists": "已有同名团队",
+    "errLabelExists": "已有同名标签",
+    "errUnknownColour": "未知的颜色"
   }
 }

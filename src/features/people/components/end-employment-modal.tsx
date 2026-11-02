@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Info, Loader2, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -25,7 +27,7 @@ const daysInclusive = (start: string, end: string) =>
   Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
 
 const longDay = (ymd: string) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", {
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(dateLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -34,16 +36,16 @@ const longDay = (ymd: string) =>
 function problemText(p: EmploymentEndPreview): string | null {
   switch (p.problem) {
     case "future":
-      return "Pick today or an earlier day. An employment can't be ended ahead of time.";
+      return currentT()("people.endPickToday");
     case "before_start":
-      return `That's before their first day (${longDay(p.startedOn)}).`;
+      return currentT()("people.endBeforeFirst", { day: longDay(p.startedOn) });
     case "already_paid_past":
       // Paid ahead: no day is valid yet, since a last day can't be in the future.
       return p.latestPaidCutoffEnd && p.latestPaidCutoffEnd > p.today
-        ? `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd)}, so the last working day can't be earlier. You can end the employment from that day.`
-        : `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
+        ? currentT()("people.endPaidThroughEnd", { day: longDay(p.latestPaidCutoffEnd) })
+        : currentT()("people.endPaidThrough", { day: longDay(p.latestPaidCutoffEnd ?? p.today) });
     case "not_active":
-      return "They aren't employed here any more.";
+      return currentT()("people.endNotEmployed");
     default:
       return null;
   }
@@ -109,7 +111,8 @@ export function EndEmploymentModal({
         setPreview(p);
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Couldn't load this.");
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : currentT()("people.errLoadThis"));
       });
     return () => {
       cancelled = true;
@@ -154,7 +157,7 @@ export function EndEmploymentModal({
       await onConfirm(lastDay, current && current.openTasks > 0 && reassignTo ? reassignTo : null);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't end the employment.");
+      setError(err instanceof Error ? err.message : currentT()("people.errEndShort"));
     } finally {
       setSubmitting(false);
     }
@@ -216,14 +219,16 @@ export function EndEmploymentModal({
         {current && !blocked && (
           <>
             {current.openTasks > 0 && (
-              <Field label={`Open tasks (${current.openTasks})`}>
+              <Field label={t("people.openTasksCount", { count: current.openTasks })}>
                 <HelperPicker
                   helpers={otherHelpers}
                   value={reassignTo}
                   onChange={setReassignTo}
-                  ariaLabel="Open tasks"
-                  after={[{ value: "", label: "Remove them from the board" }]}
-                  describe={(h) => `Move them to ${h.name} (${h.station})`}
+                  ariaLabel={currentT()("people.openTasks")}
+                  after={[{ value: "", label: currentT()("people.removeFromBoard") }]}
+                  describe={(h) =>
+                    currentT()("people.moveTo", { name: h.name, station: h.station })
+                  }
                 />
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {t("people.finishedTasksStayOnThe")}

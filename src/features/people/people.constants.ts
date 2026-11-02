@@ -16,24 +16,25 @@ export const WEEKLY_REST_DAY_NAMES = [
 // Regional minimum wage for Metro Manila (Batas Kasambahay)
 export const REGIONAL_MINIMUM_WAGE = 6000;
 
-export const adminTypeLabel: Record<AdminType, string> = {
-  primary: "Primary manager",
-  co: "Co-manager",
-  remote: "Remote admin",
-};
-export const adminTypeShort: Record<AdminType, string> = {
-  primary: "Primary",
-  co: "Co-manager",
-  remote: "Remote",
-};
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
+
+export const adminTypeLabel: Record<AdminType, string> = lazyMessages({
+  primary: "people.roleLabelPrimary",
+  co: "people.roleLabelCo",
+  remote: "people.roleLabelRemote",
+});
+export const adminTypeShort: Record<AdminType, string> = lazyMessages({
+  primary: "people.roleShortPrimary",
+  co: "people.roleLabelCo",
+  remote: "people.roleShortRemote",
+});
 // What each role may do: plan.md 1.2, held by the database
 // (supabase/add-household-managers.sql).
-export const adminPermSummary: Record<AdminType, string> = {
-  primary: "Runs the household, and the only one who adds or removes managers.",
-  co: "Manages everything with the primary manager, except who the managers are.",
-  remote:
-    "Sees everything, pays the helper, and approves vales and the budget. Suggests tasks, or sends one live when it's urgent and the helper is on shift.",
-};
+export const adminPermSummary: Record<AdminType, string> = lazyMessages({
+  primary: "people.permPrimary",
+  co: "people.permCo",
+  remote: "people.permRemote",
+});
 
 // household_managers.role (database) -> AdminType (what the UI is keyed on).
 export const managerRoleType: Record<ManagerRole, AdminType> = {

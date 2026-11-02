@@ -27,6 +27,22 @@
     "add": "追加",
     "hindiNaSaveAngPantry": "食品庫の品目を保存できませんでした。",
     "hindiNaAddAngPantry": "食品庫の品目を追加できませんでした。",
-    "hindiNaRemoveAngPantry": "食品庫の品目を削除できませんでした。"
+    "hindiNaRemoveAngPantry": "食品庫の品目を削除できませんでした。",
+    "oneLess": "{name}を1つ減らす",
+    "editOnHand": "{name}の手持ち数を編集",
+    "oneMore": "{name}を1つ増やす",
+    "removeItem": "{name}を削除",
+    "filterAll": "すべて",
+    "errAddItem": "パントリーの項目を追加できませんでした",
+    "catRice": "米・穀物",
+    "catFresh": "生鮮",
+    "catDry": "乾物・ソース",
+    "catCleaning": "掃除用品",
+    "catBaby": "ベビー用品",
+    "stockOut": "なし",
+    "other": "その他",
+    "giveName": "名前を付けてください。",
+    "numberZeroOrMore": "0以上の数値。",
+    "runningLowLabel": "残りわずか"
   }
 }

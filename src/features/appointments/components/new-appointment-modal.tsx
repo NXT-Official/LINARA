@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -242,8 +243,8 @@ export function NewAppointmentModal({
                       helpers={activeHelpers}
                       value={p.helperId}
                       onChange={(v) => updateRow(i, { helperId: v })}
-                      ariaLabel="Assign to"
-                      emptyLabel="No active helpers yet"
+                      ariaLabel={currentT()("tasks.assignTo")}
+                      emptyLabel={currentT()("tasks.noActiveHelpers")}
                       describe={(h) => `${h.short} · ${h.station}`}
                       className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
                     />

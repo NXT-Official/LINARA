@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { ChevronRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -13,14 +14,15 @@ import { formatCutoffRange } from "../pay.utils";
 import { manualAckState } from "../payslip-ack";
 import { earlierOwed } from "../period-estimate";
 import { useT } from "@/lib/i18n/locale-context";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
 import { richText } from "@/lib/i18n/rich-text";
 
-const STATE_LABEL: Record<PayrollState, string> = {
-  due: "Due",
-  in_flight: "Sending",
-  needs_review: "Needs review",
-  paid: "Paid",
-};
+const STATE_LABEL: Record<PayrollState, string> = lazyMessages({
+  due: "pay.stateDue",
+  in_flight: "pay.stateSending",
+  needs_review: "pay.stateNeedsReview",
+  paid: "pay.statePaid",
+});
 
 const STATE_TONE: Record<PayrollState, string> = {
   due: "bg-terracotta-soft/60 text-terracotta-ink",
@@ -30,7 +32,7 @@ const STATE_TONE: Record<PayrollState, string> = {
 };
 
 /** A paid row whose payment was recorded outside Linara and not yet confirmed. */
-const ACK_LABEL = { recorded: "Recorded", disputed: "Not received" } as const;
+const ACK_LABEL = lazyMessages({ recorded: "pay.ackRecorded", disputed: "pay.ackDisputed" });
 const ACK_TONE = {
   recorded: "bg-secondary text-pine-deep",
   disputed: "bg-destructive/10 text-destructive",
@@ -108,7 +110,7 @@ export function PayrollSummary({
     ),
   );
   // Semi-monthly and monthly helpers can be on different cutoffs at once.
-  const heading = ranges.size === 1 ? [...ranges][0] : "Current cutoffs";
+  const heading = ranges.size === 1 ? [...ranges][0] : currentT()("pay.currentCutoffs");
   const total = payroll.rows.reduce((sum, r) => sum + r.netPay, 0);
   const paidCount = payroll.rows.filter((r) => r.state === "paid").length;
 
@@ -182,7 +184,9 @@ export function PayrollSummary({
             <PayGroup
               key={g.key}
               title={g.title}
-              subtitle={payroll.loading ? "…" : `${fmtPeso(due)} still to pay`}
+              subtitle={
+                payroll.loading ? "…" : currentT()("pay.stillToPayAmount", { amount: fmtPeso(due) })
+              }
             >
               {g.items.map(payRow)}
             </PayGroup>
@@ -220,7 +224,7 @@ export function PayrollSummary({
             {r.cutoff ? formatCutoffRange(r.cutoff.cutoffStart, r.cutoff.cutoffEnd) : "…"}
             {r.valeDeductions > 0 ? ` · −${fmtPeso(r.valeDeductions)} vale` : ""}
             {r.unpaidLeaveDeduction > 0
-              ? ` · −${fmtPeso(r.unpaidLeaveDeduction)} unpaid leave`
+              ? t("pay.unpaidLeaveCut", { amount: fmtPeso(r.unpaidLeaveDeduction) })
               : ""}
           </span>
         </span>

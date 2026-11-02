@@ -1,7 +1,8 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { CalendarClock } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
-import { WEEKDAYS, toISODate } from "@/lib/time";
+import { WEEKDAYS, toISODate, weekdayName } from "@/lib/time";
 
 import { taskTone } from "../planner.utils";
 import type { Task } from "../task.types";
@@ -43,7 +44,7 @@ export function PlannerMonth({
       <div className="grid grid-cols-7 border-b border-border/60" aria-hidden>
         {WEEKDAYS.map((d) => (
           <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground">
-            {d}
+            {weekdayName(d)}
           </div>
         ))}
       </div>
@@ -61,7 +62,11 @@ export function PlannerMonth({
           const late = tasks.filter((t) => taskTone(t, nowTs) === "late").length;
           const held = tasks.filter((t) => t.status === "blocked").length;
           const summary = [
-            day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
+            day.toLocaleDateString(dateLocale(), {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            }),
             tasks.length === 0
               ? t("tasks.monthNothingPlanned")
               : open && open < tasks.length

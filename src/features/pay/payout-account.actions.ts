@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -42,7 +43,7 @@ export const getPayoutAccountFn = createServerFn({ method: "POST" })
       .eq("id", data.helperId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!helper) throw new Error("Helper not found");
+    if (!helper) throw new Error(currentT()("common.errors.helperNotFound"));
 
     if (helper.user_id) {
       const { data: saved, error: savedError } = await client

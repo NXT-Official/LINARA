@@ -18,6 +18,18 @@
     "openAppHelper": "Buksan na ang Linara app",
     "openAppManager": "Buksan ang Linara app",
     "continueInBrowser": "Magpatuloy sa browser",
-    "signIn": "Mag-sign in"
+    "signIn": "Mag-sign in",
+    "titleMoney": "Pera | Linara",
+    "titlePantry": "Pantry | Linara",
+    "titlePass": "Ang Pass | Linara",
+    "titlePeople": "Mga tao | Linara",
+    "titlePlan": "Iyong plan | Linara",
+    "titleSchedule": "Iskedyul | Linara",
+    "titleEmailConfirmed": "Nakumpirma ang email | Linara",
+    "titlePrivacy": "Patakaran sa privacy | Linara",
+    "titleTerms": "Mga tuntunin ng serbisyo | Linara",
+    "siteTitle": "Linara · Malinaw ang tahanan.",
+    "siteDescription": "Tinutulungan ng Linara ang mga pamilya at kasambahay na ayusin ang araw nang mahinahon at malinaw para sa lahat.",
+    "siteOgDescription": "Isang mahinahon at pinagsasaluhang app sa pamamahala ng tahanan para sa mga pamilya at kasambahay."
   }
 }

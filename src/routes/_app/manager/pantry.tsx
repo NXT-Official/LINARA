@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { RouteError } from "@/components/shared/route-error";
@@ -6,7 +7,7 @@ import { PlanGate } from "@/features/plan/components/plan-gate";
 import { useT } from "@/lib/i18n/locale-context";
 
 export const Route = createFileRoute("/_app/manager/pantry")({
-  head: () => ({ meta: [{ title: "Pantry | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titlePantry") }] }),
   component: ManagerPantryRoute,
   errorComponent: RouteError,
 });

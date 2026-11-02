@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { Loader2 } from "lucide-react";
 
 import type { Helper } from "@/features/people/people.types";
@@ -10,7 +11,7 @@ import { useT } from "@/lib/i18n/locale-context";
 import { richText } from "@/lib/i18n/rich-text";
 
 const dayHeading = (iso: string) =>
-  parseISODate(iso).toLocaleDateString("en-US", {
+  parseISODate(iso).toLocaleDateString(dateLocale(), {
     weekday: "short",
     month: "short",
     day: "numeric",

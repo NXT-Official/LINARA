@@ -26,6 +26,12 @@
     "plans": "Mga Plano",
     "lNara": "l{span}nara",
     "clarityOverControl": "Kalinawan sa halip na kontrol. {br}{span}",
-    "wagesCheckedAgainstTheRegional": "{span} · Naitatala para sa bawat helper ang lingguhang rest day, taunang leave, at utang na pahinga mula sa trabaho lampas sa oras."
+    "wagesCheckedAgainstTheRegional": "{span} · Naitatala para sa bawat helper ang lingguhang rest day, taunang leave, at utang na pahinga mula sa trabaho lampas sa oras.",
+    "kitchenSopTerm": "House Standards (SOP)",
+    "kitchenSopBody": "Itakda nang minsan ang mga pamantayan, tulad ng tagubilin sa labada o gabay sa allergy ng bata. Nananatili sa bahay ang manwal, kaya hindi na kailangang paulit-ulit na magturo.",
+    "kitchenLedgerTerm": "After-Hours Ledger",
+    "kitchenLedgerBody": "Awtomatikong itinatala sa ledger ang minuto ng pahinga na utang para sa mga gawain sa labas ng shift. Malinaw ang balanse ng trabaho nang hindi na kinakalkula ang OT kada oras.",
+    "kitchenPantryTerm": "Pantry-to-Palengke",
+    "kitchenPantryBody": "Awtomatikong napupunta sa grocery checklist ang mga paubos na stock sa pantry. May malinaw na budget ang bibili, may lugar para sa aktwal na gastos, at tahimik na pag-upload ng litrato ng resibo."
   }
 }

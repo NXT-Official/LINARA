@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -31,13 +32,13 @@ async function currentHousehold(token: string) {
     data: { user },
     error,
   } = await client.auth.getUser();
-  if (error || !user) throw new Error("Unauthorized: Invalid token");
+  if (error || !user) throw new Error(currentT()("common.errors.invalidToken"));
   const { data: profile } = await client
     .from("user_profiles")
     .select("household_id, user_type")
     .eq("id", user.id)
     .single();
-  if (!profile?.household_id) throw new Error("Unauthorized: Profile not found");
+  if (!profile?.household_id) throw new Error(currentT()("common.errors.profileNotFound"));
   return {
     client,
     householdId: profile.household_id as string,
@@ -48,21 +49,21 @@ async function currentHousehold(token: string) {
 async function requireEditor(token: string) {
   const ctx = await currentHousehold(token);
   if (!ctx.canEdit) {
-    throw new Error("Only the primary manager or a co-manager can change stations");
+    throw new Error(currentT()("people.errStationManagers"));
   }
   return ctx;
 }
 
 const cleanName = (name: string) => {
   const trimmed = name.trim().replace(/\s+/g, " ");
-  if (!trimmed) throw new Error("Give it a name");
-  if (trimmed.length > 30) throw new Error("Keep it to 30 characters");
+  if (!trimmed) throw new Error(currentT()("sharing.errNameIt"));
+  if (trimmed.length > 30) throw new Error(currentT()("people.errKeepStation"));
   return trimmed;
 };
 
 /** Postgres' words for the unique name index, and the triggers' own, as sentences. */
 function stationError(error: { code?: string; message: string }): Error {
-  if (error.code === "23505") return new Error("There's already a station with that name");
+  if (error.code === "23505") return new Error(currentT()("people.errStationExists"));
   return new Error(error.message);
 }
 
@@ -129,7 +130,7 @@ export const renameStationFn = createServerFn({ method: "POST" })
       .eq("id", data.stationId)
       .select("id");
     if (error) throw stationError(error);
-    if (!rows?.length) throw new Error("That station is gone. Refresh the page.");
+    if (!rows?.length) throw new Error(currentT()("people.errStationGone"));
     return { ok: true };
   });
 
@@ -144,7 +145,7 @@ export const deleteStationFn = createServerFn({ method: "POST" })
       .eq("id", data.stationId)
       .select("id");
     if (error) throw stationError(error);
-    if (!rows?.length) throw new Error("That station is gone. Refresh the page.");
+    if (!rows?.length) throw new Error(currentT()("people.errStationGone"));
     return { ok: true };
   });
 
@@ -159,6 +160,6 @@ export const setHelperStationFn = createServerFn({ method: "POST" })
       .eq("id", data.helperId)
       .select("id");
     if (error) throw stationError(error);
-    if (!rows?.length) throw new Error("Couldn't change that person's station");
+    if (!rows?.length) throw new Error(currentT()("people.errChangeStation"));
     return { ok: true };
   });

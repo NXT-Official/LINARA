@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Layers, Search, X } from "lucide-react";
 import { useState } from "react";
 
@@ -19,7 +20,7 @@ export function StaffScopeBar({
   shown,
   total,
   noun = ["helper", "helpers"],
-  searchLabel = "Search staff by name",
+  searchLabel = currentT()("teams.searchStaff"),
 }: {
   api: StaffScopeApi;
   /** How many the filters let through, and how many there are. */

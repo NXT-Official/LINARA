@@ -27,6 +27,22 @@
     "add": "Añadir",
     "hindiNaSaveAngPantry": "El artículo de despensa no se guardó.",
     "hindiNaAddAngPantry": "El artículo de despensa no se agregó.",
-    "hindiNaRemoveAngPantry": "El artículo de despensa no se quitó."
+    "hindiNaRemoveAngPantry": "El artículo de despensa no se quitó.",
+    "oneLess": "Un {name} menos",
+    "editOnHand": "Editar cuánto {name} hay",
+    "oneMore": "Un {name} más",
+    "removeItem": "Quitar {name}",
+    "filterAll": "Todos",
+    "errAddItem": "No se pudo añadir el artículo de la despensa",
+    "catRice": "Arroz y granos",
+    "catFresh": "Fresco",
+    "catDry": "Secos y salsas",
+    "catCleaning": "Limpieza",
+    "catBaby": "Bebé",
+    "stockOut": "Agotado",
+    "other": "Otros",
+    "giveName": "Ponle un nombre.",
+    "numberZeroOrMore": "Un número, 0 o más.",
+    "runningLowLabel": "Se está acabando"
   }
 }

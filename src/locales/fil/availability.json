@@ -15,6 +15,21 @@
     "classifiedTask": "Ginawang task: \"{text}\"",
     "usuallyGoesTo": "Karaniwang sa {station} ito napupunta. Ipapadala pa rin kay {name} ({current}). Piliin si {other} sa listahan kung siya ang ibig mong sabihin.",
     "wentAsSuggestion": "Wala sa shift si {name}, kaya napunta ito sa mga on-site manager bilang suggestion.",
-    "nobodyAssignedSuggestion": "Walang naka-assign, kaya napunta ito sa mga on-site manager bilang suggestion."
+    "nobodyAssignedSuggestion": "Walang naka-assign, kaya napunta ito sa mga on-site manager bilang suggestion.",
+    "statusOnShift": "Naka-shift",
+    "statusAvailable": "Available",
+    "statusOff": "Off",
+    "kindUtos": "mabilis na utos",
+    "kindTask": "gawain",
+    "headQuiet": "Tahimik na oras para kay {name}.",
+    "headTimeOff": "May pahinga si {name} sa oras na ito.",
+    "headRestDay": "Araw ng pahinga ni {name} ngayon.",
+    "headOutside": "Labas ito sa oras ni {name}.",
+    "bodyQuiet": "Protektadong pahinga ang gabi. Ang oras na magugugol dito ay itatala bilang pahinga na utang kay {name}. Gamitin lang ang Emergency kung talagang hindi makapaghihintay.",
+    "bodyTimeOff": "Ito ay pahingang inaprubahan para kay {name}. Ang oras na magugugol dito ay itatala bilang pahinga na utang.",
+    "bodyRestDay": "Araw ng pahinga ni {name}. Ang oras na magugugol dito ay itatala bilang pahinga na utang.",
+    "bodyOffShift": "Tapos na ang shift ni {name}. Ang oras na magugugol dito ay itatala bilang pahinga na utang.",
+    "queueUtos": "Mananatiling naghihintay. Walang abiso. Makikita ito ni {name} pagbalik niya.",
+    "queueTask": "Tahimik na idinagdag. Lalabas sa board ni {name} sa susunod na oras ng trabaho."
   }
 }

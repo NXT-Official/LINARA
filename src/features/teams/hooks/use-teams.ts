@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -72,7 +73,7 @@ export function useTeams({
   );
 
   const need = () => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     return token;
   };
 

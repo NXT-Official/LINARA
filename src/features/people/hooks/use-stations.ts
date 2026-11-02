@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useState } from "react";
 
 import { DEFAULT_STATIONS, type Station } from "../people.types";
@@ -44,7 +45,7 @@ export function useStations({
   }, [ready, token, refresh]);
 
   const need = () => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     return token;
   };
 

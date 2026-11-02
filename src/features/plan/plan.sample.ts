@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import type { CatalogAddon, CatalogPlan, Feature, FeatureKey, MySubscription } from "./plan.types";
 
 /**
@@ -7,33 +8,95 @@ import type { CatalogAddon, CatalogPlan, Feature, FeatureKey, MySubscription } f
  * record are on every plan.
  */
 export const FEATURES: Feature[] = [
-  { key: "tasks", name: "Tasks and the Board", description: "Daily tasks, routines and SOPs." },
-  { key: "quick_utos", name: "Quick Utos", description: "Short instructions sent to staff." },
-  { key: "schedule", name: "Schedule", description: "Shifts, appointments and availability." },
-  { key: "pantry", name: "Pantry and groceries", description: "Stock, restocks and market runs." },
+  {
+    key: "tasks",
+    get name() {
+      return currentT()("plan.feat.tasks.name");
+    },
+    get description() {
+      return currentT()("plan.feat.tasks.desc");
+    },
+  },
+  {
+    key: "quick_utos",
+    get name() {
+      return currentT()("plan.feat.quick_utos.name");
+    },
+    get description() {
+      return currentT()("plan.feat.quick_utos.desc");
+    },
+  },
+  {
+    key: "schedule",
+    get name() {
+      return currentT()("plan.feat.schedule.name");
+    },
+    get description() {
+      return currentT()("plan.feat.schedule.desc");
+    },
+  },
+  {
+    key: "pantry",
+    get name() {
+      return currentT()("plan.feat.pantry.name");
+    },
+    get description() {
+      return currentT()("plan.feat.pantry.desc");
+    },
+  },
   {
     key: "time_off",
-    name: "Leave and rest days",
-    description: "Leave requests and rest-off.",
-    everyPlan: "Her weekly rest day and yearly leave are hers by law (RA 10361).",
+    get name() {
+      return currentT()("plan.feat.time_off.name");
+    },
+    get description() {
+      return currentT()("plan.feat.time_off.desc");
+    },
+    get everyPlan() {
+      return currentT()("plan.feat.time_off.every");
+    },
   },
   {
     key: "after_hours",
-    name: "After-hours ledger",
-    description: "Extra hours worked and how they're settled.",
-    everyPlan: "It's how her rest owed is kept and given back.",
+    get name() {
+      return currentT()("plan.feat.after_hours.name");
+    },
+    get description() {
+      return currentT()("plan.feat.after_hours.desc");
+    },
+    get everyPlan() {
+      return currentT()("plan.feat.after_hours.every");
+    },
   },
-  { key: "teams_labels", name: "Teams and labels", description: "Grouping staff in big homes." },
+  {
+    key: "teams_labels",
+    get name() {
+      return currentT()("plan.feat.teams_labels.name");
+    },
+    get description() {
+      return currentT()("plan.feat.teams_labels.desc");
+    },
+  },
   {
     key: "remote_admin",
-    name: "Remote admin",
-    description: "A manager abroad who follows and approves.",
+    get name() {
+      return currentT()("plan.feat.remote_admin.name");
+    },
+    get description() {
+      return currentT()("plan.feat.remote_admin.desc");
+    },
   },
   {
     key: "work_record",
-    name: "Work record export",
-    description: "A helper's record as a PDF.",
-    everyPlan: "Her record is hers to keep.",
+    get name() {
+      return currentT()("plan.feat.work_record.name");
+    },
+    get description() {
+      return currentT()("plan.feat.work_record.desc");
+    },
+    get everyPlan() {
+      return currentT()("plan.feat.work_record.every");
+    },
   },
 ];
 
@@ -86,14 +149,18 @@ export const CATALOG: CatalogPlan[] = [
 export const ADDONS: CatalogAddon[] = [
   {
     id: "extra_household",
-    name: "Extra household",
+    get name() {
+      return currentT()("plan.addonExtraHousehold");
+    },
     limitKey: "households",
     step: 1,
     monthlyPrice: 10_000,
   },
   {
     id: "extra_kasambahay",
-    name: "Extra kasambahay",
+    get name() {
+      return currentT()("plan.addonExtraKasambahay");
+    },
     limitKey: "kasambahay",
     step: 1,
     monthlyPrice: 5_000,

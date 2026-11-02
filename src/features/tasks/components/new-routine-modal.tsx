@@ -1,3 +1,5 @@
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import { BookOpen, BookmarkPlus, Check, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -160,8 +162,8 @@ export function NewRoutineModal({
               helpers={activeHelpers}
               value={helperId}
               onChange={setHelperId}
-              ariaLabel="Assign to"
-              emptyLabel="No active helpers yet"
+              ariaLabel={currentT()("tasks.assignTo")}
+              emptyLabel={currentT()("tasks.noActiveHelpers")}
             />
           </Field>
           <Field label={t("tasks.time")}>
@@ -285,7 +287,7 @@ export function NewRoutineModal({
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {d}
+                    {weekdayName(d)}
                   </button>
                 );
               })}

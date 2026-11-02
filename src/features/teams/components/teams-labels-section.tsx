@@ -199,7 +199,7 @@ function TeamRow({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          aria-label={`Rename ${team.name}`}
+          aria-label={t("teams.renameItem", { name: team.name })}
           className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
         <button
@@ -264,7 +264,7 @@ function TeamRow({
           <>
             <button
               type="button"
-              aria-label={`Rename ${team.name}`}
+              aria-label={t("teams.renameItem", { name: team.name })}
               onClick={() => setEditing(true)}
               className={iconBtn}
             >
@@ -272,7 +272,7 @@ function TeamRow({
             </button>
             <button
               type="button"
-              aria-label={`Remove ${team.name}`}
+              aria-label={t("teams.removeItem", { name: team.name })}
               onClick={() => setConfirming(true)}
               className={iconBtn}
             >
@@ -314,7 +314,7 @@ function LabelRow({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={30}
-            aria-label={`Rename ${label.name}`}
+            aria-label={t("teams.renameItem", { name: label.name })}
             className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <button
@@ -393,7 +393,7 @@ function LabelRow({
           <>
             <button
               type="button"
-              aria-label={`Edit ${label.name}`}
+              aria-label={t("teams.editItem", { name: label.name })}
               onClick={() => setEditing(true)}
               className={iconBtn}
             >
@@ -401,7 +401,7 @@ function LabelRow({
             </button>
             <button
               type="button"
-              aria-label={`Remove ${label.name}`}
+              aria-label={t("teams.removeItem", { name: label.name })}
               onClick={() => setConfirming(true)}
               className={iconBtn}
             >

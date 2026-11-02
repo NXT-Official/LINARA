@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 /**
  * Browser-side twin of LINARA_MOBILE's services/media-upload.ts compression:
  * the photo at 1200px wide, 80% JPEG, and a 480px, 70% thumbnail (KNOWN_GAPS
@@ -33,7 +34,7 @@ async function encode(bitmap: ImageBitmap, width: number, quality: number): Prom
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("This browser can't process photos.");
+  if (!ctx) throw new Error(currentT()("common.errors.browserPhotos"));
   // JPEG has no transparency; a PNG screenshot would otherwise go black.
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -42,7 +43,7 @@ async function encode(bitmap: ImageBitmap, width: number, quality: number): Prom
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", quality),
   );
-  if (!blob) throw new Error("Couldn't read that photo.");
+  if (!blob) throw new Error(currentT()("common.errors.readPhoto"));
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) {

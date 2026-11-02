@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -70,7 +71,7 @@ export function InviteHelperModal({
         labelIds,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create the invite.");
+      setError(err instanceof Error ? err.message : currentT()("people.errCreateInvite"));
     } finally {
       setSubmitting(false);
     }
