@@ -16,6 +16,13 @@ the bottom.
 
 ## Open Gaps
 
+### O73. Anyone could record a payout's result, signed in or not
+
+- **Found:** 2026-11-03, security test against linara dev with only the public anon key. `record_payout_attempt_result` is `SECURITY DEFINER`, had no caller check, and was never revoked from PUBLIC, so anon could execute it (confirmed live: a random attempt id came back "Payout attempt not found", not "permission denied"). With an attempt id, anyone could mark a payout `succeeded` (a payslip saying the helper was paid) or `failed` (releasing its vales and unpaid leave so they're taken again). Attempt ids are random UUIDs, but household members can read them. `add-remote-admin-pay.sql`'s note that it "checks the household" was never true.
+- **Fixed in code:** `supabase/fix-payout-result-auth.sql`. A signed-in caller must be a primary manager, co-manager or remote admin of the payslip's household in `household_managers` (the web's stuck-payout reconcile, `src/features/pay/pay.actions.ts`, runs with the manager's token). With no user, only a non-anon, non-user JWT gets in (the service-role `xendit-payout-webhook`, the SQL editor). An unknown id reads "Forbidden" to a signed-in user, so ids can't be probed. EXECUTE revoked from PUBLIC and anon. PGlite: `supabase/tests/payout-result-auth.test.mjs` (13 failures before the fix, 20/20 after).
+- **Applied:** `fix-payout-result-auth.sql` on linara dev, 2026-11-03 (by the owner). Verified live: an anon call gets `permission denied for function record_payout_attempt_result`, and a signed-in manager with an attempt id that isn't theirs gets "Forbidden". Dev is the only environment; a future prod project gets it with the rest of the schema.
+- **To close:** one real sandbox payout through the webhook after this, to confirm the service-role path end to end (covered in PGlite, not yet live, since pay & HR is off, O72). Owned by `LINARA`.
+
 ### O70. Push notifications: Android phones never register, and several events never notify anyone (unresolved)
 
 - **Found:** 2026-10-20, auditing the mobile app's notifications. Numbered O70 so it can't collide with the O58-O69 entries on `nicoleDev`.
@@ -320,6 +327,8 @@ the bottom.
   3. Deploy the six functions (`npm run deploy:functions`).
   4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
   5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
+- **Still open (security test, 2026-11-03):** step 1 is applied (`take_ai_call` answers on dev), but step 3 never happened. `functions list` shows all six last deployed Aug 17 to Oct 1, before the guard, and `generate-sop`, `route-utos` and `simplify-sop` answered the anon key alone with 200. Still mock answers only (no `OPENAI_API_KEY`, `USE_MOCK_AI` set), so no cost yet.
+- **Deployed 2026-11-03 (step 3, by the owner):** the anon key alone now gets 401 from all six; a signed-in manager gets 200 from all six (`supabase/DEPLOYMENTS.md`). Left: step 4 (an OpenAI spend limit, before adding `OPENAI_API_KEY`) and step 5's in-app retest on the web and LINARA_MOBILE.
 
 ### O48. No full Content-Security-Policy yet
 
