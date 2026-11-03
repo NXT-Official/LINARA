@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 import type { PantryItem } from "../pantry.types";
 import { STOCK_LABEL, stockState, unitFor } from "../pantry.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * One line of the pantry: a row in a hairline-divided list, never its own
@@ -22,6 +24,7 @@ export function PantryRow({
   onEdit: (item: PantryItem) => void;
   onRemove: (id: string) => void;
 }) {
+  const t = useT();
   const state = stockState(item);
   const [editing, setEditing] = useState(false);
   // Removing takes a second click (client feedback, 2026-10-02: deletes
@@ -44,7 +47,7 @@ export function PantryRow({
             type="button"
             onClick={() => onEdit(item)}
             className="group inline-flex min-w-0 items-center gap-1 text-left"
-            aria-label={`Edit ${item.name}`}
+            aria-label={t("pantry.editItem", { name: item.name })}
           >
             <span className="text-sm font-semibold text-foreground group-hover:underline">
               {item.name}
@@ -64,7 +67,10 @@ export function PantryRow({
           )}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          Keep at least {item.par} {unitFor(item.par, item.unit)}
+          {richText(t("pantry.keepAtLeast2"), {
+            par: item.par,
+            value: unitFor(item.par, item.unit),
+          })}
         </div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -72,7 +78,7 @@ export function PantryRow({
           onClick={() => onAdjust(item.id, -1)}
           disabled={item.qty <= 0}
           className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground disabled:opacity-40"
-          aria-label={`One less ${item.name}`}
+          aria-label={t("pantry.oneLess", { name: item.name })}
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -96,7 +102,7 @@ export function PantryRow({
           <button
             onClick={() => setEditing(true)}
             className="min-w-[64px] rounded-lg px-2 py-1 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-secondary"
-            aria-label={`Edit how much ${item.name} is on hand`}
+            aria-label={t("pantry.editOnHand", { name: item.name })}
           >
             {item.qty}{" "}
             <span className="text-xs font-normal text-muted-foreground">
@@ -107,7 +113,7 @@ export function PantryRow({
         <button
           onClick={() => onAdjust(item.id, 1)}
           className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition hover:border-primary/40 hover:text-foreground"
-          aria-label={`One more ${item.name}`}
+          aria-label={t("pantry.oneMore", { name: item.name })}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -117,20 +123,20 @@ export function PantryRow({
               onClick={() => onRemove(item.id)}
               className="rounded-lg bg-destructive px-2 py-1 font-semibold text-destructive-foreground hover:bg-destructive/90"
             >
-              Remove
+              {t("pantry.remove")}
             </button>
             <button
               onClick={() => setConfirmingRemove(false)}
               className="rounded-lg px-2 py-1 font-semibold text-muted-foreground hover:text-foreground"
             >
-              Keep
+              {t("pantry.keep")}
             </button>
           </span>
         ) : (
           <button
             onClick={() => setConfirmingRemove(true)}
             className="ml-1 grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
-            aria-label={`Remove ${item.name}`}
+            aria-label={t("pantry.removeItem", { name: item.name })}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

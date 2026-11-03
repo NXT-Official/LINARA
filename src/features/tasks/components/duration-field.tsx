@@ -1,6 +1,7 @@
 import { Field } from "@/components/shared/field";
 
 import { DURATION_OPTIONS, durationLabel } from "../task.utils";
+import { useT } from "@/lib/i18n/locale-context";
 
 /**
  * How long a task takes (tickets.duration_minutes,
@@ -16,19 +17,20 @@ export function DurationField({
   onChange: (minutes: number | null) => void;
   className: string;
 }) {
+  const t = useT();
   // A length set some other way still shows as itself.
   const options =
     value === null || DURATION_OPTIONS.includes(value)
       ? DURATION_OPTIONS
       : [...DURATION_OPTIONS, value].sort((a, b) => a - b);
   return (
-    <Field label="How long">
+    <Field label={t("tasks.howLong")}>
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
         className={className}
       >
-        <option value="">Not set</option>
+        <option value="">{t("tasks.notSet")}</option>
         {options.map((m) => (
           <option key={m} value={m}>
             {durationLabel(m)}

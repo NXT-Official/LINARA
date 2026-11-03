@@ -17,12 +17,15 @@ import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
 import { LabelChips } from "@/features/teams/components/label-chip";
 import type { Label } from "@/features/teams/teams.types";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import { REGIONAL_MINIMUM_WAGE } from "../people.constants";
 import type { Invite, PantryRole, Station } from "../people.types";
 import { initialsOf } from "../people.utils";
 import { LegalContributionSplitCard } from "./legal-contribution-split-card";
 import { PANTRY_ROLE_LABEL, PantryRolePicker } from "./pantry-role-picker";
+import { useIntlLocale, useListText, useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * One helper, or one pending invite, on People. In a large household
@@ -74,6 +77,9 @@ export function HelperRow({
   /** Absent until add-household-stations.sql is applied. */
   onSetStation?: (station: Station) => Promise<void>;
 }) {
+  const t = useT();
+  const intl = useIntlLocale();
+  const listText = useListText();
   const [open, setOpen] = useState(false);
   const [showContributions, setShowContributions] = useState(false);
   const [editingPantry, setEditingPantry] = useState(false);
@@ -98,7 +104,7 @@ export function HelperRow({
           type="checkbox"
           checked={selected}
           onChange={onSelect}
-          aria-label={`Select ${displayName}`}
+          aria-label={t("people.selectName", { name: displayName })}
           className="mt-3 h-4 w-4 shrink-0 accent-primary"
         />
       )}
@@ -111,32 +117,33 @@ export function HelperRow({
           </span>
           {!isActive && (
             <span className="rounded-full bg-terracotta/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-              Invited — pending
+              {t("people.invitedPending")}
             </span>
           )}
           {isActive && !compact && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-              Active
+              {t("people.active")}
             </span>
           )}
           {isActive && inv.noticeLastDay && (
             <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-terracotta-ink">
-              Leaving{" "}
-              {new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString("en-PH", {
-                month: "short",
-                day: "numeric",
+              {t("people.leavingOn", {
+                date: new Date(`${inv.noticeLastDay}T00:00:00`).toLocaleDateString(intl, {
+                  month: "short",
+                  day: "numeric",
+                }),
               })}
             </span>
           )}
           {inv.flags.length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-soft/70 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-              <AlertCircle className="h-3 w-3" /> {inv.flags.length} flag
-              {inv.flags.length > 1 ? "s" : ""}
+              <AlertCircle className="h-3 w-3" />{" "}
+              {t("people.flagsCount", { count: inv.flags.length })}
             </span>
           )}
           {compact && belowMinimum && (
             <span className="inline-flex items-center gap-1 rounded-full bg-status-late-soft px-2 py-0.5 text-xs font-semibold text-status-late-ink">
-              <AlertCircle className="h-3 w-3" /> Below minimum
+              <AlertCircle className="h-3 w-3" /> {t("people.belowMinimum")}
             </span>
           )}
         </div>
@@ -150,13 +157,13 @@ export function HelperRow({
         )}
         {alsoAt.length > 0 && (
           <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-            Also works at {alsoAt.join(", ")}
+            {t("people.alsoWorksAt", { places: listText(alsoAt) })}
           </div>
         )}
         <div className="mt-0.5 text-xs text-muted-foreground">
-          {inv.employment === "live-in" ? "Live-in" : "Live-out"} · {inv.shift} · Rest:{" "}
-          {inv.restDay}
-          {expanded && <> · Wage: ₱{(inv.wagePHP || 0).toLocaleString()}</>}
+          {inv.employment === "live-in" ? t("people.liveIn") : t("people.liveOut")} · {inv.shift} ·{" "}
+          {t("people.restLabel", { day: inv.restDay })}
+          {expanded && t("people.wageLabel", { amount: (inv.wagePHP || 0).toLocaleString() })}
         </div>
 
         {expanded && (
@@ -164,19 +171,24 @@ export function HelperRow({
             <div className="text-xs text-muted-foreground">
               {!isActive ? (
                 <>
-                  Code: <span className="font-mono font-semibold text-foreground">{inv.code}</span>{" "}
-                  · invited by {inv.createdBy}
+                  {richText(t("people.codeInvitedBy", { name: inv.createdBy }), {
+                    code: (
+                      <span className="font-mono font-semibold text-foreground">{inv.code}</span>
+                    ),
+                  })}
                 </>
               ) : (
-                "Claimed their own account"
+                t("people.claimedOwn")
               )}
               {inv.pantryRole && (
                 <>
-                  {" "}
-                  · Pantry:{" "}
-                  <span className="font-semibold text-foreground">
-                    {PANTRY_ROLE_LABEL[inv.pantryRole]}
-                  </span>
+                  {richText(t("people.pantryLabel"), {
+                    role: (
+                      <span className="font-semibold text-foreground">
+                        {PANTRY_ROLE_LABEL[inv.pantryRole]}
+                      </span>
+                    ),
+                  })}
                 </>
               )}
             </div>
@@ -185,29 +197,40 @@ export function HelperRow({
               <div className="mt-2 flex items-start gap-2 rounded-xl border border-status-late/30 bg-status-late-soft/60 p-2.5 text-xs text-status-late-ink">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-late-ink" />
                 <div>
-                  <span className="font-semibold">Batas Kasambahay Compliance Warning:</span> Wage
-                  is below the regional minimum of{" "}
-                  <span className="font-semibold">₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}</span>.
+                  {richText(t("people.wageIsBelowTheRegional"), {
+                    span: (
+                      <span className="font-semibold">
+                        {t("people.batasKasambahayComplianceWarning2")}
+                      </span>
+                    ),
+                    span2: (
+                      <span className="font-semibold">
+                        ₱{REGIONAL_MINIMUM_WAGE.toLocaleString()}
+                      </span>
+                    ),
+                  })}
                 </div>
               </div>
             )}
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <button
-                type="button"
-                onClick={() => setShowContributions((v) => !v)}
-                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-              >
-                <Info className="h-3 w-3" />{" "}
-                {showContributions ? "Hide contributions" : "Contributions"}
-              </button>
-              {canInvite && (
+              {PAY_HR_ENABLED && (
+                <button
+                  type="button"
+                  onClick={() => setShowContributions((v) => !v)}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Info className="h-3 w-3" />{" "}
+                  {showContributions ? t("people.hideContributions") : t("people.contributions")}
+                </button>
+              )}
+              {canInvite && PAY_HR_ENABLED && (
                 <button
                   type="button"
                   onClick={onEditWage}
                   className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Pencil className="h-3 w-3" /> Edit wage
+                  <Pencil className="h-3 w-3" /> {t("people.editWage")}
                 </button>
               )}
               {canInvite && onEditTeam && (
@@ -216,7 +239,7 @@ export function HelperRow({
                   onClick={onEditTeam}
                   className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Tags className="h-3 w-3" /> Teams & houses
+                  <Tags className="h-3 w-3" /> {t("people.teamsHouses")}
                 </button>
               )}
               {canInvite && onSetStation && (
@@ -228,7 +251,7 @@ export function HelperRow({
                   }}
                   className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Briefcase className="h-3 w-3" /> Station
+                  <Briefcase className="h-3 w-3" /> {t("people.station")}
                 </button>
               )}
               {canInvite && inv.pantryRole && (
@@ -237,7 +260,7 @@ export function HelperRow({
                   onClick={() => setEditingPantry(true)}
                   className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Package className="h-3 w-3" /> Pantry role
+                  <Package className="h-3 w-3" /> {t("people.pantryRole")}
                 </button>
               )}
               {canInvite && isActive && (
@@ -246,7 +269,7 @@ export function HelperRow({
                   onClick={onEnd}
                   className="ml-auto flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-destructive"
                 >
-                  <LogOut className="h-3 w-3" /> End employment
+                  <LogOut className="h-3 w-3" /> {t("people.endEmployment")}
                 </button>
               )}
             </div>
@@ -260,20 +283,19 @@ export function HelperRow({
               <Modal onClose={() => setEditingStation(false)}>
                 <div className="flex items-center justify-between">
                   <h3 className="font-display text-xl text-foreground">
-                    {displayName}&apos;s station
+                    {richText(t("people.sStation"), { displayName: displayName })}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setEditingStation(false)}
-                    aria-label="Close"
+                    aria-label={t("people.close")}
                     className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Their colour on the Pass and Schedule, and the tasks that look for this station.
-                  Add or rename stations under People, Stations &amp; teams.
+                  {t("people.theirColourOnThePass")}
                 </p>
                 <select
                   value={stationDraft}
@@ -295,7 +317,7 @@ export function HelperRow({
                     onClick={() => setEditingStation(false)}
                     className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
                   >
-                    Cancel
+                    {t("people.cancel")}
                   </button>
                   <button
                     type="button"
@@ -304,17 +326,23 @@ export function HelperRow({
                       setSavingStation(true);
                       try {
                         await onSetStation(stationDraft);
-                        toast.success(`${displayName} is on ${stationDraft} now.`);
+                        toast.success(
+                          t("people.isOnStationNow", { name: displayName, station: stationDraft }),
+                        );
                         setEditingStation(false);
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Couldn't save that.");
+                        toast.error(
+                          err instanceof Error ? err.message : t("common.couldntSaveThat"),
+                        );
                       } finally {
                         setSavingStation(false);
                       }
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 disabled:opacity-50"
                   >
-                    {savingStation && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+                    {richText(t("people.save"), {
+                      value: savingStation && <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+                    })}
                   </button>
                 </div>
               </Modal>
@@ -323,12 +351,12 @@ export function HelperRow({
               <Modal onClose={() => setEditingPantry(false)}>
                 <div className="flex items-center justify-between">
                   <h3 className="font-display text-xl text-foreground">
-                    {displayName}&apos;s pantry role
+                    {richText(t("people.sPantryRole"), { displayName: displayName })}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setEditingPantry(false)}
-                    aria-label="Close"
+                    aria-label={t("people.close")}
                     className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
                   >
                     <X className="h-4 w-4" />
@@ -346,7 +374,7 @@ export function HelperRow({
                     onClick={() => setEditingPantry(false)}
                     className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90"
                   >
-                    Done
+                    {t("people.done")}
                   </button>
                 </div>
               </Modal>
@@ -355,8 +383,9 @@ export function HelperRow({
               <ul className="mt-1.5 space-y-0.5 text-xs text-accent-foreground">
                 {inv.flags.map((f) => (
                   <li key={f.id}>
-                    Flagged: <span className="font-semibold">{f.field}</span>
-                    {f.note ? ` — "${f.note}"` : ""}
+                    {richText(t("people.flaggedField", { note: f.note ? `: "${f.note}"` : "" }), {
+                      field: <span className="font-semibold">{f.field}</span>,
+                    })}
                   </li>
                 ))}
               </ul>
@@ -371,14 +400,14 @@ export function HelperRow({
               onClick={onShowCode}
               className="rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary"
             >
-              Show code
+              {t("people.showCode")}
             </button>
             {canInvite && (
               <button
                 onClick={onCancelInvite}
                 className="rounded-lg px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-destructive"
               >
-                Cancel
+                {t("people.cancel")}
               </button>
             )}
           </>
@@ -388,7 +417,11 @@ export function HelperRow({
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            aria-label={open ? `Less about ${displayName}` : `More about ${displayName}`}
+            aria-label={
+              open
+                ? t("people.lessAbout", { name: displayName })
+                : t("people.moreAbout", { name: displayName })
+            }
             className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
           >
             <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />

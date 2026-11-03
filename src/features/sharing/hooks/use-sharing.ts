@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { toHouseholdClock, toISODate } from "@/lib/time";
@@ -113,7 +114,7 @@ export function useSharing({
   );
 
   const need = () => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     return token;
   };
 
@@ -171,7 +172,7 @@ export function useSharing({
       await refresh();
     },
     createPlace: async (name: string): Promise<SavedPlace> => {
-      if (!householdId) throw new Error("No household");
+      if (!householdId) throw new Error(currentT()("common.errors.noHousehold"));
       const place = await createPlaceFn({ data: { token: need(), householdId, name } });
       await refresh();
       return place;

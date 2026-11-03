@@ -1,6 +1,8 @@
 import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { useT } from "@/lib/i18n/locale-context";
+
 /**
  * One team's block in a staff view: a header that says how the team is doing
  * at a glance, and opens to the people in it. In a large household teams
@@ -25,6 +27,7 @@ export function TeamGroup({
   defaultOpen: boolean;
   children: ReactNode;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(defaultOpen);
   return (
     <section className="space-y-3">
@@ -42,14 +45,14 @@ export function TeamGroup({
           <span className="flex items-baseline gap-2">
             <span className="truncate font-display text-base text-foreground">{title}</span>
             <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
-              {count} {count === 1 ? "person" : "people"}
+              {t("teams.personCount", { count })}
             </span>
           </span>
           {summary && <span className="mt-0.5 block text-xs text-muted-foreground">{summary}</span>}
         </span>
         {attention > 0 && (
           <span className="shrink-0 rounded-full bg-status-late-soft px-2.5 py-1 text-xs font-semibold text-status-late-ink">
-            {attention} {attention === 1 ? "needs" : "need"} you
+            {t("teams.needsYouCount", { count: attention })}
           </span>
         )}
       </button>

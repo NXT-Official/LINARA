@@ -1,3 +1,5 @@
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
@@ -16,6 +18,7 @@ import {
   RoutineGhostRow,
   type PlannerDrag,
 } from "./planner-day-column";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** One row: a helper, (null) the Unassigned tray, or a team's heading. */
 export type PeopleRow = { helper: Helper | null } | { heading: string; count: number };
@@ -63,6 +66,7 @@ export function PlannerPeople({
   /** Absent for remote admins. */
   onAdd?: (dayIso: string, helperId: string | null) => void;
 }) {
+  const t = useT();
   const isos = days.map(toISODate);
   const hasAppointments = isos.some((iso) => (appointmentsByDay.get(iso) ?? []).length > 0);
   const template = { gridTemplateColumns: "8.5rem repeat(7, minmax(8.5rem, 1fr))" };
@@ -84,7 +88,7 @@ export function PlannerPeople({
               <span
                 className={`text-xs font-semibold ${isToday ? "text-primary" : "text-muted-foreground"}`}
               >
-                {weekdayOf(day)}
+                {weekdayName(weekdayOf(day))}
               </span>
               <span
                 className={`font-display text-lg leading-none tabular-nums ${
@@ -93,14 +97,18 @@ export function PlannerPeople({
               >
                 {day.getDate()}
               </span>
-              {isToday && <span className="ml-auto text-xs font-semibold text-primary">Today</span>}
+              {isToday && (
+                <span className="ml-auto text-xs font-semibold text-primary">
+                  {t("tasks.today")}
+                </span>
+              )}
             </div>
           );
         })}
 
         {hasAppointments && (
           <>
-            <RowLabel title="Appointments" />
+            <RowLabel title={t("tasks.appointments")} />
             {isos.map((iso) => (
               <div key={iso} className="border-b border-l border-border/60">
                 <ul className="divide-y divide-border/60">
@@ -136,7 +144,7 @@ export function PlannerPeople({
           const { helper } = row;
           const helperId = helper?.id ?? null;
           const schedule = helper ? scheduleFor(helper.id) : undefined;
-          const name = helper ? helper.short : "Unassigned";
+          const name = helper ? helper.short : t("tasks.unassigned");
           const color = helper ? stationHex(helper.station) : UNASSIGNED_HEX;
           return (
             <div key={helperId ?? "unassigned"} className="contents">
@@ -147,8 +155,8 @@ export function PlannerPeople({
                   helper
                     ? schedule
                       ? summarizeSchedule(schedule)
-                      : "No shift set"
-                    : "Nobody has these yet"
+                      : currentT()("tasks.noShiftSet")
+                    : currentT()("tasks.nobodyHasThese")
                 }
               />
               {days.map((day) => {
@@ -165,7 +173,19 @@ export function PlannerPeople({
                 return (
                   <section
                     key={key}
-                    aria-label={`${name}, ${weekdayOf(day)} ${day.getDate()}${off ? ", day off" : ""}`}
+                    aria-label={
+                      off
+                        ? t("tasks.peopleCellOffAria", {
+                            name,
+                            weekday: weekdayName(weekdayOf(day)),
+                            date: day.getDate(),
+                          })
+                        : t("tasks.peopleCellAria", {
+                            name,
+                            weekday: weekdayName(weekdayOf(day)),
+                            date: day.getDate(),
+                          })
+                    }
                     {...(drag && !isPast ? drag.dropTarget(iso, helperId) : {})}
                     className={`group/cell flex min-h-20 min-w-0 flex-col border-b border-l border-border/60 transition-colors ${
                       isOver
@@ -177,7 +197,9 @@ export function PlannerPeople({
                             : ""
                     }`}
                   >
-                    {off && <p className="px-3 pt-2 text-xs text-muted-foreground">Day off</p>}
+                    {off && (
+                      <p className="px-3 pt-2 text-xs text-muted-foreground">{t("tasks.dayOff")}</p>
+                    )}
                     {hers.map((o) => (
                       <p key={o.id} className="px-3 pt-2 text-xs text-muted-foreground">
                         {describeTimeOff(o)}
@@ -206,10 +228,13 @@ export function PlannerPeople({
                       <button
                         type="button"
                         onClick={() => onAdd(iso, helperId)}
-                        aria-label={`Add task for ${name} on ${weekdayOf(day)} ${day.getDate()}`}
+                        aria-label={t("tasks.addTaskFor", {
+                          name,
+                          day: `${weekdayName(weekdayOf(day))} ${day.getDate()}`,
+                        })}
                         className="mt-auto flex items-center gap-1 px-3 py-2 text-xs font-semibold text-primary opacity-60 transition hover:bg-secondary/50 hover:opacity-100 focus-visible:opacity-100 group-hover/cell:opacity-100"
                       >
-                        <Plus className="h-3.5 w-3.5" /> Add
+                        <Plus className="h-3.5 w-3.5" /> {t("tasks.add")}
                       </button>
                     )}
                   </section>

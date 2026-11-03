@@ -1,3 +1,6 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { weekdayName } from "@/lib/time";
+import { currentT } from "@/lib/i18n/current-t";
 import type { HelperSchedule } from "@/features/shifts/shift.types";
 import { approvedTimeOffAt, type TimeOff } from "@/features/shifts/time-off";
 import {
@@ -15,8 +18,8 @@ import type { Recurrence, Routine, Task } from "./task.types";
 
 export function recurrenceLabel(r?: Recurrence): string | null {
   if (!r || r === "none") return null;
-  if (r === "daily") return "Daily";
-  if (Array.isArray(r) && r.length > 0) return r.join(", ");
+  if (r === "daily") return currentT()("tasks.badgeDaily");
+  if (Array.isArray(r) && r.length > 0) return r.map((d) => weekdayName(d)).join(", ");
   return null;
 }
 
@@ -129,10 +132,10 @@ export function taskWhen(t: Task, nowTs: number): string {
       new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
       86_400_000,
   );
-  if (dayDiff === 1) return `Tomorrow ${t.time}`;
-  if (dayDiff === -1) return `Yesterday ${t.time}`;
-  const date = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  if (Math.abs(dayDiff) < 7) return `${weekdayOf(start)} ${date}, ${t.time}`;
+  if (dayDiff === 1) return currentT()("tasks.tomorrowAt", { time: t.time });
+  if (dayDiff === -1) return currentT()("tasks.yesterdayAt", { time: t.time });
+  const date = start.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
+  if (Math.abs(dayDiff) < 7) return `${weekdayName(weekdayOf(start))} ${date}, ${t.time}`;
   return `${date}, ${t.time}`;
 }
 
@@ -165,8 +168,8 @@ export function movedFromLabel(oldIso: string, newIso: string): string {
   const time = isoToDisplayTime(oldIso);
   if (toISODate(before) === toISODate(after)) return time;
   const days = Math.abs(after.getTime() - before.getTime()) / 86_400_000;
-  if (days < 6.5) return `${weekdayOf(before)} ${time}`;
-  return `${before.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`;
+  if (days < 6.5) return `${weekdayName(weekdayOf(before))} ${time}`;
+  return `${before.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" })}, ${time}`;
 }
 
 /**
@@ -180,9 +183,9 @@ export function taskFormErrors(form: {
   time: string;
 }): Partial<Record<"title" | "date" | "time", string>> {
   const errors: Partial<Record<"title" | "date" | "time", string>> = {};
-  if (!form.title.trim()) errors.title = "Give the task a name.";
-  if (!form.date) errors.date = "Pick a day.";
-  if (!form.time) errors.time = "Pick a time.";
+  if (!form.title.trim()) errors.title = currentT()("tasks.giveTaskName");
+  if (!form.date) errors.date = currentT()("tasks.pickDay");
+  if (!form.time) errors.time = currentT()("tasks.pickTime");
   return errors;
 }
 

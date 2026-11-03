@@ -15,6 +15,7 @@ import {
   isoToDisplayTime,
   isoToISODate,
 } from "@/lib/time";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type AppointmentStore = ReturnType<typeof useAppointments>;
 
@@ -50,6 +51,7 @@ export function useAppointments({
   /** Helpers who aren't off right now; only these get a push when a move shifts their tasks. */
   reachableHelperIds: string[];
 }) {
+  const t = useT();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const refresh = useCallback(async () => {
@@ -88,7 +90,7 @@ export function useAppointments({
       .then(() => Promise.all([refresh(), refreshTasks()]))
       .catch((err) => {
         console.error("[useAppointments] Failed to create appointment:", err);
-        toast.error("Hindi na-save ang appointment.");
+        toast.error(t("appointments.hindiNaSaveAngAppointment"));
       });
   };
 
@@ -98,7 +100,7 @@ export function useAppointments({
       .then(() => Promise.all([refresh(), refreshTasks()]))
       .catch((err) => {
         console.error("[useAppointments] Failed to remove appointment:", err);
-        toast.error("Hindi na-delete ang appointment.");
+        toast.error(t("appointments.hindiNaDeleteAngAppointment"));
       });
   };
 
@@ -116,7 +118,7 @@ export function useAppointments({
       .then(() => Promise.all([refresh(), refreshTasks()]))
       .catch((err) => {
         console.error("[useAppointments] Failed to reschedule appointment:", err);
-        toast.error("Hindi na-reschedule ang appointment.");
+        toast.error(t("appointments.hindiNaRescheduleAngAppointment"));
       });
   };
 

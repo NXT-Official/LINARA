@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, KeyRound, Link2, Loader2, LogOut, Plus, Users, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -5,6 +7,10 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/shared/avatar";
 import { Modal } from "@/components/shared/modal";
 import { useAppStores } from "@/features/dashboard/app-store-context";
+import { LimitNotice } from "@/features/plan/components/plan-gate";
+import { useCanAdd } from "@/features/plan/hooks/use-can-add";
+import { hasFeature } from "@/features/plan/plan.logic";
+import { usePlan } from "@/features/plan/plan.store";
 
 import {
   createManagerInviteFn,
@@ -13,8 +19,11 @@ import {
 } from "../household.actions";
 import { adminPermSummary, adminTypeLabel, managerRoleType } from "../people.constants";
 import type { Admin, ManagerInvite, ManagerRole } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type InviteRole = Exclude<ManagerRole, "primary_manager">;
+const MANAGER_ROLES: readonly InviteRole[] = ["co_manager", "remote_admin"] as const;
 
 const roleBadge: Record<Admin["type"], string> = {
   primary: "bg-primary/10 text-primary",
@@ -23,7 +32,7 @@ const roleBadge: Record<Admin["type"], string> = {
 };
 
 const whenExpires = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  new Date(iso).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 
 /**
  * Who manages the household (KNOWN_GAPS O2). The primary manager invites
@@ -32,6 +41,7 @@ const whenExpires = (iso: string) =>
  * all of it (add-household-managers.sql); this only offers what's allowed.
  */
 export function ManagersSection() {
+  const t = useT();
   const { session } = useAppStores();
   const { admins, currentAdmin, multiManager, token } = session;
   const isPrimary = session.adminType === "primary";
@@ -42,6 +52,7 @@ export function ManagersSection() {
     admin: Admin;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const managerCheck = useCanAdd("co_managers");
 
   const refreshInvites = useCallback(() => {
     if (!token || !isPrimary || !multiManager) return;
@@ -66,15 +77,18 @@ export function ManagersSection() {
     run(
       `role-${a.id}`,
       () => session.setManagerRole(a.id, role),
-      `${a.short} is now a ${adminTypeLabel[managerRoleType[role]].toLowerCase()}.`,
+      currentT()("people.managerNowA", {
+        name: a.short,
+        role: adminTypeLabel[managerRoleType[role]].toLowerCase(),
+      }),
     );
 
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl text-foreground">Managers</h2>
-          <p className="text-xs text-muted-foreground">The grown-ups who run the house.</p>
+          <h2 className="font-display text-xl text-foreground">{t("people.managers")}</h2>
+          <p className="text-xs text-muted-foreground">{t("people.theGrownUpsWhoRun")}</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
           <Users className="h-3 w-3" /> {admins.length}
@@ -96,7 +110,7 @@ export function ManagersSection() {
                   <span className="text-sm font-semibold text-foreground">{a.name}</span>
                   {isYou && (
                     <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
-                      You
+                      {t("people.you")}
                     </span>
                   )}
                   <span
@@ -114,7 +128,7 @@ export function ManagersSection() {
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     {confirming === "remove" ? (
                       <ConfirmInline
-                        question={`Take ${a.short} off this household? Their account stays.`}
+                        question={currentT()("people.takeOffQuestion", { name: a.short })}
                         yes="Remove"
                         busy={busy === `remove-${a.id}`}
                         onYes={() =>
@@ -128,8 +142,8 @@ export function ManagersSection() {
                       />
                     ) : confirming === "primary" ? (
                       <ConfirmInline
-                        question={`Make ${a.short} the primary manager? You'll become a co-manager.`}
-                        yes="Make primary"
+                        question={currentT()("people.makePrimaryQuestion", { name: a.short })}
+                        yes={currentT()("people.makePrimary")}
                         busy={busy === `primary-${a.id}`}
                         onYes={() =>
                           run(`primary-${a.id}`, () =>
@@ -141,7 +155,7 @@ export function ManagersSection() {
                     ) : (
                       <>
                         <label className="sr-only" htmlFor={`role-${a.id}`}>
-                          {a.name}&apos;s role
+                          {richText(t("people.sRole"), { name: a.name })}
                         </label>
                         <select
                           id={`role-${a.id}`}
@@ -150,20 +164,20 @@ export function ManagersSection() {
                           onChange={(e) => changeRole(a, e.target.value as InviteRole)}
                           className="rounded-lg border border-input bg-background px-2 py-1 text-xs font-semibold text-foreground outline-none focus:border-primary"
                         >
-                          <option value="co_manager">Co-manager</option>
-                          <option value="remote_admin">Remote admin</option>
+                          <option value="co_manager">{t("people.coManager")}</option>
+                          <option value="remote_admin">{t("people.remoteAdmin")}</option>
                         </select>
                         <button
                           onClick={() => setConfirm({ kind: "primary", admin: a })}
                           className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
                         >
-                          Make primary
+                          {t("people.makePrimary")}
                         </button>
                         <button
                           onClick={() => setConfirm({ kind: "remove", admin: a })}
                           className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-destructive"
                         >
-                          Remove
+                          {t("people.remove")}
                         </button>
                       </>
                     )}
@@ -174,7 +188,7 @@ export function ManagersSection() {
                   <div className="mt-2.5">
                     {confirming === "leave" ? (
                       <ConfirmInline
-                        question="Leave this household? You'll need a new code to come back."
+                        question={currentT()("people.leaveQuestion")}
                         yes="Leave"
                         busy={busy === "leave"}
                         onYes={() => run("leave", () => session.leaveHousehold())}
@@ -185,7 +199,7 @@ export function ManagersSection() {
                         onClick={() => setConfirm({ kind: "leave", admin: a })}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-destructive"
                       >
-                        <LogOut className="h-3.5 w-3.5" /> Leave household
+                        <LogOut className="h-3.5 w-3.5" /> {t("people.leaveHousehold")}
                       </button>
                     )}
                   </div>
@@ -200,7 +214,9 @@ export function ManagersSection() {
         <div className="mt-4 border-t border-border/70 pt-4">
           {invites.length > 0 && (
             <div className="mb-3 space-y-2">
-              <div className="text-xs font-semibold text-muted-foreground">Codes not used yet</div>
+              <div className="text-xs font-semibold text-muted-foreground">
+                {t("people.codesNotUsedYet")}
+              </div>
               {invites.map((inv) => (
                 <div
                   key={inv.id}
@@ -211,7 +227,10 @@ export function ManagersSection() {
                     {inv.code}
                   </span>
                   <span className="text-muted-foreground">
-                    {adminTypeLabel[managerRoleType[inv.role]]} · until {whenExpires(inv.expiresAt)}
+                    {richText(t("people.until"), {
+                      value: adminTypeLabel[managerRoleType[inv.role]],
+                      value2: whenExpires(inv.expiresAt),
+                    })}
                   </span>
                   <button
                     onClick={() =>
@@ -222,13 +241,13 @@ export function ManagersSection() {
                           await revokeManagerInviteFn({ data: { token, inviteId: inv.id } });
                           refreshInvites();
                         },
-                        "Code cancelled.",
+                        currentT()("people.codeCancelled"),
                       )
                     }
                     disabled={busy === `revoke-${inv.id}`}
                     className="ml-auto rounded-lg px-2 py-0.5 font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
                   >
-                    Cancel code
+                    {t("people.cancelCode")}
                   </button>
                 </div>
               ))}
@@ -236,10 +255,12 @@ export function ManagersSection() {
           )}
           <button
             onClick={() => setInviting(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-soft hover:border-primary"
+            disabled={!managerCheck.ok}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-soft hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="h-3.5 w-3.5" /> Invite a manager
+            <Plus className="h-3.5 w-3.5" /> {t("people.inviteAManager")}
           </button>
+          <LimitNotice check={managerCheck} className="mt-2" />
         </div>
       )}
 
@@ -269,6 +290,7 @@ function ConfirmInline({
   onYes: () => void;
   onNo: () => void;
 }) {
+  const t = useT();
   return (
     <span className="inline-flex flex-wrap items-center gap-2 text-xs text-foreground">
       {question}
@@ -280,14 +302,17 @@ function ConfirmInline({
         {busy && <Loader2 className="h-3 w-3 animate-spin" />} {yes}
       </button>
       <button onClick={onNo} className="font-semibold text-muted-foreground hover:text-foreground">
-        Keep
+        {t("people.keep")}
       </button>
     </span>
   );
 }
 
 function InviteManagerModal({ token, onClose }: { token: string | null; onClose: () => void }) {
+  const t = useT();
   const [role, setRole] = useState<InviteRole>("co_manager");
+  const { subscription } = usePlan();
+  const remoteAllowed = hasFeature(subscription, "remote_admin");
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<ManagerInvite | null>(null);
   const [copied, setCopied] = useState(false);
@@ -316,11 +341,11 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-xl text-foreground">
-          {made ? "Share this code" : "Invite a manager"}
+          {made ? t("people.shareThisCode") : t("people.inviteAManager")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("people.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -339,36 +364,40 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
             >
               {copied ? (
                 <>
-                  <Check className="h-3 w-3" /> Copied
+                  <Check className="h-3 w-3" /> {t("people.copied")}
                 </>
               ) : (
                 <>
-                  <Link2 className="h-3 w-3" /> Copy code
+                  <Link2 className="h-3 w-3" /> {t("people.copyCode")}
                 </>
               )}
             </button>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            For a {adminTypeLabel[managerRoleType[made.role]].toLowerCase()}. It works once, until{" "}
-            {whenExpires(made.expiresAt)}. They sign up or log in to Linara, then choose{" "}
-            <span className="font-semibold text-foreground">Join with a code</span>. Someone who
-            already manages another household keeps it.
+            {richText(t("people.forAItWorksOnce"), {
+              value: adminTypeLabel[managerRoleType[made.role]].toLowerCase(),
+              value2: whenExpires(made.expiresAt),
+              span: (
+                <span className="font-semibold text-foreground">{t("people.joinWithACode")}</span>
+              ),
+            })}
           </p>
           <div className="mt-5 flex justify-end">
             <button
               onClick={onClose}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
             >
-              Done
+              {t("people.done")}
             </button>
           </div>
         </>
       ) : (
         <>
           <fieldset className="mt-4 space-y-2">
-            <legend className="sr-only">Their role</legend>
-            {(["co_manager", "remote_admin"] as const).map((r) => {
+            <legend className="sr-only">{t("people.theirRole")}</legend>
+            {MANAGER_ROLES.map((r) => {
               const type = managerRoleType[r];
+              const locked = r === "remote_admin" && !remoteAllowed;
               return (
                 <label
                   key={r}
@@ -383,6 +412,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
                     name="manager-role"
                     value={r}
                     checked={role === r}
+                    disabled={locked}
                     onChange={() => setRole(r)}
                     className="mt-1 accent-[var(--primary)]"
                   />
@@ -391,7 +421,7 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
                       {adminTypeLabel[type]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {adminPermSummary[type]}
+                      {locked ? t("people.notOnYourPlan") : adminPermSummary[type]}
                     </span>
                   </span>
                 </label>
@@ -403,14 +433,16 @@ function InviteManagerModal({ token, onClose }: { token: string | null; onClose:
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("people.cancel")}
             </button>
             <button
               onClick={create}
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-50"
             >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Make a code
+              {richText(t("people.makeACode"), {
+                value: busy && <Loader2 className="h-4 w-4 animate-spin" />,
+              })}
             </button>
           </div>
         </>

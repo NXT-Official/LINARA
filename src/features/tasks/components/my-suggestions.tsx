@@ -4,6 +4,8 @@ import type { Helper } from "@/features/people/people.types";
 import { findHelper } from "@/features/people/people.utils";
 
 import type { Task } from "../task.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** A remote admin's own pending suggestions, with the option to withdraw one. */
 export function MySuggestions({
@@ -17,6 +19,7 @@ export function MySuggestions({
   onWithdraw: (id: string) => void;
   adminName: string;
 }) {
+  const t = useT();
   const mine = suggestions.filter((t) => (t.createdBy ?? "") === adminName);
   const others = suggestions.filter((t) => (t.createdBy ?? "") !== adminName);
   if (mine.length === 0 && others.length === 0) return null;
@@ -28,33 +31,35 @@ export function MySuggestions({
         </div>
         <div>
           <div className="text-sm font-semibold text-foreground">
-            Waiting on the on-site manager
+            {t("tasks.waitingOnTheOnSite")}
           </div>
           <div className="text-xs text-muted-foreground">
-            Your suggestions sit here until Ben or Tina approves them.
+            {t("tasks.yourSuggestionsSitHereUntil")}
           </div>
         </div>
       </div>
       {mine.length === 0 && (
-        <p className="py-2 text-sm text-muted-foreground">Nothing pending from you right now.</p>
+        <p className="py-2 text-sm text-muted-foreground">
+          {t("tasks.nothingPendingFromYouRight")}
+        </p>
       )}
       <div className="divide-y divide-border/70">
-        {mine.map((t) => {
-          const helper = findHelper(t.helperId, helpers);
+        {mine.map((task) => {
+          const helper = findHelper(task.helperId, helpers);
           return (
-            <div key={t.id} className="py-3 first:pt-0 last:pb-0">
+            <div key={task.id} className="py-3 first:pt-0 last:pb-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h4 className="text-sm font-semibold text-foreground">{t.title}</h4>
+                  <h4 className="text-sm font-semibold text-foreground">{task.title}</h4>
                   <div className="mt-0.5 text-xs text-muted-foreground">
-                    For {helper.short} · {t.time}
+                    {richText(t("tasks.for"), { short: helper.short, time: task.time })}
                   </div>
                 </div>
                 <button
-                  onClick={() => onWithdraw(t.id)}
+                  onClick={() => onWithdraw(task.id)}
                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-3 w-3" /> Withdraw
+                  <X className="h-3 w-3" /> {t("tasks.withdraw")}
                 </button>
               </div>
             </div>

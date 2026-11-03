@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useMemo } from "react";
 
 import type { HelperProfileRow } from "@/features/people/hooks/use-invites";
@@ -48,9 +49,9 @@ export function useSchedules({
   }, [helperProfiles]);
 
   const update: ScheduleStore["update"] = async (helperId, patch) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     const current = byHelper[helperId];
-    if (!current) throw new Error("Unknown helper");
+    if (!current) throw new Error(currentT()("common.errors.unknownHelper"));
     const next = { ...current, ...patch };
     await updateHelperScheduleFn({
       data: {

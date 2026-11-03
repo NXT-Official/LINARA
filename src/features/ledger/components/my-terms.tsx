@@ -1,20 +1,25 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 
 import { ReviewRow } from "@/components/shared/detail-row";
 import type { Helper, Invite } from "@/features/people/people.types";
 import { LegalContributionSplitCard } from "@/features/people/components/legal-contribution-split-card";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | null }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const employment = invite?.employment
     ? invite.employment === "live-in"
-      ? "Live-in"
-      : "Live-out"
+      ? currentT()("ledger.liveIn")
+      : currentT()("ledger.liveOut")
     : "—";
   const role = invite?.station ?? helper.station;
   const shift = invite?.shift ?? helper.shift;
   const restDay = invite?.restDay ?? helper.restDay;
-  const wage = invite?.wagePHP ? `₱${invite.wagePHP.toLocaleString()} / month` : "Not on file yet";
+  const wage = invite?.wagePHP
+    ? currentT()("ledger.wagePerMonth", { amount: invite.wagePHP.toLocaleString() })
+    : currentT()("ledger.notOnFile");
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft">
       <button
@@ -25,35 +30,35 @@ export function MyTerms({ helper, invite }: { helper: Helper; invite: Invite | n
       >
         <div className="min-w-0">
           <div className="text-xs font-semibold text-muted-foreground">
-            On file with this household
+            {t("ledger.onFileWithThisHousehold")}
           </div>
           <div className="mt-1 font-display text-lg text-foreground">
-            Your terms — as the employer entered them
+            {t("ledger.yourTermsAsTheEmployer")}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Read-only. Tap to {open ? "hide" : "review"} any time.
+            {open ? t("ledger.readOnlyTapToHide") : t("ledger.readOnlyTapToReview")}
           </p>
         </div>
         <span className="mt-1 shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-          {open ? "Hide" : "Review"}
+          {open ? t("ledger.hide") : t("ledger.review")}
         </span>
       </button>
       {open && (
         <div className="mt-4 space-y-4 rounded-2xl bg-background/60 p-4 text-sm">
           <div className="space-y-2">
-            <ReviewRow label="Pangalan" value={invite?.name ?? helper.name} />
-            <ReviewRow label="Role / station" value={role} />
-            <ReviewRow label="Employment" value={employment} />
-            <ReviewRow label="Shift" value={shift} />
-            <ReviewRow label="Rest day" value={restDay} />
-            <ReviewRow label="Monthly wage" value={wage} />
-            {invite?.phone && <ReviewRow label="Contact on file" value={invite.phone} />}
+            <ReviewRow label={t("ledger.pangalan")} value={invite?.name ?? helper.name} />
+            <ReviewRow label={t("ledger.roleStation")} value={role} />
+            <ReviewRow label={t("ledger.employment")} value={employment} />
+            <ReviewRow label={t("ledger.shift")} value={shift} />
+            <ReviewRow label={t("ledger.restDay")} value={restDay} />
+            <ReviewRow label={t("ledger.monthlyWage")} value={wage} />
+            {invite?.phone && <ReviewRow label={t("ledger.contactOnFile")} value={invite.phone} />}
           </div>
 
           <LegalContributionSplitCard wagePHP={invite?.wagePHP ?? 16000} />
 
           <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
-            May mali? Sabihin mo sa manager mo — huwag muna pumirma kung hindi tugma sa usapan.
+            {t("ledger.mayMaliSabihinMoSa")}
           </p>
         </div>
       )}

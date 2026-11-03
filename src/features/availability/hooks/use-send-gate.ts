@@ -14,6 +14,7 @@ import { toHouseholdClock, toISODate } from "@/lib/time";
 
 import { manualFromRow, statusFor } from "../availability.utils";
 import type { RosaStatus } from "../availability.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type TaskDraft = Omit<Task, "id" | "status" | "station">;
 export type GateIntent =
@@ -90,6 +91,7 @@ export function useSendGate({
   onSendUtos: (content: string, flags?: SendFlags) => void;
   onAddTask: (task: TaskDraft, flags?: AddTaskFlags) => void;
 }): SendGate {
+  const t = useT();
   const [intent, setIntent] = useState<GateIntent | null>(null);
 
   const statusOf = (helperId: string | null): RosaStatus =>
@@ -102,7 +104,10 @@ export function useSendGate({
     );
 
   // Attribute the task to whoever is looking, unless it already carries an author.
-  const stamp = (t: TaskDraft): TaskDraft => ({ ...t, createdBy: t.createdBy ?? authorName });
+  const stamp = (draft: TaskDraft): TaskDraft => ({
+    ...draft,
+    createdBy: draft.createdBy ?? authorName,
+  });
 
   const sendUtos = async (content: string) => {
     const targetStatus = statusOf(utosTargetHelperId);
@@ -110,7 +115,7 @@ export function useSendGate({
     // off for a remote admin, as it does for rest owed.
     if (isRemote && targetStatus.status !== "on_shift") {
       toast.error(
-        `${resolveHelperName(utosTargetHelperId)} is off shift. Add it as a task suggestion, and an on-site manager can decide.`,
+        t("availability.offShiftSuggest", { name: resolveHelperName(utosTargetHelperId) }),
       );
       return;
     }
@@ -148,13 +153,9 @@ export function useSendGate({
 
       if (result) {
         if (result.classification === "ROUTINE") {
-          toast.info(
-            `Classified as ROUTINE! Automatically structured as: "${result.contentCleaned}"`,
-          );
+          toast.info(t("availability.classifiedRoutine", { text: result.contentCleaned }));
         } else if (result.classification === "TASK") {
-          toast.info(
-            `Classified as heavy TASK! Automatically structured as: "${result.contentCleaned}"`,
-          );
+          toast.info(t("availability.classifiedTask", { text: result.contentCleaned }));
         }
 
         // This asks and doesn't reroute -- an AI guess about who a message
@@ -168,7 +169,12 @@ export function useSendGate({
             const matches = activeHelpers.filter((h) => h.station === result.suggestedStation);
             if (matches.length === 1) {
               toast.info(
-                `This usually goes to the ${result.suggestedStation} -- sending to ${resolveHelperName(utosTargetHelperId)} (${currentStation}) instead. Pick ${matches[0].name} in the recipient list if that's who you meant.`,
+                t("availability.usuallyGoesTo", {
+                  station: result.suggestedStation,
+                  name: resolveHelperName(utosTargetHelperId),
+                  current: currentStation,
+                  other: matches[0].name,
+                }),
               );
             }
           }
@@ -192,43 +198,43 @@ export function useSendGate({
     }
   };
 
-  const addTask = (t: TaskDraft, opts: { sendLive?: boolean } = {}) => {
+  const addTask = (draft: TaskDraft, opts: { sendLive?: boolean } = {}) => {
     // Remote admins suggest; "Send live" is urgent, and only while she's on shift.
     if (isRemote) {
       const live =
-        opts.sendLive && t.helperId !== null && statusOf(t.helperId).status === "on_shift";
+        opts.sendLive && draft.helperId !== null && statusOf(draft.helperId).status === "on_shift";
       if (opts.sendLive && !live) {
         toast.info(
-          t.helperId
-            ? `${resolveHelperName(t.helperId)} is off shift, so it went to the on-site managers as a suggestion.`
-            : "Nobody is assigned, so it went to the on-site managers as a suggestion.",
+          draft.helperId
+            ? t("availability.wentAsSuggestion", { name: resolveHelperName(draft.helperId) })
+            : t("availability.nobodyAssignedSuggestion"),
         );
       }
-      onAddTask(stamp(t), live ? { emergency: true } : { suggested: true });
+      onAddTask(stamp(draft), live ? { emergency: true } : { suggested: true });
       return;
     }
     // Unassigned: nobody to disturb, so no wall. It reaches someone only when
     // a manager assigns it.
-    if (t.helperId === null) {
-      onAddTask(stamp(t), {});
+    if (draft.helperId === null) {
+      onAddTask(stamp(draft), {});
       return;
     }
     // Planned for a later day: whether she's off right now doesn't matter.
     // The form warns when the planned time is outside her shift instead.
-    if (t.scheduledDate && t.scheduledDate > toISODate(toHouseholdClock(nowTs))) {
-      onAddTask(stamp(t), {});
+    if (draft.scheduledDate && draft.scheduledDate > toISODate(toHouseholdClock(nowTs))) {
+      onAddTask(stamp(draft), {});
       return;
     }
-    const taskStatus = statusOf(t.helperId);
+    const taskStatus = statusOf(draft.helperId);
     if (taskStatus.status === "off") {
       setIntent({
         kind: "task",
-        task: stamp(t),
+        task: stamp(draft),
         status: taskStatus,
-        helperName: resolveHelperName(t.helperId),
+        helperName: resolveHelperName(draft.helperId),
       });
     } else {
-      onAddTask(stamp(t), {});
+      onAddTask(stamp(draft), {});
     }
   };
 

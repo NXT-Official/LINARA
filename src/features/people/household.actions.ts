@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -47,7 +48,7 @@ export const listMyHouseholdsFn = createServerFn({ method: "POST" })
     const client = createAuthedClient(data.token);
     const { data: rows, error } = await client.rpc("my_households");
     if (missingFunction(error)) return { available: false, households: [] };
-    if (error) fail(error, "Couldn't load your households");
+    if (error) fail(error, currentT()("people.errCouldntLoadHouseholds"));
     return {
       available: true,
       households: (
@@ -68,7 +69,7 @@ export const switchHouseholdFn = createServerFn({ method: "POST" })
     const { data: row, error } = await client
       .rpc("switch_household", { p_household_id: data.householdId })
       .maybeSingle();
-    if (error) fail(error, "Couldn't switch household");
+    if (error) fail(error, currentT()("people.errSwitchHousehold"));
     return activeResult(client, row as { household_id: string; user_type: string } | null);
   });
 
@@ -79,7 +80,7 @@ export const createHouseholdFn = createServerFn({ method: "POST" })
     const { data: row, error } = await client
       .rpc("create_household", { p_name: data.name })
       .maybeSingle();
-    if (error) fail(error, "Couldn't create the household");
+    if (error) fail(error, currentT()("people.errCreateHousehold"));
     return activeResult(client, row as { household_id: string; user_type: string } | null);
   });
 
@@ -88,7 +89,7 @@ export const leaveHouseholdFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createAuthedClient(data.token);
     const { data: row, error } = await client.rpc("leave_household").maybeSingle();
-    if (error) fail(error, "Couldn't leave the household");
+    if (error) fail(error, currentT()("people.errLeaveHousehold"));
     return activeResult(client, row as { household_id: string | null; user_type: string } | null);
   });
 
@@ -98,7 +99,7 @@ export const managerRosterFn = createServerFn({ method: "POST" })
     const client = createAuthedClient(data.token);
     const { data: rows, error } = await client.rpc("household_manager_roster");
     if (missingFunction(error)) return { available: false, managers: [] };
-    if (error) fail(error, "Couldn't load the household's managers");
+    if (error) fail(error, currentT()("people.errLoadManagers"));
     return {
       available: true,
       managers: (
@@ -127,7 +128,7 @@ export const setManagerRoleFn = createServerFn({ method: "POST" })
       p_user_id: data.userId,
       p_role: data.role,
     });
-    if (error) fail(error, "Couldn't change their role");
+    if (error) fail(error, currentT()("people.errChangeRole"));
     return { ok: true };
   });
 
@@ -136,7 +137,7 @@ export const removeManagerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createAuthedClient(data.token);
     const { error } = await client.rpc("remove_manager", { p_user_id: data.userId });
-    if (error) fail(error, "Couldn't remove them");
+    if (error) fail(error, currentT()("people.errRemoveThem"));
     return { ok: true };
   });
 
@@ -154,7 +155,7 @@ export const listManagerInvitesFn = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false });
     // 42P01: the table isn't there yet.
     if (error?.code === "42P01" || error?.code === "PGRST205") return [];
-    if (error) fail(error, "Couldn't load invite codes");
+    if (error) fail(error, currentT()("people.errLoadCodes"));
     return (
       (rows ?? []) as {
         id: string;
@@ -172,7 +173,7 @@ export const createManagerInviteFn = createServerFn({ method: "POST" })
     const { data: row, error } = await client
       .rpc("create_manager_invite", { p_role: data.role })
       .maybeSingle();
-    if (error || !row) fail(error, "Couldn't make a code");
+    if (error || !row) fail(error, currentT()("people.errMakeCode"));
     const r = row as {
       id: string;
       code: string;
@@ -187,7 +188,7 @@ export const revokeManagerInviteFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createAuthedClient(data.token);
     const { error } = await client.rpc("revoke_manager_invite", { p_invite_id: data.inviteId });
-    if (error) fail(error, "Couldn't cancel the code");
+    if (error) fail(error, currentT()("people.errCancelCode"));
     return { ok: true };
   });
 
@@ -199,7 +200,7 @@ export const lookupManagerInviteFn = createServerFn({ method: "POST" })
     const { data: row, error } = await client
       .rpc("lookup_manager_invite", { p_code: data.code })
       .maybeSingle();
-    if (error) fail(error, "Couldn't check that code");
+    if (error) fail(error, currentT()("people.errCheckCode"));
     if (!row) return null;
     const r = row as {
       household_name: string;
@@ -216,6 +217,6 @@ export const claimManagerInviteFn = createServerFn({ method: "POST" })
     const { data: row, error } = await client
       .rpc("claim_manager_invite", { p_code: data.code, p_full_name: data.fullName ?? null })
       .maybeSingle();
-    if (error) fail(error, "Couldn't join with that code");
+    if (error) fail(error, currentT()("people.errJoinCode"));
     return activeResult(client, row as { household_id: string; user_type: string } | null);
   });

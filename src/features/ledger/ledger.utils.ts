@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import type { LedgerEntry, LedgerReason, LedgerResolution } from "./ledger.types";
 
 /**
@@ -25,14 +26,26 @@ export function ledgerEntryMinutes(e: LedgerEntry) {
 
 export function reasonLabel(r: LedgerReason) {
   if (r === "available")
-    return { label: "Available", cls: "bg-terracotta-soft/70 text-accent-foreground" };
+    return {
+      label: currentT()("ledger.reasonAvailable"),
+      cls: "bg-terracotta-soft/70 text-accent-foreground",
+    };
   if (r === "emergency")
-    return { label: "Emergency", cls: "bg-status-late-soft text-status-late-ink" };
+    return {
+      label: currentT()("ledger.reasonEmergency"),
+      cls: "bg-status-late-soft text-status-late-ink",
+    };
   if (r === "rest_day")
-    return { label: "Rest day", cls: "bg-status-late-soft text-status-late-ink" };
+    return {
+      label: currentT()("ledger.reasonRestDay"),
+      cls: "bg-status-late-soft text-status-late-ink",
+    };
   if (r === "rest_break")
-    return { label: "Rest break", cls: "bg-terracotta-soft text-accent-foreground" };
-  return { label: "After shift", cls: "bg-secondary text-pine-deep" };
+    return {
+      label: currentT()("ledger.reasonRestBreak"),
+      cls: "bg-terracotta-soft text-accent-foreground",
+    };
+  return { label: currentT()("ledger.reasonAfterShift"), cls: "bg-secondary text-pine-deep" };
 }
 
 export function fmtHoursMinutes(min: number) {

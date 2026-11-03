@@ -1,0 +1,36 @@
+{
+  "common": {
+    "language": {
+      "current": "言語：{language}",
+      "label": "言語"
+    },
+    "primary": "主管理者",
+    "search": "検索…",
+    "clearSearch": "検索を消す",
+    "filter": "絞り込み",
+    "thisPageDidnTLoad": "このページを読み込めませんでした",
+    "somethingWentWrongHereThe": "ここで問題が発生しました。Linara の他の機能は問題ありません。もう一度試すか、別のタブを選んでください。",
+    "tryAgain": "もう一度試す",
+    "showFewer": "表示を減らす",
+    "showMore": "{noun}をあと {count} 件表示",
+    "couldntSaveThat": "保存できませんでした。",
+    "couldntRemoveIt": "削除できませんでした。",
+    "somethingWentWrong": "問題が発生しました。",
+    "undo": "元に戻す",
+    "nothingWasCharged": "料金は発生していません。",
+    "errors": {
+      "notSignedIn": "サインインしていません。",
+      "notAuthenticated": "認証されていません",
+      "invalidToken": "権限がありません：トークンが無効です",
+      "profileNotFound": "権限がありません：プロフィールが見つかりません",
+      "signInToUse": "ご利用にはサインインしてください。",
+      "sessionExpired": "セッションの有効期限が切れました",
+      "unknownHelper": "不明なヘルパー",
+      "helperNotFound": "ヘルパーが見つかりません",
+      "noHousehold": "世帯がありません",
+      "loginFailed": "ログインに失敗しました",
+      "browserPhotos": "このブラウザでは写真を処理できません。",
+      "readPhoto": "その写真を読み込めませんでした。"
+    }
+  }
+}

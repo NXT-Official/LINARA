@@ -5,6 +5,8 @@ import { matchesQuery } from "@/components/shared/list-filter.utils";
 
 import type { GroceryItem } from "../grocery.types";
 import { fmtQty } from "../grocery.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Choose lines from the Needed pool to put on a run. Suggestions (low
@@ -20,6 +22,7 @@ export function PoolPicker({
   picked: Set<string>;
   onPicked: (next: Set<string>) => void;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const shown = items.filter((g) => !g.bought && matchesQuery(g.name, query));
   const toggle = (id: string) => {
@@ -33,7 +36,7 @@ export function PoolPicker({
   if (items.every((g) => g.bought)) {
     return (
       <p className="rounded-2xl bg-background/60 p-3 text-xs text-muted-foreground">
-        Nothing is waiting in Needed. Add lines to the run below.
+        {t("groceries.nothingIsWaitingInNeeded")}
       </p>
     );
   }
@@ -42,7 +45,7 @@ export function PoolPicker({
     <div className="rounded-2xl bg-background/60 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-muted-foreground">
-          From Needed · {picked.size} chosen
+          {richText(t("groceries.fromNeededChosen"), { size: picked.size })}
         </span>
         <button
           type="button"
@@ -56,7 +59,7 @@ export function PoolPicker({
           }}
           className="rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
         >
-          {allShown ? "Choose none" : "Choose all"}
+          {allShown ? t("groceries.chooseNone") : t("groceries.chooseAll")}
         </button>
       </div>
       {items.length > 8 && (
@@ -65,8 +68,8 @@ export function PoolPicker({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find an item"
-            aria-label="Find an item in Needed"
+            placeholder={t("groceries.findAnItem")}
+            aria-label={t("groceries.findAnItemInNeeded")}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
         </label>
@@ -84,13 +87,13 @@ export function PoolPicker({
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{g.name}</span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {fmtQty(g.qty, g.unit)}
-                {g.id.startsWith("sug-") && ", suggested"}
+                {g.id.startsWith("sug-") && t("groceries.commaSuggested")}
               </span>
             </label>
           </li>
         ))}
         {shown.length === 0 && (
-          <li className="py-2 text-xs text-muted-foreground">Nothing matches.</li>
+          <li className="py-2 text-xs text-muted-foreground">{t("groceries.nothingMatches")}</li>
         )}
       </ul>
     </div>

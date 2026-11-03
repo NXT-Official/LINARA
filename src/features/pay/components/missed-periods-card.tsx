@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { AlertCircle, Banknote, Gift, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -22,9 +23,11 @@ import { XENDIT_PAYOUTS_ON } from "../payout-mode";
 import { PayDirectModal } from "./pay-direct-modal";
 import { PayoutConfirmModal } from "./payout-confirm-modal";
 import { RecordPaymentModal } from "./record-payment-modal";
+import { richText } from "@/lib/i18n/rich-text";
+import { useT } from "@/lib/i18n/locale-context";
 
 const longDay = (ymd: string) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 
 type Recording = { target: PaymentTarget; label: string; estimate: number };
 type Paying = Recording & { channel: PayoutChannelCode };
@@ -67,6 +70,7 @@ export function MissedPeriodsCard({
     target: PaymentTarget,
   ) => Promise<unknown>;
 }) {
+  const t = useT();
   const [thirteenth, setThirteenth] = useState<ThirteenthMonth | null>(null);
   /** The payment whose confirm step is open; nothing is sent until it's confirmed. */
   const [paying, setPaying] = useState<Paying | null>(null);
@@ -97,27 +101,27 @@ export function MissedPeriodsCard({
         {!XENDIT_PAYOUTS_ON && (
           <button
             onClick={() => setPayingDirect({ target, label, estimate })}
-            aria-label={`Pay ${label} by GCash or Maya`}
+            aria-label={t("pay.payByGcashOrMayaTo", { name: label })}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep"
           >
-            <Smartphone className="h-3.5 w-3.5" /> GCash or Maya
+            {richText(t("pay.gcashOrMaya"), { el1: <Smartphone className="h-3.5 w-3.5" /> })}
           </button>
         )}
         {XENDIT_PAYOUTS_ON && (
           <>
             <button
               onClick={() => setPaying({ target, label, estimate, channel: "PH_GCASH" })}
-              aria-label={`Pay ${label} via GCash`}
+              aria-label={t("pay.payViaGcashTo", { name: label })}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-pine-deep disabled:opacity-60"
             >
-              <Smartphone className="h-3.5 w-3.5" /> GCash
+              {richText(t("pay.gcash"), { el1: <Smartphone className="h-3.5 w-3.5" /> })}
             </button>
             <button
               onClick={() => setPaying({ target, label, estimate, channel: "PH_PAYMAYA" })}
-              aria-label={`Pay ${label} via Maya`}
+              aria-label={t("pay.payViaMayaTo", { name: label })}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
             >
-              <Smartphone className="h-3.5 w-3.5 text-accent" /> Maya
+              {richText(t("pay.maya"), { el1: <Smartphone className="h-3.5 w-3.5 text-accent" /> })}
             </button>
           </>
         )}
@@ -125,7 +129,7 @@ export function MissedPeriodsCard({
           onClick={() => setRecording({ target, label, estimate })}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          <Banknote className="h-3.5 w-3.5" /> Paid outside Linara
+          {richText(t("pay.paidOutsideLinara2"), { el1: <Banknote className="h-3.5 w-3.5" /> })}
         </button>
       </div>
     ) : null;
@@ -138,16 +142,15 @@ export function MissedPeriodsCard({
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" aria-hidden />
             <div>
               <h3 className="font-display text-lg text-foreground">
-                {missed.length} unpaid pay period{missed.length === 1 ? "" : "s"}
+                {t("pay.unpaidPayPeriods", { count: missed.length })}
                 {missed.length > 1 && (
                   <span className="text-muted-foreground"> · {fmtPeso(missedTotal)}</span>
                 )}
               </h3>
               <p className="text-xs text-muted-foreground">
-                These cutoffs closed with no payment on record, oldest first. Pay them now, or
-                record how they were paid outside Linara.
+                {t("pay.theseCutoffsClosed")}
                 {unsettledVales > 0
-                  ? ` The ${fmtPeso(unsettledVales)} of vale still owed comes off whichever payment goes first.`
+                  ? t("pay.valeStillOwedSuffix", { amount: fmtPeso(unsettledVales) })
                   : ""}
               </p>
             </div>
@@ -169,7 +172,9 @@ export function MissedPeriodsCard({
                   </div>
                   {partial && (
                     <p className="text-xs text-muted-foreground">
-                      {daysWorked(period.workedStart, period.workedEnd)} days worked of the cutoff
+                      {richText(t("pay.daysWorkedOfTheCutoff"), {
+                        value: daysWorked(period.workedStart, period.workedEnd),
+                      })}
                     </p>
                   )}
                   {actions({
@@ -191,22 +196,27 @@ export function MissedPeriodsCard({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="font-display text-lg text-foreground">
-                  13th-month pay {thirteenth.year}
+                  {richText(t("pay.13thMonthPay"), { year: thirteenth.year })}
                 </h3>
                 <span className="text-sm font-semibold tabular-nums text-foreground">
                   {fmtPeso(thirteenth.amount)}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                A twelfth of the {fmtPeso(thirteenth.basicEarned)} basic pay paid for work since{" "}
-                {longDay(thirteenth.periodStart)}. No contributions or vale come out of it.{" "}
+                {t("pay.twelfthOfBasicPay", {
+                  basic: fmtPeso(thirteenth.basicEarned),
+                  since: longDay(thirteenth.periodStart),
+                })}{" "}
                 {thirteenth.payslipId
                   ? thirteenth.payslipStatus === "succeeded"
-                    ? "Paid."
-                    : "On its way."
+                    ? t("pay.paidDot")
+                    : t("pay.onItsWayDot")
                   : thirteenth.payable
-                    ? `Due by ${longDay(thirteenth.dueBy)}.`
-                    : `Payable from ${longDay(thirteenth.payableFrom)}, due by ${longDay(thirteenth.dueBy)}.`}
+                    ? t("pay.dueByDate", { date: longDay(thirteenth.dueBy) })
+                    : t("pay.payableFromDueBy", {
+                        from: longDay(thirteenth.payableFrom),
+                        dueBy: longDay(thirteenth.dueBy),
+                      })}
               </p>
               {thirteenth.payable &&
                 actions({
@@ -239,7 +249,7 @@ export function MissedPeriodsCard({
           onClose={() => setPayingDirect(null)}
           onSubmit={async (payment) => {
             const result = await onRecordOffApp(helper.id, payment, payingDirect.target);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it arrived.`);
+            toast.success(t("pay.recordedWillBeAskedTo", { short: helper.short }));
             return result;
           }}
         />
@@ -252,7 +262,7 @@ export function MissedPeriodsCard({
           onClose={() => setRecording(null)}
           onSubmit={async (payment) => {
             await onRecordOffApp(helper.id, payment, recording.target);
-            toast.success(`Recorded. ${helper.short} will be asked to confirm it.`);
+            toast.success(t("pay.recordedWillBeAskedTo2", { short: helper.short }));
           }}
         />
       )}

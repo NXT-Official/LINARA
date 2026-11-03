@@ -3,6 +3,7 @@ import { PalengkeChip } from "@/features/groceries/components/palengke-chip";
 import type { Task } from "../task.types";
 import { TripChip } from "@/features/sharing/components/trip-chip";
 import { CommentBadge } from "./comment-badge";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function LaneNowRow({
   label,
@@ -22,6 +23,7 @@ export function LaneNowRow({
   muted?: boolean;
   onOpen?: () => void;
 }) {
+  const t = useT();
   const Wrapper = onOpen ? "button" : "div";
   return (
     <Wrapper
@@ -37,7 +39,7 @@ export function LaneNowRow({
         <span className="text-xs font-semibold tabular-nums text-foreground">· {when}</span>
         {late && (
           <span className="rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
-            Late
+            {t("tasks.late")}
           </span>
         )}
         <span className="ml-auto">

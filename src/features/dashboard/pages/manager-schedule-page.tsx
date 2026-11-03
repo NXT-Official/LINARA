@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Segmented } from "@/components/shared/segmented";
 import { AppointmentsSection } from "@/features/appointments/components/appointments-section";
 import { AvailabilityGate } from "@/features/availability/components/availability-gate";
 import { useSendGate } from "@/features/availability/hooks/use-send-gate";
@@ -11,12 +12,36 @@ import { TaskPlanner } from "@/features/tasks/components/task-planner";
 import type { Task } from "@/features/tasks/task.types";
 
 import { useAppStores } from "../app-store-context";
+import { useT } from "@/lib/i18n/locale-context";
+import { currentT } from "@/lib/i18n/current-t";
+import { richText } from "@/lib/i18n/rich-text";
 
+/** Labels are read when shown, so they follow a language change. */
 export const SCHEDULE_TABS = [
-  { key: "plan", label: "Plan" },
-  { key: "appointments", label: "Appointments" },
-  { key: "shifts", label: "Shifts" },
-  { key: "routines", label: "Routines" },
+  {
+    key: "plan",
+    get label() {
+      return currentT()("dashboard.tabPlan");
+    },
+  },
+  {
+    key: "appointments",
+    get label() {
+      return currentT()("dashboard.tabAppointments");
+    },
+  },
+  {
+    key: "shifts",
+    get label() {
+      return currentT()("dashboard.tabShifts");
+    },
+  },
+  {
+    key: "routines",
+    get label() {
+      return currentT()("dashboard.tabRoutines");
+    },
+  },
 ] as const;
 export type ScheduleTab = (typeof SCHEDULE_TABS)[number]["key"];
 
@@ -35,6 +60,7 @@ export function ManagerSchedulePage({
   day?: string;
   onTabChange: (tab: ScheduleTab) => void;
 }) {
+  const t = useT();
   const {
     session,
     board,
@@ -88,37 +114,26 @@ export function ManagerSchedulePage({
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Schedule</h1>
+      <h1 className="sr-only">{t("dashboard.schedule")}</h1>
       {isRemote && (
         <div className="rounded-3xl border border-dashed border-border/70 bg-card/60 p-4 text-xs text-muted-foreground">
-          <div className="mb-0.5 text-xs font-semibold text-pine-deep">Remote view</div>
-          Shift editing and reaching a helper off-hours stay with the on-site managers. You can
-          still look at the week and add appointments.
+          {richText(t("dashboard.shiftEditingAndReachingA"), {
+            div: (
+              <div className="mb-0.5 text-xs font-semibold text-pine-deep">
+                {t("dashboard.remoteView")}
+              </div>
+            ),
+          })}
         </div>
       )}
 
       <div className="-mx-1 overflow-x-auto px-1">
-        <div
-          className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
-          role="group"
-          aria-label="Schedule section"
-        >
-          {SCHEDULE_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTabChange(key)}
-              aria-pressed={tab === key}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                tab === key
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={t("dashboard.scheduleSection")}
+          options={SCHEDULE_TABS}
+          value={tab}
+          onChange={onTabChange}
+        />
       </div>
 
       {tab === "plan" && (

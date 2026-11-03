@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { RouteError } from "@/components/shared/route-error";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/_app/manager/money")({
   validateSearch: (search: Record<string, unknown>): MoneySearch => ({
     helper: typeof search.helper === "string" && search.helper ? search.helper : undefined,
   }),
-  head: () => ({ meta: [{ title: "Money | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titleMoney") }] }),
   component: ManagerMoneyRoute,
   errorComponent: RouteError,
 });

@@ -1,8 +1,11 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { toast } from "sonner";
 
+import { Segmented } from "@/components/shared/segmented";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LeaveSection } from "@/features/leave/components/leave-section";
 import { setPayDaysPerYearFn } from "@/features/leave/leave.actions";
+import { PlanSummary } from "@/features/plan/components/plan-summary";
 import { PlacesSection } from "@/features/sharing/components/places-section";
 import { SharedStaffSection } from "@/features/sharing/components/shared-staff-section";
 import { TeamsLabelsSection } from "@/features/teams/components/teams-labels-section";
@@ -13,11 +16,27 @@ import { ManagersSection } from "../components/managers-section";
 import { PastStaffSection } from "../components/past-staff-section";
 import { PeopleSection } from "../components/people-section";
 import { StationsSection } from "../components/stations-section";
+import { useT } from "@/lib/i18n/locale-context";
 
 export const PEOPLE_TABS = [
-  { key: "staff", label: "Staff" },
-  { key: "teams", label: "Stations & teams" },
-  { key: "leave", label: "Leave" },
+  {
+    key: "staff",
+    get label() {
+      return currentT()("people.tabStaff");
+    },
+  },
+  {
+    key: "teams",
+    get label() {
+      return currentT()("people.tabStations");
+    },
+  },
+  {
+    key: "leave",
+    get label() {
+      return currentT()("people.tabLeave");
+    },
+  },
 ] as const;
 export type PeopleTab = (typeof PEOPLE_TABS)[number]["key"];
 
@@ -34,6 +53,7 @@ export function PeoplePage({
   tab: PeopleTab;
   onTabChange: (tab: PeopleTab) => void;
 }) {
+  const t = useT();
   const {
     session,
     invites,
@@ -61,29 +81,14 @@ export function PeoplePage({
 
   return (
     <>
-      <h1 className="sr-only">People</h1>
+      <h1 className="sr-only">{t("people.people")}</h1>
       <div className="-mx-1 overflow-x-auto px-1">
-        <div
-          className="inline-flex rounded-xl border border-border bg-card p-1 shadow-soft"
-          role="group"
-          aria-label="People section"
-        >
-          {tabs.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTabChange(key)}
-              aria-pressed={shown === key}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                shown === key
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={t("people.peopleSection")}
+          options={tabs}
+          value={shown}
+          onChange={onTabChange}
+        />
       </div>
 
       {shown === "staff" && (
@@ -178,7 +183,7 @@ export function PeoplePage({
                 .then(() => invites.refresh())
                 .catch((err) => {
                   console.error("[PeoplePage] Failed to save pay days:", err);
-                  toast.error("Couldn't save that setting.");
+                  toast.error(t("people.couldnTSaveThatSetting"));
                 });
             }}
             onRecord={timeOff.recordLeave}
@@ -186,6 +191,10 @@ export function PeoplePage({
           />
         </div>
       )}
+
+      <div className="mt-6">
+        <PlanSummary />
+      </div>
 
       <div className="mt-6">
         <AccountSection

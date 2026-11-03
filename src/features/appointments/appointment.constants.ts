@@ -44,7 +44,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
         title: "Market run for menu",
         leadMinutes: 300,
         station: "Cook",
-        note: "Buy fresh — nothing frozen. Keep receipts, budget ₱2,500.",
+        note: "Buy fresh, nothing frozen. Keep receipts, budget ₱2,500.",
       },
       {
         title: "Prep courses",

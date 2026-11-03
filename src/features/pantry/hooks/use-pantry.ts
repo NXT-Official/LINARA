@@ -10,6 +10,7 @@ import {
   type PantryItemRow,
 } from "../pantry.actions";
 import type { PantryItem } from "../pantry.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type PantryStore = {
   items: PantryItem[];
@@ -42,6 +43,7 @@ function toPantryItem(row: PantryItemRow): PantryItem {
  * same invariant the old local-only mock enforced.
  */
 export function usePantry({ token, ready }: { token: string | null; ready: boolean }): PantryStore {
+  const t = useT();
   const [items, setItems] = useState<PantryItem[]>([]);
 
   const refresh = useCallback(async () => {
@@ -65,7 +67,7 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       .then(() => refresh())
       .catch((err) => {
         console.error("[usePantry] Failed to update pantry qty:", err);
-        toast.error("Hindi na-save ang pantry item.");
+        toast.error(t("pantry.hindiNaSaveAngPantry"));
         refresh().catch(() => {});
       });
   };
@@ -91,7 +93,7 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       .then(() => refresh())
       .catch((err) => {
         console.error("[usePantry] Failed to add pantry item:", err);
-        toast.error("Hindi na-add ang pantry item.");
+        toast.error(t("pantry.hindiNaAddAngPantry"));
       });
   };
 
@@ -111,7 +113,7 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       .then(() => refresh())
       .catch((err) => {
         console.error("[usePantry] Failed to edit pantry item:", err);
-        toast.error("Hindi na-save ang pantry item.");
+        toast.error(t("pantry.hindiNaSaveAngPantry"));
       });
   };
 
@@ -122,7 +124,7 @@ export function usePantry({ token, ready }: { token: string | null; ready: boole
       .then(() => refresh())
       .catch((err) => {
         console.error("[usePantry] Failed to remove pantry item:", err);
-        toast.error("Hindi na-remove ang pantry item.");
+        toast.error(t("pantry.hindiNaRemoveAngPantry"));
         refresh().catch(() => {});
       });
   };

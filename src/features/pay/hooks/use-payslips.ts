@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +11,7 @@ import {
   type PayslipRow,
 } from "../pay.actions";
 import type { ManualPayment, Payslip, PayoutChannelCode, PayslipKind } from "../pay.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** Which payment: a missed period by its start, or 13th-month pay. Omitted
  * means the current cutoff (or, for someone who has left, the final one). */
@@ -52,6 +54,7 @@ function toPayslip(row: PayslipRow): Payslip {
  * toast -- see the Pay Now button's own try/catch in the Money tab UI.
  */
 export function usePayslips({ token, ready }: { token: string | null; ready: boolean }) {
+  const t = useT();
   const [payslips, setPayslips] = useState<Payslip[]>([]);
 
   const refresh = useCallback(async () => {
@@ -107,8 +110,8 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     target: PaymentTarget = {},
   ) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in — hindi ma-initiate ang payout.");
-      throw new Error("Not authenticated");
+      toast.error(t("pay.hindiKaNakaSignIn"));
+      throw new Error(currentT()("common.errors.notAuthenticated"));
     }
     try {
       const result = await initiatePayoutFn({ data: { token, helperId, channelCode, ...target } });
@@ -127,8 +130,8 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
    */
   const reconcile = async (payslipId: string) => {
     if (!token) {
-      toast.error("Hindi ka naka-sign in.");
-      throw new Error("Not authenticated");
+      toast.error(t("pay.hindiKaNakaSignIn2"));
+      throw new Error(currentT()("common.errors.notAuthenticated"));
     }
     try {
       return await reconcilePayoutFn({ data: { token, payslipId } });
@@ -143,7 +146,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
     payment: ManualPayment,
     target: PaymentTarget = {},
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     try {
       return await recordOffAppPaymentFn({ data: { token, helperId, ...payment, ...target } });
     } finally {
@@ -153,7 +156,7 @@ export function usePayslips({ token, ready }: { token: string | null; ready: boo
 
   /** Takes back an outside-Linara record she hasn't confirmed. */
   const withdrawOffApp = async (payslipId: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
     try {
       await withdrawOffAppPaymentFn({ data: { token, payslipId } });
     } finally {

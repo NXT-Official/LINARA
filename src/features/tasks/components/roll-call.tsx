@@ -10,6 +10,8 @@ import { BusyElsewhereNote } from "@/features/sharing/components/busy-elsewhere-
 import { TripChip } from "@/features/sharing/components/trip-chip";
 import { toHouseholdClock, toISODate } from "@/lib/time";
 import { byStart, taskWhen } from "../task.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Roll call: one line per person (who, what she's on, how far through the
@@ -126,20 +128,21 @@ function DayList({
   onOpenTask?: (task: Task) => void;
   onOpenPlan?: (dayIso: string) => void;
 }) {
+  const t = useT();
   const next = [...later].sort(byStart)[0];
   return (
     <div className="border-t border-border/40 bg-secondary/20 px-4 py-2">
       {summary.sorted.length === 0 && (
-        <p className="py-1.5 text-xs text-muted-foreground">No tasks today.</p>
+        <p className="py-1.5 text-xs text-muted-foreground">{t("tasks.noTasksToday")}</p>
       )}
       <ul>
-        {summary.sorted.map((t) => {
-          const late = summary.overdueIds.has(t.id);
-          const done = t.status === "done";
+        {summary.sorted.map((task) => {
+          const late = summary.overdueIds.has(task.id);
+          const done = task.status === "done";
           return (
-            <li key={t.id} className="flex items-start gap-2.5 py-1.5">
+            <li key={task.id} className="flex items-start gap-2.5 py-1.5">
               <span className="w-16 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
-                {taskWhen(t, nowTs)}
+                {taskWhen(task, nowTs)}
               </span>
               <span
                 className={`min-w-0 flex-1 text-sm ${done ? "text-muted-foreground line-through" : "text-foreground"}`}
@@ -147,26 +150,28 @@ function DayList({
                 {onOpenTask ? (
                   <button
                     type="button"
-                    onClick={() => onOpenTask(t)}
+                    onClick={() => onOpenTask(task)}
                     className="text-left underline-offset-4 hover:underline"
                   >
-                    {t.title}
+                    {task.title}
                   </button>
                 ) : (
-                  t.title
+                  task.title
                 )}
-                {(t.from || t.to) && (
+                {(task.from || task.to) && (
                   <span className="block">
-                    <TripChip from={t.from} to={t.to} />
+                    <TripChip from={task.from} to={task.to} />
                   </span>
                 )}
               </span>
-              {t.status === "in_progress" && (
-                <span className="shrink-0 text-xs font-semibold text-terracotta-ink">Doing</span>
+              {task.status === "in_progress" && (
+                <span className="shrink-0 text-xs font-semibold text-terracotta-ink">
+                  {t("tasks.doing")}
+                </span>
               )}
               {late && (
                 <span className="shrink-0 rounded-full bg-status-late-soft px-1.5 py-0.5 text-xs font-bold text-status-late-ink">
-                  Late
+                  {t("tasks.late")}
                 </span>
               )}
             </li>
@@ -176,7 +181,7 @@ function DayList({
       {next && (
         <div className="flex items-baseline justify-between gap-2 pt-1.5 text-xs text-muted-foreground">
           <span>
-            Coming up: {taskWhen(next, nowTs)} {next.title}
+            {richText(t("tasks.comingUp2"), { value: taskWhen(next, nowTs), title: next.title })}
           </span>
           {onOpenPlan && taskDayIso(next) && (
             <button
@@ -184,7 +189,7 @@ function DayList({
               onClick={() => onOpenPlan(taskDayIso(next)!)}
               className="shrink-0 font-semibold text-primary hover:underline"
             >
-              See in the planner
+              {t("tasks.seeInThePlanner")}
             </button>
           )}
         </div>

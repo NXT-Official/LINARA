@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Send, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -5,6 +6,8 @@ import type { Helper } from "@/features/people/people.types";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
 
 import { QUICK_UTOS_PRESETS } from "../utos.constants";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Presets and a typed one-liner. The "Hold to record a voice utos" button
@@ -26,6 +29,7 @@ export function QuickUtosLauncher({
   selectedHelperId: string | null;
   onSelectHelper: (helperId: string) => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState("");
 
   // Sorted by name for the picker only -- not reordering the shared
@@ -48,22 +52,24 @@ export function QuickUtosLauncher({
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div>
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-          <Zap className="h-3.5 w-3.5 text-accent" /> Quick utos
+          <Zap className="h-3.5 w-3.5 text-accent" /> {t("utos.quickUtos")}
         </div>
         {activeHelpers.length > 1 ? (
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="font-display text-lg text-foreground">Send a small ask to</span>
+            <span className="font-display text-lg text-foreground">
+              {t("utos.sendASmallAskTo")}
+            </span>
             <HelperPicker
               helpers={sortedHelpers}
               value={selectedHelperId ?? ""}
               onChange={onSelectHelper}
-              ariaLabel="Send to"
+              ariaLabel={currentT()("utos.sendTo")}
               className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold text-foreground outline-none focus:border-primary"
             />
           </div>
         ) : (
           <div className="mt-1 font-display text-lg text-foreground">
-            Send a small ask to {helperName}
+            {richText(t("utos.sendASmallAskTo2"), { helperName: helperName })}
           </div>
         )}
       </div>
@@ -89,7 +95,7 @@ export function QuickUtosLauncher({
           onKeyDown={(e) => {
             if (e.key === "Enter") sendCustom();
           }}
-          placeholder="Type a quick utos…"
+          placeholder={t("utos.typeAQuickUtos")}
           className="flex-1 bg-transparent py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <button
@@ -97,13 +103,11 @@ export function QuickUtosLauncher({
           disabled={!draft.trim()}
           className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-pine-deep disabled:opacity-50"
         >
-          <Send className="h-3.5 w-3.5" /> Send
+          <Send className="h-3.5 w-3.5" /> {t("utos.send")}
         </button>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        Need it tracked, timed, or done a certain way? Use New task instead.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("utos.needItTrackedTimedOr")}</p>
     </section>
   );
 }

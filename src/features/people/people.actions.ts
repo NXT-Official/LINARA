@@ -1,6 +1,8 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 import { rateForCutoff } from "@/features/pay/wage-rate";
 
@@ -113,7 +115,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -123,11 +125,11 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can generate helper invites");
+      throw new Error(currentT()("people.errManagersOnlyInvites"));
     }
 
     // B. Generate 6-digit alphanumeric invite code
@@ -160,7 +162,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
       .single();
 
     if (insertError || !helperProfile) {
-      throw new Error(insertError?.message || "Failed to create helper profile");
+      throw new Error(insertError?.message || currentT()("people.errCreateProfile"));
     }
 
     if (data.labelIds && data.labelIds.length > 0) {
@@ -184,7 +186,7 @@ export const inviteHelperFn = createServerFn({ method: "POST" })
         // Its own field so Needs You can tell this system check from a
         // helper flagging her wage ("wage").
         field: "wage_below_minimum",
-        note: `Base wage of ₱${monthlyRate} is below the regional minimum wage limit of ₱${minWage}.`,
+        note: currentT()("people.noteBelowMinimum", { wage: monthlyRate, min: minWage }),
       });
       if (wageFlagError) {
         console.error(
@@ -234,7 +236,7 @@ export const resolveManagerLoginFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const authedClient = createAuthedClient(data.accessToken);
     const { data: user, error: userError } = await authedClient.auth.getUser(data.accessToken);
-    if (userError || !user.user) throw new Error("Login failed");
+    if (userError || !user.user) throw new Error(currentT()("common.errors.loginFailed"));
 
     const { data: profileData, error: profileError } = await authedClient
       .from("user_profiles")
@@ -295,7 +297,7 @@ export const refreshManagerSessionFn = createServerFn({ method: "POST" })
       if (error.status !== 429) return { status: "expired" as const };
     }
     if (error || !refreshed.session) {
-      throw new Error(error?.message || "Couldn't refresh the session");
+      throw new Error(error?.message || currentT()("people.errRefreshSession"));
     }
     return {
       status: "ok" as const,
@@ -325,7 +327,7 @@ export const finishBootstrapFn = createServerFn({ method: "POST" })
     const bootstrap = bootstrapData as ManagerBootstrapRow | null;
 
     if (bootstrapError || !bootstrap) {
-      throw new Error(bootstrapError?.message || "Failed to set up household");
+      throw new Error(bootstrapError?.message || currentT()("people.errSetUpHousehold"));
     }
 
     return {
@@ -354,7 +356,7 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Session expired");
+      throw new Error(currentT()("common.errors.sessionExpired"));
     }
 
     const { data: profileData, error: profileError } = await authedClient
@@ -373,9 +375,7 @@ export const getManagerProfileFn = createServerFn({ method: "POST" })
     }
 
     if (profile.user_type === "helper") {
-      throw new Error(
-        "This is a helper account. Helpers sign in on the Linara app's own sign-in screen, not on the manager dashboard.",
-      );
+      throw new Error(currentT()("people.errHelperAccount"));
     }
 
     return {
@@ -519,7 +519,7 @@ export const employmentEndPreviewFn = createServerFn({ method: "POST" })
       p_last_day: data.lastDay,
     });
     if (error || !raw) {
-      throw new Error(error?.message || "Failed to preview the end of employment");
+      throw new Error(error?.message || currentT()("people.errPreviewEnd"));
     }
     const r = raw as Record<string, unknown>;
     const fullCutoffStart =
@@ -573,7 +573,7 @@ export const endEmploymentFn = createServerFn({ method: "POST" })
       p_reassign_to: data.reassignTo,
     });
     if (error || !raw) {
-      throw new Error(error?.message || "Failed to end the employment");
+      throw new Error(error?.message || currentT()("people.errEndEmployment"));
     }
     const r = raw as Record<string, unknown>;
     return { tasksMoved: Number(r.tasks_moved ?? 0), tasksRemoved: Number(r.tasks_removed ?? 0) };
@@ -636,6 +636,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       data,
   )
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, helperId, monthlyRate, effectiveFrom } = data;
 
     const authedClient = createAuthedClient(token);
@@ -645,7 +646,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -655,11 +656,11 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can change a helper's wage");
+      throw new Error(currentT()("people.errManagersOnlyWage"));
     }
 
     // From this cutoff or the next; closed periods keep their wage
@@ -700,7 +701,7 @@ export const updateHelperWageFn = createServerFn({ method: "POST" })
 export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string; pantryRole: "lead" | "runner" }) => {
     if (data.pantryRole !== "lead" && data.pantryRole !== "runner") {
-      throw new Error("Unknown pantry role");
+      throw new Error(currentT()("people.errUnknownPantryRole"));
     }
     return data;
   })
@@ -714,7 +715,7 @@ export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -724,11 +725,11 @@ export const updateHelperPantryRoleFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can change who keeps the pantry");
+      throw new Error(currentT()("people.errManagersOnlyPantry"));
     }
 
     const { error } = await authedClient
@@ -754,7 +755,7 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
   .validator((data: { accessToken: string; refreshToken: string; password: string }) => data)
   .handler(async ({ data }) => {
     if (data.password.length < 6) {
-      throw new Error("Dapat may kahit anim (6) na characters ang password.");
+      throw new Error(currentT()("people.errPasswordShort"));
     }
     const client = createClient(
       process.env.SUPABASE_URL || "",
@@ -768,15 +769,15 @@ export const completePasswordResetFn = createServerFn({ method: "POST" })
       refresh_token: data.refreshToken,
     });
     if (sessionError) {
-      throw new Error("Expired na ang reset link. Humingi ng bago.");
+      throw new Error(currentT()("people.errResetExpired"));
     }
     const { error } = await client.auth.updateUser({ password: data.password });
     if (error) {
       if (error.code === "same_password") {
-        throw new Error("Iba dapat ang bagong password sa dati mong password.");
+        throw new Error(currentT()("people.errPasswordSame"));
       }
       if (error.code === "weak_password") {
-        throw new Error(`Masyadong mahina ang password. ${error.message}`);
+        throw new Error(currentT()("people.errPasswordWeak", { reason: error.message }));
       }
       throw new Error(error.message);
     }
@@ -832,7 +833,7 @@ export const requestAccountDeletionFn = createServerFn({ method: "POST" })
       .rpc("request_account_deletion", { p_note: data.note ?? null })
       .single();
     if (error || !row) {
-      throw new Error(error?.message || "Couldn't send the request");
+      throw new Error(error?.message || currentT()("people.errSendRequest"));
     }
     return toDeletionRequest(row as AccountDeletionRow);
   });

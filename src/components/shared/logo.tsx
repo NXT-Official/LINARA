@@ -26,11 +26,15 @@ export function Logo({ className = "" }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <LogoMark className="h-9 w-9 shrink-0" />
+      {/* The wordmark: a name, the same in every language. */}
       <span
         aria-hidden="true"
         className="font-wordmark text-2xl font-semibold leading-none tracking-tight text-primary"
       >
-        linara
+        {
+          // eslint-disable-next-line i18next/no-literal-string
+          "linara"
+        }
       </span>
     </span>
   );

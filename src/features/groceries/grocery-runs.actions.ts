@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -378,8 +379,8 @@ async function moveLines(client: Client, itemIds: string[], runId: string | null
   if (moved < itemIds.length) {
     throw new Error(
       moved === 0
-        ? "Those lines didn't move. Refresh the page and try again."
-        : `Only ${moved} of ${itemIds.length} lines moved. Refresh the page and try again.`,
+        ? currentT()("groceries.errLinesNotMoved")
+        : currentT()("groceries.errSomeLinesMoved", { moved, total: itemIds.length }),
     );
   }
   return moved;
@@ -423,7 +424,7 @@ export const saveGroceryRunFn = createServerFn({ method: "POST" })
         .insert({ ...fields, status: data.send ? "ready" : "draft" })
         .select("id")
         .single();
-      if (error || !row) throw new Error(error?.message ?? "Couldn't make the run.");
+      if (error || !row) throw new Error(error?.message ?? currentT()("groceries.errMakeRun"));
       id = row.id as string;
     }
     await syncShoppers(client, id, draft.shopperIds);
@@ -482,7 +483,7 @@ export const deleteGroceryRunFn = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .select("id");
     if (error) throw new Error(error.message);
-    if (!gone?.length) throw new Error("Only a draft can be deleted. Cancel the run instead.");
+    if (!gone?.length) throw new Error(currentT()("groceries.errOnlyDraftDeleted"));
     return { id: data.id };
   });
 
@@ -519,7 +520,7 @@ export const saveGroceryTemplateFn = createServerFn({ method: "POST" })
         .insert(fields)
         .select("id")
         .single();
-      if (error || !row) throw new Error(error?.message ?? "Couldn't save the repeat.");
+      if (error || !row) throw new Error(error?.message ?? currentT()("groceries.errSaveRepeat"));
       id = row.id as string;
     }
     if (draft.items.length) {

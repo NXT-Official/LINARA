@@ -1,12 +1,49 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { TONE_DOT } from "./planner-tone";
 
 const LEGEND = [
-  { tone: "late", dot: TONE_DOT.late, label: "Late" },
-  { tone: "held", dot: TONE_DOT.held, label: "On hold" },
-  { tone: "doing", dot: TONE_DOT.doing, label: "Doing" },
-  { tone: "done", dot: TONE_DOT.done, label: "Done" },
-  { tone: "cancelled", dot: TONE_DOT.cancelled, label: "Cancelled" },
-  { tone: "planned", dot: TONE_DOT.planned, label: "To do" },
+  {
+    tone: "late",
+    dot: TONE_DOT.late,
+    get label() {
+      return currentT()("tasks.toneLate");
+    },
+  },
+  {
+    tone: "held",
+    dot: TONE_DOT.held,
+    get label() {
+      return currentT()("tasks.toneHeld");
+    },
+  },
+  {
+    tone: "doing",
+    dot: TONE_DOT.doing,
+    get label() {
+      return currentT()("tasks.toneDoing");
+    },
+  },
+  {
+    tone: "done",
+    dot: TONE_DOT.done,
+    get label() {
+      return currentT()("tasks.toneDone");
+    },
+  },
+  {
+    tone: "cancelled",
+    dot: TONE_DOT.cancelled,
+    get label() {
+      return currentT()("tasks.toneCancelled");
+    },
+  },
+  {
+    tone: "planned",
+    dot: TONE_DOT.planned,
+    get label() {
+      return currentT()("tasks.chipOpen");
+    },
+  },
 ];
 
 /** What the colours mean, once, above the plan. */

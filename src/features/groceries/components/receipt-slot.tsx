@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { Camera, Download, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -8,9 +10,11 @@ import { shortNameOf } from "@/features/people/people.utils";
 
 import { useGrocery } from "../grocery-context";
 import type { GroceryReceipt } from "../grocery.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-PH", {
+  new Date(iso).toLocaleString(dateLocale(), {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -41,6 +45,7 @@ export function ReceiptSlot({
   receipts?: GroceryReceipt[];
   onAdded?: () => void;
 } = {}) {
+  const t = useT();
   const ctx = useGrocery();
   const readOnly = receipts !== undefined && !onAdded;
   const list = receipts ?? ctx.receipts.filter((r) => r.runId === runId);
@@ -54,15 +59,13 @@ export function ReceiptSlot({
     ctx
       .addReceipt(file, runId)
       .then(() => {
-        toast.success("Receipt added");
+        toast.success(t("groceries.receiptAdded"));
         onAdded?.();
       })
       .catch((err) => {
         console.error("[ReceiptSlot] Failed to add receipt:", err);
         toast.error(
-          err instanceof Error && err.message
-            ? err.message
-            : "Couldn't add the receipt. Try again.",
+          err instanceof Error && err.message ? err.message : t("groceries.couldntAddReceipt"),
         );
       })
       .finally(() => setUploading(false));
@@ -93,7 +96,7 @@ export function ReceiptSlot({
         ) : (
           <Camera className="h-3.5 w-3.5" />
         )}
-        {uploading ? "Adding…" : "Add receipt"}
+        {uploading ? t("groceries.adding") : t("groceries.addReceipt")}
       </button>
     </>
   );
@@ -102,7 +105,9 @@ export function ReceiptSlot({
     id: r.id,
     url: r.url,
     thumb: r.thumbUrl ?? r.url,
-    label: r.byName ? `From ${shortNameOf(r.byName)}` : "Receipt",
+    label: r.byName
+      ? currentT()("groceries.fromName", { name: shortNameOf(r.byName) })
+      : currentT()("groceries.receipt"),
     sub: when(r.createdAt),
     takenAt: r.createdAt,
   }));
@@ -112,10 +117,10 @@ export function ReceiptSlot({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           {readOnly
-            ? "No receipt kept for this run."
+            ? t("groceries.noReceiptKeptForThis")
             : runId
-              ? "No receipt yet. Staff add one from the Linara app after buying."
-              : "No receipts outside a run this month."}
+              ? t("groceries.noReceiptYetStaffAdd")
+              : t("groceries.noReceiptsOutsideARun")}
         </p>
         {!readOnly && addButton}
       </div>
@@ -137,7 +142,9 @@ export function ReceiptSlot({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-semibold text-foreground">{s.label}</span>
-                <span className="block text-xs text-muted-foreground">{s.sub} · tap to view</span>
+                <span className="block text-xs text-muted-foreground">
+                  {richText(t("groceries.tapToView"), { sub: s.sub })}
+                </span>
               </span>
             </button>
           </li>
@@ -147,20 +154,24 @@ export function ReceiptSlot({
       {preview && (
         <Modal onClose={() => setPreview(null)} bare closeOnBackdrop>
           <figure className="flex flex-col items-center gap-2">
-            <button type="button" onClick={() => setPreview(null)} aria-label="Close receipt">
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              aria-label={t("groceries.closeReceipt")}
+            >
               <img
                 src={preview.url}
-                alt="Receipt"
+                alt={t("groceries.receipt")}
                 className="max-h-[78dvh] rounded-2xl shadow-lift"
               />
             </button>
             <figcaption className="flex items-center gap-3 rounded-full bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-lift">
-              <span>Kept 2 months</span>
+              <span>{t("groceries.kept2Months")}</span>
               <a
                 href={savePhotoUrl(preview.url, photoFilename("receipt", preview.takenAt))}
                 className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
               >
-                <Download className="h-3.5 w-3.5" /> Save receipt
+                <Download className="h-3.5 w-3.5" /> {t("groceries.saveReceipt")}
               </a>
             </figcaption>
           </figure>

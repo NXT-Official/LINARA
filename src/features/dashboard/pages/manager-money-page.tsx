@@ -1,8 +1,11 @@
+import { currentT } from "@/lib/i18n/current-t";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/shared/avatar";
 import { AfterHoursLedger } from "@/features/ledger/components/after-hours-ledger";
 import { RestOffRequests } from "@/features/ledger/components/rest-off-requests";
+import { HelperWalletCard } from "@/features/pay/components/helper-wallet-card";
 import { MissedPeriodsCard } from "@/features/pay/components/missed-periods-card";
 import { periodEstimate } from "@/features/pay/period-estimate";
 import { PayslipHistory } from "@/features/pay/components/payslip-history";
@@ -10,12 +13,15 @@ import { PayrollSummary } from "@/features/pay/components/payroll-summary";
 import { useHouseholdCutoff } from "@/features/pay/hooks/use-household-cutoff";
 import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { useUnpaidLeaveDue } from "@/features/pay/hooks/use-unpaid-leave-due";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 
 import { useAppStores } from "../app-store-context";
 import { SpendAndPayday } from "../components/spend-and-payday";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** Household spend, the next payday, the after-hours ledger, and payslip history. */
 export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) {
+  const t = useT();
   const {
     ledger,
     helper,
@@ -91,16 +97,18 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Money</h1>
-      <PayrollSummary
-        selectedId={selectedHelper?.id ?? null}
-        onSelect={(id) => {
-          setPickedPayHelperId(id);
-          document
-            .getElementById("pay-details")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-      />
+      <h1 className="sr-only">{t("dashboard.money")}</h1>
+      {PAY_HR_ENABLED && (
+        <PayrollSummary
+          selectedId={selectedHelper?.id ?? null}
+          onSelect={(id) => {
+            setPickedPayHelperId(id);
+            document
+              .getElementById("pay-details")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
+      )}
       <div
         id="pay-details"
         className="flex scroll-mt-20 flex-wrap items-center justify-between gap-2"
@@ -114,51 +122,58 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
             control, names the person, and carries the avatar. */}
         {activeHelpers.length > 1 && (
           <div className="ml-auto flex items-center gap-2 rounded-full border-2 border-primary/30 bg-primary/5 px-3 py-1.5">
-            <span className="text-xs font-bold text-primary">Showing</span>
+            <span className="text-xs font-bold text-primary">{t("dashboard.showing")}</span>
             <Avatar initials={selectedHelper?.initials ?? "??"} />
             <HelperPicker
               helpers={activeHelpers}
               value={selectedHelperId ?? ""}
               onChange={setPickedPayHelperId}
-              ariaLabel="Whose money to show"
+              ariaLabel={currentT()("dashboard.whoseMoney")}
               align="right"
               className="cursor-pointer rounded-full border border-border bg-background px-3 py-1 text-sm font-bold text-foreground outline-none focus:border-primary"
             />
           </div>
         )}
       </div>
-      <SpendAndPayday helper={selectedHelper} />
-      <PayslipHistory
-        helper={selectedHelper}
-        payslips={payslips.payslips}
-        cutoff={cutoff}
-        estimate={
-          selectedHelper && currentPeriod
-            ? Math.max(
-                0,
-                periodEstimate(selectedHelper, currentPeriod) -
-                  unsettledVales -
-                  unpaidLeaveDue(selectedHelper.id, currentPeriod.workedEnd).deduction,
-              )
-            : undefined
-        }
-        onPayNow={payslips.payNow}
-        onReconcile={payslips.reconcile}
-        onRecordOffApp={canPay ? (id, payment) => payslips.recordOffApp(id, payment) : undefined}
-        onWithdrawOffApp={canPay ? payslips.withdrawOffApp : undefined}
-      />
-      {selectedHelper && (
-        <MissedPeriodsCard
-          id="owed-pay"
-          helper={selectedHelper}
-          missed={missed}
-          token={session.token}
-          payslipsVersion={payslipsVersion}
-          unsettledVales={unsettledVales}
-          canPay={canPay}
-          onPayNow={payslips.payNow}
-          onRecordOffApp={payslips.recordOffApp}
-        />
+      {selectedHelper && <HelperWalletCard helper={selectedHelper} token={session.token} />}
+      {PAY_HR_ENABLED && (
+        <>
+          <SpendAndPayday helper={selectedHelper} />
+          <PayslipHistory
+            helper={selectedHelper}
+            payslips={payslips.payslips}
+            cutoff={cutoff}
+            estimate={
+              selectedHelper && currentPeriod
+                ? Math.max(
+                    0,
+                    periodEstimate(selectedHelper, currentPeriod) -
+                      unsettledVales -
+                      unpaidLeaveDue(selectedHelper.id, currentPeriod.workedEnd).deduction,
+                  )
+                : undefined
+            }
+            onPayNow={payslips.payNow}
+            onReconcile={payslips.reconcile}
+            onRecordOffApp={
+              canPay ? (id, payment) => payslips.recordOffApp(id, payment) : undefined
+            }
+            onWithdrawOffApp={canPay ? payslips.withdrawOffApp : undefined}
+          />
+          {selectedHelper && (
+            <MissedPeriodsCard
+              id="owed-pay"
+              helper={selectedHelper}
+              missed={missed}
+              token={session.token}
+              payslipsVersion={payslipsVersion}
+              unsettledVales={unsettledVales}
+              canPay={canPay}
+              onPayNow={payslips.payNow}
+              onRecordOffApp={payslips.recordOffApp}
+            />
+          )}
+        </>
       )}
       <RestOffRequests
         helper={selectedHelper}
@@ -166,24 +181,40 @@ export function ManagerMoneyPage({ focusHelperId }: { focusHelperId?: string }) 
         ready={session.status === "authed"}
         onDecided={timeOff.reload}
       />
-      <AfterHoursLedger
-        entries={helperLedgerEntries}
-        // Per-helper now, not household-wide (Session E / E2). The old props
-        // read a useState in useLedger that applied to every helper at once
-        // and reset on reload.
-        ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
-        isExplicitDefault={selectedHelper?.defaultResolution != null}
-        onSetDefault={async (resolution) => {
-          if (!selectedHelper) return;
-          await ledger.setHelperDefault(selectedHelper.id, resolution);
-          // effective_resolution is a generated column, so the new value has to
-          // come back from Postgres rather than be assumed here.
-          await invites.refresh();
-        }}
-        onUpdateEntry={ledger.updateEntry}
-        audience="manager"
-        helperName={selectedHelper?.short ?? "your helper"}
-      />
+      {!selectedHelper ? (
+        // Nobody employed yet: rest owed is per helper, so there is nothing to show.
+        <section className="rounded-3xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm font-semibold text-foreground">{t("dashboard.noHelpersYet")}</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
+            {t("dashboard.restOwedAndPayShow")}
+          </p>
+          <Link
+            to="/manager/people"
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors duration-150 ease-out hover:bg-pine-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+          >
+            {t("dashboard.inviteAHelper")}
+          </Link>
+        </section>
+      ) : (
+        <AfterHoursLedger
+          entries={helperLedgerEntries}
+          // Per-helper now, not household-wide (Session E / E2). The old props
+          // read a useState in useLedger that applied to every helper at once
+          // and reset on reload.
+          ledgerDefault={selectedHelper?.effectiveResolution ?? "rest"}
+          isExplicitDefault={selectedHelper?.defaultResolution != null}
+          onSetDefault={async (resolution) => {
+            if (!selectedHelper) return;
+            await ledger.setHelperDefault(selectedHelper.id, resolution);
+            // effective_resolution is a generated column, so the new value has to
+            // come back from Postgres rather than be assumed here.
+            await invites.refresh();
+          }}
+          onUpdateEntry={ledger.updateEntry}
+          audience="manager"
+          helperName={selectedHelper.short}
+        />
+      )}
     </div>
   );
 }

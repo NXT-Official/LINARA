@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { RouteError } from "@/components/shared/route-error";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/_app/manager/pass")({
         ? search.view
         : undefined,
   }),
-  head: () => ({ meta: [{ title: "The Pass | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titlePass") }] }),
   component: ManagerPassRoute,
   errorComponent: RouteError,
 });

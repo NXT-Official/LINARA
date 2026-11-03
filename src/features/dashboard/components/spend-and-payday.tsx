@@ -8,6 +8,8 @@ import { useHouseholdPayroll } from "@/features/pay/hooks/use-household-payroll"
 import { formatCutoffRange } from "@/features/pay/pay.utils";
 import { earlierOwed } from "@/features/pay/period-estimate";
 import type { Helper } from "@/features/people/people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Spend and payday at a glance.
@@ -30,6 +32,7 @@ import type { Helper } from "@/features/people/people.types";
  * the MULTI_HELPER_HANDLING.md failure mode this card previously embodied.
  */
 export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | null } = {}) {
+  const t = useT();
   const { spent, budget, remaining, runsAvailable } = useGrocery();
   // Pay is for the staff this household employs, not those shared in.
   const {
@@ -96,18 +99,24 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-xs font-bold text-muted-foreground block">
-              {runsAvailable ? "Palengke this month" : "Petty cash spend"}
+              {runsAvailable ? t("dashboard.palengkeThisMonth") : t("dashboard.pettyCashSpend")}
             </span>
             <h3 className="font-display text-2xl text-foreground tracking-tight tabular-nums">
               {fmtPeso(spent)}
             </h3>
             <p className="text-xs text-muted-foreground">
               {runsAvailable && budget === 0 ? (
-                "No monthly budget set"
+                t("dashboard.noMonthlyBudget")
               ) : (
                 <>
-                  out of <span className="font-semibold text-foreground">{fmtPeso(budget)}</span>{" "}
-                  {runsAvailable ? "monthly budget" : "weekly target"}
+                  {richText(
+                    runsAvailable ? t("dashboard.outOfMonthly") : t("dashboard.outOfWeekly"),
+                    {
+                      amount: (
+                        <span className="font-semibold text-foreground">{fmtPeso(budget)}</span>
+                      ),
+                    },
+                  )}
                 </>
               )}
             </p>
@@ -129,15 +138,17 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
           >
             {runsAvailable && budget === 0 ? (
               <Link to="/manager/pantry" className="font-semibold text-primary hover:underline">
-                Set a budget on the Pantry page
+                {t("dashboard.setABudgetOnThe")}
               </Link>
             ) : isSpendOver ? (
               <>
-                <ArrowUpRight className="h-3 w-3" /> Over by {fmtPeso(spent - budget)}
+                <ArrowUpRight className="h-3 w-3" />{" "}
+                {t("dashboard.overBy", { amount: fmtPeso(spent - budget) })}
               </>
             ) : (
               <>
-                <ArrowDownRight className="h-3 w-3" /> {fmtPeso(remaining)} available
+                <ArrowDownRight className="h-3 w-3" />{" "}
+                {t("dashboard.amountAvailable", { amount: fmtPeso(remaining) })}
               </>
             )}
           </span>
@@ -149,7 +160,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <span className="text-xs font-bold text-muted-foreground block">
-              {isHouseholdView ? "Payroll still to pay" : "Still to pay"}
+              {isHouseholdView ? t("dashboard.payrollStillToPay") : t("dashboard.stillToPay")}
               {/* Which cutoff, so "this cutoff" isn't a guess (client
                   feedback 2026-10-02). One helper has one; the household
                   view can span two intervals, so it names none. Once earlier
@@ -166,29 +177,25 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
             </h3>
             <p className="text-xs text-muted-foreground">
               {payroll.loading ? (
-                "Checking this cutoff…"
+                t("dashboard.checkingCutoff")
               ) : earlierTotal > 0 ? (
                 <span className="font-semibold text-status-late-ink">
-                  {dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+                  {dueTotal === 0
+                    ? t("dashboard.allFromEarlier")
+                    : t("dashboard.amountFromEarlier", { amount: fmtPeso(earlierTotal) })}
                 </span>
               ) : allSettled ? (
                 <span className="inline-flex items-center gap-1 text-status-done-ink font-semibold">
                   <CheckCircle2 className="h-3 w-3" />
                   {isHouseholdView
-                    ? `All ${rows.length === 1 ? "" : `${rows.length} `}paid this cutoff`
-                    : "Paid this cutoff"}
+                    ? t("dashboard.allPaidThisCutoff", { count: rows.length })
+                    : t("dashboard.paidThisCutoff")}
                 </span>
               ) : isHouseholdView ? (
-                <>
-                  across{" "}
-                  <span className="font-semibold text-foreground">
-                    {owingCount} of {rows.length}
-                  </span>{" "}
-                  {rows.length === 1 ? "helper" : "helpers"}
-                </>
+                <>{t("dashboard.acrossHelpers", { owing: owingCount, count: rows.length })}</>
               ) : (
                 <>
-                  Paid so far:{" "}
+                  {t("dashboard.paidSoFar")}{" "}
                   <span className="font-semibold text-foreground">{fmtPeso(paidTotal)}</span>
                 </>
               )}
@@ -204,7 +211,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
                 could not determine (pay.actions.ts's failure taxonomy). */}
             {needsReviewCount > 0 && (
               <span className="text-destructive inline-flex items-center gap-0.5 font-semibold">
-                {needsReviewCount} needs review
+                {t("dashboard.needsReview", { count: needsReviewCount })}
               </span>
             )}
             {needsReviewCount > 0 && inFlightTotal > 0 && <span>·</span>}
@@ -213,19 +220,19 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               // still-owed and try to pay again -- the RPC would refuse, but
               // the card should not invite it.
               <span className="text-muted-foreground inline-flex items-center gap-0.5">
-                {fmtPeso(inFlightTotal)} sending
+                {t("dashboard.amountSending", { amount: fmtPeso(inFlightTotal) })}
               </span>
             )}
             {inFlightTotal > 0 && valeDeductionsTotal > 0 && <span>·</span>}
             {valeDeductionsTotal > 0 && (
               <span className="text-destructive inline-flex items-center gap-0.5">
-                -{fmtPeso(valeDeductionsTotal)} vale
+                {t("dashboard.minusVale", { amount: fmtPeso(valeDeductionsTotal) })}
               </span>
             )}
             {valeDeductionsTotal > 0 && unpaidLeaveTotal > 0 && <span>·</span>}
             {unpaidLeaveTotal > 0 && (
               <span className="text-destructive inline-flex items-center gap-0.5">
-                -{fmtPeso(unpaidLeaveTotal)} unpaid leave
+                {t("dashboard.minusUnpaidLeave", { amount: fmtPeso(unpaidLeaveTotal) })}
               </span>
             )}
             {(valeDeductionsTotal > 0 || unpaidLeaveTotal > 0) && restOwedMin > 0 && <span>·</span>}
@@ -235,7 +242,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               // rest_owed_balance_minutes, the same number the rest-off card
               // and the helper's own app show, so the three cannot disagree.
               <span className="text-terracotta-ink inline-flex items-center gap-0.5">
-                {fmtHoursMinutes(restOwedMin)} rest owed
+                {t("dashboard.restOwedTime", { time: fmtHoursMinutes(restOwedMin) })}
               </span>
             )}
             {needsReviewCount === 0 &&
@@ -244,7 +251,7 @@ export function SpendAndPayday({ helper: helperOverride }: { helper?: Helper | n
               unpaidLeaveTotal === 0 &&
               restOwedMin === 0 && (
                 <span className="text-muted-foreground inline-flex items-center gap-1">
-                  Normal cutoff cycle
+                  {t("dashboard.normalCutoffCycle")}
                 </span>
               )}
           </div>

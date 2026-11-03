@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { NO_TEAM } from "./teams.constants";
 import type { StaffScope, Team } from "./teams.types";
 
@@ -55,7 +56,7 @@ export function filterStaff<T extends Staff>(
 }
 
 /**
- * Groups by team, teams in name order and "No team" last; empty groups are
+ * Groups by team, teams in name order and currentT()("teams.noTeam") last; empty groups are
  * left out. Items keep the order they came in.
  */
 export function groupByTeam<T extends Staff>(items: T[], teams: Team[]): StaffGroup<T>[] {
@@ -72,7 +73,8 @@ export function groupByTeam<T extends Staff>(items: T[], teams: Team[]): StaffGr
       return list ? [{ key: team.id, title: team.name, team, items: list }] : [];
     });
   const none = byTeam.get(NO_TEAM);
-  if (none) groups.push({ key: NO_TEAM, title: "No team", team: null, items: none });
+  if (none)
+    groups.push({ key: NO_TEAM, title: currentT()("teams.noTeam"), team: null, items: none });
   return groups;
 }
 

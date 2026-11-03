@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, ArrowLeft, Home, Loader2, Smartphone, UserRound } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -11,6 +12,9 @@ import { useSession } from "../hooks/use-session";
 import { ExistingAccountError } from "../people.auth";
 import { clearPendingCode, readPendingCode, savePendingCode } from "../pending-invite";
 import { JoinHouseholdForm } from "./household-switcher";
+import { useT } from "@/lib/i18n/locale-context";
+import { textParts } from "@/lib/i18n/instance";
+import { LanguageMenu } from "@/components/shared/language-menu";
 
 /** The steps of /signup after "Which one are you?", each its own `?step=`. */
 export const SIGNUP_STEPS = ["household", "join", "kasambahay"] as const;
@@ -37,6 +41,7 @@ export function ManagerAuthFlow({
   step?: SignupStep;
   confirmationSent?: boolean;
 }) {
+  const t = useT();
   const session = useSession();
   const navigate = useNavigate();
 
@@ -95,21 +100,21 @@ export function ManagerAuthFlow({
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) {
-      toast.error("Kumpletuhin muna ang email at password.");
+      toast.error(t("people.kumpletuhinMunaAngEmailAt"));
       return;
     }
     if (mode === "signup") {
       // eslint-disable-next-line security/detect-possible-timing-attacks -- Client-side double-entry check.
       if (password !== confirmPassword) {
-        toast.error("Hindi magkatugma ang passwords.");
+        toast.error(t("people.hindiMagkatugmaAngPasswords"));
         return;
       }
       if (password.length < 6) {
-        toast.error("Dapat may kahit anim (6) na characters ang password.");
+        toast.error(t("people.dapatMayKahitAnim6"));
         return;
       }
       if (withCode && inviteCode.replace(/\s/g, "").length !== 8) {
-        toast.error("The invite code is 8 letters and numbers.");
+        toast.error(t("people.theInviteCodeIs8"));
         return;
       }
     }
@@ -129,27 +134,23 @@ export function ManagerAuthFlow({
         }
         const result = await session.signUp({ email: email.trim(), password });
         if (result === "confirmation_pending") {
-          toast.info(
-            "Nagpadala kami ng confirmation link sa email mo. I-click iyon, tapos mag-log in.",
-          );
+          toast.info(t("people.nagpadalaKamiNgConfirmationLink2"));
           if (!openAppScreen("sign-in", "confirm-email")) {
             navigate({ to: "/login", search: { sent: true } });
           }
           return;
         }
         if (result === "helper") {
-          toast.info("Kasambahay account ang email na ito. Sa Linara app ito ginagamit.");
+          toast.info(t("people.kasambahayAccountAngEmailNa"));
           goToStep("kasambahay");
           return;
         }
-        if (result === "authed") toast.success("Welcome back!");
+        if (result === "authed") toast.success(t("people.welcomeBack2"));
       } else {
         const result = await session.logIn({ email: email.trim(), password });
         if (result === "confirmation_pending") {
           setConfirmationPending(true);
-          toast.info(
-            "Hindi pa na-confirm ang email mo. I-click muna ang link, tapos subukan ulit.",
-          );
+          toast.info(t("people.hindiPaNaConfirmAng"));
           return;
         }
         if (result === "helper") {
@@ -157,10 +158,10 @@ export function ManagerAuthFlow({
           return;
         }
         if (result === "needs_bootstrap") {
-          toast.success("Naka-confirm na! Kumpletuhin na lang ang household setup.");
+          toast.success(t("people.nakaConfirmNaKumpletuhinNa"));
           return;
         }
-        toast.success("Welcome back!");
+        toast.success(t("people.welcomeBack2"));
       }
     } catch (err) {
       if (err instanceof ExistingAccountError) {
@@ -168,7 +169,7 @@ export function ManagerAuthFlow({
         return;
       }
       console.error(err);
-      const message = err instanceof Error ? err.message : "May error na naganap.";
+      const message = err instanceof Error ? err.message : currentT()("people.errGeneric");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -177,7 +178,7 @@ export function ManagerAuthFlow({
 
   const submitBootstrap = async () => {
     if (!fullName.trim()) {
-      toast.error("Ilagay ang iyong pangalan.");
+      toast.error(t("people.ilagayAngIyongPangalan"));
       return;
     }
     setLoading(true);
@@ -186,10 +187,10 @@ export function ManagerAuthFlow({
         fullName: fullName.trim(),
         householdName: householdName.trim() || undefined,
       });
-      toast.success("Tapos na! Nagawa na ang household mo.");
+      toast.success(t("people.taposNaNagawaNaAng"));
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : "May error na naganap.";
+      const message = err instanceof Error ? err.message : currentT()("people.errGeneric");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -208,12 +209,10 @@ export function ManagerAuthFlow({
     return (
       <AuthCard>
         <h1 className="mt-4 font-display text-2xl text-foreground">
-          {joining ? "Join a household" : "Finish setting up"}
+          {joining ? t("people.joinAHousehold") : t("people.finishSettingUp")}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {joining
-            ? "Enter the code its primary manager gave you."
-            : "Set up your household: your name, and what to call it."}
+          {joining ? t("people.enterPrimaryCode") : t("people.setUpNameAndHousehold")}
         </p>
         {joining ? (
           <JoinHouseholdForm
@@ -224,21 +223,21 @@ export function ManagerAuthFlow({
           />
         ) : (
           <div className="mt-4 space-y-3">
-            <Field label="Your name">
+            <Field label={t("people.yourName")}>
               <input
                 disabled={loading}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Ben Santos"
+                placeholder={t("people.eGBenSantos")}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
               />
             </Field>
-            <Field label="Household name (optional)">
+            <Field label={t("people.householdNameOptional")}>
               <input
                 disabled={loading}
                 value={householdName}
                 onChange={(e) => setHouseholdName(e.target.value)}
-                placeholder="e.g. Santos Household"
+                placeholder={t("people.eGSantosHousehold")}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
               />
             </Field>
@@ -252,17 +251,15 @@ export function ManagerAuthFlow({
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Setting up...
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("people.settingUp")}
               </>
             ) : (
-              "Finish setup"
+              t("people.finishSetup")
             )}
           </button>
         )}
         <SwitchLink onClick={() => setJoining(!joining)}>
-          {joining
-            ? "Setting up a new household instead? Go back"
-            : "Joining a household that's already set up? Use your code"}
+          {joining ? t("people.settingUpNewGoBack") : t("people.joiningUseCode")}
         </SwitchLink>
         {/* The one way off this screen: in the app it also signs the app
               out, back to its own sign-in (app/manager.tsx). */}
@@ -272,7 +269,7 @@ export function ManagerAuthFlow({
           onClick={session.logOut}
           className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
         >
-          Not you? Log out
+          {t("people.notYouLogOut")}
         </button>
       </AuthCard>
     );
@@ -281,23 +278,25 @@ export function ManagerAuthFlow({
   if (mode === "choose") {
     return (
       <AuthCard>
-        <h1 className="mt-4 font-display text-2xl text-foreground">Create an account</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">Which one are you?</p>
+        <h1 className="mt-4 font-display text-2xl text-foreground">
+          {t("people.createAnAccount")}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">{t("people.whichOneAreYou")}</p>
         <div className="mt-5 space-y-3">
           <ChoiceButton
             icon={<Home className="h-5 w-5" />}
-            title="I run a household"
-            body="Employer. Set up your household, then invite the people who work in it."
+            title={t("people.iRunAHousehold")}
+            body={currentT()("people.roleEmployerBody")}
             onClick={() => goToStep("household")}
           />
           <ChoiceButton
             icon={<UserRound className="h-5 w-5" />}
-            title="I work in a household"
-            body="Kasambahay. Join with the invite code your employer gave you."
+            title={t("people.iWorkInAHousehold")}
+            body={currentT()("people.roleHelperBody")}
             onClick={() => goToStep("kasambahay")}
           />
         </div>
-        <SwitchLink onClick={goToLogin}>Already have an account? Log in</SwitchLink>
+        <SwitchLink onClick={goToLogin}>{t("people.alreadyHaveAnAccountLog")}</SwitchLink>
       </AuthCard>
     );
   }
@@ -306,12 +305,14 @@ export function ManagerAuthFlow({
     return (
       <AuthCard>
         <h1 className="mt-4 font-display text-2xl text-foreground">
-          {mode === "kasambahay" ? "Sa app ka magsisimula" : "Nasa app ang Linara mo"}
+          {mode === "kasambahay"
+            ? t("people.kasambahayStartInApp")
+            : t("people.kasambahayLinaraInApp")}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {mode === "kasambahay"
-            ? "Ang account ng kasambahay ay ginagawa sa Linara app, gamit ang invite code galing sa employer mo."
-            : "Kasambahay account ito. Ang tasks, sahod at record mo ay nasa Linara app; doon ka mag-sign in."}
+            ? t("people.kasambahayAccountMadeInApp")
+            : t("people.kasambahayAccountSignInApp")}
         </p>
         <a
           href="linaramobile://sign-in"
@@ -320,13 +321,13 @@ export function ManagerAuthFlow({
           }}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
         >
-          <Smartphone className="h-4 w-4" /> Buksan ang Linara app
+          <Smartphone className="h-4 w-4" /> {t("people.buksanAngLinaraApp")}
         </a>
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          Wala pa ang app sa phone mo? Hingin sa employer mo ang link para ma-download ito.
+          {t("people.walaPaAngAppSa")}
         </p>
         <SwitchLink onClick={() => (page === "login" ? setHelperSignedIn(false) : goToLogin())}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+          <ArrowLeft className="h-3.5 w-3.5" /> {t("people.backToSignIn")}
         </SwitchLink>
       </AuthCard>
     );
@@ -337,24 +338,22 @@ export function ManagerAuthFlow({
       <h1 className="mt-4 font-display text-2xl text-foreground">
         {mode === "signup"
           ? withCode
-            ? "Join a household"
-            : "Set up your household"
-          : "Welcome back"}
+            ? t("people.joinAHousehold")
+            : t("people.setUpYourHousehold")
+          : t("people.welcomeBack")}
       </h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         {mode === "signup"
           ? withCode
-            ? "Make your manager account, with the code the household's primary manager gave you. Your name comes next."
-            : "Gawin ang employer account mo. Pagkatapos, ang pangalan mo at ng household."
-          : "Mag-sign in sa Linara, employer man o kasambahay."}
+            ? t("people.makeManagerWithCode")
+            : t("people.makeEmployerAccount")
+          : t("people.signInEmployerOrKasambahay")}
       </p>
 
       {confirmationPending && (
         <div className="mt-4 flex items-start gap-2 rounded-2xl border border-primary/40 bg-primary/5 px-3 py-2.5 text-xs text-foreground">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-          <span>
-            Nagpadala kami ng confirmation link sa email mo. Buksan mo iyon bago mag-log in.
-          </span>
+          <span>{t("people.nagpadalaKamiNgConfirmationLink")}</span>
         </div>
       )}
 
@@ -366,11 +365,16 @@ export function ManagerAuthFlow({
           <p className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <span>
-              <span className="font-semibold">{email.trim()}</span> already has a Linara account,
-              with a different password.{" "}
-              {withCode
-                ? "Log in to it instead; your code will be waiting there."
-                : "Log in to it instead."}
+              {textParts(t("people.emailHasAccount")).map((part, i) =>
+                typeof part === "string" ? (
+                  part
+                ) : (
+                  <span key={i} className="font-semibold">
+                    {email.trim()}
+                  </span>
+                ),
+              )}{" "}
+              {withCode ? t("people.logInInsteadCode") : t("people.logInToItInstead")}
             </span>
           </p>
           <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 pl-6">
@@ -379,7 +383,7 @@ export function ManagerAuthFlow({
               onClick={goToLogin}
               className="text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
             >
-              Log in instead
+              {t("people.logInInstead")}
             </button>
             <Link
               to="/reset-password"
@@ -388,7 +392,7 @@ export function ManagerAuthFlow({
               }}
               className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
             >
-              Forgot the password?
+              {t("people.forgotThePassword")}
             </Link>
           </div>
         </div>
@@ -396,12 +400,12 @@ export function ManagerAuthFlow({
 
       <div className="mt-4 space-y-3">
         {mode === "signup" && withCode && (
-          <Field label="Invite code">
+          <Field label={t("people.inviteCode")}>
             <input
               disabled={loading}
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
-              placeholder="8 letters and numbers"
+              placeholder={t("people.8LettersAndNumbers")}
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
@@ -409,7 +413,7 @@ export function ManagerAuthFlow({
             />
           </Field>
         )}
-        <Field label="Email">
+        <Field label={t("people.email")}>
           <input
             disabled={loading}
             type="email"
@@ -418,22 +422,22 @@ export function ManagerAuthFlow({
               setEmail(e.target.value);
               setExistingAccount(false);
             }}
-            placeholder="e.g. ben@gmail.com"
+            placeholder={t("people.eGBenGmailCom")}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
           />
         </Field>
-        <Field label="Password">
+        <Field label={t("people.password")}>
           <input
             disabled={loading}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === "signup" ? "At least 6 characters" : undefined}
+            placeholder={mode === "signup" ? t("people.atLeast6") : undefined}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
           />
         </Field>
         {mode === "signup" && (
-          <Field label="Confirm password">
+          <Field label={t("people.confirmPassword")}>
             <input
               disabled={loading}
               type="password"
@@ -453,16 +457,16 @@ export function ManagerAuthFlow({
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />{" "}
-            {mode === "signup" ? "Setting up..." : "Logging in..."}
+            {mode === "signup" ? t("people.settingUp") : t("people.loggingIn")}
           </>
         ) : mode === "signup" ? (
           withCode ? (
-            "Join household"
+            t("people.joinHousehold")
           ) : (
-            "Create household"
+            t("people.createHousehold")
           )
         ) : (
-          "Log in"
+          t("people.logIn")
         )}
       </button>
 
@@ -470,9 +474,9 @@ export function ManagerAuthFlow({
         type="button"
         disabled={loading}
         onClick={() => (mode === "signup" ? goToLogin() : goToStep())}
-        className="mt-3 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
+        className="mt-1 min-h-11 w-full text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 disabled:opacity-60"
       >
-        {mode === "signup" ? "Already have an account? Log in" : "New to Linara? Create an account"}
+        {mode === "signup" ? t("people.haveAccountLogIn") : t("people.newCreateAccount")}
       </button>
 
       {mode === "signup" && (
@@ -482,9 +486,7 @@ export function ManagerAuthFlow({
           onClick={() => goToStep(withCode ? "household" : "join")}
           className="mt-2 w-full text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60"
         >
-          {withCode
-            ? "Starting a new household instead?"
-            : "Joining a household that's already set up? Use your code"}
+          {withCode ? t("people.startingNewInstead") : t("people.joiningUseCode")}
         </button>
       )}
 
@@ -496,20 +498,34 @@ export function ManagerAuthFlow({
           }}
           className="mt-2 block text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
         >
-          Forgot password?
+          {t("people.forgotPassword")}
         </Link>
       )}
 
       <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        {mode === "signup" ? "By creating a household you agree to the " : "Linara's "}
-        <Link to="/terms" className="underline underline-offset-4 hover:text-foreground">
-          terms
-        </Link>{" "}
-        and{" "}
-        <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">
-          privacy policy
-        </Link>
-        .
+        {/* The two links sit wherever the language puts them. */}
+        {textParts(mode === "signup" ? t("people.agreeSignup") : t("people.agreeLogin")).map(
+          (part, i) =>
+            typeof part === "string" ? (
+              part
+            ) : part.name === "terms" ? (
+              <Link
+                key={i}
+                to="/terms"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                {t("people.terms")}
+              </Link>
+            ) : (
+              <Link
+                key={i}
+                to="/privacy"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                {t("people.privacyPolicy")}
+              </Link>
+            ),
+        )}
       </p>
     </AuthCard>
   );
@@ -520,6 +536,7 @@ type Mode = "login" | "signup" | "choose" | "kasambahay" | "kasambahay-signed-in
 // Every auth screen's card. On the web it leads back to the home page; in
 // the app there's no home page to go to, only the app's own screens.
 function AuthCard({ children }: { children: ReactNode }) {
+  const t = useT();
   const onWeb = !inMobileApp();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -527,20 +544,23 @@ function AuthCard({ children }: { children: ReactNode }) {
         {onWeb && (
           <Link
             to="/"
-            className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mb-3 -ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to home
+            <ArrowLeft className="h-4 w-4" /> {t("people.backToHome")}
           </Link>
         )}
         <div className="rounded-3xl border border-border bg-card p-6 shadow-lift">
           {onWeb ? (
-            <Link to="/" aria-label="Linara home" className="inline-block rounded-xl">
+            <Link to="/" aria-label={t("people.linaraHome")} className="inline-block rounded-xl">
               <LogoMark className="h-10 w-10" />
             </Link>
           ) : (
             <LogoMark className="h-10 w-10" />
           )}
           {children}
+        </div>
+        <div className="mt-3 flex justify-center">
+          <LanguageMenu />
         </div>
       </div>
     </div>
@@ -580,7 +600,7 @@ function SwitchLink({ onClick, children }: { onClick: () => void; children: Reac
     <button
       type="button"
       onClick={onClick}
-      className="mt-4 flex w-full items-center justify-center gap-1 text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+      className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 text-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
     >
       {children}
     </button>

@@ -1,0 +1,36 @@
+{
+  "common": {
+    "language": {
+      "current": "Wika: {language}",
+      "label": "Wika"
+    },
+    "primary": "Pangunahin (Primary)",
+    "search": "Maghanap…",
+    "clearSearch": "I-clear ang hinahanap",
+    "filter": "Salain",
+    "thisPageDidnTLoad": "Hindi nag-load ang pahinang ito",
+    "somethingWentWrongHereThe": "May nangyaring problema rito. Maayos naman ang ibang bahagi ng Linara. Subukan ulit, o pumili ng ibang tab.",
+    "tryAgain": "Subukan ulit",
+    "showFewer": "Magpakita nang mas kaunti",
+    "showMore": "Magpakita pa ng {count} {noun}",
+    "couldntSaveThat": "Hindi iyon na-save.",
+    "couldntRemoveIt": "Hindi ito natanggal.",
+    "somethingWentWrong": "May nangyaring mali.",
+    "undo": "I-undo",
+    "nothingWasCharged": "Walang siningil.",
+    "errors": {
+      "notSignedIn": "Hindi naka-sign in.",
+      "notAuthenticated": "Hindi napatunayan ang pagkakakilanlan",
+      "invalidToken": "Hindi awtorisado: di-wastong token",
+      "profileNotFound": "Hindi awtorisado: hindi nakita ang profile",
+      "signInToUse": "Mag-sign in para magamit ito.",
+      "sessionExpired": "Nag-expire ang session",
+      "unknownHelper": "Hindi kilalang kasambahay",
+      "helperNotFound": "Hindi nakita ang kasambahay",
+      "noHousehold": "Walang sambahayan",
+      "loginFailed": "Hindi nakapag-login",
+      "browserPhotos": "Hindi maproseso ng browser na ito ang mga litrato.",
+      "readPhoto": "Hindi mabasa ang litratong iyon."
+    }
+  }
+}
