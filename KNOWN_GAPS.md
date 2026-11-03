@@ -45,7 +45,8 @@ the bottom.
 - **Applied:** `add-pay-hr-switch.sql` on linara dev, 2026-10-26 (by the owner). Dev is the only environment; a future prod project gets it with the rest of the schema.
 - **Blocks:** `e2e/deep/pay.spec.ts` (records a payment) fails while it's off, by design.
 - **Open:** which features count as pay or HR is still the team lead's call (rest owed, leave); the subscription plan's global switch (`documentation/specs/2026-10-26-subscriptions-plan.md`, R5) should take over `app_switches`.
-- **To close:** flip both constants and `UPDATE public.app_switches SET enabled = true WHERE key = 'staff_pay_hr'`, then update `pay-hr.test.tsx`. Owned by `LINARA`.
+- **To close:** flip both constants and `UPDATE public.app_switches SET enabled = true WHERE key = 'household_pay_hr'`, then update `pay-hr.test.tsx`. Owned by `LINARA`.
+- **Switch split (2026-11-03, `supabase/staff-pay-hr-linara-team.sql`):** `staff_pay_hr` is now the Linara team's own payroll only (console D50) and no longer a plan feature; the household gate above reads its own switch, `household_pay_hr`, which starts as `staff_pay_hr` was (off). PGlite: `supabase/tests/staff-pay-hr-linara-team.test.mjs`. Applied on linara dev 2026-11-03 (by the owner); verified: no plan version or draft has the key, every version passes `billing_valid_version`, the catalog publishes no switches, both switches off, `pay_hr_enabled()` false, the immutability trigger back on.
 
 ### O71. The vale form's reason choices stay under the keyboard after typing the amount
 

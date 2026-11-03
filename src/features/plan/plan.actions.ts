@@ -46,7 +46,8 @@ export type BillingPayment = {
 export type BillingCatalog = {
   plans: CatalogPlan[];
   addons: CatalogAddon[];
-  switches: { staff_pay_hr: boolean };
+  /** Household-facing global switches; none since staff_pay_hr became the Linara team's. */
+  switches: Record<string, boolean>;
 };
 
 export type MyBilling = {

@@ -17,8 +17,7 @@ export type FeatureKey =
   | "after_hours"
   | "teams_labels"
   | "remote_admin"
-  | "work_record"
-  | "staff_pay_hr";
+  | "work_record";
 
 export type Feature = {
   key: FeatureKey;

@@ -50,10 +50,12 @@ describe("the sample catalog mirrors the console's", () => {
 });
 
 describe("features", () => {
-  it("Free doesn't include pantry; Staff pay & HR is off for everyone, even on Premium", () => {
+  it("Free doesn't include pantry; Staff pay & HR isn't a plan feature at all, even on Premium (D50)", () => {
     expect(hasFeature(free, "tasks")).toBe(true);
     expect(hasFeature(free, "pantry")).toBe(false);
-    expect(hasFeature(SAMPLE_SUBSCRIPTION, "staff_pay_hr")).toBe(false);
+    for (const p of CATALOG) expect(p.features).not.toHaveProperty("staff_pay_hr");
+    // The Linara team's payroll: a household can never be said to have it.
+    expect(hasFeature(SAMPLE_SUBSCRIPTION, "staff_pay_hr" as never)).toBe(false);
   });
 
   it("a kasambahay's leave, rest owed and record are on every plan, even an unknown one (RA 10361)", () => {
