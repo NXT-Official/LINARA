@@ -81,7 +81,9 @@ await db.exec(`
 await db.exec(readFileSync(`${REPO}/add-leave.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/add-unpaid-leave-pay.sql`, "utf8"));
 // What Supabase grants on every new function, which the fix must take back.
-await db.exec(`GRANT EXECUTE ON FUNCTION public.record_payout_attempt_result(UUID, TEXT, TEXT, TEXT) TO PUBLIC, anon`);
+await db.exec(
+  `GRANT EXECUTE ON FUNCTION public.record_payout_attempt_result(UUID, TEXT, TEXT, TEXT) TO PUBLIC, anon`,
+);
 await db.exec(readFileSync(`${REPO}/fix-payout-result-auth.sql`, "utf8"));
 await db.exec(readFileSync(`${REPO}/fix-payout-result-auth.sql`, "utf8"));
 console.log("migration applied twice");
@@ -113,10 +115,16 @@ await db.exec(`
 
 await db.exec(`SET ROLE authenticated`);
 await as(M);
-const pay = await one(`SELECT * FROM initiate_payslip($1, 4000, 187.5, 'PH_GCASH', '2026-09-16')`, [HP]);
+const pay = await one(`SELECT * FROM initiate_payslip($1, 4000, 187.5, 'PH_GCASH', '2026-09-16')`, [
+  HP,
+]);
 const A = pay.attempt_id;
 const before = await state(A);
-check("setup: a pending payout holding the vale", before.vales === 1 && before.attempt !== "succeeded", before);
+check(
+  "setup: a pending payout holding the vale",
+  before.vales === 1 && before.attempt !== "succeeded",
+  before,
+);
 
 // --- Grants ---------------------------------------------------------------------
 const FN = "public.record_payout_attempt_result(uuid, text, text, text)";
@@ -140,10 +148,22 @@ for (const [label, uid] of [
   ["a removed co-manager whose profile still says co_manager", CO],
 ]) {
   await as(uid);
-  await expectError(`${label} can't mark it succeeded`, () => q(RECORD, [A, "succeeded", null]), /forbidden/i);
-  await expectError(`${label} can't mark it failed`, () => q(RECORD, [A, "failed", "x"]), /forbidden/i);
+  await expectError(
+    `${label} can't mark it succeeded`,
+    () => q(RECORD, [A, "succeeded", null]),
+    /forbidden/i,
+  );
+  await expectError(
+    `${label} can't mark it failed`,
+    () => q(RECORD, [A, "failed", "x"]),
+    /forbidden/i,
+  );
 }
-check("after the attacks, nothing changed", JSON.stringify(await state(A)) === JSON.stringify(before), await state(A));
+check(
+  "after the attacks, nothing changed",
+  JSON.stringify(await state(A)) === JSON.stringify(before),
+  await state(A),
+);
 
 await as(M2);
 await expectError(
@@ -156,14 +176,26 @@ await expectError(
 await as(null);
 for (const role of ["anon", "authenticated"]) {
   await claims(role);
-  await expectError(`a ${role} JWT with no user is refused`, () => q(RECORD, [A, "succeeded", null]), /forbidden/i);
+  await expectError(
+    `a ${role} JWT with no user is refused`,
+    () => q(RECORD, [A, "succeeded", null]),
+    /forbidden/i,
+  );
 }
 await claims(null);
-check("still nothing changed", JSON.stringify(await state(A)) === JSON.stringify(before), await state(A));
+check(
+  "still nothing changed",
+  JSON.stringify(await state(A)) === JSON.stringify(before),
+  await state(A),
+);
 
 // --- Callers that must keep working ---------------------------------------------
 await as(M);
-await expectError("bad status still rejected first", () => q(RECORD, [A, "paid", null]), /invalid attempt status/i);
+await expectError(
+  "bad status still rejected first",
+  () => q(RECORD, [A, "paid", null]),
+  /invalid attempt status/i,
+);
 let r = await one(RECORD, [A, "accepted", null]);
 check("the household's manager records 'accepted'", r.payslip_status === "processing", r);
 
@@ -174,7 +206,10 @@ check("and a failed payout still releases the vale", (await state(A)).vales === 
 
 // The service-role webhook: no user, service_role JWT.
 await as(M);
-const pay2 = await one(`SELECT * FROM initiate_payslip($1, 4000, 187.5, 'PH_GCASH', '2026-09-16')`, [HP]);
+const pay2 = await one(
+  `SELECT * FROM initiate_payslip($1, 4000, 187.5, 'PH_GCASH', '2026-09-16')`,
+  [HP],
+);
 await as(null);
 await claims("service_role");
 r = await one(RECORD, [pay2.attempt_id, "succeeded", null]);
