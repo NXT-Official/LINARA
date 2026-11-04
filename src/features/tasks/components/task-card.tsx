@@ -11,8 +11,11 @@ import type { Task } from "../task.types";
 import { recurrenceLabel, timeSpan } from "../task.utils";
 import { RecurrenceBadge } from "./recurrence-badge";
 import { RescheduleNotice } from "./reschedule-notice";
+import { richText } from "@/lib/i18n/rich-text";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
+  const t = useT();
   const helper = findHelper(task.helperId, helpers);
   return (
     <article className="group rounded-2xl ring-1 ring-border/20 bg-card p-3.5 shadow-soft transition hover:shadow-lift">
@@ -21,7 +24,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${task.helperId ? stationTone(task.station) : "bg-secondary text-muted-foreground"}`}
         >
-          {task.helperId ? task.station : "Unassigned"}
+          {task.helperId ? task.station : t("tasks.unassigned")}
         </span>
       </div>
       {(recurrenceLabel(task.recurrence) || task.appointmentTitle) && (
@@ -63,7 +66,7 @@ export function TaskCard({ task, helpers }: { task: Task; helpers: Helper[] }) {
       </div>
       {task.createdBy && (
         <div className="mt-1.5 text-xs font-medium text-muted-foreground">
-          from {task.createdBy}
+          {richText(t("tasks.from2"), { createdBy: task.createdBy })}
         </div>
       )}
     </article>

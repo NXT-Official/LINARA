@@ -1,0 +1,234 @@
+import { Link } from "@tanstack/react-router";
+import { X } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Modal } from "@/components/shared/modal";
+import { useAppStores } from "@/features/dashboard/app-store-context";
+
+import { usePlanUsage } from "../hooks/use-plan-usage";
+import { limitText, limitsFor, overLimits, planById } from "../plan.logic";
+import { getPlanState, saveSelection, saveSelectionLive, usePlan } from "../plan.store";
+import type { ActiveSelection } from "../plan.types";
+import { tFor } from "@/lib/i18n/instance";
+import { readLocale } from "@/lib/i18n/locale-cookie";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
+
+type Item = { id: string; name: string };
+
+/** What the manager can pick from: households they own, and this household's staff. */
+function useChoices(): { households: Item[]; kasambahay: Item[] } {
+  const { session, invites } = useAppStores();
+  // The household you're in first, so it's the one kept by default.
+  const owned = session.households
+    .filter((h) => h.role === "primary_manager")
+    .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent))
+    .map((h) => ({ id: h.id, name: h.name }));
+  return {
+    households: owned.length
+      ? owned
+      : [{ id: "current", name: tFor(readLocale())("plan.thisHousehold") }],
+    kasambahay: invites.invites
+      .filter((i) => i.status !== "ended")
+      .map((i) => ({ id: i.id, name: i.claimedName || i.name })),
+  };
+}
+
+function Picker({
+  title,
+  items,
+  picked,
+  limit,
+  onChange,
+}: {
+  title: string;
+  items: Item[];
+  picked: string[];
+  limit: number | null;
+  onChange: (ids: string[]) => void;
+}) {
+  const t = useT();
+  const full = limit !== null && picked.length >= limit;
+  return (
+    <fieldset className="mt-4">
+      <legend className="flex w-full items-baseline justify-between gap-3 text-sm font-semibold text-foreground">
+        <span>{title}</span>
+        <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+          {t("plan.ofAnyChosen", { picked: picked.length, limit: limit ?? t("plan.any") })}
+        </span>
+      </legend>
+      <ul className="mt-1.5 divide-y divide-border rounded-2xl border border-border">
+        {items.map((item) => {
+          const checked = picked.includes(item.id);
+          const locked = !checked && full;
+          return (
+            <li key={item.id}>
+              <label
+                className={`flex min-h-12 items-center gap-3 px-4 py-2.5 ${locked ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-secondary/40"}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={locked}
+                  onChange={(e) =>
+                    onChange(
+                      e.target.checked ? [...picked, item.id] : picked.filter((x) => x !== item.id),
+                    )
+                  }
+                  className="size-4 accent-primary"
+                />
+                <span className="min-w-0 flex-1 text-sm text-foreground">{item.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {checked ? t("plan.staysActive") : t("plan.paused")}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </fieldset>
+  );
+}
+
+function ChooseModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
+  const { subscription: sub, selection } = usePlan();
+  const choices = useChoices();
+  const limits = limitsFor(sub);
+  const [picked, setPicked] = useState<ActiveSelection>(
+    () =>
+      selection ?? {
+        households: choices.households.slice(0, limits.households ?? undefined).map((h) => h.id),
+        kasambahay: choices.kasambahay.slice(0, limits.kasambahay ?? undefined).map((k) => k.id),
+      },
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-display text-xl text-foreground">{t("plan.chooseWhatStaysActive")}</h3>
+        <button
+          onClick={onClose}
+          aria-label={t("plan.close")}
+          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("plan.allowsRest", {
+          plan: planById(sub.planId)?.name ?? t("plan.yourPlan"),
+          households: limitText("households", limits.households, t),
+          kasambahay: limitText("kasambahay", limits.kasambahay, t),
+        })}
+      </p>
+      <Picker
+        title={t("plan.households")}
+        items={choices.households}
+        picked={picked.households}
+        limit={limits.households}
+        onChange={(households) => setPicked({ ...picked, households })}
+      />
+      <Picker
+        title={t("plan.kasambahayInThisHousehold")}
+        items={choices.kasambahay}
+        picked={picked.kasambahay}
+        limit={limits.kasambahay}
+        onChange={(kasambahay) => setPicked({ ...picked, kasambahay })}
+      />
+      {error ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl bg-status-late-soft px-3 py-2 text-sm text-status-late-ink"
+        >
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="min-h-11 rounded-lg px-4 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        >
+          {t("plan.cancel")}
+        </button>
+        <button
+          onClick={async () => {
+            const available = {
+              households: choices.households.map((h) => h.id),
+              kasambahay: choices.kasambahay.map((k) => k.id),
+            };
+            const live = getPlanState().live;
+            // Live: the database checks the same rules against everything you own.
+            const res = live
+              ? await saveSelectionLive(picked)
+              : saveSelection(picked, available, t);
+            if (!res.ok) {
+              setError(res.message);
+              return;
+            }
+            toast.success(t("plan.saved"), {
+              description: live ? t("plan.savedToPlan") : t("plan.billingNotLiveStaff"),
+            });
+            onClose();
+          }}
+          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-pine-deep"
+        >
+          {t("plan.save")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * On the Pass when the household has more than its plan allows: after
+ * moving to a smaller plan, or when a payment is overdue past the grace
+ * period. Says what happens and opens the choice.
+ */
+export function OverLimitBanner() {
+  const t = useT();
+  const { subscription: sub, selection } = usePlan();
+  const usage = usePlanUsage();
+  const [choosing, setChoosing] = useState(false);
+  const over = overLimits(sub, usage);
+  const restricted = sub.status === "restricted";
+  if (!restricted && over.length === 0) return null;
+
+  const text = restricted ? t("plan.bannerRestricted") : t("plan.bannerOver");
+
+  return (
+    <section
+      role="status"
+      className={`rounded-3xl p-5 sm:p-6 ${restricted ? "bg-status-late-soft" : "bg-terracotta-soft"}`}
+    >
+      <p className={`text-sm ${restricted ? "text-status-late-ink" : "text-hearth-ink"}`}>
+        {richText(t("plan.nothingIsDeleted"), { text: text })}
+      </p>
+      {selection ? (
+        <p className={`mt-1 text-xs ${restricted ? "text-status-late-ink" : "text-hearth-ink"}`}>
+          {t("plan.youveChosen", {
+            count: selection.households.length,
+            kasambahay: selection.kasambahay.length,
+          })}
+        </p>
+      ) : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => setChoosing(true)}
+          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-pine-deep"
+        >
+          {selection ? t("plan.changeWhatStays") : t("plan.chooseWhatStays")}
+        </button>
+        <Link
+          to="/manager/plan"
+          className="inline-flex min-h-11 items-center rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
+        >
+          {t("plan.seeYourPlan")}
+        </Link>
+      </div>
+      {choosing ? <ChooseModal onClose={() => setChoosing(false)} /> : null}
+    </section>
+  );
+}

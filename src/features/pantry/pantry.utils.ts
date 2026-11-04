@@ -1,3 +1,6 @@
+import { currentT } from "@/lib/i18n/current-t";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
+
 import type { PantryCategory, PantryItem } from "./pantry.types";
 
 /**
@@ -5,13 +8,13 @@ import type { PantryCategory, PantryItem } from "./pantry.types";
  * (`pantry_items.category`'s CHECK), but next to a section called Pantry it
  * says nothing, so it shows as dry goods.
  */
-export const CATEGORY_LABEL: Record<PantryCategory, string> = {
-  "Rice & grains": "Rice & grains",
-  Fresh: "Fresh",
-  Pantry: "Dry goods & sauces",
-  Cleaning: "Cleaning",
-  Baby: "Baby",
-};
+export const CATEGORY_LABEL: Record<PantryCategory, string> = lazyMessages({
+  "Rice & grains": "pantry.catRice",
+  Fresh: "pantry.catFresh",
+  Pantry: "pantry.catDry",
+  Cleaning: "pantry.catCleaning",
+  Baby: "pantry.catBaby",
+});
 
 export type StockState = "out" | "low" | "ok";
 
@@ -32,10 +35,10 @@ export const needsBuying = (item: Pick<PantryItem, "qty" | "par">) => stockState
 
 // English on the manager web until its Filipino toggle exists; the helper app
 // keeps "Ubos" / "Paubos" (decision 2026-10-07).
-export const STOCK_LABEL: Record<Exclude<StockState, "ok">, string> = {
-  out: "Out",
-  low: "Running low",
-};
+export const STOCK_LABEL: Record<Exclude<StockState, "ok">, string> = lazyMessages({
+  out: "pantry.stockOut",
+  low: "pantry.runningLowLabel",
+});
 
 // Plural units the starter list uses, and anyone typing "packs" by hand.
 const PLURAL_UNITS = new Set(["packs", "bottles", "cans", "bars", "rolls", "heads", "boxes"]);
@@ -47,7 +50,7 @@ export function unitFor(n: number, unit: string): string {
   return unit.toLowerCase() === "boxes" ? unit.slice(0, -2) : unit.slice(0, -1);
 }
 
-/** The heading a grocery item sits under: its pantry item's category, else "Other". */
+/** The heading a grocery item sits under: its pantry item's category, else currentT()("pantry.other"). */
 export type GrocerySection = { key: PantryCategory | "other"; label: string };
 
 /**
@@ -63,7 +66,7 @@ export function groupByPantryCategory<T extends { pantryItemId?: string }>(
   const categoryOf = new Map(pantry.map((p) => [p.id, p.category]));
   const sections: { section: GrocerySection; items: T[] }[] = [
     ...order.map((c) => ({ section: { key: c, label: CATEGORY_LABEL[c] }, items: [] as T[] })),
-    { section: { key: "other" as const, label: "Other" }, items: [] as T[] },
+    { section: { key: "other" as const, label: currentT()("pantry.other") }, items: [] as T[] },
   ];
   for (const item of items) {
     const category = item.pantryItemId ? categoryOf.get(item.pantryItemId) : undefined;
@@ -90,8 +93,8 @@ export function pantryItemErrors(
   draft: PantryItemDraft,
 ): Partial<Record<"name" | "qty" | "par", string>> {
   const errors: Partial<Record<"name" | "qty" | "par", string>> = {};
-  if (!draft.name.trim()) errors.name = "Give it a name.";
-  if (parseAmount(draft.qty) === null) errors.qty = "A number, 0 or more.";
-  if (parseAmount(draft.par) === null) errors.par = "A number, 0 or more.";
+  if (!draft.name.trim()) errors.name = currentT()("pantry.giveName");
+  if (parseAmount(draft.qty) === null) errors.qty = currentT()("pantry.numberZeroOrMore");
+  if (parseAmount(draft.par) === null) errors.par = currentT()("pantry.numberZeroOrMore");
   return errors;
 }

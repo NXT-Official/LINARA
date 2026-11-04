@@ -12,6 +12,8 @@ import { isMovable, taskTone, type RoutineGhost } from "../planner.utils";
 import { isPastDue, timeSpan } from "../task.utils";
 import { CommentBadge } from "./comment-badge";
 import { TONE_EDGE } from "./planner-tone";
+import { useListText, useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** Drag-and-drop wiring the planner hands each day and each task. */
 export type PlannerDrag = {
@@ -38,18 +40,19 @@ export type PlannerDrag = {
 
 /** The one status word a task needs, if any. Pills are for status only. */
 function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
+  const t = useT();
   if (task.suggested)
     return (
       <span className="rounded-full bg-secondary px-1.5 text-xs font-semibold text-pine-deep">
-        Suggested
+        {t("tasks.suggested")}
       </span>
     );
   if (task.status === "done")
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground">
-        <Check className="h-3.5 w-3.5" /> Done
+        <Check className="h-3.5 w-3.5" /> {t("tasks.doneTag")}
         {task.photo && (
-          <Camera className="ml-1 h-3.5 w-3.5" aria-label="Photo attached" role="img" />
+          <Camera className="ml-1 h-3.5 w-3.5" aria-label={t("tasks.photoAttached")} role="img" />
         )}
       </span>
     );
@@ -57,32 +60,34 @@ function StatusTag({ task, nowTs }: { task: Task; nowTs: number }) {
     return (
       <span
         className="text-xs font-semibold text-muted-foreground"
-        title={task.cancelledBy ? `Cancelled by ${task.cancelledBy}` : undefined}
+        title={
+          task.cancelledBy ? t("tasks.cancelledByName", { name: task.cancelledBy }) : undefined
+        }
       >
-        Cancelled
+        {t("tasks.cancelled")}
       </span>
     );
   if (task.status === "in_progress")
     return (
       <span className="rounded-full bg-accent/20 px-1.5 text-xs font-bold text-accent-foreground">
-        Doing
+        {t("tasks.doing")}
       </span>
     );
   if (task.status === "blocked")
-    return <span className="text-xs font-semibold text-terracotta-ink">On hold</span>;
+    return <span className="text-xs font-semibold text-terracotta-ink">{t("tasks.onHold")}</span>;
   if (task.queued)
     return (
       <span
         className="text-xs font-semibold text-muted-foreground"
-        title="Added after the board closed. Joins the board when the next day starts."
+        title={t("tasks.addedAfterTheBoardClosed")}
       >
-        Queued
+        {t("tasks.queued")}
       </span>
     );
   if (isPastDue(task, nowTs))
     return (
       <span className="rounded-full bg-status-late-soft px-1.5 text-xs font-bold text-status-late-ink">
-        Late
+        {t("tasks.late")}
       </span>
     );
   return null;
@@ -108,6 +113,7 @@ export function PlannerTaskRow({
   drag?: PlannerDrag;
   onOpen?: () => void;
 }) {
+  const t = useT();
   const helper = findHelper(task.helperId, helpers);
   const color = task.helperId ? stationHex(task.station) : UNASSIGNED_HEX;
   const cancelled = task.status === "cancelled";
@@ -142,13 +148,15 @@ export function PlannerTaskRow({
       )}
       {cancelled && task.cancelledBy && (
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          By {task.cancelledBy}
+          {richText(t("tasks.by"), { cancelledBy: task.cancelledBy })}
         </span>
       )}
       {task.appointmentTitle && (
         <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-terracotta-ink">
           <CalendarClock className="h-3 w-3 shrink-0" aria-hidden />
-          <span className="truncate">For {task.appointmentTitle}</span>
+          <span className="truncate">
+            {richText(t("tasks.for2"), { appointmentTitle: task.appointmentTitle })}
+          </span>
         </span>
       )}
       {(!hideWho || off) && (
@@ -160,7 +168,9 @@ export function PlannerTaskRow({
                 style={{ backgroundColor: color.solid }}
                 aria-hidden
               />
-              <span className="truncate">{task.helperId ? helper.short : "Unassigned"}</span>
+              <span className="truncate">
+                {task.helperId ? helper.short : t("tasks.unassigned")}
+              </span>
             </>
           )}
           {off && (
@@ -213,18 +223,16 @@ export function RoutineGhostRow({
   helpers: Helper[];
   hideWho?: boolean;
 }) {
+  const t = useT();
   const { routine } = ghost;
   return (
-    <li
-      className="px-3 py-2.5 opacity-70"
-      title="From a routine. It becomes a task when the day starts."
-    >
+    <li className="px-3 py-2.5 opacity-70" title={t("tasks.fromARoutineItBecomes")}>
       <span className="flex flex-wrap items-center justify-between gap-x-2">
         <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
           {routine.time}
         </span>
         <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground">
-          <Repeat className="h-3 w-3" aria-hidden /> Routine
+          <Repeat className="h-3 w-3" aria-hidden /> {t("tasks.routine")}
         </span>
       </span>
       <span className="mt-0.5 line-clamp-2 block text-sm text-muted-foreground">
@@ -232,12 +240,12 @@ export function RoutineGhostRow({
       </span>
       {!hideWho && (
         <span className="mt-1 block truncate text-xs text-muted-foreground">
-          {ghost.helperId ? findHelper(ghost.helperId, helpers).short : "Unassigned"}
+          {ghost.helperId ? findHelper(ghost.helperId, helpers).short : t("tasks.unassigned")}
         </span>
       )}
       {!ghost.helperId && (
         <span className="mt-0.5 block text-xs text-muted-foreground">
-          {findHelper(routine.helperId, helpers).short} is off then
+          {richText(t("tasks.isOffThen"), { short: findHelper(routine.helperId, helpers).short })}
         </span>
       )}
     </li>
@@ -254,6 +262,7 @@ export function PlannerAppointmentRow({
   prepCount: number;
   onOpen?: () => void;
 }) {
+  const t = useT();
   const body = (
     <>
       <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta-ink" />
@@ -262,7 +271,7 @@ export function PlannerAppointmentRow({
         <span className="block text-sm text-foreground">{a.title}</span>
         {prepCount > 0 && (
           <span className="block text-muted-foreground">
-            {prepCount} prep {prepCount === 1 ? "task" : "tasks"}
+            {t("tasks.prepTasks", { count: prepCount })}
           </span>
         )}
       </span>
@@ -337,12 +346,18 @@ export function PlannerDayColumn({
   onAdd?: () => void;
   className?: string;
 }) {
+  const t = useT();
+  const listText = useListText();
   const isOver = drag?.overDay === dayIso;
   const empty = tasks.length === 0 && appointments.length === 0 && ghosts.length === 0;
 
   return (
     <section
-      aria-label={`${weekday} ${label}${isToday ? ", today" : ""}`}
+      aria-label={
+        isToday
+          ? t("tasks.dayLabelToday", { weekday, label })
+          : t("tasks.dayLabel", { weekday, label })
+      }
       {...(drag && !isPast ? drag.dropTarget(dayIso) : {})}
       className={`${className} min-w-0 flex-col rounded-2xl bg-card shadow-soft ring-1 transition-shadow ${
         isOver ? "ring-2 ring-primary" : isToday ? "ring-primary/40" : "ring-border/20"
@@ -361,11 +376,15 @@ export function PlannerDayColumn({
         >
           {label}
         </span>
-        {isToday && <span className="ml-auto text-xs font-semibold text-primary">Today</span>}
+        {isToday && (
+          <span className="ml-auto text-xs font-semibold text-primary">{t("tasks.today")}</span>
+        )}
       </header>
 
       {offToday.length > 0 && (
-        <p className="px-3 pt-2 text-xs text-muted-foreground">Day off: {offToday.join(", ")}</p>
+        <p className="px-3 pt-2 text-xs text-muted-foreground">
+          {t("tasks.dayOffList", { names: listText(offToday) })}
+        </p>
       )}
       {timeOffNotes.map((note) => (
         <p key={note} className="px-3 pt-2 text-xs text-muted-foreground">
@@ -374,9 +393,13 @@ export function PlannerDayColumn({
       ))}
 
       {empty ? (
-        <p className="px-3 py-3 text-sm text-muted-foreground">
-          {isPast ? "Nothing was planned." : "Nothing planned yet."}
-        </p>
+        // Said once, on today and past days; an empty day ahead is just its
+        // header and Add task, so a week of them reads as one quiet list.
+        isToday || isPast ? (
+          <p className="px-3 py-3 text-sm text-muted-foreground">
+            {isPast ? t("tasks.nothingWasPlanned") : t("tasks.nothingPlannedYet")}
+          </p>
+        ) : null
       ) : (
         <ul className="divide-y divide-border/60">
           {appointments.map((a) => (
@@ -408,9 +431,9 @@ export function PlannerDayColumn({
         <button
           type="button"
           onClick={onAdd}
-          className="mt-auto flex items-center gap-1.5 border-t border-border/60 px-3 py-2.5 text-xs font-semibold text-primary transition-colors hover:bg-secondary/50"
+          className="mt-auto flex min-h-11 items-center gap-1.5 border-t border-border/60 px-3 py-2.5 text-xs font-semibold text-primary transition-colors hover:bg-secondary/50"
         >
-          <Plus className="h-3.5 w-3.5" /> Add task
+          <Plus className="h-3.5 w-3.5" /> {t("tasks.addTask")}
         </button>
       )}
     </section>

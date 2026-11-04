@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 /**
  * Cutoff DISPLAY only. The cutoff boundaries themselves are derived in
  * Postgres now -- `public.household_cutoff()` in
@@ -24,11 +25,17 @@
 // parses. Parsing in local time and formatting in the zone captured at load
 // shifts the day whenever the two differ: CI (UTC) running the Asia/Manila
 // case printed "Jul 31 - Aug 14". UTC on both sides is the same in every zone.
-const CUTOFF_DISPLAY = new Intl.DateTimeFormat("en-PH", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
+const cutoffFormats = new Map<string, Intl.DateTimeFormat>();
+/** The formatter for the reader's language, built once per language. */
+function cutoffDisplay(): Intl.DateTimeFormat {
+  const tag = dateLocale();
+  let fmt = cutoffFormats.get(tag);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(tag, { month: "short", day: "numeric", timeZone: "UTC" });
+    cutoffFormats.set(tag, fmt);
+  }
+  return fmt;
+}
 
 /**
  * "Aug 1 - Aug 15" from two ISO dates -- display only, not sent anywhere.
@@ -38,11 +45,11 @@ const CUTOFF_DISPLAY = new Intl.DateTimeFormat("en-PH", {
  */
 /** "Oct 16" from an ISO date, the same way formatCutoffRange shows each end. */
 export function formatCutoffDay(ymd: string): string {
-  return CUTOFF_DISPLAY.format(new Date(`${ymd}T00:00:00Z`));
+  return cutoffDisplay().format(new Date(`${ymd}T00:00:00Z`));
 }
 
 export function formatCutoffRange(cutoffStart: string, cutoffEnd: string): string {
-  const start = CUTOFF_DISPLAY.format(new Date(`${cutoffStart}T00:00:00Z`));
-  const end = CUTOFF_DISPLAY.format(new Date(`${cutoffEnd}T00:00:00Z`));
+  const start = cutoffDisplay().format(new Date(`${cutoffStart}T00:00:00Z`));
+  const end = cutoffDisplay().format(new Date(`${cutoffEnd}T00:00:00Z`));
   return `${start} – ${end}`;
 }

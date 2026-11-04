@@ -1,9 +1,11 @@
 import { MessageSquare } from "lucide-react";
 
 import { useCommentActivityStore } from "../comment-activity-context";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** How many updates a task has, highlighted when someone else wrote the latest one. */
 export function CommentBadge({ taskId }: { taskId: string }) {
+  const t = useT();
   const { activity, isNew } = useCommentActivityStore();
   const count = activity[taskId]?.count ?? 0;
   if (count === 0) return null;
@@ -19,7 +21,7 @@ export function CommentBadge({ taskId }: { taskId: string }) {
     >
       <MessageSquare className="h-3 w-3" aria-hidden />
       {count}
-      {fresh && <span className="font-semibold">new</span>}
+      {fresh && <span className="font-semibold">{t("tasks.new")}</span>}
     </span>
   );
 }

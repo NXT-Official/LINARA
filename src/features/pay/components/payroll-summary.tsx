@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { ChevronRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -12,13 +13,16 @@ import { useHouseholdPayroll, type PayrollState } from "../hooks/use-household-p
 import { formatCutoffRange } from "../pay.utils";
 import { manualAckState } from "../payslip-ack";
 import { earlierOwed } from "../period-estimate";
+import { useT } from "@/lib/i18n/locale-context";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
+import { richText } from "@/lib/i18n/rich-text";
 
-const STATE_LABEL: Record<PayrollState, string> = {
-  due: "Due",
-  in_flight: "Sending",
-  needs_review: "Needs review",
-  paid: "Paid",
-};
+const STATE_LABEL: Record<PayrollState, string> = lazyMessages({
+  due: "pay.stateDue",
+  in_flight: "pay.stateSending",
+  needs_review: "pay.stateNeedsReview",
+  paid: "pay.statePaid",
+});
 
 const STATE_TONE: Record<PayrollState, string> = {
   due: "bg-terracotta-soft/60 text-terracotta-ink",
@@ -28,11 +32,12 @@ const STATE_TONE: Record<PayrollState, string> = {
 };
 
 /** A paid row whose payment was recorded outside Linara and not yet confirmed. */
-const ACK_LABEL = { recorded: "Recorded", disputed: "Not received" } as const;
+const ACK_LABEL = lazyMessages({ recorded: "pay.ackRecorded", disputed: "pay.ackDisputed" });
 const ACK_TONE = {
   recorded: "bg-secondary text-pine-deep",
   disputed: "bg-destructive/10 text-destructive",
 } as const;
+const STATE_FILTERS = ["all", "unpaid"] as const;
 
 /**
  * Every helper's pay for their current cutoff, on one card (client feedback,
@@ -48,6 +53,7 @@ export function PayrollSummary({
   selectedId: string | null;
   onSelect: (helperId: string) => void;
 }) {
+  const t = useT();
   // Staff shared in from another household are paid there, not here.
   const {
     vales,
@@ -104,7 +110,7 @@ export function PayrollSummary({
     ),
   );
   // Semi-monthly and monthly helpers can be on different cutoffs at once.
-  const heading = ranges.size === 1 ? [...ranges][0] : "Current cutoffs";
+  const heading = ranges.size === 1 ? [...ranges][0] : currentT()("pay.currentCutoffs");
   const total = payroll.rows.reduce((sum, r) => sum + r.netPay, 0);
   const paidCount = payroll.rows.filter((r) => r.state === "paid").length;
 
@@ -116,22 +122,28 @@ export function PayrollSummary({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="payroll-summary-title" className="font-display text-xl text-foreground">
-            Payroll · {payroll.loading ? "…" : heading}
+            {t("pay.payrollHeading", { heading: payroll.loading ? "…" : heading })}
           </h2>
           <p className="text-xs text-muted-foreground">
             {payroll.loading
-              ? "Checking this cutoff…"
-              : `${paidCount} of ${payroll.rows.length} paid this cutoff · ${fmtPeso(total)} for everyone`}
+              ? t("pay.checkingThisCutoff")
+              : t("pay.paidThisCutoffSummary", {
+                  paidCount,
+                  totalCount: payroll.rows.length,
+                  totalAmount: fmtPeso(total),
+                })}
           </p>
         </div>
         <div className="text-right">
-          <div className="text-xs font-semibold text-muted-foreground">Still to pay</div>
+          <div className="text-xs font-semibold text-muted-foreground">{t("pay.stillToPay")}</div>
           <div className="font-display text-2xl tabular-nums text-foreground">
             {payroll.loading ? "—" : fmtPeso(payroll.dueTotal + earlierTotal)}
           </div>
           {!payroll.loading && earlierTotal > 0 && (
             <div className="text-xs font-semibold text-status-late-ink">
-              {payroll.dueTotal === 0 ? "All" : fmtPeso(earlierTotal)} from earlier cutoffs
+              {t("pay.fromEarlierCutoffs", {
+                amount: payroll.dueTotal === 0 ? t("pay.all") : fmtPeso(earlierTotal),
+              })}
             </div>
           )}
         </div>
@@ -143,13 +155,8 @@ export function PayrollSummary({
         </div>
       )}
       {large && (
-        <div className="mt-3 flex gap-1.5" role="group" aria-label="Which pay to show">
-          {(
-            [
-              ["all", "Everyone"],
-              ["unpaid", "Still to pay"],
-            ] as const
-          ).map(([key, label]) => (
+        <div className="mt-3 flex gap-1.5" role="group" aria-label={t("pay.whichPayToShow")}>
+          {STATE_FILTERS.map((key) => (
             <button
               key={key}
               type="button"
@@ -161,7 +168,7 @@ export function PayrollSummary({
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
-              {label}
+              {key === "all" ? t("pay.everyone") : t("pay.stillToPay")}
             </button>
           ))}
         </div>
@@ -177,7 +184,9 @@ export function PayrollSummary({
             <PayGroup
               key={g.key}
               title={g.title}
-              subtitle={payroll.loading ? "…" : `${fmtPeso(due)} still to pay`}
+              subtitle={
+                payroll.loading ? "…" : currentT()("pay.stillToPayAmount", { amount: fmtPeso(due) })
+              }
             >
               {g.items.map(payRow)}
             </PayGroup>
@@ -187,7 +196,7 @@ export function PayrollSummary({
         <PayGroup>{rows.map(payRow)}</PayGroup>
       )}
       {rows.length === 0 && (
-        <p className="py-4 text-center text-sm text-muted-foreground">Nobody to show.</p>
+        <p className="py-4 text-center text-sm text-muted-foreground">{t("pay.nobodyToShow")}</p>
       )}
     </section>
   );
@@ -215,7 +224,7 @@ export function PayrollSummary({
             {r.cutoff ? formatCutoffRange(r.cutoff.cutoffStart, r.cutoff.cutoffEnd) : "…"}
             {r.valeDeductions > 0 ? ` · −${fmtPeso(r.valeDeductions)} vale` : ""}
             {r.unpaidLeaveDeduction > 0
-              ? ` · −${fmtPeso(r.unpaidLeaveDeduction)} unpaid leave`
+              ? t("pay.unpaidLeaveCut", { amount: fmtPeso(r.unpaidLeaveDeduction) })
               : ""}
           </span>
         </span>
@@ -230,7 +239,7 @@ export function PayrollSummary({
           </span>
           {!payroll.loading && owedBefore > 0 && (
             <span className="block text-xs font-semibold tabular-nums text-status-late-ink">
-              +{fmtPeso(owedBefore)} earlier
+              {richText(t("pay.earlier"), { value: fmtPeso(owedBefore) })}
             </span>
           )}
         </span>

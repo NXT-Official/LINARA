@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -6,6 +7,7 @@ import type { Helper } from "@/features/people/people.types";
 import { useTeamView } from "../hooks/use-team-view";
 import { LARGE_STAFF } from "../teams.constants";
 import { groupByTeam } from "../teams.utils";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type PickerOption = { value: string; label: string };
 
@@ -126,6 +128,7 @@ function SearchablePicker({
   hasTeams: boolean;
   align: "left" | "right";
 }) {
+  const t = useT();
   const { teams } = useTeamView();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -138,7 +141,7 @@ function SearchablePicker({
     [...before, ...after].find((o) => o.value === value)?.label ??
     (() => {
       const h = helpers.find((x) => x.id === value);
-      return h ? describe(h) : (emptyLabel ?? "Choose someone");
+      return h ? describe(h) : (emptyLabel ?? currentT()("teams.chooseSomeone"));
     })();
 
   const rows = useMemo<Row[]>(() => {
@@ -254,15 +257,17 @@ function SearchablePicker({
                 setQuery(e.target.value);
                 setCursor(0);
               }}
-              placeholder="Name, team or label…"
-              aria-label={`Search: ${ariaLabel}`}
+              placeholder={t("teams.nameTeamOrLabel")}
+              aria-label={t("teams.searchFor", { label: ariaLabel })}
               aria-controls={listId}
               className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none"
             />
           </div>
           <ul ref={listRef} id={listId} role="listbox" className="max-h-64 overflow-y-auto py-1">
             {options.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted-foreground">Nobody by that name.</li>
+              <li className="px-3 py-2 text-xs text-muted-foreground">
+                {t("teams.nobodyByThatName")}
+              </li>
             )}
             {rows.map((r) => {
               if (r.kind === "heading") {

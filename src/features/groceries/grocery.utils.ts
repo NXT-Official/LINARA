@@ -1,3 +1,6 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
+import { weekdayName, type Weekday } from "@/lib/time";
 import type { GroceryItem, GroceryRun, GroceryTemplate, RunStatus } from "./grocery.types";
 
 export const fmtPeso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
@@ -6,25 +9,38 @@ export const fmtPeso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
 export const fmtQty = (qty: number, unit: string) =>
   `${qty} ${qty === 1 && unit === "pcs" ? "pc" : unit}`;
 
+/** A run status in the reader's language; read when shown, so it follows a language change. */
 export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
-  draft: "Draft",
-  pending: "Waiting for approval",
-  ready: "Ready to shop",
-  done: "Done",
-  cancelled: "Cancelled",
+  get draft() {
+    return currentT()("groceries.statusDraft");
+  },
+  get pending() {
+    return currentT()("groceries.statusPending");
+  },
+  get ready() {
+    return currentT()("groceries.statusReady");
+  },
+  get done() {
+    return currentT()("groceries.statusDone");
+  },
+  get cancelled() {
+    return currentT()("groceries.statusCancelled");
+  },
 };
 
 export const OPEN_STATUSES: RunStatus[] = ["draft", "pending", "ready"];
 
-export const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+/** Sunday first (Date.getDay()). Names are read when shown, so they follow the language. */
+export const WEEKDAYS: string[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+  (code) => code,
+);
+for (let i = 0; i < WEEKDAYS.length; i++) {
+  const code = WEEKDAYS[i] as Weekday;
+  Object.defineProperty(WEEKDAYS, i, {
+    enumerable: true,
+    get: () => weekdayName(code, "long"),
+  });
+}
 
 /** What the lines that were bought cost. */
 export function spentOn(items: GroceryItem[]): number {
@@ -73,7 +89,7 @@ export function monthBounds(at: Date): { start: Date; end: Date; label: string }
   return {
     start,
     end,
-    label: start.toLocaleDateString("en-PH", { month: "long", year: "numeric" }),
+    label: start.toLocaleDateString(dateLocale(), { month: "long", year: "numeric" }),
   };
 }
 
@@ -91,7 +107,7 @@ export function isoDate(d: Date): string {
 /** "Sat, Oct 10" for a YYYY-MM-DD. */
 export function shortDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-PH", {
+  return new Date(y, m - 1, d).toLocaleDateString(dateLocale(), {
     weekday: "short",
     month: "short",
     day: "numeric",

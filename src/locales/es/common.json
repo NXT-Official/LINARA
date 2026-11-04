@@ -1,0 +1,36 @@
+{
+  "common": {
+    "language": {
+      "current": "Idioma: {language}",
+      "label": "Idioma"
+    },
+    "primary": "Principal",
+    "search": "Buscar…",
+    "clearSearch": "Limpiar búsqueda",
+    "filter": "Filtrar",
+    "thisPageDidnTLoad": "Esta página no cargó",
+    "somethingWentWrongHereThe": "Algo salió mal aquí. El resto de Linara funciona bien. Inténtalo de nuevo o elige otra pestaña.",
+    "tryAgain": "Intentar de nuevo",
+    "showFewer": "Mostrar menos",
+    "showMore": "Mostrar {count} {noun} más",
+    "couldntSaveThat": "No se pudo guardar.",
+    "couldntRemoveIt": "No se pudo quitar.",
+    "somethingWentWrong": "Algo salió mal.",
+    "undo": "Deshacer",
+    "nothingWasCharged": "No se cobró nada.",
+    "errors": {
+      "notSignedIn": "No has iniciado sesión.",
+      "notAuthenticated": "No autenticado",
+      "invalidToken": "No autorizado: token no válido",
+      "profileNotFound": "No autorizado: perfil no encontrado",
+      "signInToUse": "Inicia sesión para usar esto.",
+      "sessionExpired": "La sesión caducó",
+      "unknownHelper": "Ayudante desconocido",
+      "helperNotFound": "No se encontró a la ayudante",
+      "noHousehold": "Sin hogar",
+      "loginFailed": "Error al iniciar sesión",
+      "browserPhotos": "Este navegador no puede procesar fotos.",
+      "readPhoto": "No se pudo leer esa foto."
+    }
+  }
+}

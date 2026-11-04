@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -60,7 +61,7 @@ export const parseSchedulerFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; prompt: string; simDate?: string }) => data)
   .handler(async ({ data }) => {
     const { token, prompt, simDate } = data;
-    if (!token) throw new Error("Sign in to use this.");
+    if (!token) throw new Error(currentT()("common.errors.signInToUse"));
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
     if (useMock) {

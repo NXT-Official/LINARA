@@ -1,4 +1,4 @@
-import { ShoppingBasket } from "lucide-react";
+import { currentT } from "@/lib/i18n/current-t";
 import { useEffect, useState } from "react";
 
 import { useGrocery } from "../grocery-context";
@@ -9,6 +9,8 @@ import { NeededList } from "./needed-list";
 import { RepeatsList } from "./repeats-list";
 import { RunModal } from "./run-modal";
 import { RunsList } from "./runs-list";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 type Tab = "needed" | "runs" | "repeats" | "history";
 const TAB_KEY = "linara.groceryTab";
@@ -35,10 +37,21 @@ const readTab = (): Tab => {
  * applied it is the single list it always was.
  */
 export function GrocerySection() {
+  const t = useT();
   const ctx = useGrocery();
   const [tab, setTab] = useState<Tab>("needed");
   // "new", a run's id, or nothing open.
   const [openRun, setOpenRun] = useState<string | null>(null);
+  // A new household has nothing here yet: one line and one action, not four
+  // empty tabs, a budget and a form (audit 2026-10-29).
+  const [startedByHand, setStartedByHand] = useState(false);
+  const fresh =
+    ctx.runsAvailable &&
+    !startedByHand &&
+    ctx.needed.length === 0 &&
+    ctx.runs.length === 0 &&
+    ctx.templates.length === 0 &&
+    ctx.spent === 0;
   useEffect(() => setTab(readTab()), []);
   const choose = (t: Tab) => {
     setTab(t);
@@ -57,37 +70,43 @@ export function GrocerySection() {
   };
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: "needed", label: "Needed", count: ctx.toBuyCount },
-    { key: "runs", label: "Runs", count: ctx.runs.length },
-    { key: "repeats", label: "Repeats" },
-    { key: "history", label: "History" },
+    { key: "needed", label: currentT()("groceries.tabNeeded"), count: ctx.toBuyCount },
+    { key: "runs", label: currentT()("groceries.tabRuns"), count: ctx.runs.length },
+    { key: "repeats", label: currentT()("groceries.tabRepeats") },
+    { key: "history", label: currentT()("groceries.tabHistory") },
   ];
 
   return (
     <section className="rounded-3xl ring-1 ring-border/20 bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-terracotta-soft text-accent-foreground">
-              <ShoppingBasket className="h-4 w-4" />
-            </div>
-            <h2 className="font-display text-xl text-foreground">Grocery list</h2>
-          </div>
+          <h2 className="font-display text-xl text-foreground">{t("groceries.groceryList")}</h2>
           {/* With runs, the tabs say what's here and Needed carries the count. */}
           {!ctx.runsAvailable && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Auto-suggested from Pantry lows. Attached to the Palengke run.
+              {t("groceries.autoSuggestedFromPantryLows")}
             </p>
           )}
         </div>
         {!ctx.runsAvailable && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-pine-deep">
-            {ctx.toBuyCount} to buy
+            {richText(t("groceries.toBuy"), { toBuyCount: ctx.toBuyCount })}
           </span>
         )}
       </div>
 
-      {ctx.runsAvailable ? (
+      {fresh ? (
+        <div className="mt-2">
+          <p className="text-sm text-muted-foreground">{t("groceries.whatRunsLowInThe")}</p>
+          <button
+            type="button"
+            onClick={() => setStartedByHand(true)}
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-primary/30 bg-card px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px motion-reduce:transition-none motion-reduce:active:translate-y-0"
+          >
+            {t("groceries.addAnItem")}
+          </button>
+        </div>
+      ) : ctx.runsAvailable ? (
         <>
           <div className="mt-3">
             <MonthBudget />
@@ -95,7 +114,7 @@ export function GrocerySection() {
           <div
             className="mt-4 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-background/60 p-1"
             role="tablist"
-            aria-label="Groceries"
+            aria-label={t("groceries.groceries")}
           >
             {tabs.map(({ key, label, count }) => {
               const active = tab === key;
@@ -119,7 +138,9 @@ export function GrocerySection() {
                   {key === "runs" && pending > 0 && (
                     <>
                       <span className="h-2 w-2 rounded-full bg-terracotta" aria-hidden />
-                      <span className="sr-only">, {pending} waiting for approval</span>
+                      <span className="sr-only">
+                        {richText(t("groceries.waitingForApproval"), { pending: pending })}
+                      </span>
                     </>
                   )}
                 </button>
@@ -150,6 +171,7 @@ export function GrocerySection() {
 
 /** Before add-grocery-runs.sql: the one petty-cash number, against everything bought. */
 function LegacyBudget() {
+  const t = useT();
   const ctx = useGrocery();
   const [draft, setDraft] = useState(String(ctx.budget));
   const budget = ctx.budget;
@@ -159,9 +181,11 @@ function LegacyBudget() {
   return (
     <div className="mt-4 rounded-2xl bg-background/60 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold text-muted-foreground">Petty cash budget</div>
+        <div className="text-xs font-semibold text-muted-foreground">
+          {t("groceries.pettyCashBudget")}
+        </div>
         <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          ₱
+          {t("groceries.text")}
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

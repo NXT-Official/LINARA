@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -19,29 +20,31 @@ async function requireManager(token: string) {
     data: { user },
     error,
   } = await client.auth.getUser();
-  if (error || !user) throw new Error("Unauthorized: Invalid token");
+  if (error || !user) throw new Error(currentT()("common.errors.invalidToken"));
   const { data: profile } = await client
     .from("user_profiles")
     .select("household_id, user_type")
     .eq("id", user.id)
     .single();
-  if (!profile) throw new Error("Unauthorized: Profile not found");
+  if (!profile) throw new Error(currentT()("common.errors.profileNotFound"));
   if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-    throw new Error("Only the primary manager or a co-manager can change teams and labels");
+    throw new Error(currentT()("teams.errOnlyPrimary"));
   }
   return { client, householdId: profile.household_id as string };
 }
 
 /** A friendlier line for the unique-name index. */
 function nameError(error: { code?: string; message: string }, what: "team" | "label"): Error {
-  if (error.code === "23505") return new Error(`There's already a ${what} with that name`);
+  if (error.code === "23505") {
+    return new Error(currentT()(what === "team" ? "teams.errTeamExists" : "teams.errLabelExists"));
+  }
   return new Error(error.message);
 }
 
 const cleanName = (name: string, max: number) => {
   const trimmed = name.trim().replace(/\s+/g, " ");
-  if (!trimmed) throw new Error("Give it a name");
-  if (trimmed.length > max) throw new Error(`Keep it to ${max} characters`);
+  if (!trimmed) throw new Error(currentT()("sharing.errNameIt"));
+  if (trimmed.length > max) throw new Error(currentT()("sharing.errKeepTo", { max }));
   return trimmed;
 };
 
@@ -92,7 +95,8 @@ export const createTeamFn = createServerFn({ method: "POST" })
       .insert({ household_id: householdId, name: data.name })
       .select("id, name")
       .single();
-    if (error || !row) throw nameError(error ?? { message: "Couldn't add the team" }, "team");
+    if (error || !row)
+      throw nameError(error ?? { message: currentT()("teams.errAddTeam") }, "team");
     return row as Team;
   });
 
@@ -121,7 +125,7 @@ export const deleteTeamFn = createServerFn({ method: "POST" })
 
 export const createLabelFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; name: string; tone: LabelTone }) => {
-    if (!TONES.includes(data.tone)) throw new Error("Unknown colour");
+    if (!TONES.includes(data.tone)) throw new Error(currentT()("teams.errUnknownColour"));
     return { ...data, name: cleanName(data.name, 30) };
   })
   .handler(async ({ data }): Promise<Label> => {
@@ -131,13 +135,14 @@ export const createLabelFn = createServerFn({ method: "POST" })
       .insert({ household_id: householdId, name: data.name, tone: data.tone })
       .select("id, name, tone")
       .single();
-    if (error || !row) throw nameError(error ?? { message: "Couldn't add the label" }, "label");
+    if (error || !row)
+      throw nameError(error ?? { message: currentT()("teams.errAddLabel") }, "label");
     return row as Label;
   });
 
 export const updateLabelFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; labelId: string; name: string; tone: LabelTone }) => {
-    if (!TONES.includes(data.tone)) throw new Error("Unknown colour");
+    if (!TONES.includes(data.tone)) throw new Error(currentT()("teams.errUnknownColour"));
     return { ...data, name: cleanName(data.name, 30) };
   })
   .handler(async ({ data }) => {

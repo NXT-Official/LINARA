@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -98,7 +99,8 @@ function buildAdmin(id: string, fullName: string, userType: string): Admin {
     short,
     initials,
     type,
-    location: type === "remote" ? "Remote" : "On-site",
+    location:
+      type === "remote" ? currentT()("people.roleShortRemote") : currentT()("people.onSite"),
   };
 }
 
@@ -306,7 +308,7 @@ export function useSession(): Session {
 
   const finishBootstrap: Session["finishBootstrap"] = useCallback(
     async (data) => {
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error(currentT()("common.errors.notAuthenticated"));
       const result = await finishBootstrapFn({ data: { token, ...data } });
       window.localStorage.setItem(HOUSEHOLD_ID_KEY, result.householdId);
       setHouseholdTimeZone(result.timeZone);
@@ -424,7 +426,7 @@ export function useSession(): Session {
   const withToken = <A extends unknown[], R>(fn: (token: string, ...args: A) => Promise<R>) => {
     return async (...args: A) => {
       const current = tokenRef.current;
-      if (!current) throw new Error("Not signed in");
+      if (!current) throw new Error(currentT()("common.errors.notSignedIn"));
       return fn(current, ...args);
     };
   };

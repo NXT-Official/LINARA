@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 
 import { manualFromRow, statusFor } from "@/features/availability/availability.utils";
@@ -10,12 +11,16 @@ import { usePlannerTasks } from "@/features/tasks/hooks/use-planner-tasks";
 import { addDays } from "@/features/tasks/planner.utils";
 import type { Task } from "@/features/tasks/task.types";
 import { isLaterThanToday, isPastDue } from "@/features/tasks/task.utils";
+import { OverLimitBanner } from "@/features/plan/components/over-limit-banner";
 import { QuickUtosLauncher } from "@/features/utos/components/quick-utos-launcher";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { parseISODate, startOfDayIso, toISODate } from "@/lib/time";
 
 import { useAppStores } from "../app-store-context";
 import { EndDayModal } from "../components/end-day-modal";
 import { ManagerPassTab, type PassMode } from "../components/manager-pass-tab";
+import { StaleDayNotice } from "../components/stale-day";
+import { useT } from "@/lib/i18n/locale-context";
 
 /** Today at a glance: what needs a decision, then the day itself. */
 export function ManagerPassPage({
@@ -25,6 +30,7 @@ export function ManagerPassPage({
   view: PassMode | undefined;
   onViewChange: (mode: PassMode) => void;
 }) {
+  const t = useT();
   const {
     session,
     board,
@@ -43,6 +49,8 @@ export function ManagerPassPage({
     timeOff,
     setUtosRecipientId,
     clock,
+    staleBoardToday,
+    catchUpToToday,
   } = useAppStores();
   const { adminType, currentAdmin } = session;
 
@@ -63,7 +71,7 @@ export function ManagerPassPage({
       const invite = inviteStore.invites.find((i) => i.id === payslip.helperId);
       return {
         payslip,
-        name: invite ? invite.claimedName || invite.name : "Your helper",
+        name: invite ? invite.claimedName || invite.name : currentT()("dashboard.yourHelper"),
         left: invite?.status === "ended",
       };
     });
@@ -157,7 +165,15 @@ export function ManagerPassPage({
 
   return (
     <>
-      <h1 className="sr-only">The Pass</h1>
+      <h1 className="sr-only">{t("dashboard.thePass")}</h1>
+      <div className="mb-6 empty:hidden">
+        <OverLimitBanner />
+      </div>
+      {staleBoardToday && canEndDay ? (
+        <div className="mb-6">
+          <StaleDayNotice from={board.simDate} today={staleBoardToday} onMove={catchUpToToday} />
+        </div>
+      ) : null}
       <ManagerPassTab
         active={active}
         upcoming={upcoming}
@@ -165,12 +181,12 @@ export function ManagerPassPage({
         blocked={onBoard.filter((t) => t.status === "blocked")}
         pastDue={pastDue}
         nowTs={clock.nowTs}
-        pendingVales={vales.vales.filter((v) => v.status === "pending")}
+        pendingVales={PAY_HR_ENABLED ? vales.vales.filter((v) => v.status === "pending") : []}
         flaggedInvites={inviteStore.invites.filter(
           (i) => i.status !== "ended" && i.flags.length > 0,
         )}
-        owedPay={owedPay}
-        disputedPayments={disputedPayments}
+        owedPay={PAY_HR_ENABLED ? owedPay : []}
+        disputedPayments={PAY_HR_ENABLED ? disputedPayments : []}
         notices={inviteStore.invites.filter((i) => i.status === "active" && i.noticeLastDay)}
         pendingLeave={pendingLeave}
         leaveTaskCounts={leaveTaskCounts}
@@ -201,14 +217,19 @@ export function ManagerPassPage({
         onApproveSuggestion={approveSuggestion}
         onDismissSuggestion={dismissSuggestion}
         onNewTask={() => setOpen(true)}
+        // Nobody to send a small ask to yet: the Line leads to inviting a helper instead.
         quickUtos={
-          <QuickUtosLauncher
-            onSend={gate.sendUtos}
-            helperName={activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"}
-            activeHelpers={activeHelpers}
-            selectedHelperId={utosRecipientId}
-            onSelectHelper={setUtosRecipientId}
-          />
+          activeHelpers.length === 0 ? undefined : (
+            <QuickUtosLauncher
+              onSend={gate.sendUtos}
+              helperName={
+                activeHelpers.find((h) => h.id === utosRecipientId)?.name ?? "your helper"
+              }
+              activeHelpers={activeHelpers}
+              selectedHelperId={utosRecipientId}
+              onSelectHelper={setUtosRecipientId}
+            />
+          )
         }
         view={view}
         onViewChange={onViewChange}

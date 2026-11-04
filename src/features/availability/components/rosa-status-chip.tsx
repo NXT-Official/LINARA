@@ -3,8 +3,11 @@ import { formatTimeOfDay } from "@/lib/time";
 
 import type { RosaStatus } from "../availability.types";
 import { statusMeta } from "../availability.utils";
+import { richText } from "@/lib/i18n/rich-text";
+import { useT } from "@/lib/i18n/locale-context";
 
 export function RosaStatusChip({ status, helperName }: { status: RosaStatus; helperName: string }) {
+  const t = useT();
   const mounted = useMounted();
   const meta = statusMeta(mounted ? status.status : "off");
   return (
@@ -16,7 +19,9 @@ export function RosaStatusChip({ status, helperName }: { status: RosaStatus; hel
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
       {helperName} · {mounted ? meta.label : "—"}
       {mounted && status.status === "available" && status.until && (
-        <span className="font-normal opacity-80">· until {formatTimeOfDay(status.until)}</span>
+        <span className="font-normal opacity-80">
+          {richText(t("availability.until"), { value: formatTimeOfDay(status.until) })}
+        </span>
       )}
     </span>
   );

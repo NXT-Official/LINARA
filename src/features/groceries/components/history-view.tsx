@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -11,9 +12,15 @@ import { useGroceryHistory } from "../hooks/use-grocery-history";
 import { ReceiptSlot } from "./receipt-slot";
 import { RunModal } from "./run-modal";
 import { RunStatusPill } from "./run-status-pill";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const day = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+  new Date(iso).toLocaleDateString(dateLocale(), {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
 /**
  * Past runs, a month at a time: when each closed, who went, what it cost
@@ -23,6 +30,7 @@ const day = (iso: string) =>
  * kept two months; the figures stay).
  */
 export function HistoryView() {
+  const t = useT();
   const { teams, activeHelpers } = useAppStores();
   const [month, setMonth] = useState(() => monthBounds(new Date()).start);
   const [query, setQuery] = useState("");
@@ -51,7 +59,7 @@ export function HistoryView() {
         <button
           type="button"
           onClick={() => shift(-1)}
-          aria-label="Previous month"
+          aria-label={t("groceries.previousMonth")}
           className={navBtn}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -60,8 +68,10 @@ export function HistoryView() {
           <div className="font-display text-lg text-foreground">{label}</div>
           {state === "ready" && (
             <div className="text-xs tabular-nums text-muted-foreground">
-              {history.runs.length} {history.runs.length === 1 ? "run" : "runs"} ·{" "}
-              {fmtPeso(runsSpent + outsideSpent)} spent
+              {t("groceries.runsSpent", {
+                count: history.runs.length,
+                amount: fmtPeso(runsSpent + outsideSpent),
+              })}
             </div>
           )}
         </div>
@@ -69,7 +79,7 @@ export function HistoryView() {
           type="button"
           onClick={() => shift(1)}
           disabled={isThisMonth}
-          aria-label="Next month"
+          aria-label={t("groceries.nextMonth")}
           className={navBtn}
         >
           <ChevronRight className="h-4 w-4" />
@@ -80,8 +90,8 @@ export function HistoryView() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a run or an item"
-          aria-label="Search this month's runs"
+          placeholder={t("groceries.findARunOrAn")}
+          aria-label={t("groceries.searchThisMonthSRuns")}
           className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
       )}
@@ -92,18 +102,22 @@ export function HistoryView() {
         </div>
       ) : state === "error" ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          Couldn&apos;t load {label}.{" "}
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="font-semibold text-primary"
-          >
-            Try again
-          </button>
+          {richText(t("groceries.couldnTLoad"), {
+            label: label,
+            button: (
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                className="font-semibold text-primary"
+              >
+                {t("groceries.tryAgain")}
+              </button>
+            ),
+          })}
         </p>
       ) : runs.length === 0 && !showOutside ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          {query.trim() ? "Nothing matches." : `No runs closed in ${label}.`}
+          {query.trim() ? t("groceries.nothingMatches") : t("groceries.noRunsClosedIn", { label })}
         </p>
       ) : (
         <>
@@ -123,7 +137,7 @@ export function HistoryView() {
                   r.teamId && teams.teamById.get(r.teamId)?.name,
                   who.length > 0 && who.join(", "),
                   r.receipts.length > 0 &&
-                    `${r.receipts.length} ${r.receipts.length === 1 ? "receipt" : "receipts"}`,
+                    t("groceries.receiptCount", { count: r.receipts.length }),
                 ].filter(Boolean);
                 return (
                   <li key={r.id}>
@@ -157,7 +171,7 @@ export function HistoryView() {
                         )}
                         {costsMissing ? (
                           <span className="block font-semibold text-terracotta-ink">
-                            Costs missing
+                            {t("groceries.costsMissing")}
                           </span>
                         ) : (
                           gap !== null && (
@@ -165,10 +179,10 @@ export function HistoryView() {
                               className={`block font-semibold ${gap === 0 ? "text-pine-deep" : "text-status-late-ink"}`}
                             >
                               {gap === 0
-                                ? "Balanced"
+                                ? t("groceries.balanced")
                                 : gap > 0
-                                  ? `${fmtPeso(gap)} short`
-                                  : `${fmtPeso(-gap)} over`}
+                                  ? t("groceries.amountShort", { amount: fmtPeso(gap) })
+                                  : t("groceries.amountOver", { amount: fmtPeso(-gap) })}
                             </span>
                           )
                         )}
@@ -182,8 +196,9 @@ export function HistoryView() {
           {showOutside && (
             <div>
               <div className="px-1 pt-2 text-xs font-semibold text-muted-foreground">
-                Bought outside a run
-                {outside.length > 0 && <> · {fmtPeso(outsideSpent)}</>}
+                {richText(t("groceries.boughtOutsideARun"), {
+                  value: outside.length > 0 && <> · {fmtPeso(outsideSpent)}</>,
+                })}
               </div>
               <ul className="divide-y divide-border/70">
                 {outside.map((g) => (

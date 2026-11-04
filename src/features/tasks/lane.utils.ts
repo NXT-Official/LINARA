@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import type { Task } from "./task.types";
 import { byStart, isPastDue } from "./task.utils";
 
@@ -46,15 +47,16 @@ export function lanePill(s: LaneSummary): LanePill {
   }
   if (s.inProg) {
     return {
-      text: `Now: ${s.inProg.title}`,
+      text: currentT()("tasks.nowTitle", { title: s.inProg.title }),
       cls: "bg-terracotta-soft text-accent-foreground",
     };
   }
-  if (s.total === 0) return { text: "Nothing today", cls: "bg-secondary text-muted-foreground" };
+  if (s.total === 0)
+    return { text: currentT()("tasks.nothingToday"), cls: "bg-secondary text-muted-foreground" };
   if (s.done === s.total) {
-    return { text: "All done", cls: "bg-status-done-soft text-status-done-ink" };
+    return { text: currentT()("tasks.allDone"), cls: "bg-status-done-soft text-status-done-ink" };
   }
-  return { text: "On track", cls: "bg-status-done-soft text-status-done-ink" };
+  return { text: currentT()("tasks.onTrack"), cls: "bg-status-done-soft text-status-done-ink" };
 }
 
 /** Lanes that need a decision first, then whoever is mid-task; otherwise as given. */

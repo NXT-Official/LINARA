@@ -117,15 +117,35 @@ export function householdDayStamp(day: Date): string {
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export const WEEKDAY_LONG: Record<Weekday, string> = {
-  Mon: "Monday",
-  Tue: "Tuesday",
-  Wed: "Wednesday",
-  Thu: "Thursday",
-  Fri: "Friday",
-  Sat: "Saturday",
-  Sun: "Sunday",
-};
+const weekdayFormats = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * A weekday code ("Mon") written in the reader's language: "Mon" / "Lun" /
+ * "周一" / "月", or in full ("Monday"). The codes stay what is stored and
+ * compared; only what is shown goes through here.
+ */
+export function weekdayName(code: Weekday, style: "short" | "long" = "short"): string {
+  const tag = intlLocale(readLocale());
+  const key = `${tag}|${style}`;
+  let fmt = weekdayFormats.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(tag, { weekday: style, timeZone: "UTC" });
+    weekdayFormats.set(key, fmt);
+  }
+  // 2024-01-01 was a Monday.
+  return fmt.format(new Date(Date.UTC(2024, 0, 1 + WEEKDAYS.indexOf(code))));
+}
+
+/** Read when shown, so it follows a language change. */
+export const WEEKDAY_LONG = Object.fromEntries(
+  WEEKDAYS.map((code) => [code, undefined]),
+) as unknown as Record<Weekday, string>;
+for (const code of WEEKDAYS) {
+  Object.defineProperty(WEEKDAY_LONG, code, {
+    enumerable: true,
+    get: () => weekdayName(code, "long"),
+  });
+}
 
 const WEEKDAY_FROM_DAY: Weekday[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const weekdayOf = (d: Date): Weekday => {
@@ -135,7 +155,7 @@ export const weekdayOf = (d: Date): Weekday => {
 };
 
 export const formatSimDate = (d: Date): string =>
-  d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  d.toLocaleDateString(dateLocale(), { weekday: "long", month: "long", day: "numeric" });
 export const toISODate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 // The reverse of toISODate -- a "YYYY-MM-DD" string back to a local Date at midnight.
@@ -145,7 +165,7 @@ export const parseISODate = (iso: string): Date => {
 };
 export const formatAppointmentDate = (iso: string): string => {
   const [y, mo, d] = iso.split("-").map(Number);
-  return new Date(y, mo - 1, d).toLocaleDateString("en-US", {
+  return new Date(y, mo - 1, d).toLocaleDateString(dateLocale(), {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -235,7 +255,7 @@ export function formatClock(ts: number) {
   const s = h >= 12 ? "PM" : "AM";
   h = h % 12;
   if (h === 0) h = 12;
-  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
+  const wd = weekdayName(WEEKDAY_FROM_DAY[d.getDay()]);
   return `${wd} ${h}:${m} ${s}`;
 }
 
@@ -247,3 +267,6 @@ export function formatTimeOfDay(ts: number): string {
   const suffix = d.getHours() >= 12 ? "PM" : "AM";
   return `${h}:${m} ${suffix}`;
 }
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { intlLocale } from "@/lib/i18n/instance";
+import { readLocale } from "@/lib/i18n/locale-cookie";

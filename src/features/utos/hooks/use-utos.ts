@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { ackUtoFn, insertUtoFn, listUtosFn, type QuickUtosRow } from "../utos.actions";
 import type { QuickUtos } from "../utos.types";
+import { useT } from "@/lib/i18n/locale-context";
 
 export type SendFlags = {
   afterHours?: boolean;
@@ -63,6 +64,7 @@ export function useUtos({
   /** Fired when the helper taps Done — the app decides if it is owed back. */
   onDone: (utos: QuickUtos) => void;
 }) {
+  const t = useT();
   const [list, setList] = useState<QuickUtos[]>([]);
 
   const refresh = useCallback(async () => {
@@ -94,7 +96,7 @@ export function useUtos({
       .then(() => refresh())
       .catch((err) => {
         console.error("[useUtos] Failed to send quick utos:", err);
-        toast.error("Hindi na-send ang utos.");
+        toast.error(t("utos.hindiNaSendAngUtos"));
       });
   };
 
@@ -110,7 +112,7 @@ export function useUtos({
       })
       .catch((err) => {
         console.error("[useUtos] Failed to update quick utos:", err);
-        toast.error("Hindi na-save ang pag-update ng utos.");
+        toast.error(t("utos.hindiNaSaveAngPag"));
       });
   };
 

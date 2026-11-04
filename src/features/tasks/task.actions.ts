@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { placeColumns } from "@/features/sharing/sharing.utils";
@@ -27,7 +28,7 @@ export const generateSopFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; prompt: string; station?: string }) => data)
   .handler(async ({ data }) => {
     const { token, prompt, station } = data;
-    if (!token) throw new Error("Sign in to use this.");
+    if (!token) throw new Error(currentT()("common.errors.signInToUse"));
 
     const useMock = process.env.USE_MOCK_AI === "true" || !process.env.SUPABASE_URL;
 
@@ -178,7 +179,7 @@ export const insertHouseSopFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -188,11 +189,11 @@ export const insertHouseSopFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can save House Standards");
+      throw new Error(currentT()("tasks.errManagersOnlyStandards"));
     }
 
     const { data: sop, error: insertError } = await authedClient
@@ -209,7 +210,7 @@ export const insertHouseSopFn = createServerFn({ method: "POST" })
       .single();
 
     if (insertError || !sop) {
-      throw new Error(insertError?.message || "Failed to save House Standard");
+      throw new Error(insertError?.message || currentT()("tasks.errSaveStandard"));
     }
 
     return { id: sop.id as string };
@@ -540,7 +541,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -550,7 +551,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     // A repeating task is the first of its series, which is named by its id
@@ -583,7 +584,7 @@ export const insertTicketFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to create task");
+      throw new Error(error?.message || currentT()("tasks.errCreateTask"));
     }
 
     // Overridden or emergency task for a helper who is off: the manager chose to
@@ -682,13 +683,13 @@ export const insertRoutineTasksFn = createServerFn({ method: "POST" })
       data: { user },
       error: authError,
     } = await client.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+    if (authError || !user) throw new Error(currentT()("common.errors.invalidToken"));
     const { data: profile, error: profileError } = await client
       .from("user_profiles")
       .select("household_id")
       .eq("id", user.id)
       .single();
-    if (profileError || !profile) throw new Error("Unauthorized: Profile not found");
+    if (profileError || !profile) throw new Error(currentT()("common.errors.profileNotFound"));
 
     const made = await Promise.all(
       data.tasks.map(async (t) => {
@@ -820,7 +821,7 @@ export const updateTicketFn = createServerFn({ method: "POST" })
         .eq("id", ticketId)
         .single();
       if (current?.status === "done") {
-        throw new Error("A finished task can't be changed.");
+        throw new Error(currentT()("tasks.errFinishedTask"));
       }
     }
 
@@ -983,7 +984,7 @@ export const getBoardClosedFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -993,7 +994,7 @@ export const getBoardClosedFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     const { data: household, error } = await authedClient
@@ -1003,7 +1004,7 @@ export const getBoardClosedFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !household) {
-      throw new Error(error?.message || "Failed to load board status");
+      throw new Error(error?.message || currentT()("tasks.errBoardStatus"));
     }
 
     return {
@@ -1027,7 +1028,7 @@ export const setBoardClosedFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -1037,11 +1038,11 @@ export const setBoardClosedFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can open or close the board");
+      throw new Error(currentT()("tasks.errManagersOnlyOpenBoard"));
     }
 
     const { error } = await authedClient
@@ -1073,7 +1074,7 @@ export const setBoardDateFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -1083,11 +1084,11 @@ export const setBoardDateFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     if (profile.user_type !== "primary_manager" && profile.user_type !== "co_manager") {
-      throw new Error("Forbidden: Only managers can advance the board's day");
+      throw new Error(currentT()("tasks.errManagersOnlyAdvance"));
     }
 
     const { error } = await authedClient
@@ -1132,19 +1133,19 @@ export const getServerNowFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: serverNow, error } = await authedClient.rpc("server_now");
 
     if (error || !serverNow) {
-      throw new Error(error?.message || "Failed to read the server clock");
+      throw new Error(error?.message || currentT()("tasks.errServerClock"));
     }
 
     const { data: householdToday, error: todayError } = await authedClient.rpc("household_today");
 
     if (todayError || !householdToday) {
-      throw new Error(todayError?.message || "Failed to read the household's civil date");
+      throw new Error(todayError?.message || currentT()("tasks.errCivilDate"));
     }
 
     return {
@@ -1250,7 +1251,7 @@ export const addTicketCommentFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; ticketId: string; body: string }) => data)
   .handler(async ({ data }) => {
     const body = data.body.trim();
-    if (!body) throw new Error("Write something first.");
+    if (!body) throw new Error(currentT()("tasks.errWriteFirst"));
     const authedClient = createAuthedClient(data.token);
     const { data: row, error } = await authedClient
       .from("ticket_comments")
@@ -1258,7 +1259,7 @@ export const addTicketCommentFn = createServerFn({ method: "POST" })
       .select("id, author_id, author_name, body, created_at, edited_at")
       .single();
     if (error || !row) {
-      throw new Error(error?.message || "Couldn't post the update.");
+      throw new Error(error?.message || currentT()("tasks.errPostUpdate"));
     }
     return toComment(row as TicketCommentRow);
   });

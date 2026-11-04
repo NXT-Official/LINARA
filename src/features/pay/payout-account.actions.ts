@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -7,7 +8,8 @@ import type { PayoutChannelCode } from "./pay.types";
 /**
  * Where to send her pay when the household pays her directly
  * (supabase/add-direct-gcash-pay.sql, KNOWN_GAPS O35). Linara moves no money:
- * this only tells the manager where to send it.
+ * this only tells the manager where to send it. Not behind the pay & HR
+ * switch (lib/pay-hr.ts): that switch is about Linara's own staff.
  *
  * - "helper": what she saved in her app (helper_payout_accounts). Hers alone
  *   to change.
@@ -41,7 +43,7 @@ export const getPayoutAccountFn = createServerFn({ method: "POST" })
       .eq("id", data.helperId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!helper) throw new Error("Helper not found");
+    if (!helper) throw new Error(currentT()("common.errors.helperNotFound"));
 
     if (helper.user_id) {
       const { data: saved, error: savedError } = await client

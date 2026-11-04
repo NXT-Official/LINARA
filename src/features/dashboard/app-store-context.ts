@@ -72,6 +72,10 @@ export type AppStores = {
   isOnline: boolean;
   isOfflineSimulated: boolean;
   setOfflineSimulated: (b: boolean) => void;
+  /** Today, when the server says the board is more than two weeks behind; else null. */
+  staleBoardToday: string | null;
+  /** Moves the board to staleBoardToday; false if it failed. */
+  catchUpToToday: () => Promise<boolean>;
 };
 
 export const AppStoreContext = createContext<AppStores | undefined>(undefined);

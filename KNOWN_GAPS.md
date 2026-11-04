@@ -16,6 +16,13 @@ the bottom.
 
 ## Open Gaps
 
+### O73. Anyone could record a payout's result, signed in or not
+
+- **Found:** 2026-11-03, security test against linara dev with only the public anon key. `record_payout_attempt_result` is `SECURITY DEFINER`, had no caller check, and was never revoked from PUBLIC, so anon could execute it (confirmed live: a random attempt id came back "Payout attempt not found", not "permission denied"). With an attempt id, anyone could mark a payout `succeeded` (a payslip saying the helper was paid) or `failed` (releasing its vales and unpaid leave so they're taken again). Attempt ids are random UUIDs, but household members can read them. `add-remote-admin-pay.sql`'s note that it "checks the household" was never true.
+- **Fixed in code:** `supabase/fix-payout-result-auth.sql`. A signed-in caller must be a primary manager, co-manager or remote admin of the payslip's household in `household_managers` (the web's stuck-payout reconcile, `src/features/pay/pay.actions.ts`, runs with the manager's token). With no user, only a non-anon, non-user JWT gets in (the service-role `xendit-payout-webhook`, the SQL editor). An unknown id reads "Forbidden" to a signed-in user, so ids can't be probed. EXECUTE revoked from PUBLIC and anon. PGlite: `supabase/tests/payout-result-auth.test.mjs` (13 failures before the fix, 20/20 after).
+- **Applied:** `fix-payout-result-auth.sql` on linara dev, 2026-11-03 (by the owner). Verified live: an anon call gets `permission denied for function record_payout_attempt_result`, and a signed-in manager with an attempt id that isn't theirs gets "Forbidden". Dev is the only environment; a future prod project gets it with the rest of the schema.
+- **To close:** one real sandbox payout through the webhook after this, to confirm the service-role path end to end (covered in PGlite, not yet live, since pay & HR is off, O72). Owned by `LINARA`.
+
 ### O70. Push notifications: Android phones never register, and several events never notify anyone (unresolved)
 
 - **Found:** 2026-10-20, auditing the mobile app's notifications. Numbered O70 so it can't collide with the O58-O69 entries on `nicoleDev`.
@@ -29,6 +36,17 @@ the bottom.
   6. **Language.** Push text is Taglish whatever language she picks in the app (LINARA_MOBILE `22ba7ec`).
 - **To close (item 1):** create a Firebase project with an Android app `com.linara.mobile`, put its `google-services.json` in `LINARA_MOBILE` and set `android.googleServicesFile`, upload the FCM V1 service-account key with `eas credentials`, rebuild the APK (a native change; an update can't deliver it), then confirm a `push_tokens` row appears for an Android helper and a test override arrives. Items 2-6 each need a product decision first.
 - **Item 1 fixed (2026-10-21):** Firebase project `linara-d7dae`, `google-services.json` and `android.googleServicesFile` in `LINARA_MOBILE` `168c4b8`, FCM V1 key uploaded to the Expo project, and the Android API key restricted to `com.linara.mobile` (EAS signing SHA-1) and the Installations, Cloud Messaging and FCM Registration APIs. Verified on the emulator: the test helper registers a token (also again after the app's data is cleared), and a push sent to it with the app in the background is accepted, receipted `ok` and posted on the `alerts` channel. Not verified: tapping it opens Today (the emulator's shade wouldn't expand; the owner checked on a device). iOS still needs an APNs key. A Play Store release with Play App Signing needs Play's SHA-1 added to the key restriction.
+
+### O72. Staff pay & HR is switched off while it's brought in line with the law
+
+- **Found:** 2026-10-26, the owner asked for payroll to be "temporarily disabled due to adhering to the law".
+- **What's off:** payslips and paying staff (Pay now, "I've sent it", missed periods, final and 13th-month pay figures), the payroll summary and spend/payday dials, vale (request and approval), where a helper is paid, wage changes, and the SSS / PhilHealth / Pag-IBIG figures. A notice ("temporarily disabled while we make sure they follow the law") stands where they were. **Still on:** leave, rest-off, the after-hours ledger, ending an employment, My Record's own history. Nothing is deleted.
+- **How:** `PAY_HR_ENABLED = false` in `src/lib/pay-hr.ts` and `../LINARA_MOBILE/lib/pay-hr.ts` (UI; the web's pay-writing server functions call `assertPayHrEnabled()`), and `supabase/add-pay-hr-switch.sql` (`app_switches.staff_pay_hr`, triggers refusing new payslips, vales, vale approvals, payout accounts and wage changes for every caller, so installed app builds and direct API calls are refused too). Tested: `supabase/tests/pay-hr-switch.test.mjs`, `src/lib/pay-hr.test.tsx`.
+- **Applied:** `add-pay-hr-switch.sql` on linara dev, 2026-10-26 (by the owner). Dev is the only environment; a future prod project gets it with the rest of the schema.
+- **Blocks:** `e2e/deep/pay.spec.ts` (records a payment) fails while it's off, by design.
+- **Open:** which features count as pay or HR is still the team lead's call (rest owed, leave); the subscription plan's global switch (`documentation/specs/2026-10-26-subscriptions-plan.md`, R5) should take over `app_switches`.
+- **To close:** flip both constants and `UPDATE public.app_switches SET enabled = true WHERE key = 'household_pay_hr'`, then update `pay-hr.test.tsx`. Owned by `LINARA`.
+- **Switch split (2026-11-03, `supabase/staff-pay-hr-linara-team.sql`):** `staff_pay_hr` is now the Linara team's own payroll only (console D50) and no longer a plan feature; the household gate above reads its own switch, `household_pay_hr`, which starts as `staff_pay_hr` was (off). PGlite: `supabase/tests/staff-pay-hr-linara-team.test.mjs`. Applied on linara dev 2026-11-03 (by the owner); verified: no plan version or draft has the key, every version passes `billing_valid_version`, the catalog publishes no switches, both switches off, `pay_hr_enabled()` false, the immutability trigger back on.
 
 ### O71. The vale form's reason choices stay under the keyboard after typing the amount
 
@@ -310,6 +328,8 @@ the bottom.
   3. Deploy the six functions (`npm run deploy:functions`).
   4. Set a hard monthly spend limit on the OpenAI account (only the account owner can).
   5. Retest LM-A6's steps: the anon key alone gets 401. As a signed-in manager, Quick Utos, the SOP generator and the appointment parser still work on the web; in LINARA_MOBILE, voice notes and the SOP cards still work. Owned by `LINARA`.
+- **Still open (security test, 2026-11-03):** step 1 is applied (`take_ai_call` answers on dev), but step 3 never happened. `functions list` shows all six last deployed Aug 17 to Oct 1, before the guard, and `generate-sop`, `route-utos` and `simplify-sop` answered the anon key alone with 200. Still mock answers only (no `OPENAI_API_KEY`, `USE_MOCK_AI` set), so no cost yet.
+- **Deployed 2026-11-03 (step 3, by the owner):** the anon key alone now gets 401 from all six; a signed-in manager gets 200 from all six (`supabase/DEPLOYMENTS.md`). Left: step 4 (an OpenAI spend limit, before adding `OPENAI_API_KEY`) and step 5's in-app retest on the web and LINARA_MOBILE.
 
 ### O48. No full Content-Security-Policy yet
 

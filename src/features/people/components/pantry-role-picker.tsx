@@ -1,18 +1,29 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import type { PantryRole } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const OPTIONS: { role: PantryRole; label: string; hint: string }[] = [
   {
     role: "lead",
-    label: "In charge",
-    hint: "Keeps the stock and the palengke list, like you do.",
+    get label() {
+      return currentT()("people.pantryLead");
+    },
+    get hint() {
+      return currentT()("people.pantryLeadHint");
+    },
   },
   {
     role: "runner",
-    label: "Buys from the list",
-    hint: "Ticks off what they bought and can say when something runs out.",
+    get label() {
+      return currentT()("people.pantryRunner");
+    },
+    get hint() {
+      return currentT()("people.pantryRunnerHint");
+    },
   },
 ];
 
@@ -37,13 +48,16 @@ export function PantryRolePicker({
   canChange: boolean;
   onChange: (role: PantryRole) => Promise<void>;
 }) {
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const current = OPTIONS.find((o) => o.role === role) ?? OPTIONS[1];
 
   if (!canChange) {
     return (
       <div className="mt-1 text-xs text-muted-foreground">
-        Pantry: <span className="font-semibold text-foreground">{current.label}</span>
+        {richText(t("people.pantry2"), {
+          span: <span className="font-semibold text-foreground">{current.label}</span>,
+        })}
       </div>
     );
   }
@@ -54,7 +68,7 @@ export function PantryRolePicker({
     try {
       await onChange(next);
     } catch {
-      toast.error(`Couldn't change ${name}'s pantry access. Try again.`);
+      toast.error(t("people.couldnTChangeSPantry", { name }));
     } finally {
       setSaving(false);
     }
@@ -63,10 +77,10 @@ export function PantryRolePicker({
   return (
     <div className="mt-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-foreground">Pantry</span>
+        <span className="text-xs font-semibold text-foreground">{t("people.pantry")}</span>
         <div
           role="radiogroup"
-          aria-label={`Pantry access for ${name}`}
+          aria-label={t("people.pantryAccessFor", { name })}
           className="inline-flex rounded-lg bg-secondary/70 p-0.5"
         >
           {OPTIONS.map((o) => {

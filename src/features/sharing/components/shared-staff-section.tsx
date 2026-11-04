@@ -5,6 +5,8 @@ import { Avatar } from "@/components/shared/avatar";
 import { useAppStores } from "@/features/dashboard/app-store-context";
 import { LabelChips } from "@/features/teams/components/label-chip";
 import { EditTeamLabelsModal } from "@/features/teams/components/edit-team-labels-modal";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Staff employed by another household of the family who also work here. They
@@ -12,6 +14,7 @@ import { EditTeamLabelsModal } from "@/features/teams/components/edit-team-label
  * record stay with the household that employs them, so none of that shows.
  */
 export function SharedStaffSection({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const { sharing, teams, activeHelpers } = useAppStores();
   const [editing, setEditing] = useState<{
     id: string;
@@ -24,10 +27,8 @@ export function SharedStaffSection({ canEdit }: { canEdit: boolean }) {
   return (
     <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/20 sm:p-6">
       <div className="mb-4">
-        <h2 className="font-display text-xl text-foreground">Also working here</h2>
-        <p className="text-xs text-muted-foreground">
-          Employed by another of your households. Their pay and record stay there.
-        </p>
+        <h2 className="font-display text-xl text-foreground">{t("sharing.alsoWorkingHere")}</h2>
+        <p className="text-xs text-muted-foreground">{t("sharing.employedByAnotherOfYour")}</p>
       </div>
       <div className="divide-y divide-border/70">
         {shared.map((h) => {
@@ -43,11 +44,13 @@ export function SharedStaffSection({ canEdit }: { canEdit: boolean }) {
                   </span>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Home className="h-3 w-3" aria-hidden /> Employed by {h.sharedFrom}
-                  {team ? ` · ${team} here` : ""}
+                  <Home className="h-3 w-3" aria-hidden />{" "}
+                  {team
+                    ? t("sharing.employedByTeamHere", { house: h.sharedFrom ?? "", team })
+                    : t("sharing.employedBy", { house: h.sharedFrom ?? "" })}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {h.shift} · Rest: {h.restDay}
+                  {richText(t("sharing.rest"), { shift: h.shift, restDay: h.restDay })}
                 </div>
                 {teams.labelsOf(h.id).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1.5">
@@ -61,7 +64,7 @@ export function SharedStaffSection({ canEdit }: { canEdit: boolean }) {
                   onClick={() => setEditing({ id: h.id, name: h.name, teamId: h.teamId })}
                   className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Tags className="h-3 w-3" /> Team & labels
+                  <Tags className="h-3 w-3" /> {t("sharing.teamLabels")}
                 </button>
               )}
             </div>

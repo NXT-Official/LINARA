@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { currentT } from "@/lib/i18n/current-t";
 import { AlertCircle, Info, Loader2, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -13,16 +15,19 @@ import {
   workedShareOfCutoff,
 } from "@/features/pay/net-pay";
 import { formatCutoffRange } from "@/features/pay/pay.utils";
+import { PAY_HR_ENABLED } from "@/lib/pay-hr";
 import { householdNow, toISODate } from "@/lib/time";
 
 import { employmentEndPreviewFn, type EmploymentEndPreview } from "../people.actions";
 import type { Helper } from "../people.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 const daysInclusive = (start: string, end: string) =>
   Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
 
 const longDay = (ymd: string) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString("en-PH", {
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(dateLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -31,16 +36,16 @@ const longDay = (ymd: string) =>
 function problemText(p: EmploymentEndPreview): string | null {
   switch (p.problem) {
     case "future":
-      return "Pick today or an earlier day. An employment can't be ended ahead of time.";
+      return currentT()("people.endPickToday");
     case "before_start":
-      return `That's before their first day (${longDay(p.startedOn)}).`;
+      return currentT()("people.endBeforeFirst", { day: longDay(p.startedOn) });
     case "already_paid_past":
       // Paid ahead: no day is valid yet, since a last day can't be in the future.
       return p.latestPaidCutoffEnd && p.latestPaidCutoffEnd > p.today
-        ? `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd)}, so the last working day can't be earlier. You can end the employment from that day.`
-        : `Pay has already gone out through ${longDay(p.latestPaidCutoffEnd ?? p.today)}. Pick that day or later.`;
+        ? currentT()("people.endPaidThroughEnd", { day: longDay(p.latestPaidCutoffEnd) })
+        : currentT()("people.endPaidThrough", { day: longDay(p.latestPaidCutoffEnd ?? p.today) });
     case "not_active":
-      return "They aren't employed here any more.";
+      return currentT()("people.endNotEmployed");
     default:
       return null;
   }
@@ -70,6 +75,7 @@ export function EndEmploymentModal({
   onClose: () => void;
   onConfirm: (lastDay: string, reassignTo: string | null) => Promise<void>;
 }) {
+  const t = useT();
   const [lastDay, setLastDay] = useState(() => initialLastDay ?? toISODate(householdNow()));
   // Until a day is picked, the form may move its default to the first valid one.
   const dayPicked = useRef(Boolean(initialLastDay));
@@ -105,7 +111,8 @@ export function EndEmploymentModal({
         setPreview(p);
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Couldn't load this.");
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : currentT()("people.errLoadThis"));
       });
     return () => {
       cancelled = true;
@@ -150,7 +157,7 @@ export function EndEmploymentModal({
       await onConfirm(lastDay, current && current.openTasks > 0 && reassignTo ? reassignTo : null);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't end the employment.");
+      setError(err instanceof Error ? err.message : currentT()("people.errEndShort"));
     } finally {
       setSubmitting(false);
     }
@@ -160,16 +167,16 @@ export function EndEmploymentModal({
     <Modal onClose={onClose} size="lg">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-display text-xl text-foreground">End {helper.short}'s employment</h3>
+          <h3 className="font-display text-xl text-foreground">
+            {t("people.endEmploymentTitle", { name: helper.short })}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {helper.short}&apos;s record stays. Payslips, finished tasks and time off remain here,
-            and they keep their own copy in the Linara app. They can join another household later
-            with a new invite code.
+            {t("people.recordStays", { name: helper.short })}
           </p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("people.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -177,7 +184,7 @@ export function EndEmploymentModal({
       </div>
 
       <div className="mt-4 space-y-4">
-        <Field label="Last working day">
+        <Field label={t("people.lastWorkingDay")}>
           <input
             type="date"
             value={lastDay}
@@ -199,7 +206,7 @@ export function EndEmploymentModal({
 
         {!current && !loadError && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking pay and tasks…
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("people.checkingPayAndTasks")}
           </p>
         )}
 
@@ -212,93 +219,105 @@ export function EndEmploymentModal({
         {current && !blocked && (
           <>
             {current.openTasks > 0 && (
-              <Field label={`Open tasks (${current.openTasks})`}>
+              <Field label={t("people.openTasksCount", { count: current.openTasks })}>
                 <HelperPicker
                   helpers={otherHelpers}
                   value={reassignTo}
                   onChange={setReassignTo}
-                  ariaLabel="Open tasks"
-                  after={[{ value: "", label: "Remove them from the board" }]}
-                  describe={(h) => `Move them to ${h.name} (${h.station})`}
+                  ariaLabel={currentT()("people.openTasks")}
+                  after={[{ value: "", label: currentT()("people.removeFromBoard") }]}
+                  describe={(h) =>
+                    currentT()("people.moveTo", { name: h.name, station: h.station })
+                  }
                 />
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Finished tasks stay on the record either way.
+                  {t("people.finishedTasksStayOnThe")}
                 </span>
               </Field>
             )}
 
-            <div className="rounded-2xl bg-secondary/60 p-3.5">
-              <h4 className="text-sm font-semibold text-foreground">Final pay</h4>
-              {current.finalCutoffPaid ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Already paid for{" "}
-                  {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}. Nothing
-                  more to send through Linara.
-                </p>
-              ) : (
-                <>
-                  <p className="mt-1 text-sm text-foreground">
-                    <span className="font-semibold tabular-nums">{fmtPeso(finalNet)}</span> for{" "}
-                    {formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd)}
-                    {share < 1 ? ` (${daysWorked} days worked of the cutoff)` : ""}
+            {PAY_HR_ENABLED && (
+              <div className="rounded-2xl bg-secondary/60 p-3.5">
+                <h4 className="text-sm font-semibold text-foreground">{t("people.finalPay")}</h4>
+                {current.finalCutoffPaid ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("people.alreadyPaidFor", {
+                      range: formatCutoffRange(current.finalCutoffStart, current.finalCutoffEnd),
+                    })}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Basic {fmtPeso(components.basePay)} − contributions{" "}
-                    {fmtPeso(components.statutoryEmployeeShare)}
-                    {current.unsettledValeTotal > 0
-                      ? ` − vale ${fmtPeso(current.unsettledValeTotal)}`
-                      : ""}
-                    {current.unpaidLeaveDeduction > 0
-                      ? ` − unpaid leave ${fmtPeso(current.unpaidLeaveDeduction)} (${current.unpaidLeaveDays} ${current.unpaidLeaveDays === 1 ? "day" : "days"})`
-                      : ""}
-                    . You'll pay it from Past staff on this page, by GCash or Maya.
-                  </p>
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-foreground">
+                      {richText(
+                        t("people.finalForRange", {
+                          range: formatCutoffRange(
+                            current.finalCutoffStart,
+                            current.finalCutoffEnd,
+                          ),
+                        }),
+                        {
+                          amount: (
+                            <span className="font-semibold tabular-nums">{fmtPeso(finalNet)}</span>
+                          ),
+                        },
+                      )}
+                      {share < 1 ? t("people.daysWorkedOfCutoff", { days: daysWorked }) : ""}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {t("people.finalBreakdown", {
+                        basic: fmtPeso(components.basePay),
+                        contributions: fmtPeso(components.statutoryEmployeeShare),
+                        vale:
+                          current.unsettledValeTotal > 0
+                            ? t("people.breakdownVale", {
+                                amount: fmtPeso(current.unsettledValeTotal),
+                              })
+                            : "",
+                        leave:
+                          current.unpaidLeaveDeduction > 0
+                            ? t("people.breakdownLeave", {
+                                amount: fmtPeso(current.unpaidLeaveDeduction),
+                                count: current.unpaidLeaveDays,
+                              })
+                            : "",
+                      })}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <ul className="space-y-2 text-xs text-foreground">
-              {current.unpaidPeriods > 0 && (
+              {PAY_HR_ENABLED && current.unpaidPeriods > 0 && (
                 <Note tone="warn">
-                  {current.unpaidPeriods === 1
-                    ? "One earlier pay period has"
-                    : `${current.unpaidPeriods} earlier pay periods have`}{" "}
-                  no payment on record. You can still pay{" "}
-                  {current.unpaidPeriods === 1 ? "it" : "them"} from Past staff, or record how you
-                  paid outside Linara.
+                  {t("people.earlierUnpaid", { count: current.unpaidPeriods })}
                 </Note>
               )}
-              {thirteenth > 0 && (
+              {PAY_HR_ENABLED && thirteenth > 0 && (
                 <Note tone="warn">
-                  13th-month pay: about <strong>{fmtPeso(thirteenth)}</strong>, a twelfth of the
-                  basic pay on record for them this year. It becomes payable from Past staff once
-                  the employment ends.
+                  {richText(t("people.thirteenthAbout"), {
+                    amount: <strong>{fmtPeso(thirteenth)}</strong>,
+                  })}
                 </Note>
               )}
               {current.restOwedMinutes > 0 && (
                 <Note tone="warn">
-                  {helper.short} has <strong>{fmtHoursMinutes(current.restOwedMinutes)}</strong> of
-                  rest owed. It can't be taken as time off any more, and Linara doesn't turn rest
-                  into pay, so agree with {helper.short} how to settle it.
+                  {richText(t("people.restOwedSettle", { name: helper.short }), {
+                    time: <strong>{fmtHoursMinutes(current.restOwedMinutes)}</strong>,
+                  })}
                 </Note>
               )}
               {current.pendingVales > 0 && (
-                <Note>
-                  {current.pendingVales} pending vale request
-                  {current.pendingVales === 1 ? "" : "s"} will be declined.
-                </Note>
+                <Note>{t("people.pendingValesDeclined", { count: current.pendingVales })}</Note>
               )}
               {current.pendingRestOff + current.futureRestOff > 0 && (
                 <Note>
-                  {current.pendingRestOff + current.futureRestOff} rest-off request
-                  {current.pendingRestOff + current.futureRestOff === 1 ? "" : "s"} after the last
-                  day will be closed.
+                  {t("people.restOffClosed", {
+                    count: current.pendingRestOff + current.futureRestOff,
+                  })}
                 </Note>
               )}
-              <Note>
-                {helper.short}&apos;s app loses the board, pantry and utos for this household. They
-                keep read access to their own record here: terms, payslips and time off.
-              </Note>
+              <Note>{t("people.appLosesBoard", { name: helper.short })}</Note>
             </ul>
           </>
         )}
@@ -316,7 +335,7 @@ export function EndEmploymentModal({
           disabled={submitting}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("people.cancel")}
         </button>
         <button
           onClick={submit}
@@ -325,10 +344,10 @@ export function EndEmploymentModal({
         >
           {submitting ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Ending…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("people.ending")}
             </>
           ) : (
-            "End employment"
+            t("people.endEmployment")
           )}
         </button>
       </div>

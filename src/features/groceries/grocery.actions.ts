@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import type { GroceryItem, GroceryReceipt } from "./grocery.types";
@@ -71,7 +72,7 @@ export const insertGroceryItemFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -81,7 +82,7 @@ export const insertGroceryItemFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     const { data: row, error } = await authedClient
@@ -100,7 +101,7 @@ export const insertGroceryItemFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to add grocery item");
+      throw new Error(error?.message || currentT()("groceries.errAddItem"));
     }
 
     return { id: row.id as string };
@@ -203,7 +204,7 @@ export const updateHouseholdBudgetFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -213,13 +214,13 @@ export const updateHouseholdBudgetFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     // A remote admin too: plan.md 1.2, "usually the funding source"
     // (supabase/add-household-managers.sql lets the database agree).
     if (!["primary_manager", "co_manager", "remote_admin"].includes(profile.user_type)) {
-      throw new Error("Forbidden: Only managers can set the petty-cash budget");
+      throw new Error(currentT()("groceries.errManagersOnlyBudget"));
     }
 
     const { error } = await authedClient
@@ -300,11 +301,11 @@ const MAX_RECEIPT_BYTES = 3 * 1024 * 1024;
 function jpegBytes(base64: string): Uint8Array {
   const bytes = Buffer.from(base64, "base64");
   if (bytes.length === 0 || bytes.length > MAX_RECEIPT_BYTES) {
-    throw new Error("That photo is too large. Try another one.");
+    throw new Error(currentT()("groceries.errPhotoTooLarge"));
   }
   // Every JPEG starts FF D8 FF; shrinkPhoto only ever sends JPEG.
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
-    throw new Error("That file isn't a photo.");
+    throw new Error(currentT()("groceries.errNotPhoto"));
   }
   return bytes;
 }
@@ -327,21 +328,23 @@ export const addGroceryReceiptFn = createServerFn({ method: "POST" })
       data: { user },
       error: authError,
     } = await authedClient.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized: Invalid token");
+    if (authError || !user) throw new Error(currentT()("common.errors.invalidToken"));
 
     const { data: profile, error: profileError } = await authedClient
       .from("user_profiles")
       .select("household_id")
       .eq("id", user.id)
       .single();
-    if (profileError || !profile?.household_id) throw new Error("Unauthorized: Profile not found");
+    if (profileError || !profile?.household_id)
+      throw new Error(currentT()("common.errors.profileNotFound"));
 
     const path = `${profile.household_id}/receipts/${Date.now()}.jpg`;
     const bucket = authedClient.storage.from(HOUSEHOLD_EVIDENCE_BUCKET);
     const { error: uploadError } = await bucket.upload(path, photo, {
       contentType: "image/jpeg",
     });
-    if (uploadError) throw new Error(`Couldn't upload the receipt: ${uploadError.message}`);
+    if (uploadError)
+      throw new Error(currentT()("groceries.errUploadReceipt", { reason: uploadError.message }));
 
     try {
       const { error } = await bucket.upload(evidenceThumbPath(path), jpegBytes(data.thumb), {

@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { Loader2, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +12,8 @@ import { HelperPicker } from "@/features/teams/components/helper-picker";
 import { useGrocery } from "../grocery-context";
 import type { GroceryTemplate, TemplateDraft, TemplateItem } from "../grocery.types";
 import { WEEKDAYS, fmtPeso, fmtQty, isoDate, nextDue } from "../grocery.utils";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /**
  * Repeat runs ("Weekly palengke"): the usual name, day, team, people, cash
@@ -18,6 +21,7 @@ import { WEEKDAYS, fmtPeso, fmtQty, isoDate, nextDue } from "../grocery.utils";
  * matching lines out of Needed instead of listing them twice.
  */
 export function RepeatsList({ onStarted }: { onStarted: (runId: string) => void }) {
+  const t = useT();
   const ctx = useGrocery();
   const { teams } = useAppStores();
   const [editing, setEditing] = useState<GroceryTemplate | "new" | null>(null);
@@ -37,41 +41,41 @@ export function RepeatsList({ onStarted }: { onStarted: (runId: string) => void 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          The runs you make every week. Start one and it becomes a draft to check and send.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("groceries.theRunsYouMakeEvery")}</p>
         <button
           type="button"
           onClick={() => setEditing("new")}
           className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
         >
-          <Plus className="h-3.5 w-3.5" /> New repeat
+          <Plus className="h-3.5 w-3.5" /> {t("groceries.newRepeat")}
         </button>
       </div>
       {ctx.templates.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          No repeats yet. Make one here, or save a run as a repeat.
+          {t("groceries.noRepeatsYetMakeOne")}
         </p>
       ) : (
         <ul className="divide-y divide-border/70">
-          {ctx.templates.map((t) => {
+          {ctx.templates.map((item) => {
             const meta = [
-              t.weekday === null ? "No fixed day" : `Every ${WEEKDAYS[t.weekday]}`,
-              t.teamId && teams.teamById.get(t.teamId)?.name,
-              `${t.items.length} ${t.items.length === 1 ? "item" : "items"}`,
-              t.cashDefault !== null && `${fmtPeso(t.cashDefault)} cash`,
+              item.weekday === null
+                ? t("groceries.noFixedDay")
+                : t("groceries.everyDay", { day: WEEKDAYS[item.weekday] }),
+              item.teamId && teams.teamById.get(item.teamId)?.name,
+              t("groceries.itemCount", { count: item.items.length }),
+              item.cashDefault !== null && `${fmtPeso(item.cashDefault)} cash`,
             ].filter(Boolean);
             return (
-              <li key={t.id} className="flex items-center gap-3 py-3">
+              <li key={item.id} className="flex items-center gap-3 py-3">
                 <Repeat className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <button
                   type="button"
-                  onClick={() => setEditing(t)}
+                  onClick={() => setEditing(item)}
                   className="min-w-0 flex-1 text-left"
-                  aria-label={`Edit ${t.title}`}
+                  aria-label={t("groceries.editItem", { name: item.title })}
                 >
                   <span className="block truncate text-sm font-semibold text-foreground hover:underline">
-                    {t.title}
+                    {item.title}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {meta.join(" · ")}
@@ -80,10 +84,12 @@ export function RepeatsList({ onStarted }: { onStarted: (runId: string) => void 
                 <button
                   type="button"
                   disabled={starting !== null}
-                  onClick={() => void start(t)}
+                  onClick={() => void start(item)}
                   className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5 disabled:opacity-50"
                 >
-                  {starting === t.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Start
+                  {richText(t("groceries.start"), {
+                    value: starting === item.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+                  })}
                 </button>
               </li>
             );
@@ -104,6 +110,7 @@ const FIELD =
   "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
 
 function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onClose: () => void }) {
+  const t = useT();
   const ctx = useGrocery();
   const { teams, activeHelpers } = useAppStores();
   const [draft, setDraft] = useState<TemplateDraft>(
@@ -133,8 +140,8 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
 
   const addLine = () => {
     const n = parseAmount(line.qty);
-    if (!line.name.trim()) return setError("Type what to buy.");
-    if (n === null || n === 0) return setError("Qty: a number above 0.");
+    if (!line.name.trim()) return setError(currentT()("groceries.typeWhatToBuy"));
+    if (n === null || n === 0) return setError(currentT()("groceries.qtyAboveZero"));
     setError(null);
     set("items", [
       ...draft.items,
@@ -157,16 +164,16 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
   };
 
   const save = async () => {
-    if (!draft.title.trim()) return setError("Give it a name, like “Weekly palengke”.");
+    if (!draft.title.trim()) return setError(currentT()("groceries.nameIt"));
     const c = cash.trim() === "" ? null : Number(cash.replace(/[,₱\s]/g, ""));
     if (c !== null && (!Number.isFinite(c) || c < 0)) {
-      return setError("Usual cash: an amount in pesos, or empty.");
+      return setError(currentT()("groceries.usualCashAmount"));
     }
     setError(null);
     setBusy("save");
     try {
       await ctx.saveTemplate({ ...draft, shopperIds: shoppers, cashDefault: c }, template?.id);
-      toast.success("Repeat saved.");
+      toast.success(t("groceries.repeatSaved"));
       onClose();
     } catch {
       // useGroceryList already said what went wrong.
@@ -180,7 +187,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
     setBusy("delete");
     try {
       await ctx.deleteTemplate(template.id);
-      toast.success("Repeat deleted. Runs made from it stay.");
+      toast.success(t("groceries.repeatDeletedRunsMadeFrom"));
       onClose();
     } catch {
       // useGroceryList already said what went wrong.
@@ -193,11 +200,11 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
     <Modal onClose={onClose} size="lg">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-xl text-foreground">
-          {template ? template.title : "New repeat"}
+          {template ? template.title : t("groceries.newRepeat")}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("groceries.close")}
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary"
         >
           <X className="h-4 w-4" />
@@ -205,23 +212,23 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="Name">
+          <Field label={t("groceries.name")}>
             <input
               value={draft.title}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="e.g. Weekly palengke"
+              placeholder={t("groceries.eGWeeklyPalengke")}
               maxLength={60}
               className={FIELD}
             />
           </Field>
         </div>
-        <Field label="Every">
+        <Field label={t("groceries.every")}>
           <select
             value={draft.weekday ?? ""}
             onChange={(e) => set("weekday", e.target.value === "" ? null : Number(e.target.value))}
             className={FIELD}
           >
-            <option value="">No fixed day</option>
+            <option value="">{t("groceries.noFixedDay")}</option>
             {WEEKDAYS.map((d, i) => (
               <option key={d} value={i}>
                 {d}
@@ -229,23 +236,23 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             ))}
           </select>
         </Field>
-        <Field label="Usual cash (₱)">
+        <Field label={t("groceries.usualCash")}>
           <input
             value={cash}
             onChange={(e) => setCash(e.target.value)}
             inputMode="decimal"
-            placeholder="None"
+            placeholder={t("groceries.none")}
             className={FIELD}
           />
         </Field>
         {teams.available && teams.teams.length > 0 && (
-          <Field label="For team">
+          <Field label={t("groceries.forTeam")}>
             <select
               value={draft.teamId ?? ""}
               onChange={(e) => set("teamId", e.target.value || null)}
               className={FIELD}
             >
-              <option value="">No team</option>
+              <option value="">{t("groceries.noTeam")}</option>
               {teams.teams.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -254,9 +261,9 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             </select>
           </Field>
         )}
-        <div className="sm:col-span-2" role="group" aria-label="Who usually goes">
+        <div className="sm:col-span-2" role="group" aria-label={t("groceries.whoUsuallyGoes")}>
           <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-            Who usually goes
+            {t("groceries.whoUsuallyGoes")}
           </span>
           {shoppers.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
@@ -270,7 +277,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
                       shoppers.filter((x) => x !== id),
                     )
                   }
-                  aria-label={`Take ${helperName(id)} off this repeat`}
+                  aria-label={t("groceries.takeOffRepeat", { name: helperName(id) })}
                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary"
                 >
                   {helperName(id)} <X className="h-3 w-3 text-muted-foreground" />
@@ -282,8 +289,8 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             helpers={activeHelpers.filter((h) => !shoppers.includes(h.id))}
             value=""
             onChange={(id) => id && set("shopperIds", [...shoppers, id])}
-            ariaLabel="Add someone to this repeat"
-            before={[{ value: "", label: "Add someone…" }]}
+            ariaLabel={currentT()("groceries.addSomeoneRepeat")}
+            before={[{ value: "", label: currentT()("groceries.addSomeoneEllipsis") }]}
           />
         </div>
       </div>
@@ -291,7 +298,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
       <div className="mt-5">
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="text-xs font-semibold text-muted-foreground">
-            Usual items · {draft.items.length}
+            {richText(t("groceries.usualItems"), { length: draft.items.length })}
           </span>
           {ctx.needed.some((g) => !g.bought) && (
             <button
@@ -299,7 +306,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
               onClick={copyNeeded}
               className="rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
             >
-              Copy what&apos;s in Needed
+              {t("groceries.copyWhatSInNeeded")}
             </button>
           )}
         </div>
@@ -318,7 +325,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
                     draft.items.filter((_, j) => j !== i),
                   )
                 }
-                aria-label={`Remove ${it.name}`}
+                aria-label={t("groceries.removeItem", { name: it.name })}
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
@@ -329,18 +336,20 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
         <div className="mt-2 flex flex-wrap items-end gap-2 rounded-2xl bg-background/60 p-3">
           <label className="min-w-0 basis-full sm:basis-auto sm:flex-1">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-              Add an item
+              {t("groceries.addAnItem")}
             </span>
             <input
               value={line.name}
               onChange={(e) => setLine((l) => ({ ...l, name: e.target.value }))}
               onKeyDown={(e) => e.key === "Enter" && addLine()}
-              placeholder="e.g. Itlog"
+              placeholder={t("groceries.eGItlog")}
               className="w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </label>
           <label className="w-16">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Qty</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              {t("groceries.qty")}
+            </span>
             <input
               value={line.qty}
               onChange={(e) => setLine((l) => ({ ...l, qty: e.target.value }))}
@@ -349,7 +358,9 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             />
           </label>
           <label className="w-20">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Unit</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+              {t("groceries.unit")}
+            </span>
             <input
               value={line.unit}
               onChange={(e) => setLine((l) => ({ ...l, unit: e.target.value }))}
@@ -361,7 +372,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             onClick={addLine}
             className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/5"
           >
-            <Plus className="h-3.5 w-3.5" /> Add
+            <Plus className="h-3.5 w-3.5" /> {t("groceries.add")}
           </button>
         </div>
       </div>
@@ -384,7 +395,7 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
             ) : (
               <Trash2 className="h-3.5 w-3.5" />
             )}{" "}
-            Delete
+            {t("groceries.delete")}
           </button>
         )}
         <button
@@ -392,14 +403,15 @@ function TemplateModal({ template, onClose }: { template?: GroceryTemplate; onCl
           disabled={busy !== null}
           className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
         >
-          Cancel
+          {t("groceries.cancel")}
         </button>
         <button
           onClick={() => void save()}
           disabled={busy !== null}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-50"
         >
-          {busy === "save" && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+          {busy === "save" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{" "}
+          {t("groceries.save")}
         </button>
       </div>
     </Modal>

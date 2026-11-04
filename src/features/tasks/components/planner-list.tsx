@@ -1,3 +1,5 @@
+import { dateLocale } from "@/lib/i18n/date-locale";
+import { weekdayName } from "@/lib/time";
 import { Plus } from "lucide-react";
 
 import type { Appointment } from "@/features/appointments/appointment.types";
@@ -7,9 +9,10 @@ import { parseTimeToMinutes, toISODate, weekdayOf } from "@/lib/time";
 import type { RoutineGhost } from "../planner.utils";
 import type { Task } from "../task.types";
 import { PlannerAppointmentRow, PlannerTaskRow, RoutineGhostRow } from "./planner-day-column";
+import { useT } from "@/lib/i18n/locale-context";
 
 const dayHeading = (day: Date) =>
-  day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  day.toLocaleDateString(dateLocale(), { weekday: "short", month: "short", day: "numeric" });
 
 type Item =
   | { kind: "appointment"; at: number; appointment: Appointment }
@@ -57,6 +60,7 @@ export function PlannerList({
   onOpenAppointment?: (appointment: Appointment) => void;
   onAdd: (dayIso: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="overflow-hidden rounded-2xl bg-card shadow-soft ring-1 ring-border/20">
       {days.map((day) => {
@@ -64,31 +68,41 @@ export function PlannerList({
         const isToday = iso === todayIso;
         const isPast = iso < todayIso;
         const items: Item[] = [
-          ...(appointmentsByDay.get(iso) ?? []).map((appointment): Item => ({
-            kind: "appointment",
-            at: parseTimeToMinutes(appointment.time),
-            appointment,
-          })),
-          ...(tasksByDay.get(iso) ?? []).map((task): Item => ({
-            kind: "task",
-            at: parseTimeToMinutes(task.time),
-            task,
-          })),
-          ...(ghosts.get(iso) ?? []).map((ghost): Item => ({
-            kind: "ghost",
-            at: parseTimeToMinutes(ghost.routine.time),
-            ghost,
-          })),
+          ...(appointmentsByDay.get(iso) ?? []).map(
+            (appointment): Item => ({
+              kind: "appointment",
+              at: parseTimeToMinutes(appointment.time),
+              appointment,
+            }),
+          ),
+          ...(tasksByDay.get(iso) ?? []).map(
+            (task): Item => ({
+              kind: "task",
+              at: parseTimeToMinutes(task.time),
+              task,
+            }),
+          ),
+          ...(ghosts.get(iso) ?? []).map(
+            (ghost): Item => ({
+              kind: "ghost",
+              at: parseTimeToMinutes(ghost.routine.time),
+              ghost,
+            }),
+          ),
         ].sort((a, b) => a.at - b.at);
         const notes = [
-          ...(offOn(day).length > 0 ? [`Day off: ${offOn(day).join(", ")}`] : []),
+          ...(offOn(day).length > 0
+            ? [t("tasks.dayOffNames", { names: offOn(day).join(", ") })]
+            : []),
           ...timeOffNotes(iso),
         ];
 
         return (
           <section
             key={iso}
-            aria-label={`${dayHeading(day)}${isToday ? ", today" : ""}`}
+            aria-label={
+              isToday ? t("tasks.dayHeadingToday", { day: dayHeading(day) }) : dayHeading(day)
+            }
             className="border-b border-border/60 last:border-b-0"
           >
             <header
@@ -102,7 +116,7 @@ export function PlannerList({
                 }`}
               >
                 {dayHeading(day)}
-                {isToday && " · Today"}
+                {isToday && t("tasks.dotToday")}
               </h3>
               {notes.map((n) => (
                 <span key={n} className="text-xs text-muted-foreground">
@@ -111,17 +125,19 @@ export function PlannerList({
               ))}
               {items.length === 0 && (
                 <span className="text-xs text-muted-foreground">
-                  {isPast ? "Nothing was planned" : "Nothing planned"}
+                  {isPast ? t("tasks.nothingWasPlannedShort") : t("tasks.nothingPlannedShort")}
                 </span>
               )}
               {!isPast && (
                 <button
                   type="button"
                   onClick={() => onAdd(iso)}
-                  aria-label={`Add a task on ${weekdayOf(day)} ${day.getDate()}`}
+                  aria-label={t("tasks.addTaskOn", {
+                    day: `${weekdayName(weekdayOf(day))} ${day.getDate()}`,
+                  })}
                   className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 >
-                  <Plus className="h-3.5 w-3.5" aria-hidden /> Add
+                  <Plus className="h-3.5 w-3.5" aria-hidden /> {t("tasks.add")}
                 </button>
               )}
             </header>

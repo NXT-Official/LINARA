@@ -1,0 +1,36 @@
+{
+  "common": {
+    "language": {
+      "current": "语言：{language}",
+      "label": "语言"
+    },
+    "primary": "主要管理人",
+    "search": "搜索…",
+    "clearSearch": "清除搜索",
+    "filter": "筛选",
+    "thisPageDidnTLoad": "此页面未能加载",
+    "somethingWentWrongHereThe": "这里出了点问题，但 Linara 的其他功能正常。请重试，或切换到其他标签页。",
+    "tryAgain": "重试",
+    "showFewer": "收起部分",
+    "showMore": "再显示 {count} 个{noun}",
+    "couldntSaveThat": "无法保存。",
+    "couldntRemoveIt": "无法移除。",
+    "somethingWentWrong": "出了点问题。",
+    "undo": "撤销",
+    "nothingWasCharged": "未收取任何费用。",
+    "errors": {
+      "notSignedIn": "尚未登录。",
+      "notAuthenticated": "未通过身份验证",
+      "invalidToken": "未授权：令牌无效",
+      "profileNotFound": "未授权：找不到个人资料",
+      "signInToUse": "请登录后使用。",
+      "sessionExpired": "会话已过期",
+      "unknownHelper": "未知的家政人员",
+      "helperNotFound": "找不到该家政人员",
+      "noHousehold": "没有家庭",
+      "loginFailed": "登录失败",
+      "browserPhotos": "此浏览器无法处理照片。",
+      "readPhoto": "无法读取该照片。"
+    }
+  }
+}

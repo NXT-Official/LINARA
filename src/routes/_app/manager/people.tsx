@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { RouteError } from "@/components/shared/route-error";
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/_app/manager/people")({
   validateSearch: (search: Record<string, unknown>): PeopleSearch => ({
     tab: PEOPLE_TABS.some((t) => t.key === search.tab) ? (search.tab as PeopleTab) : undefined,
   }),
-  head: () => ({ meta: [{ title: "People | Linara" }] }),
+  head: () => ({ meta: [{ title: currentT()("pages.titlePeople") }] }),
   component: ManagerPeopleRoute,
   errorComponent: RouteError,
 });

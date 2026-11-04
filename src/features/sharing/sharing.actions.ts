@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -202,8 +203,8 @@ export const setCoverFn = createServerFn({ method: "POST" })
 export const createPlaceFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; householdId: string; name: string }) => {
     const name = data.name.trim().replace(/\s+/g, " ");
-    if (!name) throw new Error("Give it a name");
-    if (name.length > 40) throw new Error("Keep it to 40 characters");
+    if (!name) throw new Error(currentT()("sharing.errNameIt"));
+    if (name.length > 40) throw new Error(currentT()("sharing.errKeepTo", { max: 40 }));
     return { ...data, name };
   })
   .handler(async ({ data }): Promise<SavedPlace> => {
@@ -213,8 +214,8 @@ export const createPlaceFn = createServerFn({ method: "POST" })
       .insert({ household_id: data.householdId, name: data.name })
       .select("id, name")
       .single();
-    if (error?.code === "23505") throw new Error("There's already a place with that name");
-    if (error || !row) throw new Error(error?.message ?? "Couldn't add the place");
+    if (error?.code === "23505") throw new Error(currentT()("sharing.errPlaceExists"));
+    if (error || !row) throw new Error(error?.message ?? currentT()("sharing.errAddPlace"));
     return row as SavedPlace;
   });
 

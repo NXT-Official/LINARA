@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { RESOLUTION_TYPE_TO_RESOLUTION } from "@/features/ledger/ledger.utils";
 
 import type { HelperProfileRow } from "./hooks/use-invites";
@@ -81,8 +82,12 @@ export function toHelper(row: HelperProfileRow): Helper {
  * (e.g. a deleted profile, or a stale local id from before real data loaded). */
 export const UNKNOWN_HELPER: Helper = {
   id: "",
-  name: "Unknown helper",
-  short: "Unknown",
+  get name() {
+    return currentT()("people.unknownHelper");
+  },
+  get short() {
+    return currentT()("people.unknownShort");
+  },
   initials: "??",
   station: "House",
   shift: "",
@@ -98,8 +103,12 @@ export const UNKNOWN_HELPER: Helper = {
 /** A task nobody is assigned to yet (tickets.helper_id NULL). */
 export const UNASSIGNED_HELPER: Helper = {
   ...UNKNOWN_HELPER,
-  name: "Unassigned",
-  short: "Unassigned",
+  get name() {
+    return currentT()("people.unassigned");
+  },
+  get short() {
+    return currentT()("people.unassigned");
+  },
   initials: "?",
 };
 

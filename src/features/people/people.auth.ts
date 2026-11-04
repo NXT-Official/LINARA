@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createClient, type AuthError } from "@supabase/supabase-js";
 
 /**
@@ -22,12 +23,13 @@ function authClient() {
 
 export type DirectSession = { accessToken: string; refreshToken: string; userId: string };
 export type DirectAuthResult =
-  { status: "confirmation_pending" } | ({ status: "ok" } & DirectSession);
+  | { status: "confirmation_pending" }
+  | ({ status: "ok" } & DirectSession);
 
 /** Auth's own message, except when it's throttling, which says so plainly. */
 function authFailure(error: AuthError): Error {
   if (error.status === 429) {
-    return new Error("Too many tries. Wait a few minutes, then try again.");
+    return new Error(currentT()("people.errTooManyTries"));
   }
   return Object.assign(new Error(error.message), { code: error.code });
 }
@@ -39,7 +41,7 @@ function authFailure(error: AuthError): Error {
  */
 export class ExistingAccountError extends Error {
   constructor() {
-    super("That email already has a Linara account, with a different password.");
+    super(currentT()("people.errEmailExists"));
     this.name = "ExistingAccountError";
   }
 }
@@ -59,7 +61,7 @@ export async function signInWithSupabase(
     if (error.code === "email_not_confirmed") return { status: "confirmation_pending" };
     throw authFailure(error);
   }
-  if (!data.session || !data.user) throw new Error("Login failed");
+  if (!data.session || !data.user) throw new Error(currentT()("common.errors.loginFailed"));
   return {
     status: "ok",
     accessToken: data.session.access_token,

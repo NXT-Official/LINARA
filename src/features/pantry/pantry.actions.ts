@@ -1,3 +1,4 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
 import { createAuthedClient } from "@/lib/supabase";
@@ -64,7 +65,7 @@ export const insertPantryItemFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -74,7 +75,7 @@ export const insertPantryItemFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     const { data: row, error } = await authedClient
@@ -84,7 +85,7 @@ export const insertPantryItemFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to add pantry item");
+      throw new Error(error?.message || currentT()("pantry.errAddItem"));
     }
 
     return { id: row.id as string };

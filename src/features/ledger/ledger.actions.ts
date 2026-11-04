@@ -1,5 +1,7 @@
+import { currentT } from "@/lib/i18n/current-t";
 import { createServerFn } from "@tanstack/react-start";
 
+import { assertPayHrEnabled } from "@/lib/pay-hr";
 import { createAuthedClient } from "@/lib/supabase";
 
 import type { LedgerReason, LedgerResolution } from "./ledger.types";
@@ -127,7 +129,7 @@ export const insertLedgerEntryFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to record ledger entry");
+      throw new Error(error?.message || currentT()("ledger.errRecordEntry"));
     }
 
     return { id: row.id as string };
@@ -250,6 +252,7 @@ export const listValesFn = createServerFn({ method: "POST" })
 export const insertValeFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; helperId: string; amount: number; reason: string }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, helperId, amount, reason } = data;
 
     const authedClient = createAuthedClient(token);
@@ -260,7 +263,7 @@ export const insertValeFn = createServerFn({ method: "POST" })
       .single();
 
     if (error || !row) {
-      throw new Error(error?.message || "Failed to submit vale request");
+      throw new Error(error?.message || currentT()("ledger.errSubmitVale"));
     }
 
     return { id: row.id as string };
@@ -274,6 +277,7 @@ export const insertValeFn = createServerFn({ method: "POST" })
 export const decideValeFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; valeId: string; decision: "approved" | "declined" }) => data)
   .handler(async ({ data }) => {
+    assertPayHrEnabled();
     const { token, valeId, decision } = data;
 
     const authedClient = createAuthedClient(token);
@@ -283,7 +287,7 @@ export const decideValeFn = createServerFn({ method: "POST" })
     } = await authedClient.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+      throw new Error(currentT()("common.errors.invalidToken"));
     }
 
     const { data: profile, error: profileError } = await authedClient
@@ -293,13 +297,13 @@ export const decideValeFn = createServerFn({ method: "POST" })
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+      throw new Error(currentT()("common.errors.profileNotFound"));
     }
 
     // A remote admin too: plan.md 1.2, "usually the funding source"
     // (supabase/add-household-managers.sql lets the database agree).
     if (!["primary_manager", "co_manager", "remote_admin"].includes(profile.user_type)) {
-      throw new Error("Forbidden: Only managers can decide vale requests");
+      throw new Error(currentT()("ledger.errManagersOnlyVale"));
     }
 
     const { error } = await authedClient

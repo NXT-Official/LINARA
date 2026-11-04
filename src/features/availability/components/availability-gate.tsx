@@ -4,6 +4,8 @@ import { Modal } from "@/components/shared/modal";
 
 import type { GateIntent } from "../hooks/use-send-gate";
 import type { RosaStatus } from "../availability.types";
+import { useT } from "@/lib/i18n/locale-context";
+import { richText } from "@/lib/i18n/rich-text";
 
 /** Friction wall before reaching a helper who is Off: wait, override, or emergency. */
 export function AvailabilityGate({
@@ -21,23 +23,25 @@ export function AvailabilityGate({
   onCancel: () => void;
   onChoose: (choice: "queue" | "override" | "emergency") => void;
 }) {
-  const kindLabel = intent.kind === "utos" ? "quick utos" : "task";
+  const t = useT();
+  const kindLabel =
+    intent.kind === "utos" ? t("availability.kindUtos") : t("availability.kindTask");
   const preview = intent.kind === "utos" ? intent.content : intent.task.title;
   const hard = status.quiet || status.restDay || !!status.timeOff;
   const headline = status.quiet
-    ? `It's quiet hours for ${helperName}.`
+    ? t("availability.headQuiet", { name: helperName })
     : status.timeOff
-      ? `${helperName} has this time off.`
+      ? t("availability.headTimeOff", { name: helperName })
       : status.restDay
-        ? `It's ${helperName}'s rest day.`
-        : `This is outside ${helperName}'s hours.`;
+        ? t("availability.headRestDay", { name: helperName })
+        : t("availability.headOutside", { name: helperName });
   const body = status.quiet
-    ? `Overnight is protected rest. Time spent on this is logged as rest owed to ${helperName}. Only use Emergency if it truly can't wait.`
+    ? t("availability.bodyQuiet", { name: helperName })
     : status.timeOff
-      ? `This is time off that was approved for ${helperName}. Time spent on this is logged as rest owed.`
+      ? t("availability.bodyTimeOff", { name: helperName })
       : status.restDay
-        ? `It's ${helperName}'s rest day. Time spent on this is logged as rest owed.`
-        : `${helperName} is off-shift. Time spent on this is logged as rest owed.`;
+        ? t("availability.bodyRestDay", { name: helperName })
+        : t("availability.bodyOffShift", { name: helperName });
 
   return (
     <Modal onClose={onCancel}>
@@ -54,7 +58,9 @@ export function AvailabilityGate({
       </div>
 
       <div className="mt-4 rounded-2xl ring-1 ring-border/20 bg-secondary/40 p-3">
-        <div className="text-xs font-semibold text-muted-foreground">Sending {kindLabel}</div>
+        <div className="text-xs font-semibold text-muted-foreground">
+          {richText(t("availability.sending"), { kindLabel: kindLabel })}
+        </div>
         <div className="mt-1 truncate text-sm font-semibold text-foreground">{preview}</div>
       </div>
 
@@ -66,12 +72,14 @@ export function AvailabilityGate({
           <Moon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div>
             <div className="text-sm font-semibold text-foreground">
-              {intent.kind === "utos" ? "Let it wait" : "Queue for next shift"}
+              {intent.kind === "utos"
+                ? t("availability.letItWait")
+                : t("availability.queueForNextShift")}
             </div>
             <div className="text-xs text-muted-foreground">
               {intent.kind === "utos"
-                ? `Sits as waiting. No ping. ${helperName} sees it when back on.`
-                : `Added quietly. Appears on ${helperName}'s board next working period.`}
+                ? t("availability.queueUtos", { name: helperName })
+                : t("availability.queueTask", { name: helperName })}
             </div>
           </div>
         </button>
@@ -85,10 +93,12 @@ export function AvailabilityGate({
               <Send className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-ink" />
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  Send anyway · after-hours
+                  {t("availability.sendAnywayAfterHours")}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Overrides {helperName}'s Off status. Flagged, logged, and counted as rest owed.
+                  {richText(t("availability.overridesSOffStatusFlagged"), {
+                    helperName: helperName,
+                  })}
                 </div>
               </div>
             </button>
@@ -99,18 +109,21 @@ export function AvailabilityGate({
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-status-late-ink" />
               <div>
-                <div className="text-sm font-semibold text-status-late-ink">Emergency</div>
+                <div className="text-sm font-semibold text-status-late-ink">
+                  {t("availability.emergency")}
+                </div>
                 <div className="text-xs text-status-late-ink">
-                  Crosses even quiet hours. Always logged as after-hours. Use only if it truly can't
-                  wait.
+                  {t("availability.crossesEvenQuietHoursAlways")}
                 </div>
               </div>
             </button>
           </>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            Reaching {helperName} off-hours is reserved for on-site admins (Primary or Co-manager).
-            As a remote admin you can queue this for {helperName}'s next shift.
+            {richText(t("availability.reachingOffHoursIsReserved"), {
+              helperName: helperName,
+              helperName2: helperName,
+            })}
           </div>
         )}
       </div>
@@ -119,7 +132,7 @@ export function AvailabilityGate({
         onClick={onCancel}
         className="mt-3 w-full rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
       >
-        Cancel
+        {t("availability.cancel")}
       </button>
     </Modal>
   );

@@ -6,6 +6,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import reactPlugin from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 import securityPlugin from "eslint-plugin-security";
+import i18nextPlugin from "eslint-plugin-i18next";
+import { createRequire } from "node:module";
 
 export default tseslint.config(
   {
@@ -120,6 +122,66 @@ export default tseslint.config(
     // to components, and chart.tsx writes theme CSS (from code, not data).
     files: ["src/components/ui/**"],
     rules: { "react-refresh/only-export-components": "off", "react/no-danger": "off" },
+  },
+  {
+    // Every word a manager reads comes from locales/ (src/lib/i18n): text
+    // typed straight into a screen would stay English in every language.
+    files: ["src/**/*.tsx"],
+    ignores: ["**/*.test.tsx", "src/components/ui/**"],
+    plugins: { i18next: i18nextPlugin },
+    rules: {
+      "i18next/no-literal-string": [
+        "error",
+        {
+          mode: "jsx-only",
+          words: {
+            exclude: [
+              // The plugin's own defaults: numbers and symbols, CONSTANTS, HTML entities, emoji.
+              "[0-9!-/:-@[-`{-~]+",
+              "[A-Z_-]+",
+              createRequire(import.meta.url)("eslint-plugin-i18next/lib/options/htmlEntities.js"),
+              /^\p{Emoji}+$/u,
+              // Code, not words: route paths, locale tags with a region, Intl format options.
+              "/[\\w/.-]*",
+              "[a-z]{2}-[A-Z]{2}",
+              "(short|long|narrow|numeric|2-digit)",
+              // The peso sign (and the like) is the same in every language.
+              "[₱$€¥]+",
+            ],
+          },
+          // Ids and route targets in option lists are code; their label is the text.
+          "object-properties": {
+            exclude: ["[A-Z_-]+", "key", "id", "value", "to", "type", "kind", "href"],
+          },
+          "jsx-attributes": {
+            include: [
+              "placeholder",
+              "title",
+              "aria-label",
+              "alt",
+              "label",
+              "description",
+              "hint",
+              "emptyText",
+            ],
+          },
+          callees: {
+            exclude: [
+              "i18n(ext)?",
+              "t",
+              "tr",
+              "require",
+              "addEventListener",
+              "removeEventListener",
+              "spin",
+              "limitText",
+              "priceText",
+              ".*\\.(includes|indexOf|startsWith|endsWith|has|get)",
+            ],
+          },
+        },
+      ],
+    },
   },
   eslintPluginPrettier,
 );

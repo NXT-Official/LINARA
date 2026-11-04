@@ -1,56 +1,60 @@
+import { currentT } from "@/lib/i18n/current-t";
+import { lazyMessages } from "@/lib/i18n/lazy-messages";
+
 import type { LeaveKind, LeaveReason, LeaveStatus } from "./leave.types";
 
-export const LEAVE_KIND_LABEL: Record<LeaveKind, string> = {
-  sil: "Service incentive leave",
-  in_kind: "Day off in kind",
-  unpaid: "Unpaid leave",
-  extra_paid: "Extra paid day",
-};
+export const LEAVE_KIND_LABEL: Record<LeaveKind, string> = lazyMessages({
+  sil: "leave.kindSil",
+  in_kind: "leave.kindInKind",
+  unpaid: "leave.kindUnpaid",
+  extra_paid: "leave.kindExtraPaid",
+});
 
 /** The SIL line under the form, for the household's rule. */
 export function silHint(policy: { silWaitsFirstYear: boolean; silDaysPerYear: number } | null) {
   if (!policy) return LEAVE_KIND_HINT.sil;
-  const days = `${policy.silDaysPerYear} days a service year`;
+  const t = currentT();
+  const days = t("leave.daysPerYear", { days: policy.silDaysPerYear });
   return policy.silWaitsFirstYear
-    ? `Paid. ${days} after the first year (RA 10361).`
-    : `Paid. ${days} from day one (your household's rule; the law starts after a year).`;
+    ? t("leave.silAfterFirstYear", { days })
+    : t("leave.silFromDayOne", { days });
 }
 
 /** What each kind costs, for the forms. */
-export const LEAVE_KIND_HINT: Record<LeaveKind, string> = {
-  sil: "Paid. 5 days a service year after the first year (RA 10361).",
-  in_kind: "Paid in rest: each day comes out of their rest owed.",
-  unpaid: "Not paid. Deducted from that period's pay.",
-  extra_paid: "Paid. The household's own extra, with no balance.",
-};
+export const LEAVE_KIND_HINT: Record<LeaveKind, string> = lazyMessages({
+  sil: "leave.hintSil",
+  in_kind: "leave.hintInKind",
+  unpaid: "leave.hintUnpaid",
+  extra_paid: "leave.hintExtraPaid",
+});
 
 /** "Rosa on unpaid leave" / "Rosa asked for unpaid leave". */
-export const LEAVE_ON: Record<LeaveKind, string> = {
-  sil: "on leave (SIL)",
-  in_kind: "on a day off in kind",
-  unpaid: "on unpaid leave",
-  extra_paid: "on a paid day off",
-};
-export const LEAVE_ASKED: Record<LeaveKind, string> = {
-  sil: "asked for leave (SIL)",
-  in_kind: "asked for a day off in kind",
-  unpaid: "asked for unpaid leave",
-  extra_paid: "asked for a paid day off",
-};
+export const LEAVE_ON: Record<LeaveKind, string> = lazyMessages({
+  sil: "leave.onSil",
+  in_kind: "leave.onInKind",
+  unpaid: "leave.onUnpaid",
+  extra_paid: "leave.onExtraPaid",
+});
+export const LEAVE_ASKED: Record<LeaveKind, string> = lazyMessages({
+  sil: "leave.askedSil",
+  in_kind: "leave.askedInKind",
+  unpaid: "leave.askedUnpaid",
+  extra_paid: "leave.askedExtraPaid",
+});
 
-export const LEAVE_REASON_LABEL: Record<LeaveReason, string> = {
-  vacation: "Vacation",
-  sick: "Sick",
-  family: "Family",
-  other: "Other",
-};
+export const LEAVE_REASON_LABEL: Record<LeaveReason, string> = lazyMessages({
+  vacation: "leave.reasonVacation",
+  sick: "leave.reasonSick",
+  family: "leave.reasonFamily",
+  other: "leave.reasonOther",
+});
 
-export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
-  pending: "Waiting",
-  approved: "Approved",
-  declined: "Declined",
-  cancelled: "Cancelled",
-};
+export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = lazyMessages({
+  pending: "leave.statusWaiting",
+  approved: "leave.statusApproved",
+  declined: "leave.statusDeclined",
+  cancelled: "leave.statusCancelled",
+});
 
 /**
  * helper_profiles.pay_days_per_year: the unpaid-leave divisor (LEGAL_CONSIDERATIONS.md).
@@ -58,7 +62,22 @@ export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
  * the label used to say "(live-in)" and read as if it followed the arrangement.
  */
 export const PAY_DAYS_OPTIONS = [
-  { value: 365, label: "Every calendar day (smallest deduction)" },
-  { value: 313, label: "Six days a week" },
-  { value: 261, label: "Five days a week" },
+  {
+    value: 365,
+    get label() {
+      return currentT()("leave.payDays365");
+    },
+  },
+  {
+    value: 313,
+    get label() {
+      return currentT()("leave.payDays313");
+    },
+  },
+  {
+    value: 261,
+    get label() {
+      return currentT()("leave.payDays261");
+    },
+  },
 ] as const;
