@@ -53,6 +53,15 @@ verify_jwt = true
 verify_jwt = false
 
 # ---------------------------------------------------------------------------
+# EAS build log (functions/eas-build-webhook). Called by Expo's EAS webhook
+# with no Supabase session, so verify_jwt MUST stay false; it checks the
+# expo-signature HMAC against EAS_WEBHOOK_SECRET instead, then forwards
+# preview builds to the Apps Script that writes the shared Google Doc.
+# ---------------------------------------------------------------------------
+[functions.eas-build-webhook]
+verify_jwt = false
+
+# ---------------------------------------------------------------------------
 # The other six are called by our own apps with a signed-in user's JWT -- each
 # reads an `Authorization` header and serves CORS, which the webhook does not
 # (verified by inspection 2026-08-17). true is the CLI default, but they are
