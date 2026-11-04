@@ -153,6 +153,7 @@
     "staleUnsent": "此次发送未完成。可能已到达 Xendit，也可能没有。再次付款前请先核实。",
     "staleUnconfirmed": "Xendit 已接收但从未确认。请查看是否已结算。",
     "pickBank": "银行转账",
-    "hrDisabled": "在确保薪酬与人事功能符合法律之前，这些功能暂时停用。您的记录会保留。"
+    "hrDisabled": "在确保薪酬与人事功能符合法律之前，这些功能暂时停用。您的记录会保留。",
+    "payoutFailedXenditStatus": "打款未成功。Xendit 返回的状态：{status}。"
   }
 }

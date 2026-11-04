@@ -153,6 +153,7 @@
     "staleUnsent": "Hindi ito natapos ipadala. Maaaring nakarating o hindi sa Xendit. Suriin bago magbayad ulit.",
     "staleUnconfirmed": "Tinanggap ito ng Xendit pero hindi kailanman kinumpirma. Suriin kung naayos na.",
     "pickBank": "Bank transfer",
-    "hrDisabled": "Pansamantalang naka-disable ang mga feature ng Pay at HR habang tinitiyak naming sumusunod ang mga ito sa batas. Nananatili ang iyong mga talaan."
+    "hrDisabled": "Pansamantalang naka-disable ang mga feature ng Pay at HR habang tinitiyak naming sumusunod ang mga ito sa batas. Nananatili ang iyong mga talaan.",
+    "payoutFailedXenditStatus": "Hindi natuloy ang payout. Xendit reports {status}."
   }
 }

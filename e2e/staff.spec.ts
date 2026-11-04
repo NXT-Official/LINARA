@@ -18,7 +18,7 @@ test("house staff signing in are sent to the app, not the dashboard", async ({ p
   await page.getByLabel("Password", { exact: true }).fill(STAFF_PASSWORD);
   await page.getByRole("button", { name: "Log in" }).click();
 
-  await expect(page.getByRole("heading", { name: "Nasa app ang Linara mo" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Your Linara is in the app" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page).toHaveURL(/\/login/);
