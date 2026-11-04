@@ -153,6 +153,7 @@
     "staleUnsent": "Esto nunca terminó de enviarse. Puede que haya llegado a Xendit o no. Comprueba antes de volver a pagar.",
     "staleUnconfirmed": "Xendit lo aceptó pero nunca lo confirmó. Comprueba si ya se liquidó.",
     "pickBank": "Transferencia bancaria",
-    "hrDisabled": "Las funciones de Pagos y RR. HH. están desactivadas temporalmente mientras comprobamos que cumplen la ley. Tus registros se conservan."
+    "hrDisabled": "Las funciones de Pagos y RR. HH. están desactivadas temporalmente mientras comprobamos que cumplen la ley. Tus registros se conservan.",
+    "payoutFailedXenditStatus": "El pago no se completó. Xendit indica {status}."
   }
 }

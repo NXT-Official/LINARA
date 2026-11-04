@@ -96,6 +96,25 @@ describe("messages", () => {
     }
   });
 
+  it("English has no Tagalog left in it, apart from the privacy page's Filipino summary", () => {
+    // The privacy page carries a short summary in Filipino on purpose, in every language.
+    const FILIPINO_ON_PURPOSE = new Set([
+      "legal.buodSaFilipino",
+      "legal.angPrivateNotesMoAy",
+      "legal.angMgaQuickUtosAy",
+      "legal.angPayslipsOrasNgTrabaho",
+      "legal.puwedeMongIpaburaAngAccount2",
+    ]);
+    // Function words that only Tagalog sentences use ("kasambahay" alone is a loanword we keep).
+    // Not "at", "man", "na", "pa" or "mo": English uses those too ("at least", "₱199/mo").
+    const TAGALOG =
+      /\b(ang|ng|mga|sa|ka|ko|po|naman|lang|ito|iyon|wala|walang|hindi|kung|namin|kami|niya|ninyo)\b/i;
+    const leftovers = keys.filter(
+      (k) => !FILIPINO_ON_PURPOSE.has(k) && TAGALOG.test(MESSAGES.en[k].replace(/\{\w+\}/g, "")),
+    );
+    expect(leftovers).toEqual([]);
+  });
+
   it("no language is just a copy of the English", () => {
     for (const l of LOCALES.filter((x) => x.code !== "en")) {
       const same = keys.filter((k) => MESSAGES[l.code][k] === MESSAGES.en[k]).length;

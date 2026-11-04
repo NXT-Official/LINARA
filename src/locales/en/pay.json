@@ -153,6 +153,7 @@
     "staleUnsent": "This never finished sending. It may or may not have reached Xendit. Check before paying again.",
     "staleUnconfirmed": "Xendit accepted this but never confirmed it. Check whether it has settled.",
     "pickBank": "Bank transfer",
-    "hrDisabled": "Pay and HR features are temporarily disabled while we make sure they follow the law. Your records are kept."
+    "hrDisabled": "Pay and HR features are temporarily disabled while we make sure they follow the law. Your records are kept.",
+    "payoutFailedXenditStatus": "The payout didn't go through. Xendit reports {status}."
   }
 }
