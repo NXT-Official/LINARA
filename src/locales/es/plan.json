@@ -53,6 +53,7 @@
     "openingXendit": "Abriendo Xendit…",
     "paying": "Pagando…",
     "planChangesArenTAvailable": "Los cambios de plan no están disponibles en la app.",
+    "paymentsNotOpen": "Los planes de pago y los complementos aún no están disponibles. Por ahora, tu hogar conserva su plan actual.",
     "overBy": "{count} por encima del límite.",
     "addMoreOrBigger": "Añade capacidad con un complemento o elige un plan superior.",
     "chooseBigger": "Elige un plan superior.",

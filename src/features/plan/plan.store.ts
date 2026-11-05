@@ -85,6 +85,8 @@ type PlanState = {
   owner: boolean;
   /** Live: a first-plan trial can be started. Never in the sample. */
   trialAvailable: boolean;
+  /** Paying, trials and buying add-ons are open. False: the plan can be seen, not bought. */
+  paymentsOpen: boolean;
 };
 
 /**
@@ -104,6 +106,7 @@ const SAMPLE_STATE: PlanState = {
   usage: null,
   owner: true,
   trialAvailable: false,
+  paymentsOpen: true,
 };
 const MAX_SAVED_PAYMENTS = 200;
 const storageKey = (accountId: string) => `linara_plan_preview:${accountId}`;
@@ -274,6 +277,7 @@ function applyLive(billing: MyBilling) {
     usage: billing.usage,
     owner: billing.owner,
     trialAvailable: billing.trialAvailable,
+    paymentsOpen: billing.paymentsOpen,
   };
   emit();
 }
@@ -336,6 +340,7 @@ export async function checkout(
   addons: AddonLine[],
 ): Promise<CheckoutResult> {
   if (!state.live || !token) return { ok: false, message: tt()("plan.billingNotSetUp") };
+  if (!state.paymentsOpen) return { ok: false, message: tt()("plan.paymentsNotOpen") };
   if (paying) return { ok: false, message: tt()("plan.paymentOpening") };
   paying = true;
   try {
@@ -382,6 +387,8 @@ let startingTrial = false;
 
 /** Live: starts the plan's free trial (nothing is charged). A second tap while one starts is refused. */
 export async function startTrialLive(planId: string): Promise<ChangeResult> {
+  if (state.live && !state.paymentsOpen)
+    return { ok: false, message: tt()("plan.paymentsNotOpen") };
   if (startingTrial) return { ok: false, message: tt()("plan.trialStarting") };
   startingTrial = true;
   try {

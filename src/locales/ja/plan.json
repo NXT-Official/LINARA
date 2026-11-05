@@ -53,6 +53,7 @@
     "openingXendit": "Xendit を開いています…",
     "paying": "支払い処理中…",
     "planChangesArenTAvailable": "アプリ内ではプランの変更はできません。",
+    "paymentsNotOpen": "有料プランとアドオンはまだご利用いただけません。当面は現在のプランのままとなります。",
     "overBy": "{count} 超過しています。",
     "addMoreOrBigger": "アドオンで枠を追加するか、上位のプランをお選びください。",
     "chooseBigger": "上位のプランをお選びください。",

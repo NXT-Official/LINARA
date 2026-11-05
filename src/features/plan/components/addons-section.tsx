@@ -297,9 +297,12 @@ export function AddonsSection({
   preset,
   onPresetUsed,
   waiting = false,
+  closed = false,
 }: {
   sub: MySubscription;
   inApp: boolean;
+  /** Payments aren't open: add-ons can be seen and removed, not bought. */
+  closed?: boolean;
   /** The signed-in account pays for the plan (a co-manager only sees it). */
   owner?: boolean;
   /** Open the purchase with this add-on one higher (from a limit message). */
@@ -310,8 +313,9 @@ export function AddonsSection({
 }) {
   const t = useT();
   const blocked = owner ? addonsBlocked(sub, t) : t("plan.addonsPrimaryOnly");
+  const canBuy = !inApp && !closed && !blocked;
   const [open, setOpen] = useState<{ preset?: string } | null>(() =>
-    preset && !inApp && !blocked ? { preset } : null,
+    preset && canBuy ? { preset } : null,
   );
   const [removing, setRemoving] = useState<string | null>(null);
   // The link's job is done once it has opened the purchase; clear it so a reload doesn't reopen it.
@@ -328,7 +332,7 @@ export function AddonsSection({
           </h2>
           <p className="text-xs text-muted-foreground">{t("plan.extraRoomOnTopOf")}</p>
         </div>
-        {!inApp && !blocked ? (
+        {canBuy ? (
           <button
             type="button"
             disabled={waiting}
@@ -351,7 +355,9 @@ export function AddonsSection({
                 <span className="block text-sm font-semibold text-foreground">{a.name}</span>
                 <span className="block text-xs text-muted-foreground">
                   {t("plan.adds", { what: limitText(a.limitKey, a.step, t) })}
-                  {inApp ? "" : t("plan.aMonthSuffix", { price: formatCentavos(a.monthlyPrice) })}
+                  {inApp || closed
+                    ? ""
+                    : t("plan.aMonthSuffix", { price: formatCentavos(a.monthlyPrice) })}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
@@ -374,7 +380,9 @@ export function AddonsSection({
           );
         })}
       </ul>
-      {blocked && !inApp ? <p className="mt-3 text-sm text-muted-foreground">{blocked}</p> : null}
+      {blocked && !inApp && !closed ? (
+        <p className="mt-3 text-sm text-muted-foreground">{blocked}</p>
+      ) : null}
       {inApp ? (
         <p className="mt-3 text-sm text-muted-foreground">{t("plan.addOnsCanTBe")}</p>
       ) : null}
