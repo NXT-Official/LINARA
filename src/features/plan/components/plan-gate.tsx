@@ -26,11 +26,11 @@ import { richText } from "@/lib/i18n/rich-text";
  */
 export function PlanGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
   const t = useT();
-  const { subscription, owner } = usePlan();
+  const { subscription, owner, paymentsOpen } = usePlan();
   if (hasFeature(subscription, feature)) return <>{children}</>;
   const f = FEATURES.find((x) => x.key === feature);
   const from = cheapestPlanWith(feature);
-  const canUpgrade = !!from && owner && !inMobileApp();
+  const canUpgrade = !!from && owner && paymentsOpen && !inMobileApp();
   return (
     <section
       role="status"
@@ -65,10 +65,10 @@ export function PlanGate({ feature, children }: { feature: FeatureKey; children:
  */
 export function LimitNotice({ check, className = "" }: { check: AddCheck; className?: string }) {
   const t = useT();
-  const { subscription } = usePlan();
+  const { subscription, paymentsOpen } = usePlan();
   if (check.ok) return null;
   const addon = check.reason === "limit" && check.limitKey ? addonFor(check.limitKey) : undefined;
-  const canBuy = !!addon && !addonsBlocked(subscription) && !inMobileApp();
+  const canBuy = !!addon && paymentsOpen && !addonsBlocked(subscription) && !inMobileApp();
   const link =
     "font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (

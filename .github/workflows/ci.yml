@@ -60,6 +60,9 @@ jobs:
           E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
           # The AI features answer from fixtures, never OpenAI.
           USE_MOCK_AI: "true"
+          # Dev keeps payments open (the plan page, checkout, trials); production
+          # leaves BILLING_CHECKOUT unset until Xendit is set up for it.
+          BILLING_CHECKOUT: "on"
 
       - name: Keep the report
         if: always()

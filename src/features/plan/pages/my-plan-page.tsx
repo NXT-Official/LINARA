@@ -882,13 +882,17 @@ export function MyPlanPage({
 } = {}) {
   const t = useT();
   const listText = useListText();
-  const { subscription: sub, payments, live, testMode, owner } = usePlan();
+  const { subscription: sub, payments, live, testMode, owner, paymentsOpen } = usePlan();
   const usage = usePlanUsage();
   // A lock's "Upgrade to" lands here: open Change plan with that plan picked,
   // when it's one this manager can move to now (a move down waits for a cancel).
-  const { subscription: start, owner: startOwner } = getPlanState();
+  const {
+    subscription: start,
+    owner: startOwner,
+    paymentsOpen: startPaymentsOpen,
+  } = getPlanState();
   const [changing, setChanging] = useState<{ planId?: string } | false>(() => {
-    if (!upgradeTo || !startOwner || inMobileApp()) return false;
+    if (!upgradeTo || !startOwner || !startPaymentsOpen || inMobileApp()) return false;
     const p = planById(upgradeTo);
     if (!p) return false;
     const cs = cyclesOf(p);
@@ -913,6 +917,8 @@ export function MyPlanPage({
     paymentResult === "paid" &&
     payments.find((p) => p.id === paymentId)?.status === "pending";
   const inApp = inMobileApp();
+  // Payments closed (production until Xendit is set up): the plan shows, nothing is sold.
+  const canBuy = !inApp && paymentsOpen;
   const plan = planById(sub.planId);
   const limits = limitsFor(sub);
   const fmtDate = useFmtDate();
@@ -928,14 +934,14 @@ export function MyPlanPage({
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
             {!live
               ? t("plan.previewNotLive")
-              : testMode
+              : testMode && paymentsOpen
                 ? t("plan.testModeNote")
                 : owner
                   ? t("plan.coversEveryHousehold")
                   : t("plan.belongsToPrimary")}
           </p>
         </div>
-        {!live || testMode ? (
+        {!live || (testMode && paymentsOpen) ? (
           <span className="inline-flex rounded-full bg-terracotta-soft px-2.5 py-1 text-xs font-semibold text-hearth-ink">
             {live ? t("plan.testMode") : t("plan.preview")}
           </span>
@@ -953,7 +959,7 @@ export function MyPlanPage({
               {plan?.name ?? t("plan.unknownPlan")}
             </h2>
             <p className="text-sm text-muted-foreground">{plan?.description}</p>
-            {!inApp && amount.ok ? (
+            {canBuy && amount.ok ? (
               <p className="mt-2 text-sm font-semibold text-foreground tabular-nums">
                 {priceText(amount.amount, sub.cycle, t)}
                 {plan?.pricePlaceholder ? (
@@ -964,7 +970,7 @@ export function MyPlanPage({
               </p>
             ) : null}
           </div>
-          {!inApp && owner ? (
+          {canBuy && owner ? (
             <div className="flex flex-wrap gap-2">
               {owes && amount.ok && amount.amount > 0 ? (
                 <button
@@ -1049,10 +1055,10 @@ export function MyPlanPage({
             {keepError}
           </p>
         ) : null}
-        {inApp ? (
+        {inApp || !paymentsOpen ? (
           <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {t("plan.planChangesArenTAvailable")}
+            {inApp ? t("plan.planChangesArenTAvailable") : t("plan.paymentsNotOpen")}
           </p>
         ) : null}
       </section>
@@ -1098,6 +1104,7 @@ export function MyPlanPage({
       <AddonsSection
         sub={sub}
         inApp={inApp}
+        closed={!paymentsOpen}
         owner={owner}
         preset={buyAddon}
         waiting={confirming}

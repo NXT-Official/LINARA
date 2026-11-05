@@ -33,6 +33,7 @@ vi.mock("@/features/dashboard/app-store-context", () => ({
 vi.mock("@/lib/mobile-app", () => ({ inMobileApp: () => false }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
+import { PlanGate } from "./components/plan-gate";
 import { MyPlanPage } from "./pages/my-plan-page";
 import { CATALOG, setCatalog } from "./plan.sample";
 import {
@@ -83,6 +84,7 @@ function billing(over: Partial<MyBilling> = {}): MyBilling {
     testMode: true,
     owner: true,
     trialAvailable: false,
+    paymentsOpen: true,
     ...over,
   };
 }
@@ -801,5 +803,96 @@ describe("free trials, live", () => {
     openOn(/Normal/);
     expect(dialog().getByText(/Oct 25, 2026 to Nov 25, 2026/)).toBeTruthy();
     expect(dialog().queryByText("The new plan starts once it's paid.")).toBeNull();
+  });
+});
+
+describe("payments closed (production until Xendit is set up)", () => {
+  const CLOSED =
+    "Paid plans and add-ons aren't available yet. Your household keeps its current plan for now.";
+  const closed = (over: Partial<MyBilling> = {}) =>
+    billing({ paymentsOpen: false, trialAvailable: false, ...over });
+  const running = {
+    planId: "normal",
+    planVersion: 1,
+    cycle: "monthly" as const,
+    addons: [{ addonId: "extra_kasambahay", quantity: 1 }],
+    status: "active" as const,
+    cancelAtPeriodEnd: false,
+    periodEnd: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+  };
+
+  it("nothing can be bought, no test-mode wording, and it says why in plain words", async () => {
+    await goLive(closed());
+    render(<MyPlanPage />);
+    expect(screen.getByText(CLOSED)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Change plan" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Buy add-ons" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+    expect(screen.queryByText("Test mode")).toBeNull();
+    expect(screen.queryByText(/Xendit/)).toBeNull();
+    expect(screen.queryByText(/a month$/)).toBeNull();
+  });
+
+  it("past due with payments closed: no Pay now button", async () => {
+    await goLive(closed({ subscription: { ...running, status: "past_due" } }));
+    render(<MyPlanPage />);
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+  });
+
+  it("a plan already running can still be cancelled and add-ons removed: nothing is charged", async () => {
+    await goLive(closed({ subscription: running }));
+    render(<MyPlanPage />);
+    expect(screen.getByRole("button", { name: "Cancel plan" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Remove one/ })).toBeTruthy();
+  });
+
+  it("an Upgrade link or a Buy add-on link landing here opens nothing", async () => {
+    await goLive(closed());
+    render(<MyPlanPage upgradeTo="normal" buyAddon="extra_kasambahay" />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the store refuses checkout without asking the server or leaving the page", async () => {
+    await goLive(closed());
+    let res: Awaited<ReturnType<typeof checkout>> | undefined;
+    await act(async () => {
+      res = await checkout("plan", "normal", "monthly", []);
+    });
+    expect(res).toEqual({ ok: false, message: CLOSED });
+    await act(async () => {
+      res = await checkout("addons", null, null, [{ addonId: "extra_kasambahay", quantity: 1 }]);
+    });
+    expect(res).toEqual({ ok: false, message: CLOSED });
+    expect(server.startCheckoutFn).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("the store refuses a trial without asking the server", async () => {
+    await goLive(closed());
+    let res: Awaited<ReturnType<typeof startTrialLive>> | undefined;
+    await act(async () => {
+      res = await startTrialLive("normal");
+    });
+    expect(res).toEqual({ ok: false, message: CLOSED });
+    expect(server.startTrialFn).not.toHaveBeenCalled();
+  });
+
+  it("a locked feature points at the plan, not at an upgrade", async () => {
+    await goLive(closed());
+    render(
+      <PlanGate feature="pantry">
+        <p>Pantry</p>
+      </PlanGate>,
+    );
+    expect(screen.queryByText(/^Upgrade to/)).toBeNull();
+    expect(screen.getByText("See your plan")).toBeTruthy();
+  });
+
+  it("opening again (BILLING_CHECKOUT=on) brings every way to buy back", async () => {
+    await goLive(closed());
+    await goLive(billing({ paymentsOpen: true }));
+    render(<MyPlanPage />);
+    expect(screen.getByRole("button", { name: "Change plan" })).toBeTruthy();
+    expect(screen.queryByText(CLOSED)).toBeNull();
   });
 });

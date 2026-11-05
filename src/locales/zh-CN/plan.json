@@ -53,6 +53,7 @@
     "openingXendit": "正在打开 Xendit…",
     "paying": "付款中…",
     "planChangesArenTAvailable": "应用内不支持更改套餐。",
+    "paymentsNotOpen": "付费套餐和附加项目暂未开放。目前您的家庭将保留当前套餐。",
     "overBy": "超出 {count}。",
     "addMoreOrBigger": "可通过附加包增加额度，或升级到更高套餐。",
     "chooseBigger": "请选择更高套餐。",
