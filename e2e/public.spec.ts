@@ -53,8 +53,10 @@ test.describe("signed out", () => {
   test("sign-up asks only for the account", async ({ page }) => {
     await page.goto("/signup?step=household");
     await expect(page.getByRole("heading", { name: "Set up your household" })).toBeVisible();
-    await expect(page.getByText("Your name")).toHaveCount(0);
-    await expect(page.getByText("Household name")).toHaveCount(0);
+    // exact: the subtitle says "...Then add your name and your household's",
+    // which a substring match would count as the field.
+    await expect(page.getByText("Your name", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Household name", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Confirm password")).toBeVisible();
   });
 });
