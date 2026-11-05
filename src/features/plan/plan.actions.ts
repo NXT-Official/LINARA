@@ -64,6 +64,11 @@ export type MyBilling = {
   owner: boolean;
   /** A first-plan trial can be started (add-billing-renewal-and-trials.sql). */
   trialAvailable: boolean;
+  /**
+   * Payments, trials and add-on purchases are open (BILLING_CHECKOUT=on).
+   * Off: the plan is shown, nothing can be bought or started.
+   */
+  paymentsOpen: boolean;
 };
 
 /** The functions aren't in this database yet (add-billing.sql not applied). */
@@ -73,6 +78,9 @@ const isMissing = (error: { code?: string; message?: string } | null) =>
     /could not find the function|does not exist/i.test(error.message ?? ""));
 
 const testMode = () => process.env.XENDIT_LIVE !== "true";
+
+/** Off unless BILLING_CHECKOUT=on: production keeps every payment closed until Xendit is set up for it. */
+export const paymentsOpen = () => process.env.BILLING_CHECKOUT === "on";
 
 type BillingClient = Pick<ReturnType<typeof createAuthedClient>, "rpc">;
 export type BillingLoad = { missing: true } | { missing: false; billing: MyBilling };
@@ -120,6 +128,7 @@ export async function loadMyBilling(client: BillingClient): Promise<BillingLoad>
         testMode: testMode(),
         owner: false,
         trialAvailable: false,
+        paymentsOpen: paymentsOpen(),
       },
     };
   }
@@ -127,11 +136,13 @@ export async function loadMyBilling(client: BillingClient): Promise<BillingLoad>
   return {
     missing: false,
     billing: {
-      ...(row as Omit<MyBilling, "testMode" | "owner" | "trialAvailable">),
+      ...(row as Omit<MyBilling, "testMode" | "owner" | "trialAvailable" | "paymentsOpen">),
       testMode: testMode(),
       owner: true,
       // Missing before add-billing-renewal-and-trials.sql: no trials then.
-      trialAvailable: (row as { trialAvailable?: boolean }).trialAvailable === true,
+      trialAvailable:
+        paymentsOpen() && (row as { trialAvailable?: boolean }).trialAvailable === true,
+      paymentsOpen: paymentsOpen(),
     },
   };
 }
@@ -164,6 +175,7 @@ export const changeToFreeFn = createServerFn({ method: "POST" })
 export const startTrialFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; planId: string }) => data)
   .handler(async ({ data }): Promise<Done> => {
+    if (!paymentsOpen()) return { ok: false, message: tFor(readLocale())("plan.paymentsNotOpen") };
     const { error } = await createAuthedClient(data.token).rpc("billing_start_trial", {
       p_plan_id: data.planId,
     });
@@ -222,6 +234,8 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
     }): Promise<
       { ok: true; invoiceUrl: string; paymentId: string } | { ok: false; message: string }
     > => {
+      if (!paymentsOpen())
+        return { ok: false, message: tFor(readLocale())("plan.paymentsNotOpen") };
       const { token, ...body } = data;
       let res: Response;
       try {
